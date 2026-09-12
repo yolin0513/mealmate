@@ -26,9 +26,14 @@
     "edutest": "node scripts/edutest.mjs",
     "recipetest": "node scripts/recipetest.mjs",
     "copytest": "node scripts/copytest.mjs",
+    "membertest": "node scripts/membertest.mjs",
+    "nutritiontest": "node scripts/nutritiontest.mjs",
     "shelltest": "node scripts/shelltest.mjs",
+    "familytest": "node scripts/familytest.mjs",
+    "recipeviewtest": "node scripts/recipeviewtest.mjs",
+    "backuptest": "node scripts/backuptest.mjs",
     "mutationtest": "node scripts/mutationtest.mjs",
-    "test": "node scripts/datatest.mjs && node scripts/aliastest.mjs && node scripts/unittest.mjs && node scripts/edutest.mjs && node scripts/recipetest.mjs && node scripts/copytest.mjs && node scripts/shelltest.mjs && node scripts/mutationtest.mjs"
+    "test": "node scripts/datatest.mjs && node scripts/aliastest.mjs && node scripts/unittest.mjs && node scripts/edutest.mjs && node scripts/recipetest.mjs && node scripts/copytest.mjs && node scripts/membertest.mjs && node scripts/nutritiontest.mjs && node scripts/shelltest.mjs && node scripts/familytest.mjs && node scripts/recipeviewtest.mjs && node scripts/backuptest.mjs && node scripts/mutationtest.mjs"
   },
   "devDependencies": {
     "puppeteer": "23.11.1"

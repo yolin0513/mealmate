@@ -3,6 +3,7 @@
   "name": "冬瓜湯（可分素葷）",
   "role": "soup",
   "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
   "time": 25,
   "method": "soup",
   "vegMode": "splittable",
@@ -19,7 +20,7 @@
   "steps": [
     { "stage": "base", "type": "prep", "text": "冬瓜去皮去籽切 3 公分塊；薑切絲；金針菇切段；肉片切小片。" },
     { "stage": "base", "type": "cook", "text": "鍋放 1200 毫升水、冬瓜、薑絲，煮滾後小火煮 12 分鐘到冬瓜透明。" },
-    { "stage": "split", "type": "split", "text": "分成兩鍋，素食那鍋約三分之一。" },
+    { "stage": "split", "type": "split", "text": "分成兩鍋，素食那鍋依吃素的人數分。" },
     { "stage": "veg", "type": "cook", "text": "素食那鍋：放金針菇煮兩分鐘，加鹽、淋香油。" },
     { "stage": "meat", "type": "cook", "text": "葷食那鍋：肉片一片片下鍋，煮到變白，加鹽、淋香油。" }
   ]

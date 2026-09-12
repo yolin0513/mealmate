@@ -3,6 +3,7 @@
   "name": "家常咖哩（可分素葷）",
   "role": "main",
   "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
   "time": 40,
   "method": "braise",
   "vegMode": "splittable",
@@ -20,7 +21,7 @@
   "steps": [
     { "stage": "base", "type": "prep", "text": "馬鈴薯、胡蘿蔔切 3 公分塊，洋蔥切絲；豆腐切大塊；雞腿肉切一口大小。" },
     { "stage": "base", "type": "cook", "text": "深鍋下油，洋蔥中火炒到透明微黃，加入馬鈴薯和胡蘿蔔略炒，加水到剛好蓋過食材，煮滾後轉小火煮 15 分鐘。" },
-    { "stage": "split", "type": "split", "text": "把蔬菜湯底分成兩鍋，素食那鍋約三分之一。" },
+    { "stage": "split", "type": "split", "text": "把蔬菜湯底分成兩鍋，素食那鍋依吃素的人數分。" },
     { "stage": "veg", "type": "cook", "text": "素食那鍋：放入豆腐塊與三分之一的咖哩塊，小火攪到咖哩溶化、湯變濃稠，再煮五分鐘。" },
     { "stage": "meat", "type": "cook", "text": "葷食那鍋：雞腿肉先在平底鍋煎到表面金黃再加入，放剩下的咖哩塊，小火煮十分鐘到肉熟、湯濃稠。" }
   ]

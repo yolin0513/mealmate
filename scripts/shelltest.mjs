@@ -216,6 +216,10 @@ detects(viewsWritingViewDirectly, {
   shouldMiss: ['render([a, b]);', "document.getElementById('modalRoot')", 'mount(bar, ...tabs);'],
 }, '這個稽核器抓得到繞過去的寫法，也不會亂抓');
 
+section('toast 不擋點擊');
+// toast 淡出的 250 毫秒還在畫面上（opacity 0）；沒有 pointer-events:none 的話，那一下會點到它而不是底下的按鈕。
+ok(/#toast\s*\{[^}]*pointer-events:\s*none/.test(read('css/style.css')), '#toast 有 pointer-events: none（實際踩過：存食譜點到正在消失的 toast）');
+
 section('sw.js 不會快取外部請求');
 ok(/if \(url\.origin !== self\.location\.origin\) return;/.test(swSource), '跨網域請求直接走網路，不進快取');
 ok(/cache: 'reload'/.test(swSource), 'install 時用 cache:reload 預快取，避免存進舊版 JS');
@@ -236,18 +240,25 @@ try {
   await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('#view .card', { timeout: 60000 });
 
-  section('開得起來');
+  section('第一次開：先看說明，按「我知道了」之前哪裡都去不了');
   eq(pageErrors, [], '沒有未攔截的例外');
   eq(consoleErrors.filter((t) => !/favicon|sw\.js/i.test(t)), [], '主控台沒有錯誤');
   eq((await page.$$('#tabbar .tab')).length, 4, '底部四個分頁畫出來了');
-  const title = await page.$eval('#topTitle', (el) => el.textContent);
-  eq(title, '本週菜單', `頂列標題：「${title}」`);
-
-  section('首頁的健康說明');
+  eq(await page.$eval('#topTitle', (el) => el.textContent), '開始之前', '第一次開是說明頁');
   const notice = await page.$eval('#view [data-card="healthNotice"]', (el) => el.textContent.replace(/\s+/g, ' '));
   ok(notice.includes('醫師或營養師'), '有「請以醫師或營養師的指示為準」這一層');
   ok(notice.includes('估'), '有講數字是估算');
   ok(notice.includes('不是醫囑'), '有講留意設定不是醫囑');
+  await page.evaluate(() => { location.hash = '#/recipes'; });
+  await new Promise((r) => setTimeout(r, 600));
+  eq(await page.$eval('#topTitle', (el) => el.textContent), '開始之前', '沒按「我知道了」就想去食譜頁 → 還是說明頁');
+  eq(await page.evaluate(() => location.hash), '#/welcome', '網址被導回 #/welcome');
+  await page.click('[data-action="acceptDisclaimer"]');
+  await page.waitForFunction(() => document.getElementById('topTitle').textContent === '本週菜單', { timeout: 60000 });
+  eq(await page.$eval('#topTitle', (el) => el.textContent), '本週菜單', '按了之後進到本週');
+  await page.evaluate(() => { location.hash = '#/family'; });
+  await page.waitForSelector('#view [data-card="healthNotice"]', { timeout: 60000 });
+  ok((await page.$eval('#view [data-card="healthNotice"]', (el) => el.textContent)).includes('醫師或營養師'), '同一段說明常駐在家人分頁');
 
   section('h() 不接受 html: prop');
   const hRes = await page.evaluate(async () => {
@@ -296,13 +307,20 @@ try {
   everyOf([urlRes.https, urlRes.hash, urlRes.rel, urlRes.dataImg], (v) => typeof v === 'string' && v.length > 0, '（對照）正常的網址留得下來');
 
   section('每條路由都畫得出東西');
+  // 帶 :id 的路由在這裡拿到的是字面的「:id」，查不到就退回上一層，所以標題是上一層的。
   const EXPECT_TITLE = {
+    '/welcome': '開始之前',
     '/': '本週菜單',
     '/shopping': '買菜',
     '/recipes': '食譜',
+    '/recipes/new': '新增食譜',
+    '/recipes/:id/edit': '食譜',
     '/recipes/:id': '食譜',
     '/family': '家人',
+    '/family/new': '新增家人',
+    '/family/:id': '家人',
   };
+  const FALLBACK_HASH = { '/recipes/:id': '#/recipes', '/recipes/:id/edit': '#/recipes', '/family/:id': '#/family' };
   everyOf(routeDefs, (r) => EXPECT_TITLE[r.pattern] != null, '每條路由都列了它應該出現的標題（新增路由時不准漏掉）');
   const titleIs = (want) => page.waitForFunction(
     (t) => document.getElementById('topTitle').textContent === t, { timeout: 60000 }, want);
@@ -322,8 +340,10 @@ try {
       text: document.querySelector('#view').textContent.trim(),
     }));
     ok(landed && got.text.length > 10, `${r.pattern} 真的畫出來了（標題「${want}」，${got.text.length} 字）`, landed ? '' : `標題停在「${got.title}」`);
-    if (r.pattern === '/recipes/:id') {
-      eq(await page.evaluate(() => location.hash), '#/recipes', '查不到的食譜 id 會退回 #/recipes');
+    // replaceChildren(null) 會印出「null」字；模板字串漏掉 ?? 會印出「undefined」；除以 0 會印「NaN」。實際發生過第一種。
+    ok(!/\b(null|undefined|NaN)\b/.test(got.text), `${r.pattern} 畫面上沒有 null／undefined／NaN 這種漏出來的字`, got.text.match(/.{0,30}\b(null|undefined|NaN)\b.{0,30}/)?.[0]);
+    if (FALLBACK_HASH[r.pattern]) {
+      eq(await page.evaluate(() => location.hash), FALLBACK_HASH[r.pattern], `查不到的 id 會退回 ${FALLBACK_HASH[r.pattern]}`);
     }
   }
   eq(pageErrors, [], '走完所有路由之後仍然沒有例外');
@@ -344,8 +364,10 @@ try {
   }));
   ok(detail.ingredients >= 1, `食材 ${detail.ingredients} 列`);
   ok(detail.steps >= 3, `步驟 ${detail.steps} 步`);
-  ok(detail.nutritionText.includes('尚未提供') || detail.nutritionText.includes('估'), '營養區塊講清楚目前狀態（尚未提供，或已有估算）');
-  noneOf([detail.nutritionText], (t) => /\b0 (g|mg|kcal)\b/.test(t), '營養區塊沒有出現「0 g」這種假數字');
+  const nutriVals = await page.$$eval('#view [data-card="recipeNutrition"] .nutri-value', (els) => els.map((e) => e.textContent.trim()));
+  ok(nutriVals.length >= 12, `（母體）營養標示 ${nutriVals.length} 個值`);
+  everyOf(nutriVals, (t) => /^估 /.test(t) || t.startsWith('未估算'), '每個營養值都帶「估」字或寫「未估算」');
+  ok(detail.nutritionText.includes('估計營養標示'), '營養區塊有標題');
 
   section('不認得的網址：講清楚原因，不靜默跳回首頁');
   await goto('#/');

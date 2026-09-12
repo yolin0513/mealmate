@@ -3,6 +3,7 @@
   "name": "高麗菜炒肉片",
   "role": "main",
   "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
   "time": 20,
   "method": "stirfry",
   "vegMode": "splittable",
@@ -20,7 +21,7 @@
   "steps": [
     { "stage": "base", "type": "prep", "text": "高麗菜洗淨、用手撕成大片；薑切薄片；乾香菇提早用溫水泡軟後切絲，泡菇的水留著。" },
     { "stage": "base", "type": "cook", "text": "鍋熱後下油，薑片爆香，倒入高麗菜大火快炒到邊緣變軟，加鹽拌勻。" },
-    { "stage": "split", "type": "split", "text": "先盛出素食成員要吃的份量（約三分之一）到另一個盤子。" },
+    { "stage": "split", "type": "split", "text": "先盛出素食成員要吃的份量到另一個盤子（依吃素的人數分）。" },
     { "stage": "veg", "type": "cook", "text": "素食那鍋：把香菇絲和兩大匙泡菇水加進去，炒到香菇軟透就完成。" },
     { "stage": "meat", "type": "cook", "text": "葷食那鍋：加入豬肉片與醬油，翻炒到肉片全部變白、沒有粉紅色就起鍋。" }
   ]

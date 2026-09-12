@@ -3,6 +3,7 @@
   "name": "乾煸四季豆（可分素葷）",
   "role": "main",
   "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
   "time": 25,
   "method": "stirfry",
   "vegMode": "splittable",

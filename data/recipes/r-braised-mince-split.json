@@ -3,6 +3,7 @@
   "name": "香菇肉燥／香菇素燥",
   "role": "main",
   "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
   "time": 45,
   "method": "braise",
   "vegMode": "splittable",
@@ -23,7 +24,7 @@
   "steps": [
     { "stage": "base", "type": "prep", "text": "乾香菇泡軟切小丁（泡菇水留著）；薑切末；豆腐用叉子壓碎、稍微擠掉水分。" },
     { "stage": "base", "type": "cook", "text": "鍋中下油，小火炒香薑末與香菇丁，加入油蔥酥、醬油、糖、八角、白胡椒粉和泡菇水加水共兩碗，煮滾成滷汁。" },
-    { "stage": "split", "type": "split", "text": "滷汁分成兩鍋，素食那鍋約三分之一。" },
+    { "stage": "split", "type": "split", "text": "滷汁分成兩鍋，素食那鍋依吃素的人數分。" },
     { "stage": "veg", "type": "cook", "text": "素食那鍋：加入碎豆腐，小火煮 15 分鐘到入味、湯汁略收，就是香菇素燥。" },
     { "stage": "meat", "type": "cook", "text": "葷食那鍋：另起鍋把豬絞肉炒散炒到出油、微焦，倒入滷汁，小火燉 25 分鐘。" },
     { "stage": "meat", "type": "serve", "text": "兩種燥都可以淋在白飯或燙青菜上；隔天更入味。" }

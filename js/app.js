@@ -1,29 +1,37 @@
-// 進入點：路由表、Service Worker 換版流程。
+// 進入點：路由表、首次說明的守門、Service Worker 換版流程。
 //
 // **這個檔案只能由 index.html 載入，不准被任何模組 import。**
 // index.html 載入的網址帶版本參數（`./js/app.js?v=<版本>`）；用 `'./app.js'` import 它，
-// 瀏覧器會當成另一個網址再求值一次 —— boot() 跑兩次、路由註冊兩次。view 要用的東西在 js/shell.js。
+// 瀏覽器會當成另一個網址再求值一次 —— boot() 跑兩次、路由註冊兩次。view 要用的東西在 js/shell.js。
 // shelltest 有靜態稽核擋這件事。
 
-import { route, setNotFound, startRouter, currentRoute } from './router.js';
+import { route, setNotFound, startRouter, currentRoute, navigate, setSlowIndicator } from './router.js';
 import * as store from './store.js';
 import * as prefs from './prefs.js';
 import { h } from './ui.js';
 import { setTop, render, renderLoading, renderTabs, viewIsEmpty } from './shell.js';
 import { APP_VERSION, V } from './version.js';
-import { setSlowIndicator } from './router.js';
 
 // ---------- 路由 ----------
-route('/', async () => (await import(`./views/week.js${V}`)).default());
-route('/shopping', async () => (await import(`./views/shopping.js${V}`)).default());
-route('/recipes', async ({ query }) => (await import(`./views/recipes.js${V}`)).default(query));
-route('/recipes/:id', async ({ params }) => (await import(`./views/recipe.js${V}`)).default(params.id));
-route('/family', async () => (await import(`./views/family.js${V}`)).default());
+// 按過「我知道了」之前，任何一頁都導回首次說明（PLAN §1.2 第 1 點）。
+const guarded = (fn) => async (ctx) => {
+  if (!prefs.get('disclaimerAcceptedAt')) { navigate('/welcome', { replace: true }); return; }
+  return fn(ctx);
+};
+route('/welcome', async () => (await import(`./views/welcome.js${V}`)).default());
+route('/', guarded(async () => (await import(`./views/week.js${V}`)).default()));
+route('/shopping', guarded(async () => (await import(`./views/shopping.js${V}`)).default()));
+route('/recipes', guarded(async ({ query }) => (await import(`./views/recipes.js${V}`)).default(query)));
+route('/recipes/new', guarded(async ({ query }) => (await import(`./views/recipeedit.js${V}`)).default({ from: query.from ?? null })));
+route('/recipes/:id/edit', guarded(async ({ params }) => (await import(`./views/recipeedit.js${V}`)).default({ id: params.id })));
+route('/recipes/:id', guarded(async ({ params }) => (await import(`./views/recipe.js${V}`)).default(params.id)));
+route('/family', guarded(async () => (await import(`./views/family.js${V}`)).default()));
+route('/family/new', guarded(async () => (await import(`./views/member.js${V}`)).default(null)));
+route('/family/:id', guarded(async ({ params }) => (await import(`./views/member.js${V}`)).default(params.id)));
 
 /**
  * 走到一條不認得的路。**絕對不要靜默導回首頁。**
  * 根因幾乎一定是版本混搭：畫面是新版的（所以有那顆按鈕），但正在跑的 app.js 是舊版的。
- * 所以：講清楚、給「更新到最新版」按鈕、網址留在原地。
  */
 setNotFound(({ path }) => {
   showVersionMismatch(path);
@@ -87,8 +95,10 @@ async function forceUpdate() {
   renderTabs();
   void currentRoute;
 
+  // 資料只在本機；瀏覽器在空間不足時可能清掉。請求持久化（拒絕也沒關係，匯出備份是另一條路）。
+  try { navigator.storage?.persist?.().catch(() => {}); } catch { /* noop */ }
+
   if ('serviceWorker' in navigator) {
-    // boot() 前面有 await，load 事件很可能早就發生過了 —— 只掛 listener 會永遠不註冊。
     const register = () => navigator.serviceWorker.register('./sw.js').then(setupUpdates).catch(() => {});
     if (document.readyState === 'complete') register();
     else window.addEventListener('load', register, { once: true });
@@ -107,7 +117,6 @@ function appBusy() {
   return !!document.getElementById('modalRoot')?.childElementCount;
 }
 
-// 只有「剛打開、還沒動任何東西」才自動換版：這時候重載使用者感覺不到。
 function canAutoUpdate() {
   try { if (sessionStorage.getItem(AUTO_KEY)) return false; } catch { return false; }
   return !interacted && !appBusy() && Date.now() - bootAt < 12000;

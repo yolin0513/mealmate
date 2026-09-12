@@ -3,6 +3,7 @@
   "name": "玉米排骨湯／玉米香菇湯",
   "role": "soup",
   "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
   "time": 50,
   "method": "soup",
   "vegMode": "splittable",
@@ -19,7 +20,7 @@
   "steps": [
     { "stage": "base", "type": "prep", "text": "玉米切段、胡蘿蔔切塊、薑切片；乾香菇泡軟；排骨用滾水汆燙兩分鐘洗去血水。" },
     { "stage": "base", "type": "cook", "text": "大鍋放 1500 毫升水、玉米、胡蘿蔔、薑片，煮滾。" },
-    { "stage": "split", "type": "split", "text": "把湯底分成兩鍋，素食那鍋約三分之一。" },
+    { "stage": "split", "type": "split", "text": "把湯底分成兩鍋，素食那鍋依吃素的人數分。" },
     { "stage": "veg", "type": "cook", "text": "素食那鍋：加入香菇與泡菇水，小火煮 20 分鐘，加鹽調味。" },
     { "stage": "meat", "type": "cook", "text": "葷食那鍋：加入汆燙過的排骨，小火煮 40 分鐘到排骨軟，加鹽調味。" }
   ]

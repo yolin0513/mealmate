@@ -3,6 +3,7 @@
   "name": "家常麻婆豆腐（可分素葷）",
   "role": "main",
   "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
   "time": 25,
   "method": "braise",
   "vegMode": "splittable",
@@ -22,7 +23,7 @@
   "steps": [
     { "stage": "base", "type": "prep", "text": "板豆腐切塊，用鹽水（一小鍋水加一點鹽）汆燙一分鐘撈起瀝乾，比較不會碎；薑切末；香菇切小丁。" },
     { "stage": "base", "type": "cook", "text": "鍋中下油，小火把薑末和辣豆瓣醬炒出紅油，加醬油、糖和一碗水煮滾。" },
-    { "stage": "split", "type": "split", "text": "把醬汁分成兩鍋：素食那鍋約三分之一，葷食那鍋約三分之二；豆腐也照比例分進去。" },
+    { "stage": "split", "type": "split", "text": "把醬汁分成兩鍋：素食那鍋依吃素的人數分，其餘給葷食那鍋；豆腐也照比例分進去。" },
     { "stage": "veg", "type": "cook", "text": "素食那鍋：加入香菇丁，中小火煮五分鐘讓豆腐吸味，用少許太白粉水勾薄芡即完成。" },
     { "stage": "meat", "type": "cook", "text": "葷食那鍋：另起小鍋把豬絞肉炒散炒白後倒入，中小火煮五分鐘，用太白粉水勾薄芡。" },
     { "stage": "meat", "type": "serve", "text": "兩鍋分別盛盤；喜歡的話葷食那盤可撒一點白胡椒粉。" }

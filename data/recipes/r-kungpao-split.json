@@ -3,6 +3,7 @@
   "name": "宮保雞丁／宮保豆干",
   "role": "main",
   "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
   "time": 25,
   "method": "stirfry",
   "vegMode": "splittable",

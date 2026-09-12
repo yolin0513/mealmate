@@ -84,6 +84,14 @@ export function validateRecipe(recipe, ctx) {
   if (typeof r.name !== 'string' || !r.name.trim()) err('缺 name');
   if (!ROLES.includes(r.role)) err(`role 不在 ${ROLES.join('/')}：${r.role}`);
   if (!isInt(r.servings) || r.servings < 1) err(`servings 要是 ≥1 的整數：${r.servings}`);
+  // 可分流的菜要說清楚 veg／meat 兩軌各是為幾人份備的料 —— 素版、葷版的「每人一份」才算得出來
+  if (r.vegMode === 'splittable') {
+    const ss = r.splitServings;
+    if (!ss || !isInt(ss.veg) || !isInt(ss.meat) || ss.veg < 1 || ss.meat < 1) err('splittable 的菜要有 splitServings {veg ≥ 1, meat ≥ 1}');
+    else if (ss.veg + ss.meat !== r.servings) err(`splitServings 加起來（${ss.veg + ss.meat}）要等於 servings（${r.servings}）`);
+  } else if (r.splitServings != null) {
+    err('只有 splittable 的菜可以有 splitServings');
+  }
   if (!isInt(r.time) || r.time < 1) err(`time（分鐘）要是 ≥1 的整數：${r.time}`);
   if (!METHODS.includes(r.method)) err(`method 不在 ${METHODS.join('/')}：${r.method}`);
   if (!VEG_MODES.includes(r.vegMode)) err(`vegMode 不在 ${VEG_MODES.join('/')}：${r.vegMode}`);
@@ -96,12 +104,18 @@ export function validateRecipe(recipe, ctx) {
   if (steps.length < 3) err(`步驟至少 3 步，只有 ${steps.length}`);
 
   const tags = new Set();
+  const vegTags = new Set();   // base ＋ veg 軌的標籤：素食成員實際吃到的
+  const meatTags = new Set();  // base ＋ meat 軌的標籤：葷食成員實際吃到的
   const proteins = new Set();
   const tracksSeen = new Set();
   const normIngredients = ingredients.map((ing, i) => {
     const where = `食材 #${i + 1}（${ing?.label ?? '?'}）`;
     if (typeof ing?.label !== 'string' || !ing.label.trim()) err(`${where} 缺 label`);
-    if (!isPosNum(ing?.grams)) err(`${where} grams 要 > 0：${ing?.grams}`);
+    // 使用者手動新增的食譜可以不填克數（ctx.allowMissingGrams）：那個食材的營養就是「未估算」，不是 0。
+    // 內建食譜一律要填。
+    if (!isPosNum(ing?.grams)) {
+      if (!(ctx.allowMissingGrams && ing?.grams == null)) err(`${where} grams 要 > 0：${ing?.grams}`);
+    }
     const track = ing?.track ?? 'base';
     if (!TRACKS.includes(track)) err(`${where} track 不在 ${TRACKS.join('/')}：${track}`);
     if (r.vegMode !== 'splittable' && track !== 'base') err(`${where} 只有 splittable 的菜可以有 ${track} 軌`);
@@ -111,7 +125,11 @@ export function validateRecipe(recipe, ctx) {
     let fTags = new Set();
     if (food) {
       fTags = tagsOfFood(food, ctx.foodTags);
-      for (const t of fTags) tags.add(t);
+      for (const t of fTags) {
+        tags.add(t);
+        if (track !== 'meat') vegTags.add(t);
+        if (track !== 'veg') meatTags.add(t);
+      }
       const pg = proteinGroupOf(food, fTags);
       if (pg) proteins.add(pg);
       const nonVeg = fTags.has('meat') || fTags.has('seafood');
@@ -124,7 +142,7 @@ export function validateRecipe(recipe, ctx) {
     return {
       food: food ? food.id : ing?.food,
       label: ing?.label,
-      grams: ing?.grams,
+      grams: isPosNum(ing?.grams) ? ing.grams : null,
       track,
       ...(ing?.pantry ? { pantry: true } : {}),
       ...(ing?.buy ? { buy: { qty: ing.buy.qty, unit: ing.buy.unit } } : {}),
@@ -174,11 +192,14 @@ export function validateRecipe(recipe, ctx) {
     vegMode: r.vegMode,
     texture: r.texture,
     season: r.season ?? [],
+    ...(r.vegMode === 'splittable' && r.splitServings ? { splitServings: { veg: r.splitServings.veg, meat: r.splitServings.meat } } : {}),
     ...(r.alliumOptional ? { alliumOptional: true } : {}),
     ...(r.notes ? { notes: String(r.notes) } : {}),
     ingredients: normIngredients,
     steps: steps.map((st) => ({ stage: st?.stage ?? 'base', type: st?.type ?? 'cook', text: st?.text })),
     tags: [...tags].sort(),
+    vegTags: r.vegMode === 'meatOnly' ? null : [...vegTags].sort(),
+    meatTags: r.vegMode === 'nativeVeg' ? null : [...meatTags].sort(),
     proteins: [...proteins].sort(),
     source: r.source === 'user' ? 'user' : 'builtin',
   };

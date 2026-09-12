@@ -152,3 +152,54 @@ export function fmtEst(n, unit = '', digits = 0) {
 export function num(text, extraClass = '') {
   return h('span', { class: 'num' + (extraClass ? ' ' + extraClass : '') }, text);
 }
+
+/** 營養值：g 一位小數、kcal 與 mg 整數；null → 「未估算」。 */
+export function fmtNutrient(value, unit) {
+  return fmtEst(value, unit ?? '', unit === 'g' ? 1 : 0);
+}
+
+/**
+ * 單選或多選的 chip 群。multi=true 時 value 與 onChange 的參數是陣列。
+ * 每顆 chip 帶 data-value，群組帶 data-chips=name，測試靠這兩個找。
+ */
+export function chips({ options, value, onChange, multi = false, name = '' }) {
+  const wrap = h('div', { class: 'chip-row', role: 'group', dataset: name ? { chips: name } : {} });
+  let current = multi ? [...(value ?? [])] : value;
+  const draw = () => {
+    wrap.replaceChildren(...options.map((o) => {
+      const on = multi ? current.includes(o.value) : current === o.value;
+      return h('button', {
+        class: 'chip' + (on ? ' on' : ''), type: 'button', 'aria-pressed': on ? 'true' : 'false',
+        title: o.hint ?? null, dataset: { value: String(o.value) },
+        onclick: () => {
+          if (multi) current = on ? current.filter((v) => v !== o.value) : [...current, o.value];
+          else { if (on) return; current = o.value; }
+          onChange(multi ? [...current] : current);
+          draw();
+        },
+      }, o.label);
+    }));
+  };
+  draw();
+  return wrap;
+}
+
+/** 加減器（人份）。回 { node, set(n), value }；set() 不觸發 onChange。 */
+export function stepper({ value, min = 1, max = 99, label = '', onChange }) {
+  let v = value;
+  const shown = h('span', { class: 'stepper-value num', dataset: { stepper: label } }, String(v));
+  const dec = h('button', { class: 'stepper-btn', type: 'button', 'aria-label': `${label}減一` }, '−');
+  const inc = h('button', { class: 'stepper-btn', type: 'button', 'aria-label': `${label}加一` }, '＋');
+  const set = (n, fire = false) => {
+    v = Math.min(max, Math.max(min, n));
+    shown.textContent = String(v);
+    dec.disabled = v <= min;
+    inc.disabled = v >= max;
+    if (fire) onChange(v);
+  };
+  dec.addEventListener('click', () => set(v - 1, true));
+  inc.addEventListener('click', () => set(v + 1, true));
+  set(v);
+  const node = h('div', { class: 'stepper' }, dec, h('span', { class: 'stepper-mid' }, shown, label ? h('span', { class: 'muted sm' }, ` ${label}`) : null), inc);
+  return { node, set: (n) => set(n, false), get value() { return v; } };
+}

@@ -317,6 +317,9 @@ a.row { color: inherit; text-decoration: none; }
 .wait-text { margin: 0; }
 
 #toast {
+  /* toast 不接受點擊：它淡出的那 250 毫秒還在畫面上（opacity 0），會擋住底下的按鈕。
+     實際踩過：存食譜的那一下點到了正在消失的 toast。 */
+  pointer-events: none;
   position: fixed;
   left: 50%;
   bottom: calc(var(--tabbar-h) + 18px + env(safe-area-inset-bottom, 0px));
@@ -375,7 +378,76 @@ a.row { color: inherit; text-decoration: none; }
 }
 .notice strong { color: var(--fg); }
 
+/* ---------- 表單 ---------- */
+.field-label { display: block; margin: 6px 0 2px; font-weight: 600; font-size: 0.95em; }
+.field-inline { width: auto; min-width: 110px; }
+textarea.field { resize: vertical; line-height: 1.5; }
+.sub-block { padding: 10px 12px; background: var(--bg-card-2); border-radius: 12px; display: flex; flex-direction: column; gap: 8px; }
+.check { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; }
+.check input { width: 24px; height: 24px; }
+.err-box { border: 1px solid var(--danger); color: var(--fg); }
+.err-list { margin: 0; padding-left: 20px; }
+.warn { color: var(--danger); margin: 0; }
+
+.target-row { display: grid; grid-template-columns: minmax(0, 1fr) 130px max-content; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+.target-row:first-of-type { border-top: 0; }
+.target-label { font-weight: 600; }
+
+/* 買菜日：七顆圓鈕 */
+.day-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.day-btn {
+  appearance: none; font: inherit; font-weight: 700;
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--bg-card); color: var(--fg); cursor: pointer;
+}
+.day-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* 加減器 */
+.stepper { display: inline-flex; align-items: center; gap: 4px; }
+.stepper-btn {
+  appearance: none; font: inherit; font-size: 1.2em; font-weight: 700;
+  width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg-card-2); color: var(--fg); cursor: pointer;
+}
+.stepper-btn:disabled { opacity: 0.4; cursor: default; }
+.stepper-mid { min-width: 64px; text-align: center; font-weight: 700; }
+
+.btn-on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
+.btn-sm { padding: 8px 12px; min-height: 44px; font-size: 0.9em; }
+
+/* 檔案匯入：把 input 藏在 label 裡，label 長得像按鈕（觸控區 ≥ 44px） */
+.file-btn { position: relative; overflow: hidden; }
+.file-input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+
+/* 編輯器（食材／步驟列） */
+.edit-list { display: flex; flex-direction: column; gap: 12px; }
+.edit-row { padding: 12px; border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; gap: 8px; background: var(--bg-card-2); }
+.edit-row-head { display: flex; justify-content: space-between; align-items: center; }
+.picker-results { display: flex; flex-direction: column; gap: 4px; }
+.picker-item {
+  appearance: none; font: inherit; text-align: left; min-height: 44px; padding: 8px 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--bg-card); color: var(--fg); cursor: pointer;
+}
+.picker-item:active { background: var(--accent-soft); }
+.picked { margin: 0; color: var(--green); font-weight: 600; }
+
+/* 營養標示 */
+.nutri-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+.nutri-row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.nutri-row.big { font-size: 1.1em; font-weight: 700; }
+.nutri-value { white-space: nowrap; }
+.nutri-value sup { color: var(--accent-strong); }
+.watch-block { padding: 10px 12px; background: var(--yellow-soft); border-radius: 12px; display: flex; flex-direction: column; gap: 2px; }
+.watch-line .num { white-space: nowrap; }
+details.how { border-top: 1px solid var(--line); padding-top: 8px; }
+details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.ing-table.sm td { font-size: 0.9em; padding: 6px 4px; }
+
 /* 桌機：內容區加寬、食譜清單兩欄 */
 @media (min-width: 720px) {
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .nutri-grid { grid-template-columns: 1fr 1fr 1fr; }
+}
+@media (max-width: 420px) {
+  .nutri-grid { grid-template-columns: 1fr; }
+  .target-row { grid-template-columns: minmax(0, 1fr) 110px max-content; }
 }

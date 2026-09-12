@@ -89,6 +89,9 @@ const broken = {
   克數是0: (() => { const r = clone(good); r.ingredients[0].grams = 0; return r; })(),
   只有兩步: (() => { const r = clone(goodVeg); r.steps = r.steps.slice(0, 2); return r; })(),
   缺split步驟: (() => { const r = clone(good); r.steps = r.steps.filter((st) => st.stage !== 'split'); return r; })(),
+  splitServings加起來不等於servings: (() => { const r = clone(good); r.splitServings = { veg: 2, meat: 3 }; return r; })(),
+  可分流卻沒有splitServings: (() => { const r = clone(good); delete r.splitServings; return r; })(),
+  不分流的菜帶splitServings: (() => { const r = clone(goodVeg); r.splitServings = { veg: 1, meat: 3 }; return r; })(),
   meat軌沒有葷食材: (() => { const r = clone(good); r.ingredients.find((i) => i.track === 'meat').food = '鮮香菇'; return r; })(),
 };
 const invalid = (r) => validateRecipe(r, ctx).errors.length > 0;

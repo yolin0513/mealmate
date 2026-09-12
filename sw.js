@@ -5,7 +5,7 @@
  *
  * 每次改動任何 SHELL 檔案都要 bump VERSION，否則使用者拿到的還是舊程式。
  */
-const VERSION = 'mealmate-v0.1.0';
+const VERSION = 'mealmate-v0.2.0';
 const SHELL = `${VERSION}-shell`;
 
 const SHELL_ASSETS = [
@@ -25,14 +25,21 @@ const SHELL_ASSETS = [
   './js/units.js',
   './js/recipeschema.js',
   './js/edu.js',
+  './js/members.js',
+  './js/nutrition.js',
+  './js/backup.js',
+  './js/views/welcome.js',
   './js/views/week.js',
   './js/views/shopping.js',
   './js/views/recipes.js',
   './js/views/recipe.js',
+  './js/views/recipeedit.js',
   './js/views/family.js',
+  './js/views/member.js',
   './data/foods.json',
   './data/aliases.json',
   './data/units.json',
+  './data/foodtags.json',
   './data/recipes.json',
   './data/edu.json',
   './icons/icon-192.png',
