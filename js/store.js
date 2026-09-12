@@ -206,5 +206,16 @@ export async function deletePlan(weekKey) {
 export async function history() { return db.getAll('history'); }
 export function favoritesList() { return [...state.favorites.values()]; }
 
+// ---------- 購物清單的勾選狀態（每個採買區間一筆） ----------
+export async function getShopping(rangeKey) { return (await db.get('shopping', rangeKey)) ?? { rangeKey, checked: {}, have: {} }; }
+export async function saveShopping(row) { await db.put('shopping', { ...row, updatedAt: new Date().toISOString() }); emit(); }
+/** 這一週所有區間勾了「家裡有」的食材編號（下次產生時加分）。 */
+export async function haveFoodsForWeek(weekKey) {
+  const rows = (await db.getAll('shopping')).filter((r) => r.weekKey === weekKey);
+  const out = new Set();
+  for (const r of rows) for (const [id, on] of Object.entries(r.have ?? {})) if (on) out.add(id);
+  return out;
+}
+
 // ---------- 衛教 ----------
 export function eduEntry(id) { return state.edu?.get(id) ?? null; }

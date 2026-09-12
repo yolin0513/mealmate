@@ -84,6 +84,25 @@ try {
   const pressed = await page.$$eval('[data-card="shoppingDays"] .day-btn[aria-pressed="true"]', (els) => els.map((e) => e.dataset.day));
   eq(pressed, ['3', '6'], '按下狀態也對');
 
+  section('排菜規則：三個「避開」開關預設關');
+  await page.waitForSelector('[data-card="rules"]');
+  const avoidStates = await page.$$eval('[data-card="rules"] [data-pref^="avoid-"]', (els) => els.map((e) => ({ k: e.dataset.pref, on: e.getAttribute('aria-checked') })));
+  eq(avoidStates.map((a) => a.k), ['avoid-sweet', 'avoid-processed', 'avoid-fried'], '三個開關');
+  everyOf(avoidStates, (a) => a.on === 'false', '預設全關（留意項目只降分；排除由使用者自己開）');
+  const rulesText = await textOf(page, '[data-card="rules"]');
+  ok(rulesText.includes('不會排除') && rulesText.includes('預設全關'), '文案講清楚留意項目不排除、開關才排除');
+  await clickEl(page, '[data-pref="avoid-sweet"]');
+  await sleep(300);
+  await page.waitForSelector('[data-card="rules"]');
+  eq(await page.$eval('[data-pref="avoid-sweet"]', (el) => el.getAttribute('aria-checked')), 'true', '開了「避開精緻糖」');
+  eq(await page.evaluate(async () => (await import('./js/prefs.js')).get('avoid')), { sweet: true, processed: false, fried: false }, 'prefs.avoid 只有 sweet 變 true');
+  await page.reload({ waitUntil: 'networkidle0' });
+  await titleIs(page, '家人');
+  await page.waitForSelector('[data-card="rules"]');
+  eq(await page.$eval('[data-pref="avoid-sweet"]', (el) => el.getAttribute('aria-checked')), 'true', '重新載入後仍是開的');
+  await clickEl(page, '[data-pref="avoid-sweet"]');
+  await sleep(300);
+
   section('長輩模式');
   await clickEl(page, '[data-pref="fontScale"]');
   await sleep(300);

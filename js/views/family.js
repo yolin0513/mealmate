@@ -71,6 +71,23 @@ export default async function familyView() {
     daysWrap, daysText,
   );
 
+  // ---- 排菜規則：「避開」開關（預設全關；留意項目本身只降分，這裡才是使用者自己選的排除） ----
+  const AVOID = [
+    { key: 'sweet', label: '避開含精緻糖的菜', hint: '糖類食材每人一份約一茶匙以上的菜不排（例如糖醋、蜜汁）' },
+    { key: 'processed', label: '避開加工肉與醃漬', hint: '培根、火腿、香腸、醃漬菜這類不排' },
+    { key: 'fried', label: '避開油炸', hint: '烹法是油炸的菜不排' },
+  ];
+  const avoidNow = () => prefs.get('avoid') ?? { sweet: false, processed: false, fried: false };
+  const rulesCard = h('section', { class: 'card', dataset: { card: 'rules' } },
+    h('h2', { class: 'card-title' }, '排菜規則'),
+    h('p', { class: 'muted sm' }, '家人的慢性病留意項目只會讓某些菜往後排、不會排除。下面這幾個開關才會把菜整個拿掉——由你決定，預設全關。'),
+    ...AVOID.map((a) => switchRow({
+      label: a.label, hint: a.hint, checked: avoidNow()[a.key] === true, key: `avoid-${a.key}`,
+      onChange: async (on) => { await prefs.set('avoid', { ...avoidNow(), [a.key]: on }); refresh(); },
+    })),
+    h('p', { class: 'muted xs' }, '改了之後下次「產生」或「重新產生」才會生效。'),
+  );
+
   // ---- 顯示 ----
   const displayCard = h('section', { class: 'card', dataset: { card: 'display' } },
     h('h2', { class: 'card-title' }, '顯示'),
@@ -145,5 +162,5 @@ export default async function familyView() {
     h('p', { class: 'muted xs' }, '純前端 PWA，原始碼公開於 GitHub（yolin0513/mealmate）。'),
   );
 
-  render(membersCard, daysCard, displayCard, backupCard, noticeCard(), about);
+  render(membersCard, daysCard, rulesCard, displayCard, backupCard, noticeCard(), about);
 }

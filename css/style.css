@@ -464,6 +464,33 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 .target-line { margin: 0; color: var(--fg); }
 .picker-list { max-height: 50vh; overflow-y: auto; margin-top: 8px; }
 
+/* 買菜清單 */
+.shop-section { border-top: 1px solid var(--line); padding-top: 6px; }
+.shop-section-title { margin: 0 0 4px; font-size: 0.95em; color: var(--fg-muted); }
+.shop-row { display: grid; grid-template-columns: minmax(0, 1fr) max-content; column-gap: 8px; align-items: center; padding: 2px 0; }
+/* 名稱與數量同一行、「用在」整行放下面：手機上「用在」才不會被數量擠成一欄四行（截圖走查抓到的） */
+.shop-check { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 10px; align-items: start; min-height: 44px; padding: 4px 0; }
+.shop-check input { margin: 5px 0 0; }
+.shop-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.shop-line1 { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.shop-name { font-weight: 600; overflow-wrap: anywhere; }
+.shop-qty { white-space: nowrap; font-weight: 600; margin-left: auto; }
+.shop-uses { overflow-wrap: anywhere; }
+.shop-row.done .shop-name, .shop-row.done .shop-qty { text-decoration: line-through; color: var(--fg-muted); font-weight: 400; }
+.shop-row.have .shop-qty { color: var(--fg-muted); }
+
+/* 印出：只留內容，白底；「家裡有」按鈕藏掉、改成數量後面一個字樣 */
+@media print {
+  #topbar, #tabbar, #toast, .update-bar, .btn, .btn-row, .chip-row, .chip, .item-menu, .no-print, .day-btn, summary::marker { display: none !important; }
+  html, body, #app { background: #fff; padding: 0; }
+  .shop-row.have .shop-qty::after { content: "　家裡有"; font-weight: 400; }
+  #view { max-width: none; padding: 0; gap: 8px; }
+  .card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
+  details.how { display: block; }
+  details.how > summary { display: block; }
+  .shop-row { break-inside: avoid; }
+}
+
 /* 桌機：內容區加寬、食譜清單兩欄、本週七欄 */
 @media (min-width: 720px) {
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }

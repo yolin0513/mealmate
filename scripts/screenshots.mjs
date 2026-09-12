@@ -17,7 +17,7 @@ const SHOTS = [
   { name: 'recipe-veg', hash: '#/recipes/r-tomato-egg', wait: '#view [data-card="recipeNutrition"] .nutri-value' },
   { name: 'member-new', hash: '#/family/new', wait: '#view [data-card="memberTargets"]' },
   { name: 'recipe-edit', hash: '#/recipes/new', wait: '#view [data-card="editIngredients"]' },
-  { name: 'shopping', hash: '#/shopping', wait: '#view [data-card="shoppingEmpty"]' },
+  { name: 'shopping-empty', hash: '#/shopping', wait: '#view [data-card="shoppingEmpty"]' },
   { name: 'family', hash: '#/family', wait: '#view [data-card="about"]' },
 ];
 
@@ -55,6 +55,11 @@ try {
   await sleep(300);
   await page.screenshot({ path: path.join(OUT, 'week-plan.png'), fullPage: true });
   console.log('week-plan.png');
+  await goto(page, '#/shopping');
+  await page.waitForSelector('[data-card="shopRange"]');
+  await sleep(250);
+  await page.screenshot({ path: path.join(OUT, 'shopping-list.png'), fullPage: true });
+  console.log('shopping-list.png');
 } finally {
   await close();
 }

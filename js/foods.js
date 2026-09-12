@@ -63,6 +63,13 @@ export function searchFoods(query, idx, limit = 20) {
   return out.slice(0, limit);
 }
 
+/** 編號 → 別名表裡指到它的所有口語詞（依 aliases.json 的順序）。採買單位、保存天數用口語詞查。 */
+export function aliasTermsOf(idx) {
+  const out = new Map();
+  for (const [term, id] of idx.aliasMap) { if (!out.has(id)) out.set(id, []); out.get(id).push(term); }
+  return out;
+}
+
 /** 哪些鍵（依 build-foods 的順序）；畫面上顯示的順序也照這個。 */
 export const NUTRIENT_ORDER = ['kcal', 'protein', 'fat', 'satFat', 'carb', 'sugar', 'fiber', 'sodium', 'potassium', 'phosphorus', 'calcium', 'cholesterol'];
 

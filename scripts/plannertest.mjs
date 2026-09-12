@@ -270,6 +270,21 @@ section('避開開關：使用者自己開才排除');
   eq(mainsOf(watchOnly.plan).length, 14, '（對照）有糖尿病成員但沒開開關：留意項目只降分，甜主菜照排');
 }
 
+section('購物清單勾了「家裡有」→ 用到那個食材的菜加分');
+{
+  const CABBAGE = 'E30001';
+  const state = { slotItems: [], placedWant: new Set(), lastServed: () => null, timesServedWithin: () => 0, dayProteins: () => new Set(), prevDayMealProteins: () => new Set(), fishCount: () => 0, rangeHas: () => false };
+  const slot = { role: 'side', meal: 'dinner', date: '2026-09-14', day: 0 };
+  const withHave = buildContext({ recipes, members: [], idx, units, shoppingDays: [], haveFoods: new Set([CABBAGE]) });
+  const without = buildContext({ recipes, members: [], idx, units, shoppingDays: [] });
+  const cabbageSide = byId.get('r-stir-fried-cabbage');
+  const otherSide = byId.get('r-blanched-okra');
+  const sHave = scoreSoft(cabbageSide, slot, withHave, state, () => 0); const sNone = scoreSoft(cabbageSide, slot, without, state, () => 0);
+  ok(sHave.score > sNone.score, `家裡有高麗菜：清炒高麗菜 ${sHave.score.toFixed(1)} > 沒勾時 ${sNone.score.toFixed(1)}`);
+  ok(sHave.reasons.some((t) => t.includes('你勾了家裡有')), `理由：${sHave.reasons.find((t) => t.includes('家裡有'))}`);
+  eq(scoreSoft(otherSide, slot, withHave, state, () => 0).score, scoreSoft(otherSide, slot, without, state, () => 0).score, '（對照）沒用到高麗菜的菜分數不變');
+}
+
 section('每日估計：素食成員吃素版');
 {
   const split = byId.get('r-cabbage-pork-stirfry');

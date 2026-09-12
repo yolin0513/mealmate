@@ -99,7 +99,7 @@ export function medianOf(values) {
  * @param rules   DEFAULT_RULES 的形狀（可部分覆寫）
  * @param favorites [{recipeId, wantThisWeek}]
  */
-export function buildContext({ recipes, members = [], idx, units, rules = {}, favorites = [], shoppingDays = [] }) {
+export function buildContext({ recipes, members = [], idx, units, rules = {}, favorites = [], shoppingDays = [], haveFoods = new Set() }) {
   const r = {
     noRepeatDays: { ...DEFAULT_RULES.noRepeatDays, ...(rules.noRepeatDays ?? {}) },
     timeCaps: { weekday: { ...DEFAULT_RULES.timeCaps.weekday, ...(rules.timeCaps?.weekday ?? {}) }, weekend: { ...DEFAULT_RULES.timeCaps.weekend, ...(rules.timeCaps?.weekend ?? {}) } },
@@ -147,7 +147,7 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
     for (const f of watchers.keys()) medians[role][f] = medianOf(recipes.filter((x) => x.role === role).map((x) => watchedValue(x, f)));
   }
 
-  return { recipes, members, idx, units, rules: r, vegetarians, hasOmni, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasById, perServing, watchedValue, medians, shoppingDays };
+  return { recipes, members, idx, units, rules: r, vegetarians, hasOmni, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasById, perServing, watchedValue, medians, shoppingDays, haveFoods: new Set(haveFoods) };
 }
 
 // ---------- 硬約束 ----------
@@ -257,6 +257,11 @@ export function scoreSoft(recipe, { role, meal, date, day }, ctx, state, rng) {
   if (lastShop) {
     const already = recipe.ingredients.filter((ing) => !ing.pantry && state.rangeHas(lastShop, ing.food));
     if (already.length) { score += Math.min(12, already.length * 3); reasons.push(`${already.slice(0, 2).map((i) => i.label.replace(/（.*?）/g, '')).join('、')}這幾天已經會買`); }
+  }
+  // 購物清單勾了「家裡有」的食材
+  if (ctx.haveFoods.size) {
+    const have = recipe.ingredients.filter((ing) => !ing.pantry && ctx.haveFoods.has(ing.food));
+    if (have.length) { score += Math.min(9, have.length * 3); reasons.push(`${have.slice(0, 2).map((i) => i.label.replace(/（.*?）/g, '')).join('、')}你勾了家裡有`); }
   }
 
   reasons.push(`約 ${recipe.time} 分鐘，${METHOD_LABELS[recipe.method]}`);

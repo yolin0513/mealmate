@@ -1,6 +1,6 @@
 # MealMate 專案狀態（docs/STATUS.md）
 
-> 最後更新：2026-09-13。**M0、M1、M2 完成並上線（`mealmate-v0.3.1`）；M3 尚未開始。**
+> 最後更新：2026-09-13。**M0、M1、M2、M3 完成並上線（`mealmate-v0.4.0`）；M4 尚未開始。**
 > repo `yolin0513/mealmate`，GitHub Pages `https://yolin0513.github.io/mealmate/`。
 > 給接手的工作階段快速接手用。規劃細節見 `PLAN.md`（唯一真相來源），實測見 `FEASIBILITY.md`，資料與衛教來源見 `SOURCES.md`。
 
@@ -11,11 +11,21 @@
 | M0 資料與骨架 | ✅ 完成（2026-09-13） | `mealmate-v0.1.0` |
 | M1 家人與食譜瀏覽 | ✅ 完成（2026-09-13） | `mealmate-v0.2.1` |
 | M2 週計畫 | ✅ 完成（2026-09-13） | `mealmate-v0.3.1` |
-| M3 買菜 | ⏳ 未開始（**下一步從這裡開始**） | — |
-| M4 今日煮與打磨 | ⏳ 未開始 | — |
+| M3 買菜 | ✅ 完成（2026-09-13） | `mealmate-v0.4.0` |
+| M4 今日煮與打磨 | ⏳ 未開始（**下一步從這裡開始**） | — |
 | M5 上線 | ⏳ 未開始 | — |
 
-測試現況：14 支測試 ＋ `mutationtest`。Node 端：datatest 57、aliastest 26、unittest 29、edutest 13、copytest 7、recipetest 45、membertest 41、nutritiontest 95、plannertest 92；瀏覽器端（puppeteer）：shelltest 104、familytest 29、recipeviewtest 49、backuptest 30、weekviewtest 32。`mutationtest` **62 條突變逐一證明關鍵斷言改壞會紅**（M2 新增 14 條各別驗過會紅；完整套件約 25 分鐘，只在使用者要求時全跑）。平常只跑受影響的（慣例 15）。
+測試現況：16 支測試 ＋ `mutationtest`。Node 端：datatest 57、aliastest 26、unittest 29、edutest 13、copytest 7、recipetest 45、membertest 41、nutritiontest 95、plannertest 95、shoppingtest 49；瀏覽器端（puppeteer）：shelltest 104、familytest 35、recipeviewtest 49、backuptest 30、weekviewtest 32、shoppingviewtest 25。`mutationtest` **71 條突變逐一證明關鍵斷言改壞會紅**（M3 新增 9 條各別驗過會紅；完整套件約 30 分鐘，只在使用者要求時全跑）。平常只跑受影響的（慣例 15）。
+
+### M3 開發期的實測發現
+
+1. **購物數量是使用者會實際照著買的東西**，所以 `js/shopping.js` 是純函式、`shoppingtest` 用手算對照：高麗菜 500 g × 3/4 ＋ 450 g × 3/4 ＝ 713 g → 「約 1 顆（713 g）」（`toBuyQty` 無條件進位到半個單位、不少買）；豬肉 200 g × 2/3；乾香菇 15 g × 1/1；蛋 165 g → 3 顆。瀏覽器端再把畫面上每一項的數量文字跟 `buildShoppingList()` 的輸出逐項比對（兩個區間各 30 餘項）。
+2. **縮放看「實際吃的人」而不是家人總數**：共用軌 × 吃得了的人數 ÷ 食譜份數；素鍋軌 × 吃素版人數 ÷ `splitServings.veg`；葷鍋軌同理。全家吃葷 → 素鍋軌倍數 0、不買；沒有家人 → 照食譜原份量。三個倍數各一條突變。
+3. **採買區間**＝從某個買菜日到下一個買菜日前一天，一週每個自己煮的日子剛好屬於一個區間；週一之前的買菜日標「（上週）」。沒設買菜日 → 一張「整週」清單，畫面上明講要去家人頁設。
+4. **賣場分區用食藥署的食品分類推**（蔬菜／水果／肉／魚貝／豆製品蛋奶／乾貨雜糧／調味與其他），加工調理類靠名稱分豆製品與乾貨。常備品（`pantry: true`）不進主清單、另列「用完再補」。
+5. 「家裡有」存在 `shopping` store 的該區間列（帶 `weekKey`），下次「產生」時 `haveFoods` 讓用到那個食材的菜加分（每個食材 ＋3、最多 ＋9，理由寫「高麗菜你勾了家裡有」）——是加分不是強迫。
+6. **三個「避開」開關補上 UI**（M2 欠的）：家人頁「排菜規則」卡，文案明講「留意項目只會讓菜往後排、不會排除；這幾個開關才會把菜拿掉，預設全關」。突變「預設全開」會紅。
+7. 印出走 `@media print`（隱藏頂列、分頁列、按鈕；卡片不跨頁），測試只驗按鈕呼叫 `window.print`——列印版面靠 M4 的截圖走查。
 
 ### M2 開發期的實測發現
 
@@ -78,7 +88,7 @@
 12. 打真網路的測試：**沒有**。`build-foods.mjs --download` 是開發者本機工具，不進 `npm test`。
 13. 不動 `D:\Claude\App\TripQuest`、`D:\Claude\App\JLPT_App`、`D:\Claude\App\StockDiary` 的任何檔案（可讀，用來抄慣例：`layouttest`／`uikittest` 的全頁掃描、`racetest`／`versionmixtest`）。
 14. **斷言驗語意、不貼字面。**
-15. **測試範圍：平常只跑受影響的，全面檢測由使用者叫**（沿用 StockDiary 的使用者指示）。判斷受影響：`grep -l "views/<改到的檔>" scripts/*.mjs`；改到任何 view → `shelltest`；`js/views/family.js`／`member.js` → `familytest`；`js/views/recipe*.js`／`js/nutrition.js`／`js/store.js` → `recipeviewtest`、`nutritiontest`；`js/planner.js`／`js/views/week*.js` → `plannertest`、`weekviewtest`；`js/backup.js`／`js/db.js` → `backuptest`；`js/members.js` → `membertest`、`familytest`、`recipeviewtest`、`plannertest`；`js/recipeschema.js`／`data/recipes/` → `recipetest`、`copytest`、`plannertest`；`js/foods.js`／`data/aliases.json` → `aliastest`、`recipetest`、`unittest`；`data/edu.json`／任何 `edu(` 呼叫 → `edutest`、`copytest`；`css/style.css` → `shelltest`（M4 起加 `layouttest`、`uikittest`）。**沒有放寬的那一條：新的斷言仍然必須經突變驗證會紅**（`npm run mutationtest -- --only <關鍵字>`）。
+15. **測試範圍：平常只跑受影響的，全面檢測由使用者叫**（沿用 StockDiary 的使用者指示）。判斷受影響：`grep -l "views/<改到的檔>" scripts/*.mjs`；改到任何 view → `shelltest`；`js/views/family.js`／`member.js` → `familytest`；`js/views/recipe*.js`／`js/nutrition.js`／`js/store.js` → `recipeviewtest`、`nutritiontest`；`js/planner.js`／`js/views/week*.js` → `plannertest`、`weekviewtest`；`js/backup.js`／`js/db.js` → `backuptest`；`js/shopping.js`／`js/views/shopping.js`／`js/units.js` → `shoppingtest`、`shoppingviewtest`；`js/members.js` → `membertest`、`familytest`、`recipeviewtest`、`plannertest`；`js/recipeschema.js`／`data/recipes/` → `recipetest`、`copytest`、`plannertest`；`js/foods.js`／`data/aliases.json` → `aliastest`、`recipetest`、`unittest`；`data/edu.json`／任何 `edu(` 呼叫 → `edutest`、`copytest`；`css/style.css` → `shelltest`（M4 起加 `layouttest`、`uikittest`）。**沒有放寬的那一條：新的斷言仍然必須經突變驗證會紅**（`npm run mutationtest -- --only <關鍵字>`）。
 16. **瀏覽器測試的點擊一律 `clickEl()`**（先捲到中央再點）；要量 toast 文字就等 `#toast.show`，要等它走就 `waitToastGone()`。
 17. **資料庫換季（食藥署每季更新）**：`npm run build-foods -- --download` 會印出差異；消失的編號若被別名表或食譜用到，`aliastest`／`recipetest` 會紅；`aliases.json` 的 `foodsVersion` 要同步改。
 
@@ -108,13 +118,16 @@
 | ~~本週頁：本週／下週、產生、重新產生（鎖住的不動）、一天一卡、桌機七欄、換一道、指定（含「誰吃不了」提示）、鎖定、外食／不煮、為什麼選這道、勉強排的地方明講、每日估算（每位家人各吃自己的版本）、只有填了目標的成員才有對照條、一般衛教參考~~ | `weekviewtest` 32：21 格、14 主菜、每道菜蛋奶素與全素不含五辛成員都吃得了、零 meatOnly；理由 ≥ 2 條且零建議語氣、寫出「姊（全素不含五辛）可吃」與醣的中位數比較；換一道變了；鎖住的重新產生不變、沒鎖的有變；外食格零菜；三位家人各一列估計、每個數字帶估；只有阿嬤有「醫師或營養師給的每日目標 180」對照條；重新載入計畫還在；下週空狀態 |
 | ~~`plans`／`history` store（存計畫時取代該週的 history 列）~~ | plannertest 用 `historyRowsOf` 連排 4 週 |
 
-### M3 買菜（下一步）
+### M3 買菜 ✅（`mealmate-v0.4.0`）
 
-| 工作 | 驗收 |
+| 工作 | 驗收（實際） |
 |---|---|
-| 採買區間切分（`lastShoppingDayOnOrBefore` 已在 planner）、清單彙整（同食材加總；可分流的菜依 `splitByDiet()` 的人數縮放兩軌）、`toBuyQty` 換算、賣場分區、常備品另列、勾「買了」「家裡有」、複製成文字、印出樣式 | `shoppingtest`：週三＋週六 → 兩區間覆蓋 7 天無重疊；同一食材跨三餐加總正確；`pantry` 不在主清單但在常備段；外食格食材不進清單；週中改菜後已勾「買了」保留；「家裡有」下次產生時加分 |
-| 保存期限與買菜日的耦合（planner 已做，這裡驗整合） | 端對端：產生 → 清單 → 每個葉菜出現的餐都在該區間買菜日後 3 天內 |
-| 家人頁加「排菜規則」卡：三個「避開」開關（預設關）、不重複天數 | `familytest`：開關預設關；開了「避開精緻糖」→ prefs.avoid.sweet true |
+| ~~`js/shopping.js` 純函式：採買區間切分、同食材（食藥署編號）跨餐加總、依實際吃的人數縮放三軌、`toBuyQty` 換算成顆／把、賣場分區、常備品另列、純文字版~~ | `shoppingtest` 49：週三＋週六 → 三區間（含上週六）覆蓋所有煮的日子、無重疊；沒設買菜日 → 一張整週；高麗菜兩餐 713 g → 1 顆、豬肉 2/3、乾香菇 1/1、蛋 3 顆逐項手算；全家吃葷 → 素鍋軌不買；沒有家人 → 原份量；`pantry` 不在主清單但在常備段；外食格食材不進清單；每個項目分區正確；純文字版有分區與「估計值」提醒 |
+| ~~買菜頁：本週／下週、一個區間一卡、賣場分區、勾「買了」（劃線）、「家裡有」（存起來、下次產生加分）、進度、常備品折疊、複製清單、印出、空狀態~~ | `shoppingviewtest` 25：區間跟 Node 端一樣；**畫面上每一項的食材與數量文字跟 `buildShoppingList()` 逐項相同**（30＋31 項）、全是「約 …」沒有 0 g；常備品另列；勾「買了」「家裡有」重新載入後都在；「家裡有」進到 `haveFoodsForWeek()`；複製的文字有標題、分區、✓ 與估計值提醒；印出鈕呼叫 `window.print` |
+| ~~規劃器「家裡有」加分~~ | `plannertest` ＋3：勾了高麗菜 → 清炒高麗菜分數變高、理由寫「你勾了家裡有」；沒用到的菜分數不變（對照） |
+| ~~家人頁「排菜規則」卡：三個「避開」開關（預設關）~~ | `familytest` ＋6：三個開關預設 `aria-checked=false`、文案講清楚只降分不排除；開了「避開精緻糖」→ `prefs.avoid` 只有 sweet 變 true、重新載入後仍開 |
+| 保存期限與買菜日的端對端驗證 | 併入 M4 的截圖走查（planner 端 `plannertest` 已有「只有週一買菜時葉菜都在週一到週四」） |
+| 不重複天數的 UI | **未做**（M2 起 `prefs.noRepeatDays` 有預設值 14／7／7，尚無 UI；留到 M4 打磨） |
 
 ### M4 今日煮與打磨
 
@@ -144,5 +157,6 @@
 8. **「看不到」只驗 `hidden` 屬性。** 屬性在、東西照樣顯示（display:flex 蓋掉它）。要驗就量 `getComputedStyle().display` 與 `getBoundingClientRect().height`（familytest 的 `shownBox`）。
 9. **用「池子只剩 X」去證明「只降分不排除」。** 相對池子自己的中位數永遠有一半不算高，排除掉一半照樣填得滿，突變不會紅。要讓被扣分的菜跟被扣更多的菜對決（plannertest「高醣沒吃過 vs 低醣昨天吃過」）。
 10. **規劃器的 `lastServed()` 把「同一天」排除。** 午晚餐會排到同一道菜。同日也算，另加「同一天不排同一道」硬約束。
+11. **購物數量用家人總數縮放。** 要用「吃得了這一軌的人數」：素鍋軌只算吃素版的人、葷鍋軌只算吃葷版的人、共用軌算兩者相加，各除各的份數（`shopping.scaleFor`）。全家吃葷時素鍋軌是 0，不是 1。三條突變。
 
 另外三件較小但會一路痛的：**早餐納入不重複計分**（`noRepeatDays.breakfast` 是 0，有突變）；**池子不夠時靜默重複**（要進 `diagnostics` 並在本週頁明講）；**改了食譜沒跑 `npm run build-recipes`**（`recipetest` 會紅）。
