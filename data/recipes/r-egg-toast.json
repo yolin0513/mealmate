@@ -1,0 +1,22 @@
+{
+  "id": "r-egg-toast",
+  "name": "煎蛋吐司",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 10,
+  "method": "pan",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "土司", "label": "土司", "grams": 240, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋", "grams": 220, "track": "base" },
+    { "food": "油", "label": "沙拉油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "cook", "text": "土司用烤箱或乾鍋烤到表面微酥。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋抹薄薄一層油，打入雞蛋，撒一點鹽，中小火煎到蛋白凝固、蛋黃依喜好半熟或全熟。" },
+    { "stage": "base", "type": "serve", "text": "把蛋夾進兩片土司之間；長輩可以把土司邊切掉比較好咬。" }
+  ]
+}

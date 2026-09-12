@@ -1,0 +1,29 @@
+{
+  "id": "r-green-beans-split",
+  "name": "乾煸四季豆（可分素葷）",
+  "role": "main",
+  "servings": 4,
+  "time": 25,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "normal",
+  "season": [4, 5, 6, 7, 8, 9, 10, 11],
+  "ingredients": [
+    { "food": "四季豆", "label": "四季豆（去頭尾）", "grams": 400, "track": "base" },
+    { "food": "薑", "label": "薑末", "grams": 10, "track": "base" },
+    { "food": "大蒜", "label": "蒜末", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 25, "track": "base", "pantry": true },
+    { "food": "乾香菇", "label": "乾香菇（泡軟切末）", "grams": 15, "track": "veg" },
+    { "food": "豬絞肉", "label": "豬絞肉", "grams": 150, "track": "meat" },
+    { "food": "醬油", "label": "醬油", "grams": 10, "track": "meat", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "四季豆去頭尾撕掉粗絲、切段，洗好一定要瀝乾；薑蒜切末；乾香菇泡軟切末。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，四季豆中火慢煸到表皮起皺、顏色轉深，約八分鐘，先盛起。" },
+    { "stage": "base", "type": "cook", "text": "同鍋小火爆香薑末、蒜末。" },
+    { "stage": "split", "type": "split", "text": "把爆香料分一小部分到另一鍋給素食那鍋用，四季豆也依人數分成兩份。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：下香菇末炒香，倒回素食份的四季豆，加鹽拌炒一分鐘。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：下豬絞肉炒散炒到微焦，倒回四季豆，加醬油和鹽翻炒到乾香。" }
+  ]
+}

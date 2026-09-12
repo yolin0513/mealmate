@@ -1,0 +1,24 @@
+{
+  "id": "r-miso-tofu-soup",
+  "name": "味噌豆腐湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 15,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "味噌", "label": "味噌", "grams": 50, "track": "base", "pantry": true },
+    { "food": "嫩豆腐", "label": "嫩豆腐（切丁）", "grams": 300, "track": "base" },
+    { "food": "海帶", "label": "海帶（切小段）", "grams": 40, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切蔥花，可省略）", "grams": 10, "track": "base" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "豆腐切 1.5 公分丁；海帶切小段；蔥切蔥花。" },
+    { "stage": "base", "type": "cook", "text": "鍋中放 1000 毫升水與海帶，煮滾後小火煮五分鐘。" },
+    { "stage": "base", "type": "cook", "text": "放入豆腐丁煮兩分鐘；味噌先用一勺熱湯在小碗裡化開，再倒回鍋中，關火，不要再煮滾。" },
+    { "stage": "base", "type": "serve", "text": "撒蔥花上桌。" }
+  ]
+}

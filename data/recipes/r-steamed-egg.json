@@ -1,0 +1,23 @@
+{
+  "id": "r-steamed-egg",
+  "name": "滑嫩蒸蛋",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "steam",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "雞蛋", "label": "雞蛋", "grams": 220, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 2, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 3, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油（淋面）", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "雞蛋打散，加入蛋液約 1.5 倍的溫水和鹽，攪勻後用濾網過篩一次，表面才會平滑。" },
+    { "stage": "base", "type": "cook", "text": "倒進耐熱碗，蓋上盤子或封保鮮膜戳幾個小孔，放進已經冒蒸氣的蒸鍋。" },
+    { "stage": "base", "type": "cook", "text": "中小火蒸 12 到 15 分鐘，用筷子輕戳中間不流出蛋液就熟了。" },
+    { "stage": "base", "type": "serve", "text": "取出後淋一點醬油和香油。牙口不好的長輩也很好入口。" }
+  ]
+}

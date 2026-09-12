@@ -1,0 +1,29 @@
+{
+  "id": "r-three-cup-split",
+  "name": "三杯雞／三杯杏鮑菇",
+  "role": "main",
+  "servings": 4,
+  "time": 30,
+  "method": "braise",
+  "vegMode": "splittable",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "薑", "label": "老薑（切片）", "grams": 30, "track": "base" },
+    { "food": "大蒜", "label": "蒜頭（整顆去皮）", "grams": 25, "track": "base" },
+    { "food": "九層塔", "label": "九層塔", "grams": 30, "track": "base" },
+    { "food": "麻油", "label": "黑麻油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 30, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 8, "track": "base", "pantry": true },
+    { "food": "杏鮑菇", "label": "杏鮑菇（滾刀塊）", "grams": 300, "track": "veg" },
+    { "food": "去骨雞腿", "label": "去骨雞腿肉（切塊）", "grams": 400, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "老薑切片、蒜頭去皮、九層塔摘葉洗淨；杏鮑菇切滾刀塊；雞腿肉切一口大小。" },
+    { "stage": "base", "type": "cook", "text": "鍋中下黑麻油，小火把薑片煸到邊緣捲起，再下蒜頭煸香。" },
+    { "stage": "split", "type": "split", "text": "把薑蒜和油分成兩鍋，素食那鍋約三分之一。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：下杏鮑菇中大火炒到表面微焦，加三分之一的醬油與糖，收汁後拌入一半的九層塔。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：雞腿肉皮朝下煎到金黃，加剩下的醬油、糖和半碗水，中火燒十分鐘收汁。" },
+    { "stage": "meat", "type": "serve", "text": "葷食那鍋起鍋前拌入剩下的九層塔，關火蓋上鍋蓋悶半分鐘讓香氣出來。" }
+  ]
+}

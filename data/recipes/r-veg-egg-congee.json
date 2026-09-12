@@ -1,0 +1,26 @@
+{
+  "id": "r-veg-egg-congee",
+  "name": "蔬菜蛋粥",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 35,
+  "method": "porridge",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "白米", "label": "白米（生）", "grams": 160, "track": "base", "pantry": true },
+    { "food": "雞蛋", "label": "雞蛋", "grams": 110, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切小丁）", "grams": 80, "track": "base" },
+    { "food": "高麗菜", "label": "高麗菜（切細）", "grams": 150, "track": "base" },
+    { "food": "薑", "label": "薑絲", "grams": 5, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 4, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "米洗淨；胡蘿蔔切小丁、高麗菜切細絲、薑切絲；雞蛋打散。" },
+    { "stage": "base", "type": "cook", "text": "鍋放米、薑絲和 1500 毫升水，煮滾後轉小火，蓋鍋留一點縫煮 25 分鐘，中途攪幾次以免黏底。" },
+    { "stage": "base", "type": "cook", "text": "加入胡蘿蔔丁和高麗菜絲再煮五分鐘到蔬菜軟。" },
+    { "stage": "base", "type": "cook", "text": "倒入蛋液攪散，加鹽、淋香油關火。" }
+  ]
+}

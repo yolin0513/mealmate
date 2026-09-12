@@ -1,0 +1,18 @@
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+
+# 食藥署原始資料（zip 與解壓後的 128MB JSON），本機下載一次重用，不進版控
+data/raw/
+
+# 測試輸出與走查截圖（本機暫存）
+.logs/
+assert-audit.jsonl
+
+# 突變測試的暫存與還原記錄
+scripts/.mutation-backup/
+scripts/.mutation-pending.json
+
+# 本機開發用的預覽設定，不進版控
+.claude/

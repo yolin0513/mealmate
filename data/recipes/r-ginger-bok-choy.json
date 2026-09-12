@@ -1,0 +1,22 @@
+{
+  "id": "r-ginger-bok-choy",
+  "name": "薑絲炒青江菜",
+  "role": "side",
+  "servings": 4,
+  "time": 10,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "青江菜", "label": "青江菜", "grams": 400, "track": "base" },
+    { "food": "嫩薑", "label": "嫩薑（切絲）", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "青江菜一片片剝開洗淨，大棵的對切；嫩薑切細絲。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱下油，薑絲爆香幾秒。" },
+    { "stage": "base", "type": "cook", "text": "大火下青江菜，先放梗再放葉，翻炒一分鐘到梗變軟，加鹽起鍋。不含蔥蒜，全素的家人也可以吃。" }
+  ]
+}

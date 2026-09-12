@@ -1,0 +1,23 @@
+{
+  "id": "r-garlic-sweet-potato-leaves",
+  "name": "蒜炒地瓜葉",
+  "role": "side",
+  "servings": 4,
+  "time": 10,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [4, 5, 6, 7, 8, 9, 10],
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "地瓜葉", "label": "地瓜葉", "grams": 400, "track": "base" },
+    { "food": "大蒜", "label": "蒜末（可省略）", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "地瓜葉摘去粗梗，洗淨瀝乾；蒜切末。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱下油，蒜末小火爆香。" },
+    { "stage": "base", "type": "cook", "text": "轉大火下地瓜葉，快炒一分鐘到葉子變軟變亮，加鹽拌勻起鍋。" }
+  ]
+}

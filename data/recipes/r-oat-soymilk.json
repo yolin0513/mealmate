@@ -1,0 +1,21 @@
+{
+  "id": "r-oat-soymilk",
+  "name": "燕麥豆漿粥",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 10,
+  "method": "porridge",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "燕麥片", "label": "燕麥片", "grams": 160, "track": "base", "pantry": true },
+    { "food": "無糖豆漿", "label": "無糖豆漿", "grams": 800, "track": "base" },
+    { "food": "香蕉", "label": "香蕉（切片）", "grams": 240, "track": "base" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "cook", "text": "豆漿倒進鍋裡小火加熱到微滾，倒入燕麥片。" },
+    { "stage": "base", "type": "cook", "text": "邊煮邊攪三到五分鐘，到燕麥變軟、粥變濃稠。" },
+    { "stage": "base", "type": "serve", "text": "盛碗後鋪上香蕉片。喜歡甜一點的家人可以自己加一點糖或蜂蜜。" }
+  ]
+}

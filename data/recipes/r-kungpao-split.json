@@ -1,0 +1,31 @@
+{
+  "id": "r-kungpao-split",
+  "name": "宮保雞丁／宮保豆干",
+  "role": "main",
+  "servings": 4,
+  "time": 25,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "辣椒", "label": "紅辣椒（切段）", "grams": 15, "track": "base" },
+    { "food": "薑", "label": "薑末", "grams": 10, "track": "base" },
+    { "food": "大蒜", "label": "蒜末", "grams": 10, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 25, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 8, "track": "base", "pantry": true },
+    { "food": "白醋", "label": "白醋", "grams": 10, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "五香豆干", "label": "五香豆干（切丁）", "grams": 240, "track": "veg" },
+    { "food": "雞胸肉", "label": "雞胸肉（切丁）", "grams": 400, "track": "meat" },
+    { "food": "太白粉", "label": "太白粉（醃肉）", "grams": 6, "track": "meat", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "雞胸肉切 2 公分丁，用一點醬油和太白粉抓醃十分鐘；豆干切同樣大小的丁；辣椒切段、薑蒜切末。" },
+    { "stage": "base", "type": "prep", "text": "把醬油、糖、白醋和兩大匙水調成醬汁備用。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱下油，小火爆香辣椒段、薑末、蒜末到香氣出來。" },
+    { "stage": "split", "type": "split", "text": "把爆香的辛香料分一小部分到另一個鍋給素食那鍋用。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：下豆干丁中大火炒到表面微焦，倒入三分之一醬汁，翻炒到收汁。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：下雞丁大火炒到全部變白，倒入剩下的醬汁，翻炒到醬汁裹住雞丁。" }
+  ]
+}

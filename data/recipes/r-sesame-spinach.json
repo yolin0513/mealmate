@@ -1,0 +1,23 @@
+{
+  "id": "r-sesame-spinach",
+  "name": "芝麻涼拌菠菜",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "cold",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [11, 12, 1, 2, 3],
+  "ingredients": [
+    { "food": "菠菜", "label": "菠菜", "grams": 400, "track": "base" },
+    { "food": "白芝麻", "label": "熟白芝麻", "grams": 10, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 12, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 8, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 3, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "菠菜洗淨切掉根部，切 4 公分段。" },
+    { "stage": "base", "type": "cook", "text": "滾水下菠菜燙一分鐘，撈起泡冷水後擠乾。" },
+    { "stage": "base", "type": "serve", "text": "醬油、香油、糖調勻拌入菠菜，撒上白芝麻。" }
+  ]
+}

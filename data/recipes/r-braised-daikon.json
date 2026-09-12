@@ -1,0 +1,25 @@
+{
+  "id": "r-braised-daikon",
+  "name": "醬燒白蘿蔔",
+  "role": "side",
+  "servings": 4,
+  "time": 30,
+  "method": "braise",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [11, 12, 1, 2, 3],
+  "ingredients": [
+    { "food": "白蘿蔔", "label": "白蘿蔔（去皮切塊）", "grams": 600, "track": "base" },
+    { "food": "薑", "label": "薑片", "grams": 10, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 25, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 6, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 10, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "白蘿蔔削皮切 3 公分塊；薑切片。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油爆香薑片，下蘿蔔塊略炒，加醬油、糖和水到蓋過蘿蔔。" },
+    { "stage": "base", "type": "cook", "text": "煮滾後蓋鍋小火燒 20 分鐘，到筷子可以輕鬆插入。" },
+    { "stage": "base", "type": "serve", "text": "開蓋收汁一下，淋香油。軟到長輩不用費力咬。" }
+  ]
+}

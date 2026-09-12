@@ -1,0 +1,23 @@
+{
+  "id": "r-tomato-egg-soup",
+  "name": "番茄蛋花湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 15,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [11, 12, 1, 2, 3, 4, 5],
+  "ingredients": [
+    { "food": "番茄", "label": "番茄（切塊）", "grams": 300, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋", "grams": 110, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 4, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 8, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 3, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "番茄切塊；雞蛋打散。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，番茄中火炒到出汁變軟，加 1000 毫升水煮滾後小火煮五分鐘。" },
+    { "stage": "base", "type": "cook", "text": "加鹽，轉小火把蛋液繞圈倒入，稍等再輕推成蛋花，淋香油關火。" }
+  ]
+}

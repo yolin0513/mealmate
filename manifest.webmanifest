@@ -1,0 +1,18 @@
+{
+  "name": "MealMate 家庭三餐規劃",
+  "short_name": "MealMate",
+  "description": "一週菜單、素葷一鍋兩吃、購物清單。營養數字為估計值僅供參考，不是醫療或營養處方。純前端、免註冊、離線可用。",
+  "lang": "zh-Hant",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff7ec",
+  "theme_color": "#fff7ec",
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

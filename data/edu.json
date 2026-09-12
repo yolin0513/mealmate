@@ -1,0 +1,77 @@
+{
+  "note": "UI 裡每一句衛教文字都要對到這裡的一個 id。kind=quote 是逐字引用（原文必須能在 docs/sources/ 找到）；kind=summary 是摘要（標明非原文）；kind=attribution 是資料來源標示。這些都是對一般健康人的通則，App 只當「一般衛教參考」顯示，不對任何人設定目標。",
+  "entries": [
+    {
+      "id": "hpa.six-groups.balance",
+      "kind": "quote",
+      "text": "應均衡攝取6大類食物，最好再搭配適當的運動，才會讓身體更健康！",
+      "source": { "org": "衛生福利部國民健康署", "title": "6大類食物", "url": "https://www.hpa.gov.tw/Pages/List.aspx?nodeid=4086", "version": "網頁（點閱 590,030）", "fetchedAt": "2026-09-12", "file": "docs/sources/hpa-six-food-groups.md" }
+    },
+    {
+      "id": "hpa.six-groups.protein-order",
+      "kind": "quote",
+      "text": "建議儘量選擇脂肪含量較低的豆魚蛋肉類食物，優先順序最好是依照豆製品、魚類與海鮮、蛋，最後是肉類，並且避免油炸及加工肉品，每餐大約吃1掌心的份量剛剛好！",
+      "source": { "org": "衛生福利部國民健康署", "title": "6大類食物", "url": "https://www.hpa.gov.tw/Pages/List.aspx?nodeid=4086", "version": "網頁（點閱 590,030）", "fetchedAt": "2026-09-12", "file": "docs/sources/hpa-six-food-groups.md" }
+    },
+    {
+      "id": "hpa.six-groups.seasonal-veg",
+      "kind": "quote",
+      "text": "每餐都要攝取煮熟後體積比拳頭多一些的蔬菜類食物才足夠，建議選擇當季盛產的蔬菜，既新鮮又便宜，還可以獲得各種不同的營養素喔！",
+      "source": { "org": "衛生福利部國民健康署", "title": "6大類食物", "url": "https://www.hpa.gov.tw/Pages/List.aspx?nodeid=4086", "version": "網頁（點閱 590,030）", "fetchedAt": "2026-09-12", "file": "docs/sources/hpa-six-food-groups.md" }
+    },
+    {
+      "id": "hpa.six-groups.whole-grains",
+      "kind": "quote",
+      "text": "白米飯是最常被當作主食的全榖雜糧類食物，但搭配其他全榖雜糧類例如：糙米飯、全麥饅頭、甘藷、紅豆、綠豆等來獲取其他營養素（維生素Ｂ群、維生素Ｅ、礦物質及膳食纖維）才是真正的聰明吃喔！",
+      "source": { "org": "衛生福利部國民健康署", "title": "6大類食物", "url": "https://www.hpa.gov.tw/Pages/List.aspx?nodeid=4086", "version": "網頁（點閱 590,030）", "fetchedAt": "2026-09-12", "file": "docs/sources/hpa-six-food-groups.md" }
+    },
+    {
+      "id": "hpa.six-groups.oil",
+      "kind": "quote",
+      "text": "建議選擇不飽和脂肪含量高且反式脂肪為『零』的油品（橄欖油、葵花油、大豆油等），每日食用約4~5 茶匙內，並以低溫烹調喔！",
+      "source": { "org": "衛生福利部國民健康署", "title": "6大類食物", "url": "https://www.hpa.gov.tw/Pages/List.aspx?nodeid=4086", "version": "網頁（點閱 590,030）", "fetchedAt": "2026-09-12", "file": "docs/sources/hpa-six-food-groups.md" }
+    },
+    {
+      "id": "hpa.six-groups.dairy",
+      "kind": "quote",
+      "text": "每天早晚建議各喝一杯奶（一杯約240毫升）才能補充足夠的鈣質",
+      "source": { "org": "衛生福利部國民健康署", "title": "6大類食物", "url": "https://www.hpa.gov.tw/Pages/List.aspx?nodeid=4086", "version": "網頁（點閱 590,030）", "fetchedAt": "2026-09-12", "file": "docs/sources/hpa-six-food-groups.md" }
+    },
+    {
+      "id": "hpa.plant-based.protein-order",
+      "kind": "quote",
+      "text": "建議大家依照「豆＞魚＞蛋＞肉」的順序選擇蛋白質食物",
+      "source": { "org": "衛生福利部國民健康署", "title": "植物為主飲食專區", "url": "https://www.hpa.gov.tw/Pages/List.aspx?nodeid=4530", "version": "網頁（點閱 31,528）", "fetchedAt": "2026-09-12", "file": "docs/sources/hpa-plant-based-diet.md" }
+    },
+    {
+      "id": "hpa.texture.three-good",
+      "kind": "quote",
+      "text": "吃得下、吃得夠、吃得對、吃得巧",
+      "source": { "org": "衛生福利部國民健康署", "title": "質地調整飲食", "url": "https://www.hpa.gov.tw/Pages/Detail.aspx?nodeid=4131&pid=11931", "version": "更新日期 2024/05/07", "fetchedAt": "2026-09-12", "file": "docs/sources/hpa-texture-modified-diet.md" }
+    },
+    {
+      "id": "hpa.texture.levels",
+      "kind": "summary",
+      "text": "國健署的質地調整飲食把長輩餐點依軟硬分級，常用的兩級是「容易咬軟質食」與「牙齦碎軟質食」，原則是食材挑選、切割烹煮技巧與簡易檢測。MealMate 的「軟質」「需剁碎」標籤只借用這兩個級別的名稱幫你挑菜，不是吞嚥評估。",
+      "source": { "org": "衛生福利部國民健康署", "title": "質地調整飲食", "url": "https://www.hpa.gov.tw/Pages/Detail.aspx?nodeid=4131&pid=11931", "version": "更新日期 2024/05/07", "fetchedAt": "2026-09-12", "file": "docs/sources/hpa-texture-modified-diet.md" }
+    },
+    {
+      "id": "hpa.dris.scope",
+      "kind": "quote",
+      "text": "我國以健康人為對象，由衛生福利部食品藥物管理署（前行政院衛生署食品藥物管理局）於民國101年訂定「國人膳食營養素參考攝取量（Dietary Reference Intakes, DRIs）」第七版",
+      "source": { "org": "衛生福利部國民健康署", "title": "國人膳食營養素參考攝取量（第八版索引頁）", "url": "https://www.hpa.gov.tw/Pages/List.aspx?nodeid=4613", "version": "第八版（索引頁，各營養素數值尚未從 PDF 核對）", "fetchedAt": "2026-09-12", "file": "docs/sources/hpa-dris-8th-index.md" }
+    },
+    {
+      "id": "fda.tfnd.attribution",
+      "kind": "attribution",
+      "text": "營養數字依衛生福利部食品藥物管理署「食品營養成分資料庫」的每 100 克含量累加估算（政府資料開放授權條款－第1版）。是估計值：未計烹調吸油、水分變化與品項差異，僅供參考。",
+      "source": { "org": "衛生福利部食品藥物管理署", "title": "食品營養成分資料庫", "url": "https://data.gov.tw/dataset/8543", "version": "資料檔 2026-08-26（每季更新）", "fetchedAt": "2026-09-12", "file": "docs/FEASIBILITY.md" }
+    },
+    {
+      "id": "hpa.open-data.attribution",
+      "kind": "attribution",
+      "text": "衛教文字引用自衛生福利部國民健康署網站，依「政府網站資料開放宣告」（政府資料開放授權條款－第1版）使用並註明出處；只引用文字，不使用任何圖像或影音。國健署並未審閱或認可本 App。",
+      "source": { "org": "衛生福利部國民健康署", "title": "政府網站資料開放宣告", "url": "https://www.hpa.gov.tw/Pages/Detail.aspx?nodeid=92&pid=5141", "version": "更新日期 2023/01/16", "fetchedAt": "2026-09-12", "file": "docs/sources/hpa-open-data-declaration.md" }
+    }
+  ]
+}

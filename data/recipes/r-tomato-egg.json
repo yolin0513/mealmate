@@ -1,0 +1,26 @@
+{
+  "id": "r-tomato-egg",
+  "name": "番茄炒蛋",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [11, 12, 1, 2, 3, 4, 5],
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "牛番茄", "label": "牛番茄（切塊）", "grams": 450, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋", "grams": 220, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（可省略）", "grams": 15, "track": "base" },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 4, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "番茄切成一口大小的塊；雞蛋打散加一小撮鹽；青蔥切段。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱後下一半的油，倒入蛋液，用鍋鏟輕推成大塊嫩蛋，八分熟就先盛出。" },
+    { "stage": "base", "type": "cook", "text": "同一鍋下剩下的油，番茄塊中火炒到出水變軟，加鹽和糖調味。" },
+    { "stage": "base", "type": "cook", "text": "把蛋倒回鍋裡，和番茄拌炒半分鐘，起鍋前撒蔥段。" }
+  ]
+}

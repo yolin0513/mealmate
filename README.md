@@ -1,0 +1,26 @@
+# MealMate 家庭三餐規劃
+
+免帳號、純前端、離線可用的 PWA：設定家人（葷素、要留意的慢性病項目）與買菜日，產生一週菜單（主菜兩週內不重複、素葷可一鍋兩吃），每道菜附估計營養標示，購物清單依買菜日自動整理。
+
+**它是規劃助手，不是營養師，也不是醫囑。** 營養數字依衛福部食藥署「食品營養成分資料庫」估算，是估計值僅供參考；慢性病設定只影響畫面顯示與排菜順序，長輩實際飲食請以醫師或營養師的指示為準。
+
+- 線上：https://yolin0513.github.io/mealmate/
+- 規劃（唯一真相來源）：`docs/PLAN.md`；交接與開發順序：`docs/STATUS.md`；實測：`docs/FEASIBILITY.md`；資料與衛教來源：`docs/SOURCES.md`
+
+## 開發
+
+```bash
+npm install
+npm run dev          # http://localhost:5190/
+npm test             # 全部測試（含突變測試，會暫時改寫原始碼，跑的時候不要同時編輯）
+npm run build-foods  # 從 data/raw/ 的食藥署匯出檔重建 data/foods.json（--download 先抓）
+npm run build-recipes
+```
+
+原生 JS ES Modules ＋ IndexedDB ＋ Service Worker；無框架、無打包、無後端、無任何外部請求（CSP `connect-src 'self'`）。
+
+## 資料來源與授權
+
+- 食材營養：衛生福利部食品藥物管理署「食品營養成分資料庫」（政府資料開放平臺資料集 8543），政府資料開放授權條款－第1版。
+- 衛教文字：衛生福利部國民健康署網站，依其「政府網站資料開放宣告」使用並註明出處；只引用文字，不使用圖像或影音。國健署並未審閱或認可本 App。
+- 食譜：自撰。

@@ -1,0 +1,23 @@
+{
+  "id": "r-stir-fried-cabbage",
+  "name": "清炒高麗菜",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [11, 12, 1, 2, 3, 4],
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "高麗菜", "label": "高麗菜", "grams": 450, "track": "base" },
+    { "food": "大蒜", "label": "蒜片（可省略）", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "高麗菜用手撕成大片洗淨瀝乾；蒜切片。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱下油，蒜片小火爆香。" },
+    { "stage": "base", "type": "cook", "text": "大火下高麗菜快炒兩分鐘，沿鍋邊加兩大匙水，加鹽拌炒到葉子透亮起鍋。" }
+  ]
+}

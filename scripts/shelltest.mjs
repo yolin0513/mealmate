@@ -1,0 +1,386 @@
+// PWA 殼的稽核（npm run shelltest）—— 沿用 StockDiary 的 shelltest。
+//
+//   A. 靜態稽核：從 js/app.js 走完整個 import 圖，每一個模組都必須在 sw.js 的 SHELL_ASSETS 裡；
+//      版本號三處一致；沒有人 import app.js；沒有一頁自己寫 #view；沒有跳脫壞掉的 regex；
+//      沒有任何非同源 fetch；CSP 的 connect-src 只有 'self'。
+//   B. 真的用瀏覽器開起來：h() 不接受 html: prop、網址白名單、每條路由都畫得出東西、
+//      不認得的網址講清楚不靜默跳首頁、關於卡片有版本、首頁有健康說明。
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import puppeteer from 'puppeteer';
+import { ok, eq, section, done, noneOf, everyOf, detects } from './tap.mjs';
+import { listen } from './serve.mjs';
+import { stripComments } from './srcscan.mjs';
+
+const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+const VERSION_RX = /^mealmate-v\d+\.\d+\.\d+$/;
+
+// ---------- A. 靜態稽核 ----------
+
+export function shellAssetsOf(swSource) {
+  const m = /const SHELL_ASSETS = \[([\s\S]*?)\];/.exec(swSource);
+  if (!m) throw new Error('sw.js 裡找不到 SHELL_ASSETS');
+  return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
+}
+
+export function importsOf(rawSource) {
+  const source = stripComments(rawSource);
+  const out = new Set();
+  const patterns = [
+    /\bimport\s+[^'"]*?from\s+'([^']+)'/g,
+    /\bimport\s+'([^']+)'/g,
+    /\bimport\(\s*'([^']+)'\s*\)/g,
+    /\bimport\(\s*`([^`$]+)/g,
+  ];
+  for (const rx of patterns) {
+    for (const m of source.matchAll(rx)) {
+      if (m[1].startsWith('.')) out.add(m[1]);
+    }
+  }
+  return [...out];
+}
+
+export function reachableModules(entry, readFile) {
+  const seen = new Set();
+  const missing = [];
+  const walk = (rel) => {
+    if (seen.has(rel)) return;
+    seen.add(rel);
+    let src;
+    try { src = readFile(rel); } catch { missing.push(rel); return; }
+    for (const spec of importsOf(src)) {
+      walk(path.posix.normalize(path.posix.join(path.posix.dirname(rel), spec)));
+    }
+  };
+  walk(entry);
+  return { modules: [...seen], missing };
+}
+
+export function auditShell(modules, shellAssets) {
+  const inShell = new Set(shellAssets.map((a) => path.posix.normalize(a.replace(/^\.\//, ''))));
+  return modules.filter((m) => !inShell.has(m));
+}
+
+const swSource = read('sw.js');
+const shellAssets = shellAssetsOf(swSource);
+const readModule = (rel) => read(rel);
+
+section('import 稽核器本身');
+detects((src) => importsOf(src).includes('./x.js'), {
+  shouldHit: ["import { a } from './x.js';", "await import('./x.js');", "import './x.js';"],
+  shouldMiss: ["// import { a } from './x.js';", "/* import { a } from './x.js'; */", "import { a } from './y.js';"],
+}, 'import 稽核器認得真的 import，也不會把註解裡的當真');
+
+section('沒有跳脫壞掉的 regex');
+// 用 shell heredoc 產生程式碼時 `\s` 常變成 `\\s`，在 regex 裡那是「反斜線接 s」——
+// 不報錯、測試綠、但那條斷言從此不命中任何東西。判準：regex 字面值裡出現兩個反斜線＋類別字元。
+const scanDirs = ['js', 'js/views', 'scripts'];
+const sourceFiles = scanDirs.flatMap((d) => fs.readdirSync(path.join(ROOT, d))
+  .filter((f) => f.endsWith('.js') || f.endsWith('.mjs'))
+  .map((f) => `${d}/${f}`));
+
+function insideString(line, idx) {
+  let quote = null;
+  for (let k = 0; k < idx; k += 1) {
+    const c = line[k];
+    if (c === String.fromCharCode(92)) { k += 1; continue; }
+    if (quote) { if (c === quote) quote = null; continue; }
+    if (c === "'" || c === '"' || c === '`') quote = c;
+  }
+  return quote !== null;
+}
+
+const BS2 = String.fromCharCode(92, 92);
+const BAD_ESCAPE = new RegExp(String.fromCharCode(92, 92, 92, 92) + '[sdwSDWbn.]');
+const brokenEscapes = [];
+for (const rel of sourceFiles) {
+  const src = stripComments(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
+  src.split(/\r?\n/).forEach((line, i) => {
+    for (const m of line.matchAll(/\/((?:[^/\n]|\\\/)+)\/[gimsuy]*\s*\.(?:test|exec)\(/g)) {
+      if (!BAD_ESCAPE.test(m[1])) continue;
+      if (insideString(line, m.index)) continue;
+      brokenEscapes.push(`${rel}:${i + 1}  /${m[1]}/`);
+    }
+  });
+}
+ok(sourceFiles.length >= 25, `（母體）掃了 ${sourceFiles.length} 個原始碼檔`);
+eq(brokenEscapes, [], '沒有任何 regex 的反斜線被跳脫兩次');
+const ONE_BS = String.fromCharCode(92);
+ok(BAD_ESCAPE.test(BS2 + 's'), '（對照）判準認得出被跳脫兩次的類別字元');
+ok(!BAD_ESCAPE.test(ONE_BS + 's'), '（對照）而且不會誤報正常的單反斜線');
+
+section('SHELL 清單本身');
+ok(shellAssets.length > 10, `sw.js 列了 ${shellAssets.length} 個檔案`);
+everyOf(shellAssets.filter((a) => a !== './'), (a) => fs.existsSync(path.join(ROOT, a)), 'SHELL 清單裡的檔案都真的存在');
+eq([...new Set(shellAssets)].length, shellAssets.length, 'SHELL 清單沒有重複項目');
+const version = /const VERSION = '([^']+)'/.exec(swSource)?.[1];
+ok(VERSION_RX.test(String(version)), `VERSION 格式正常：${version}`);
+everyOf(['./data/foods.json', './data/recipes.json', './data/edu.json', './data/aliases.json', './data/units.json'], (a) => shellAssets.includes(a), '五個資料檔都在 SHELL 裡（離線才開得起來）');
+
+section('import 圖 ⊆ SHELL 清單');
+const { modules, missing } = reachableModules('js/app.js', readModule);
+eq(missing, [], 'import 到的檔案都存在');
+ok(modules.length >= 8, `從 app.js 走得到 ${modules.length} 個模組：${modules.join('、')}`);
+eq(auditShell(modules, shellAssets), [], '每一個會被載到的模組都在 SHELL 清單裡');
+
+section('稽核器對照組');
+const crippled = shellAssets.filter((a) => a !== './js/views/week.js');
+eq(auditShell(modules, crippled), ['js/views/week.js'], '（對照）清單少了 views/week.js 時，稽核器確實會報出來');
+detects((asset) => auditShell(modules, shellAssets.filter((a) => a !== asset)).length > 0, {
+  shouldHit: ['./js/ui.js', './js/router.js', './js/views/family.js', './js/store.js'],
+  shouldMiss: ['./index.html', './css/style.css', './icons/icon-192.png', './data/foods.json'],
+}, '稽核器只管 JS 模組，抽掉非模組資產不會誤報');
+
+section('版本號三個地方必須一致');
+const appVersion = /export const APP_VERSION = '([^']+)';/.exec(read('js/version.js'))?.[1];
+const swVersion = /const VERSION = '([^']+)';/.exec(read('sw.js'))?.[1];
+const htmlStamps = [...read('index.html').matchAll(/\?v=([^"'&]+)/g)].map((m) => m[1]);
+const sameVersion = (v) => v === appVersion;
+ok(VERSION_RX.test(String(appVersion)), `js/version.js 的版本：${appVersion}`);
+ok(sameVersion(swVersion), 'sw.js 的 VERSION 與 js/version.js 一致', `sw.js 是 ${swVersion}`);
+ok(htmlStamps.length >= 2, `index.html 有 ${htmlStamps.length} 個帶版本的資源網址`);
+everyOf(htmlStamps, sameVersion, 'index.html 每一個 ?v= 都是同一個版本');
+const [, major, minor, patch] = /^mealmate-v(\d+)\.(\d+)\.(\d+)$/.exec(appVersion);
+detects((v) => !sameVersion(v), {
+  shouldHit: ['mealmate-v0.0.1', '', `${appVersion} `, ` ${appVersion}`, `${appVersion}.1`, appVersion.slice(0, -1), appVersion.toUpperCase(),
+    `mealmate-v${major}.${minor}.${Number(patch) + 1}`, `mealmate-v${major}.${Number(minor) + 1}.${patch}`, `v${major}.${minor}.${patch}`, `mealmate-${major}.${minor}.${patch}`],
+  shouldMiss: [appVersion, String(appVersion), `${appVersion}`, appVersion.split('').join(''), `mealmate-v${major}.${minor}.${patch}`],
+}, '版本比對是嚴格字串相等');
+
+const stamped = (u) => u.includes('?');
+const shouldBeStamped = (u) => {
+  const p0 = u.split('?')[0];
+  return p0 === './js/app.js' || p0.startsWith('./js/views/');
+};
+const htmlJsRefs = [...read('index.html').matchAll(/(?:src|href)="(\.\/[^"]+\.js[^"]*)"/g)].map((m) => m[1]);
+ok(htmlJsRefs.length >= 5, `index.html 引用了 ${htmlJsRefs.length} 個本地 .js`);
+ok(htmlJsRefs.some((u) => u.split('?')[0] === './js/app.js'), 'index.html 確實有載入進入點 app.js');
+everyOf(htmlJsRefs, (u) => (shouldBeStamped(u) ? u.endsWith(`?v=${appVersion}`) : !stamped(u)),
+  `index.html 每個 .js 引用的網址都跟模組圖實際請求的一致（該帶版本的帶 ?v=${appVersion}，不該帶的不帶）`);
+detects((u) => !(shouldBeStamped(u) ? u.endsWith(`?v=${appVersion}`) : !stamped(u)), {
+  shouldHit: ['./js/app.js', './js/app.js?v=mealmate-v0.0.1', `./js/router.js?v=${appVersion}`, './js/views/week.js'],
+  shouldMiss: [`./js/app.js?v=${appVersion}`, `./js/views/week.js?v=${appVersion}`, './js/router.js', './js/shell.js'],
+}, '「網址該不該帶版本」的檢查器有對照組');
+
+section('app.js 的動態 import 都帶版本參數');
+const appSrc = read('js/app.js');
+const dynamicImports = [...appSrc.matchAll(/await import\(([^)]+)\)/g)].map((m) => m[1].trim());
+ok(dynamicImports.length >= 5, `找到 ${dynamicImports.length} 個動態 import`);
+everyOf(dynamicImports, (s) => s.includes('${V}'), '每一個動態 import 都帶 ${V} 版本參數');
+
+section('路由表與 view 檔');
+const routeDefs = [...appSrc.matchAll(/route\('([^']+)',[\s\S]{0,200}?import\(`([^`$]+)/g)]
+  .map((m) => ({ pattern: m[1], view: path.posix.normalize(path.posix.join('js', m[2].replace(/^\.\//, ''))) }));
+ok(routeDefs.length >= 4, `註冊了 ${routeDefs.length} 條路由：${routeDefs.map((r) => r.pattern).join('、')}`);
+everyOf(routeDefs, (r) => fs.existsSync(path.join(ROOT, r.view)), '每條路由的 view 檔都存在');
+const shellSet = new Set(shellAssets.map((a) => path.posix.normalize(a.replace(/^\.\//, ''))));
+everyOf(routeDefs, (r) => shellSet.has(r.view), '每條路由的 view 檔都在 SHELL 清單裡');
+
+section('index.html 引用的資源');
+const html = read('index.html');
+const refs = [...html.matchAll(/(?:href|src)="(\.\/[^"]+)"/g)].map((m) => m[1].split('?')[0]);
+ok(refs.length >= 5, `index.html 引用了 ${refs.length} 個本地資源`);
+everyOf(refs, (r) => fs.existsSync(path.join(ROOT, r)), 'index.html 引用的檔案都存在');
+everyOf(refs, (r) => shellSet.has(path.posix.normalize(r.replace(/^\.\//, ''))), 'index.html 引用的檔案都在 SHELL 清單裡');
+
+section('CSP：沒有外部連線');
+const csp = /http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(html)?.[1] ?? '';
+const connectSrc = /connect-src ([^;]+)/.exec(csp)?.[1]?.trim();
+eq(connectSrc, "'self'", "connect-src 只有 'self'");
+ok(/script-src 'self'(;|$)/.test(csp), "script-src 只有 'self'");
+const jsFiles = ['js', 'js/views'].flatMap((d) => fs.readdirSync(path.join(ROOT, d)).filter((f) => f.endsWith('.js')).map((f) => `${d}/${f}`));
+const externalFetch = (src) => /\bfetch\(\s*['"`]https?:/.test(stripComments(src)) || /new WebSocket\(/.test(stripComments(src));
+noneOf(jsFiles, (f) => externalFetch(read(f)), '沒有任何模組對外部網址 fetch');
+detects(externalFetch, {
+  shouldHit: ["fetch('https://example.com/x')", 'fetch("http://a.b/")', "await fetch(`https://x.y/${id}`)", 'new WebSocket("wss://x")'],
+  shouldMiss: ["fetch('./data/foods.json')", "fetch(`./data/${name}`)", "// fetch('https://commented.out')"],
+}, '外部 fetch 的判準有對照組');
+
+export function viewsWritingViewDirectly(source) {
+  return /getElementById\(\s*['"]view['"]\s*\)/.test(source) || /mount\(\s*view/.test(source);
+}
+
+section('沒有任何模組 import 進入點 app.js');
+const nonEntryModules = ['sw.js', ...jsFiles].filter((f) => f !== 'js/app.js');
+noneOf(nonEntryModules, (f) => importsOf(read(f)).some((spec) => spec.split('?')[0].endsWith('/app.js')),
+  '沒有任何模組 import app.js（view 要的東西在 js/shell.js）');
+
+section('沒有任何一頁繞過 render() 直接寫 #view');
+const viewFiles = fs.readdirSync(path.join(ROOT, 'js/views')).filter((f) => f.endsWith('.js'));
+noneOf(viewFiles, (f) => viewsWritingViewDirectly(read(`js/views/${f}`)), '每一頁都透過 shell.js 的 render() 上畫面');
+detects(viewsWritingViewDirectly, {
+  shouldHit: ["mount(document.getElementById('view'), x);", 'mount(document.getElementById("view"), x);', 'const el = document.getElementById( "view" );'],
+  shouldMiss: ['render([a, b]);', "document.getElementById('modalRoot')", 'mount(bar, ...tabs);'],
+}, '這個稽核器抓得到繞過去的寫法，也不會亂抓');
+
+section('sw.js 不會快取外部請求');
+ok(/if \(url\.origin !== self\.location\.origin\) return;/.test(swSource), '跨網域請求直接走網路，不進快取');
+ok(/cache: 'reload'/.test(swSource), 'install 時用 cache:reload 預快取，避免存進舊版 JS');
+
+// ---------- B. 瀏覽器 ----------
+const { srv, port } = await listen(0);
+const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
+try {
+  const page = await browser.newPage();
+  page.setDefaultTimeout(60000);
+  page.setDefaultNavigationTimeout(60000);
+  await page.setViewport({ width: 390, height: 844 });
+  const pageErrors = [];
+  const consoleErrors = [];
+  page.on('pageerror', (e) => pageErrors.push(String(e.message)));
+  page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+
+  await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle0' });
+  await page.waitForSelector('#view .card', { timeout: 60000 });
+
+  section('開得起來');
+  eq(pageErrors, [], '沒有未攔截的例外');
+  eq(consoleErrors.filter((t) => !/favicon|sw\.js/i.test(t)), [], '主控台沒有錯誤');
+  eq((await page.$$('#tabbar .tab')).length, 4, '底部四個分頁畫出來了');
+  const title = await page.$eval('#topTitle', (el) => el.textContent);
+  eq(title, '本週菜單', `頂列標題：「${title}」`);
+
+  section('首頁的健康說明');
+  const notice = await page.$eval('#view [data-card="healthNotice"]', (el) => el.textContent.replace(/\s+/g, ' '));
+  ok(notice.includes('醫師或營養師'), '有「請以醫師或營養師的指示為準」這一層');
+  ok(notice.includes('估'), '有講數字是估算');
+  ok(notice.includes('不是醫囑'), '有講留意設定不是醫囑');
+
+  section('h() 不接受 html: prop');
+  const hRes = await page.evaluate(async () => {
+    const { h } = await import('./js/ui.js');
+    const payload = '<img src=x onerror="window.__pwned=1"><b>粗體</b>';
+    const viaProp = h('div', { html: payload });
+    const viaChild = h('div', {}, payload);
+    const nested = h('div', {}, h('span', {}, payload));
+    document.body.append(viaProp, viaChild, nested);
+    await new Promise((r) => setTimeout(r, 50));
+    return {
+      pwned: !!window.__pwned,
+      propChildElements: viaProp.querySelectorAll('*').length,
+      propText: viaProp.textContent,
+      propHasImg: !!viaProp.querySelector('img'),
+      childChildElements: viaChild.querySelectorAll('*').length,
+      childText: viaChild.textContent,
+      nestedText: nested.textContent,
+      imgsInBody: document.querySelectorAll('img').length,
+    };
+  });
+  eq(hRes.pwned, false, 'onerror 沒有被執行');
+  eq(hRes.propHasImg, false, 'html: prop 沒有生出 <img> 節點');
+  eq(hRes.propChildElements, 0, 'html: prop 沒有生出任何子元素');
+  eq(hRes.propText, '', 'html: prop 連文字都沒有進來');
+  eq(hRes.childChildElements, 0, '（對照）同一串字當 child 傳，也不會變成元素');
+  eq(hRes.childText, '<img src=x onerror="window.__pwned=1"><b>粗體</b>', '（對照）當 child 傳的時候，這串字原封不動顯示出來');
+  eq(hRes.nestedText, '<img src=x onerror="window.__pwned=1"><b>粗體</b>', '巢狀節點也是文字');
+  eq(hRes.imgsInBody, 0, '整個頁面沒有多出 <img>');
+
+  section('網址屬性白名單');
+  const urlRes = await page.evaluate(async () => {
+    const { h } = await import('./js/ui.js');
+    const mk = (href) => h('a', { href }).getAttribute('href');
+    return {
+      js: mk('javascript:alert(1)'),
+      dataHtml: mk('data:text/html,<script>alert(1)</script>'),
+      vb: mk('vbscript:msgbox(1)'),
+      https: mk('https://www.hpa.gov.tw/'),
+      hash: mk('#/family'),
+      rel: mk('./data/foods.json'),
+      dataImg: mk('data:image/png;base64,iVBORw0KGgo='),
+    };
+  });
+  noneOf([urlRes.js, urlRes.dataHtml, urlRes.vb], (v) => v != null, '危險的協定全部被丟掉');
+  everyOf([urlRes.https, urlRes.hash, urlRes.rel, urlRes.dataImg], (v) => typeof v === 'string' && v.length > 0, '（對照）正常的網址留得下來');
+
+  section('每條路由都畫得出東西');
+  const EXPECT_TITLE = {
+    '/': '本週菜單',
+    '/shopping': '買菜',
+    '/recipes': '食譜',
+    '/recipes/:id': '食譜',
+    '/family': '家人',
+  };
+  everyOf(routeDefs, (r) => EXPECT_TITLE[r.pattern] != null, '每條路由都列了它應該出現的標題（新增路由時不准漏掉）');
+  const titleIs = (want) => page.waitForFunction(
+    (t) => document.getElementById('topTitle').textContent === t, { timeout: 60000 }, want);
+  const goto = async (hash) => { await page.evaluate((x) => { location.hash = x; }, hash); };
+
+  for (const r of routeDefs) {
+    const want = EXPECT_TITLE[r.pattern];
+    // 先繞去一個標題不一樣的畫面再過去；不繞的話上一頁剛好同標題時等待會立刻成立，等於沒等。
+    const via = want === EXPECT_TITLE['/family'] ? '#/' : '#/family';
+    await goto(via);
+    await titleIs(EXPECT_TITLE[via === '#/' ? '/' : '/family']);
+    await goto('#' + r.pattern);
+    let landed = true;
+    try { await titleIs(want); } catch { landed = false; }
+    const got = await page.evaluate(() => ({
+      title: document.getElementById('topTitle').textContent,
+      text: document.querySelector('#view').textContent.trim(),
+    }));
+    ok(landed && got.text.length > 10, `${r.pattern} 真的畫出來了（標題「${want}」，${got.text.length} 字）`, landed ? '' : `標題停在「${got.title}」`);
+    if (r.pattern === '/recipes/:id') {
+      eq(await page.evaluate(() => location.hash), '#/recipes', '查不到的食譜 id 會退回 #/recipes');
+    }
+  }
+  eq(pageErrors, [], '走完所有路由之後仍然沒有例外');
+
+  section('食譜頁真的列出內建食譜、點進去有食材與步驟');
+  await goto('#/recipes');
+  await titleIs('食譜');
+  await page.waitForSelector('#view [data-list="recipes"] a.row', { timeout: 60000 });
+  const rowCount = await page.$$eval('#view [data-list="recipes"] a.row', (els) => els.length);
+  ok(rowCount >= 30, `清單有 ${rowCount} 道`);
+  const firstHref = await page.$eval('#view [data-list="recipes"] a.row', (el) => el.getAttribute('href'));
+  await goto(firstHref);
+  await page.waitForSelector('#view [data-card="recipeSteps"]', { timeout: 60000 });
+  const detail = await page.evaluate(() => ({
+    ingredients: document.querySelectorAll('#view [data-card="recipeIngredients"] tbody tr').length,
+    steps: document.querySelectorAll('#view [data-card="recipeSteps"] li').length,
+    nutritionText: document.querySelector('#view [data-card="recipeNutrition"]')?.textContent ?? '',
+  }));
+  ok(detail.ingredients >= 1, `食材 ${detail.ingredients} 列`);
+  ok(detail.steps >= 3, `步驟 ${detail.steps} 步`);
+  ok(detail.nutritionText.includes('尚未提供') || detail.nutritionText.includes('估'), '營養區塊講清楚目前狀態（尚未提供，或已有估算）');
+  noneOf([detail.nutritionText], (t) => /\b0 (g|mg|kcal)\b/.test(t), '營養區塊沒有出現「0 g」這種假數字');
+
+  section('不認得的網址：講清楚原因，不靜默跳回首頁');
+  await goto('#/');
+  await titleIs('本週菜單');
+  await new Promise((r) => setTimeout(r, 300));
+  await goto('#/沒有這一頁');
+  await page.waitForSelector('#view [data-card="versionMismatch"]', { timeout: 60000 });
+  const mismatch = await page.evaluate(() => ({
+    hash: location.hash,
+    text: document.querySelector('#view').textContent.replace(/\s+/g, ' '),
+    hasUpdateButton: [...document.querySelectorAll('#view button')].some((b) => b.textContent.includes('更新到最新版')),
+    hasHomeLink: [...document.querySelectorAll('#view a')].some((a) => a.getAttribute('href') === '#/'),
+  }));
+  ok(mismatch.hasUpdateButton, '有「更新到最新版」的按鈕');
+  ok(mismatch.hasHomeLink, '也留了一條回本週的路');
+  ok(mismatch.text.includes('沒有這一頁'), '把打不開的那條路徑寫出來');
+  ok(mismatch.text.includes(appVersion), `寫出目前執行的版本 ${appVersion}`);
+  ok(mismatch.hash !== '#/', `網址留在原地（${mismatch.hash}）`);
+
+  section('關於卡片：版本與資料來源');
+  await goto('#/family');
+  await page.waitForSelector('#view [data-card="about"]', { timeout: 60000 });
+  const about = await page.evaluate(() => ({
+    version: document.querySelector('#view [data-field="appVersion"]')?.textContent.trim() ?? '',
+    edus: [...document.querySelectorAll('#view [data-card="about"] [data-edu]')].map((e) => e.dataset.edu),
+    text: document.querySelector('#view [data-card="about"]').textContent,
+  }));
+  ok(about.version.includes(appVersion), `關於卡片上寫著目前執行的版本：「${about.version}」`);
+  ok(!about.version.includes('mealmate-v0.0.0'), '（對照）不是寫死的假版本號');
+  ok(about.edus.includes('fda.tfnd.attribution'), '有標示食藥署資料來源');
+  ok(about.edus.includes('hpa.open-data.attribution'), '有標示國健署開放宣告');
+  ok(about.text.includes('食品藥物管理署'), '文字裡真的有機關名');
+} finally {
+  await browser.close();
+  srv.close();
+}
+
+done('shelltest');

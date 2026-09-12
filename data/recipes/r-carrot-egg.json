@@ -1,0 +1,22 @@
+{
+  "id": "r-carrot-egg",
+  "name": "胡蘿蔔絲炒蛋",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（刨絲）", "grams": 250, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋", "grams": 165, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "胡蘿蔔削皮刨成細絲；雞蛋打散加一半的鹽。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，胡蘿蔔絲中火炒到軟、顏色變深，約三分鐘，加剩下的鹽。" },
+    { "stage": "base", "type": "cook", "text": "倒入蛋液，等底部定型再翻炒成碎塊，蛋熟就起鍋。" }
+  ]
+}

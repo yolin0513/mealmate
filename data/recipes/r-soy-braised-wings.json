@@ -1,0 +1,25 @@
+{
+  "id": "r-soy-braised-wings",
+  "name": "醬燒雞翅",
+  "role": "main",
+  "servings": 4,
+  "time": 30,
+  "method": "braise",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "雞翅", "label": "三節翅", "grams": 600, "track": "base" },
+    { "food": "薑", "label": "薑片", "grams": 15, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切段）", "grams": 20, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 40, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 10, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 10, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "雞翅洗淨用紙巾吸乾，在內側劃一刀比較容易入味；薑切片、蔥切段。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，雞翅皮朝下中火煎到兩面金黃。" },
+    { "stage": "base", "type": "cook", "text": "下薑片、蔥段，加醬油、糖和一碗水，煮滾後蓋鍋轉小火燒 15 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "開蓋轉中大火收汁到醬汁變濃、能裹住雞翅就完成。" }
+  ]
+}

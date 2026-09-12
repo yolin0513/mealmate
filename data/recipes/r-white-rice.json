@@ -1,0 +1,19 @@
+{
+  "id": "r-white-rice",
+  "name": "白飯",
+  "role": "staple",
+  "servings": 4,
+  "time": 45,
+  "method": "rice",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "白米", "label": "白米（生）", "grams": 320, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "米量好後洗兩到三次到水不太混濁，瀝乾。" },
+    { "stage": "base", "type": "prep", "text": "加水到米的 1.1 到 1.2 倍（電鍋量杯：一杯米配一杯多一點的水），泡 20 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "電鍋煮好後不要馬上開蓋，悶 10 分鐘再用飯匙翻鬆。" }
+  ]
+}

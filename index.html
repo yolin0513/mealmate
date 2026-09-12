@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#fff7ec" />
+  <!-- script-src 'self'：只跑本站自己的 JS。connect-src 'self'：這個 App 沒有任何外部請求 ——
+       家人的健康設定只在這台裝置的 IndexedDB 裡，結構上就沒有地方可以送出去。 -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+  <meta name="description" content="MealMate 家庭三餐規劃 — 一週菜單、素葷一鍋兩吃、購物清單。營養數字為估計值僅供參考，不是醫療或營養處方。純前端、免註冊、離線可用。" />
+  <title>MealMate 家庭三餐規劃</title>
+
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="MealMate" />
+
+  <link rel="stylesheet" href="./css/style.css" />
+  <link rel="modulepreload" href="./js/app.js?v=mealmate-v0.1.0" />
+  <link rel="modulepreload" href="./js/router.js" />
+  <link rel="modulepreload" href="./js/store.js" />
+  <link rel="modulepreload" href="./js/db.js" />
+  <link rel="modulepreload" href="./js/ui.js" />
+  <link rel="modulepreload" href="./js/shell.js" />
+  <link rel="modulepreload" href="./js/prefs.js" />
+  <link rel="modulepreload" href="./js/views/week.js?v=mealmate-v0.1.0" />
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <button id="backBtn" class="icon-btn" aria-label="返回" hidden>‹</button>
+      <h1 id="topTitle">MealMate</h1>
+      <button id="topActionBtn" class="icon-btn" hidden></button>
+    </header>
+
+    <main id="view" aria-live="polite"></main>
+
+    <nav id="tabbar" aria-label="主功能列"></nav>
+  </div>
+
+  <div id="toast" role="status" hidden></div>
+  <div id="modalRoot"></div>
+
+  <noscript>MealMate 需要啟用 JavaScript 才能執行。</noscript>
+  <script type="module" src="./js/app.js?v=mealmate-v0.1.0"></script>
+</body>
+</html>

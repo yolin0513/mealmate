@@ -1,0 +1,25 @@
+{
+  "id": "r-steamed-fish",
+  "name": "清蒸鯛魚片",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "steam",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "鯛魚片", "label": "鯛魚片", "grams": 500, "track": "base" },
+    { "food": "嫩薑", "label": "嫩薑（切絲）", "grams": 20, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切絲）", "grams": 20, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 8, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "魚片退冰後用紙巾吸乾，兩面抹極少量的鹽；薑和蔥切細絲，泡冷水會更捲更好看。" },
+    { "stage": "base", "type": "cook", "text": "盤底鋪幾根蔥段墊高，放上魚片與一半的薑絲，放進大火冒蒸氣的鍋裡蒸 8 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "取出倒掉盤裡的腥水，鋪上剩下的薑絲與蔥絲，淋醬油。" },
+    { "stage": "base", "type": "serve", "text": "小鍋把香油燒到冒煙，趁熱淋在蔥薑上就完成。" }
+  ]
+}

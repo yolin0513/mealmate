@@ -1,0 +1,22 @@
+{
+  "id": "r-pan-fried-mackerel",
+  "name": "香煎鯖魚",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "pan",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "鯖魚", "label": "鯖魚片", "grams": 500, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "黑胡椒粉", "label": "黑胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "鯖魚片退冰後用紙巾吸乾，兩面抹薄薄一層鹽，放十分鐘。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋下油燒熱，魚皮朝下放入，中火煎 4 分鐘不要翻動，讓皮定型變脆。" },
+    { "stage": "base", "type": "cook", "text": "翻面再煎 3 分鐘到魚肉全部變白，起鍋撒黑胡椒粉。" }
+  ]
+}

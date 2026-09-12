@@ -1,0 +1,26 @@
+{
+  "id": "r-onion-beef",
+  "name": "洋蔥炒牛肉片",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "stirfry",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "牛肉片", "label": "牛肉火鍋片", "grams": 400, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切絲）", "grams": 250, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 4, "track": "base", "pantry": true },
+    { "food": "太白粉", "label": "太白粉（醃肉）", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "黑胡椒粉", "label": "黑胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "牛肉片用一半的醬油和太白粉抓醃十分鐘；洋蔥切絲。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱下一半的油，洋蔥中火炒到軟、邊緣微焦，先盛起。" },
+    { "stage": "base", "type": "cook", "text": "同鍋下剩下的油燒到很熱，牛肉片攤平大火快炒到八分熟。" },
+    { "stage": "base", "type": "cook", "text": "洋蔥回鍋，加剩下的醬油、糖，翻炒半分鐘，起鍋撒黑胡椒粉。" }
+  ]
+}

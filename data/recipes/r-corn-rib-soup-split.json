@@ -1,0 +1,26 @@
+{
+  "id": "r-corn-rib-soup-split",
+  "name": "玉米排骨湯／玉米香菇湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 50,
+  "method": "soup",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "甜玉米", "label": "甜玉米（切段）", "grams": 400, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切塊）", "grams": 150, "track": "base" },
+    { "food": "薑", "label": "薑片", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 5, "track": "base", "pantry": true },
+    { "food": "乾香菇", "label": "乾香菇（泡軟）", "grams": 20, "track": "veg" },
+    { "food": "豬小排", "label": "豬小排", "grams": 400, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "玉米切段、胡蘿蔔切塊、薑切片；乾香菇泡軟；排骨用滾水汆燙兩分鐘洗去血水。" },
+    { "stage": "base", "type": "cook", "text": "大鍋放 1500 毫升水、玉米、胡蘿蔔、薑片，煮滾。" },
+    { "stage": "split", "type": "split", "text": "把湯底分成兩鍋，素食那鍋約三分之一。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：加入香菇與泡菇水，小火煮 20 分鐘，加鹽調味。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：加入汆燙過的排骨，小火煮 40 分鐘到排骨軟，加鹽調味。" }
+  ]
+}

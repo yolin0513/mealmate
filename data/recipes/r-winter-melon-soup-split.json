@@ -1,0 +1,26 @@
+{
+  "id": "r-winter-melon-soup-split",
+  "name": "冬瓜湯（可分素葷）",
+  "role": "soup",
+  "servings": 4,
+  "time": 25,
+  "method": "soup",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [6, 7, 8, 9, 10],
+  "ingredients": [
+    { "food": "冬瓜", "label": "冬瓜（去皮切塊）", "grams": 600, "track": "base" },
+    { "food": "薑", "label": "薑絲", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 5, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 5, "track": "base", "pantry": true },
+    { "food": "金針菇", "label": "金針菇", "grams": 100, "track": "veg" },
+    { "food": "豬肉片", "label": "豬里肌肉片", "grams": 200, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "冬瓜去皮去籽切 3 公分塊；薑切絲；金針菇切段；肉片切小片。" },
+    { "stage": "base", "type": "cook", "text": "鍋放 1200 毫升水、冬瓜、薑絲，煮滾後小火煮 12 分鐘到冬瓜透明。" },
+    { "stage": "split", "type": "split", "text": "分成兩鍋，素食那鍋約三分之一。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：放金針菇煮兩分鐘，加鹽、淋香油。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：肉片一片片下鍋，煮到變白，加鹽、淋香油。" }
+  ]
+}

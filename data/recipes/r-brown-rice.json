@@ -1,0 +1,19 @@
+{
+  "id": "r-brown-rice",
+  "name": "糙米飯",
+  "role": "staple",
+  "servings": 4,
+  "time": 70,
+  "method": "rice",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "糙米", "label": "糙米（生）", "grams": 320, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "糙米洗淨後泡水至少一小時（趕時間可用溫水泡 40 分鐘），泡過的糙米比較不硬。" },
+    { "stage": "base", "type": "prep", "text": "加水到米的 1.5 倍，比白米多一些。" },
+    { "stage": "base", "type": "cook", "text": "電鍋煮好後悶 15 分鐘再翻鬆。牙口較弱的長輩可以改用白米加三分之一糙米混煮。" }
+  ]
+}

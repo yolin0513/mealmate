@@ -1,0 +1,31 @@
+{
+  "id": "r-braised-mince-split",
+  "name": "香菇肉燥／香菇素燥",
+  "role": "main",
+  "servings": 4,
+  "time": 45,
+  "method": "braise",
+  "vegMode": "splittable",
+  "texture": "minced",
+  "season": [],
+  "ingredients": [
+    { "food": "乾香菇", "label": "乾香菇（泡軟切丁）", "grams": 25, "track": "base" },
+    { "food": "薑", "label": "薑末", "grams": 10, "track": "base" },
+    { "food": "油蔥酥", "label": "油蔥酥", "grams": 15, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 50, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 10, "track": "base", "pantry": true },
+    { "food": "八角", "label": "八角", "grams": 2, "track": "base", "pantry": true },
+    { "food": "白胡椒粉", "label": "白胡椒粉", "grams": 1, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "板豆腐", "label": "板豆腐（壓碎）", "grams": 300, "track": "veg" },
+    { "food": "豬絞肉", "label": "豬絞肉", "grams": 400, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "乾香菇泡軟切小丁（泡菇水留著）；薑切末；豆腐用叉子壓碎、稍微擠掉水分。" },
+    { "stage": "base", "type": "cook", "text": "鍋中下油，小火炒香薑末與香菇丁，加入油蔥酥、醬油、糖、八角、白胡椒粉和泡菇水加水共兩碗，煮滾成滷汁。" },
+    { "stage": "split", "type": "split", "text": "滷汁分成兩鍋，素食那鍋約三分之一。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：加入碎豆腐，小火煮 15 分鐘到入味、湯汁略收，就是香菇素燥。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：另起鍋把豬絞肉炒散炒到出油、微焦，倒入滷汁，小火燉 25 分鐘。" },
+    { "stage": "meat", "type": "serve", "text": "兩種燥都可以淋在白飯或燙青菜上；隔天更入味。" }
+  ]
+}

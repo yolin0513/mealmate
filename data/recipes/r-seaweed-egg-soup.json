@@ -1,0 +1,22 @@
+{
+  "id": "r-seaweed-egg-soup",
+  "name": "紫菜蛋花湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 10,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "紫菜", "label": "乾紫菜", "grams": 8, "track": "base", "pantry": true },
+    { "food": "雞蛋", "label": "雞蛋", "grams": 110, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "紫菜撕小片；雞蛋打散。" },
+    { "stage": "base", "type": "cook", "text": "1000 毫升水煮滾，放入紫菜煮一分鐘，加鹽。" },
+    { "stage": "base", "type": "cook", "text": "轉小火，蛋液以細線慢慢繞圈倒入，等三秒再輕推，蛋花才會漂亮；淋香油關火。" }
+  ]
+}

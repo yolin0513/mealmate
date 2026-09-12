@@ -1,0 +1,23 @@
+{
+  "id": "r-garlic-broccoli",
+  "name": "蒜香青花菜",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "boil",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [10, 11, 12, 1, 2, 3, 4],
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "青花菜", "label": "青花菜（切小朵）", "grams": 400, "track": "base" },
+    { "food": "大蒜", "label": "蒜末（可省略）", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 12, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "青花菜切小朵，梗削皮切片；泡水十分鐘洗掉縫隙的沙。" },
+    { "stage": "base", "type": "cook", "text": "一鍋水加一小匙鹽煮滾，青花菜下鍋燙兩分鐘撈起瀝乾。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油小火爆香蒜末，倒入青花菜翻炒半分鐘，加鹽拌勻。" }
+  ]
+}

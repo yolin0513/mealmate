@@ -1,0 +1,27 @@
+{
+  "id": "r-braised-tofu-mushroom",
+  "name": "紅燒豆腐燒香菇",
+  "role": "main",
+  "servings": 4,
+  "time": 25,
+  "method": "braise",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "板豆腐", "label": "板豆腐（切厚片）", "grams": 600, "track": "base" },
+    { "food": "鮮香菇", "label": "鮮香菇（切半）", "grams": 150, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切片）", "grams": 80, "track": "base" },
+    { "food": "薑", "label": "薑片", "grams": 10, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 25, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 6, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "太白粉", "label": "太白粉（勾芡）", "grams": 6, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "豆腐切約 1.5 公分厚片，用廚房紙巾吸乾表面水分；香菇切半、胡蘿蔔切薄片、薑切片。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋下油，豆腐兩面煎到金黃後先盛起。" },
+    { "stage": "base", "type": "cook", "text": "同鍋爆香薑片，下香菇和胡蘿蔔炒一分鐘，加醬油、糖和一碗水煮滾。" },
+    { "stage": "base", "type": "cook", "text": "豆腐放回鍋中，中小火燒八分鐘讓它吸滿醬汁，最後用太白粉水勾薄芡。" }
+  ]
+}

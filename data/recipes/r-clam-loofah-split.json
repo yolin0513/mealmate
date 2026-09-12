@@ -1,0 +1,26 @@
+{
+  "id": "r-clam-loofah-split",
+  "name": "蛤蜊絲瓜／金針菇絲瓜",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "braise",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [5, 6, 7, 8, 9],
+  "ingredients": [
+    { "food": "絲瓜", "label": "絲瓜（去皮切塊）", "grams": 700, "track": "base" },
+    { "food": "嫩薑", "label": "嫩薑（切絲）", "grams": 15, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "金針菇", "label": "金針菇（切段）", "grams": 100, "track": "veg" },
+    { "food": "文蛤", "label": "文蛤（吐沙洗淨）", "grams": 400, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "絲瓜削皮切滾刀塊；嫩薑切絲；金針菇切段；文蛤泡鹽水吐沙半小時後刷洗乾淨。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油爆香薑絲，倒入絲瓜翻炒兩分鐘，加半碗水，蓋鍋悶三分鐘到絲瓜半透明。" },
+    { "stage": "split", "type": "split", "text": "把絲瓜分成兩鍋，素食那鍋約三分之一。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：加入金針菇，蓋鍋再悶兩分鐘，加鹽調味。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：倒入文蛤，蓋鍋悶到殼全開就關火，試味後再決定要不要加鹽（文蛤本身有鹹味）。" }
+  ]
+}
