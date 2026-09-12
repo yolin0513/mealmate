@@ -1,6 +1,6 @@
 # MealMate 專案狀態（docs/STATUS.md）
 
-> 最後更新：2026-09-13。**M0、M1、M2 完成並上線（`mealmate-v0.3.0`）；M3 尚未開始。**
+> 最後更新：2026-09-13。**M0、M1、M2 完成並上線（`mealmate-v0.3.1`）；M3 尚未開始。**
 > repo `yolin0513/mealmate`，GitHub Pages `https://yolin0513.github.io/mealmate/`。
 > 給接手的工作階段快速接手用。規劃細節見 `PLAN.md`（唯一真相來源），實測見 `FEASIBILITY.md`，資料與衛教來源見 `SOURCES.md`。
 
@@ -10,12 +10,12 @@
 |---|---|---|
 | M0 資料與骨架 | ✅ 完成（2026-09-13） | `mealmate-v0.1.0` |
 | M1 家人與食譜瀏覽 | ✅ 完成（2026-09-13） | `mealmate-v0.2.1` |
-| M2 週計畫 | ✅ 完成（2026-09-13） | `mealmate-v0.3.0` |
+| M2 週計畫 | ✅ 完成（2026-09-13） | `mealmate-v0.3.1` |
 | M3 買菜 | ⏳ 未開始（**下一步從這裡開始**） | — |
 | M4 今日煮與打磨 | ⏳ 未開始 | — |
 | M5 上線 | ⏳ 未開始 | — |
 
-測試現況：14 支測試 ＋ `mutationtest`。Node 端：datatest 57、aliastest 26、unittest 29、edutest 13、copytest 7、recipetest 45、membertest 41、nutritiontest 95、plannertest 84；瀏覽器端（puppeteer）：shelltest 104、familytest 29、recipeviewtest 49、backuptest 30、weekviewtest 32。`mutationtest` **62 條突變逐一證明關鍵斷言改壞會紅**（M2 新增 14 條各別驗過會紅；完整套件約 25 分鐘，只在使用者要求時全跑）。平常只跑受影響的（慣例 15）。
+測試現況：14 支測試 ＋ `mutationtest`。Node 端：datatest 57、aliastest 26、unittest 29、edutest 13、copytest 7、recipetest 45、membertest 41、nutritiontest 95、plannertest 92；瀏覽器端（puppeteer）：shelltest 104、familytest 29、recipeviewtest 49、backuptest 30、weekviewtest 32。`mutationtest` **62 條突變逐一證明關鍵斷言改壞會紅**（M2 新增 14 條各別驗過會紅；完整套件約 25 分鐘，只在使用者要求時全跑）。平常只跑受影響的（慣例 15）。
 
 ### M2 開發期的實測發現
 
@@ -25,6 +25,7 @@
 4. **湯的池子 10 道、平日晚餐上限 40 分鐘擋掉三道慢湯**，7 天內重複是誠實的診斷；`diagnostics.forcedRepeats` 記下來、本週頁明講「因為符合條件的菜不夠」。主菜 48 道時 4 週零重複。
 5. 「醣較低／鈉較低」與規劃器的「高於中位數」都是**相對這個池子**的事實描述，畫面與理由都寫出中位數是多少；不是任何營養學上限。
 6. 「換一道」的亂數種子帶 `Date.now()`（同一格連按會給不同的菜），但排除現在這道是結構性的，所以「換到的不是原本那道」可測；「重新產生」換 seed、鎖住的不動。
+7. **v0.3.0 的截圖走查抓到「一週放寬 10 次限制」**：主食的電鍋時間（白飯 45、糙米 70 分）被算進平日晚餐 40 分鐘上限，逼得天天放寬；「同餐不同烹法」連兩道炒都算衝突。改成主食不算時間上限、只有油炸與湯互斥（PLAN §4.3 原文就是「兩道炸、兩道湯」）。兩人家庭一週放寬 ≤ 2 次，plannertest 有斷言。
 
 ### M1 開發期的實測發現
 
@@ -98,7 +99,7 @@
 | ~~匯出／匯入 JSON~~ | `backuptest` 30：round-trip（中間確實清空過）；八種壞檔整份拒收且筆數一列不少；缺主鍵補上就放行（對照） |
 | 醣類份數 | **不做**（無可引用來源） |
 
-### M2 週計畫 ✅（`mealmate-v0.3.0`）
+### M2 週計畫 ✅（`mealmate-v0.3.1`）
 
 | 工作 | 驗收（實際） |
 |---|---|

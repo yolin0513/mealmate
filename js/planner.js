@@ -29,6 +29,8 @@ export const DEFAULT_RULES = {
 };
 
 const NO_REPEAT_PENALTY = { main: 100, side: 60, soup: 60, breakfast: 0, staple: 0 };
+/** 同一餐不重複的烹法（PLAN §4.3：兩道炸、兩道湯）。兩道炒在台灣家常菜很平常，不算衝突。 */
+export const EXCLUSIVE_METHODS = new Set(['deepfry', 'soup']);
 const WATCH_PENALTY = 12;
 const PROTEIN_LABELS = { pork: '豬', chicken: '雞', beef: '牛', lamb: '羊', duck: '鴨鵝', meat: '肉', fish: '魚', shellfish: '蝦蟹貝', egg: '蛋', soy: '豆製品' };
 
@@ -172,13 +174,14 @@ export function hardBlock(recipe, { role, meal, date }, ctx, state, { relaxTime 
       if (days != null && since > days) return `shelf:${ing.label}`;
     }
   }
-  if (!relaxTime) {
+  // 時間上限不算主食：電鍋煮飯是放著不管的時間，不是動手時間
+  if (!relaxTime && role !== 'staple') {
     const caps = isWeekend(date) ? rules.timeCaps.weekend : rules.timeCaps.weekday;
     if (recipe.time > caps[meal]) return 'time';
   }
   const mealItems = state.slotItems ?? [];
   if (mealItems.some((it) => it.recipeId === recipe.id)) return 'dup';
-  if (!relaxMethod && mealItems.some((it) => it.method === recipe.method && role !== 'staple' && it.role !== 'staple')) return 'method';
+  if (!relaxMethod && EXCLUSIVE_METHODS.has(recipe.method) && mealItems.some((it) => it.method === recipe.method)) return 'method';
   return null;
 }
 

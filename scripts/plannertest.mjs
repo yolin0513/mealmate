@@ -198,6 +198,29 @@ everyOf(leafyUses, ({ date }) => (new Date(date) - new Date('2026-09-14')) / 864
 const lateDays = cookSlots(shelfPlan).filter((s) => (new Date(s.date) - new Date('2026-09-14')) / 86400000 > 3);
 ok(lateDays.length >= 9 && lateDays.every((s) => s.items.length > 0), '（對照）週五到週日照樣有菜，只是沒有葉菜');
 
+section('放寬的限制要少：主食不算時間上限、只有炸與湯互斥');
+{
+  const { plan: rp, diagnostics: rd } = gen({ members: [{ ...newMember(), name: '爸' }, { ...newMember(), name: '阿嬤', diet: 'lactoOvo', conditions: ['diabetes'] }] });
+  ok(rd.relaxed.length <= 2, `兩人家庭一週只放寬 ${rd.relaxed.length} 次（≤ 2）：${JSON.stringify(rd.relaxed)}`);
+  const dinnerSoups = cookSlots(rp).filter((s) => s.meal === 'dinner').map((s) => s.items.filter((it) => byId.get(it.recipeId).method === 'soup').length);
+  everyOf(dinnerSoups, (n) => n === 1, '每個晚餐剛好一道湯類烹法的菜（湯互斥）');
+  const staples = cookSlots(rp).flatMap((s) => s.items.filter((it) => it.role === 'staple').map((it) => byId.get(it.recipeId).name));
+  // 有糖尿病成員 → 全穀主食加分，所以輪的是糙米飯、五穀飯這類；重點是不會因為電鍋時間被擋到只剩白麵條
+  ok(new Set(staples).size >= 2 && staples.every((n) => n !== '白麵條'), `主食有輪替（${[...new Set(staples)].join('、')}），電鍋時間不被算進上限`);
+  everyOf(staples, (n) => byId.get(recipes.find((r) => r.name === n).id).tags.includes('wholegrain'), '（家中有留意醣的成員）主食都是全穀雜糧');
+  const { hardBlock: hb, buildContext: bc } = await import('../js/planner.js');
+  const ctx = bc({ recipes, members: [], idx, units, shoppingDays: [] });
+  const stirfryMain = recipes.find((r) => r.role === 'main' && r.method === 'stirfry');
+  const stirfrySide = recipes.find((r) => r.role === 'side' && r.method === 'stirfry');
+  eq(hb(stirfrySide, { role: 'side', meal: 'dinner', date: '2026-09-14' }, ctx, { slotItems: [{ recipeId: stirfryMain.id, role: 'main', method: 'stirfry' }], dayRecipes: () => new Set() }), null, '主菜是炒、配菜也是炒 → 不衝突');
+  const soupA = recipes.find((r) => r.role === 'soup' && r.method === 'soup' && r.time <= 30);
+  eq(hb(soupA, { role: 'soup', meal: 'dinner', date: '2026-09-14' }, ctx, { slotItems: [{ recipeId: 'x', role: 'main', method: 'soup' }], dayRecipes: () => new Set() }), 'method', '（對照）同一餐已有湯類烹法的菜 → 湯衝突');
+  const rice = byId.get('r-brown-rice');
+  eq(hb(rice, { role: 'staple', meal: 'dinner', date: '2026-09-14' }, ctx, { slotItems: [], dayRecipes: () => new Set() }), null, '糙米飯 70 分鐘在平日晚餐不被時間上限擋（主食不算）');
+  const slowMain = recipes.find((r) => r.role === 'main' && r.time > 40);
+  eq(hb(slowMain, { role: 'main', meal: 'dinner', date: '2026-09-14' }, ctx, { slotItems: [], dayRecipes: () => new Set() }), 'time', `（對照）${slowMain.name} ${slowMain.time} 分鐘在平日晚餐被時間上限擋`);
+}
+
 section('鎖定與外食');
 const first = gen();
 const lockIdx = first.plan.slots.findIndex((s) => s.meal === 'dinner');
