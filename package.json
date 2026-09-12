@@ -17,6 +17,8 @@
     "build-foods": "node scripts/build-foods.mjs",
     "build-recipes": "node scripts/build-recipes.mjs",
     "icons": "node scripts/make-icons.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
+    "findfood": "node scripts/findfood.mjs",
     "bump": "node scripts/bump-version.mjs",
     "datatest": "node scripts/datatest.mjs",
     "aliastest": "node scripts/aliastest.mjs",

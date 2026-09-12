@@ -1,0 +1,4 @@
+# 全部用 LF；Windows 上 core.autocrlf 會在每次 touch 時吵著要換成 CRLF，統一掉。
+* text=auto eol=lf
+*.png binary
+*.zip binary
