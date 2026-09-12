@@ -1,0 +1,24 @@
+{
+  "id": "r-cold-cucumber-big",
+  "name": "涼拌大黃瓜",
+  "role": "side",
+  "servings": 4,
+  "time": 15,
+  "method": "cold",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [4, 5, 6, 7, 8, 9, 10],
+  "ingredients": [
+    { "food": "大黃瓜", "label": "大黃瓜（去皮去籽切片）", "grams": 500, "track": "base" },
+    { "food": "嫩薑", "label": "嫩薑（切絲）", "grams": 5, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "白醋", "label": "白醋", "grams": 15, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 6, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "大黃瓜削皮、剖半去籽，切薄片，撒鹽抓一下靜置 10 分鐘，倒掉出的水。" },
+    { "stage": "base", "type": "prep", "text": "白醋、糖、香油、薑絲調成醬。" },
+    { "stage": "base", "type": "serve", "text": "醬拌入黃瓜片，冰 10 分鐘。不含蔥蒜，全素的家人也能吃。" }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "id": "r-cold-chicken-split",
+  "name": "涼拌雞絲／涼拌豆干絲",
+  "role": "main",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 25,
+  "method": "cold",
+  "vegMode": "splittable",
+  "texture": "normal",
+  "season": [5, 6, 7, 8, 9],
+  "ingredients": [
+    { "food": "小黃瓜", "label": "小黃瓜（切絲）", "grams": 200, "track": "base" },
+    { "food": "麻醬", "label": "芝麻醬", "grams": 30, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "白醋", "label": "白醋", "grams": 10, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 5, "track": "base", "pantry": true },
+    { "food": "大蒜", "label": "蒜末", "grams": 5, "track": "base" },
+    { "food": "五香豆干", "label": "五香豆干（切絲）", "grams": 120, "track": "veg" },
+    { "food": "雞胸肉", "label": "雞胸肉", "grams": 300, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "小黃瓜切絲；芝麻醬先用兩大匙溫水調開，再加醬油、白醋、糖、香油、蒜末拌成醬。" },
+    { "stage": "base", "type": "prep", "text": "雞胸肉冷水下鍋煮滾後小火 12 分鐘，泡在湯裡放涼再撕成絲；豆干切絲燙 30 秒瀝乾。" },
+    { "stage": "split", "type": "split", "text": "小黃瓜絲與醬分成兩份，素食那份依吃素的人數分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那份：豆干絲鋪在小黃瓜上，淋醬拌勻。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那份：雞絲鋪在小黃瓜上，淋醬拌勻。" }
+  ]
+}

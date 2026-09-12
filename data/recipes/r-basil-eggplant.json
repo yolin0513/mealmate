@@ -1,0 +1,24 @@
+{
+  "id": "r-basil-eggplant",
+  "name": "塔香茄子",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [5, 6, 7, 8, 9, 10],
+  "ingredients": [
+    { "food": "茄子", "label": "茄子（切段）", "grams": 500, "track": "base" },
+    { "food": "九層塔", "label": "九層塔", "grams": 30, "track": "base" },
+    { "food": "大蒜", "label": "蒜末", "grams": 15, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 30, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "茄子切 5 公分段再對剖，泡鹽水五分鐘防變黑，瀝乾；蒜切末；九層塔摘葉。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，茄子皮朝下中火煎到皮變亮變軟，翻面再煎兩分鐘。" },
+    { "stage": "base", "type": "cook", "text": "下蒜末爆香，加醬油、糖和兩大匙水翻炒到收汁，關火拌入九層塔。" }
+  ]
+}

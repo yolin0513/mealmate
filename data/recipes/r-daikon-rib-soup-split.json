@@ -1,0 +1,26 @@
+{
+  "id": "r-daikon-rib-soup-split",
+  "name": "蘿蔔排骨湯／蘿蔔昆布湯",
+  "role": "soup",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 50,
+  "method": "soup",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [11, 12, 1, 2, 3],
+  "ingredients": [
+    { "food": "白蘿蔔", "label": "白蘿蔔（切塊）", "grams": 600, "track": "base" },
+    { "food": "薑", "label": "薑片", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 5, "track": "base", "pantry": true },
+    { "food": "海帶", "label": "昆布（切段）", "grams": 50, "track": "veg" },
+    { "food": "豬小排", "label": "豬小排", "grams": 400, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "白蘿蔔削皮切塊；薑切片；排骨汆燙洗淨。" },
+    { "stage": "base", "type": "cook", "text": "鍋放 1500 毫升水、蘿蔔、薑片煮滾。" },
+    { "stage": "split", "type": "split", "text": "分成兩鍋，素食那鍋依吃素的人數分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：加昆布小火煮 20 分鐘，加鹽。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：加排骨小火煮 40 分鐘到蘿蔔透明排骨軟，加鹽。" }
+  ]
+}

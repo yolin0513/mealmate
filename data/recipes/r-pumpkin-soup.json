@@ -1,0 +1,23 @@
+{
+  "id": "r-pumpkin-soup",
+  "name": "南瓜濃湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 30,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "minced",
+  "season": [],
+  "ingredients": [
+    { "food": "南瓜", "label": "南瓜（去皮切塊）", "grams": 500, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切丁）", "grams": 100, "track": "base" },
+    { "food": "鮮乳", "label": "鮮乳", "grams": 240, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 10, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "南瓜去皮去籽切塊；洋蔥切丁。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油炒軟洋蔥，下南瓜與 600 毫升水，煮滾後小火煮 15 分鐘到南瓜很軟。" },
+    { "stage": "base", "type": "cook", "text": "用果汁機或手持攪拌棒打成泥，倒回鍋中加鮮乳與鹽，小火加熱到微滾即可。質地很細，牙口不好也能喝。" }
+  ]
+}

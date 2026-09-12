@@ -1,0 +1,30 @@
+{
+  "id": "r-tomato-beef-split",
+  "name": "番茄牛肉／番茄豆腐",
+  "role": "main",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 30,
+  "method": "braise",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [11, 12, 1, 2, 3, 4, 5],
+  "ingredients": [
+    { "food": "番茄", "label": "番茄（切塊）", "grams": 500, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切絲）", "grams": 150, "track": "base" },
+    { "food": "薑", "label": "薑片", "grams": 10, "track": "base" },
+    { "food": "番茄醬", "label": "番茄醬", "grams": 30, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "板豆腐", "label": "板豆腐（切塊）", "grams": 200, "track": "veg" },
+    { "food": "牛肉片", "label": "牛肉片", "grams": 350, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "番茄切塊、洋蔥切絲、薑切片；豆腐切塊；牛肉片撕成適口大小。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油炒香薑片與洋蔥，下番茄炒到出汁，加番茄醬、鹽、糖與一碗水煮滾成番茄底。" },
+    { "stage": "split", "type": "split", "text": "番茄底分成兩鍋，素食那鍋依吃素的人數分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：放入豆腐塊，小火煮 8 分鐘讓豆腐吸滿番茄味。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：牛肉片一片片放入，煮到變色即可，煮久會硬。" }
+  ]
+}

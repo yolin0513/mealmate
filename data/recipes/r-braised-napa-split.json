@@ -1,0 +1,32 @@
+{
+  "id": "r-braised-napa-split",
+  "name": "白菜滷／素白菜滷",
+  "role": "main",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 35,
+  "method": "braise",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [11, 12, 1, 2, 3],
+  "ingredients": [
+    { "food": "大白菜", "label": "大白菜（切段）", "grams": 800, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切片）", "grams": 60, "track": "base" },
+    { "food": "乾香菇", "label": "乾香菇（泡軟切絲）", "grams": 15, "track": "base" },
+    { "food": "薑", "label": "薑片", "grams": 10, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "太白粉", "label": "太白粉（勾芡）", "grams": 8, "track": "base", "pantry": true },
+    { "food": "油豆腐", "label": "油豆腐（切半）", "grams": 120, "track": "veg" },
+    { "food": "豬肉片", "label": "豬肉絲", "grams": 150, "track": "meat" },
+    { "food": "蝦米", "label": "蝦米", "grams": 10, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "大白菜切 4 公分段，梗與葉分開；胡蘿蔔切片；乾香菇泡軟切絲（泡菇水留著）。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油爆香薑片與香菇絲，先下白菜梗炒軟再下葉子，加醬油、鹽與泡菇水，蓋鍋小火滷 15 分鐘。" },
+    { "stage": "split", "type": "split", "text": "白菜分成兩鍋，素食那鍋依吃素的人數分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：放入油豆腐再煮 5 分鐘，用太白粉水勾薄芡。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：另起鍋炒香蝦米與肉絲，倒入白菜鍋再煮 5 分鐘，用太白粉水勾薄芡。" }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "r-cheese-egg-toast",
+  "name": "起司蛋吐司",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 12,
+  "method": "pan",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "土司", "label": "土司（8 片）", "grams": 240, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋", "grams": 220, "track": "base" },
+    { "food": "起司", "label": "起司片（4 片）", "grams": 80, "track": "base" },
+    { "food": "油", "label": "沙拉油", "grams": 10, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "cook", "text": "平底鍋抹薄油，雞蛋打散倒入，攤成跟土司差不多大的蛋皮，對折。" },
+    { "stage": "base", "type": "cook", "text": "土司乾鍋或烤箱烤到微酥。" },
+    { "stage": "base", "type": "serve", "text": "一片土司放起司片與蛋皮，蓋上另一片，趁熱切半。" }
+  ]
+}

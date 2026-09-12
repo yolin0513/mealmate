@@ -1,0 +1,24 @@
+{
+  "id": "r-century-egg-tofu",
+  "name": "皮蛋豆腐",
+  "role": "main",
+  "servings": 4,
+  "time": 10,
+  "method": "cold",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "嫩豆腐", "label": "嫩豆腐（2 盒）", "grams": 600, "track": "base" },
+    { "food": "皮蛋", "label": "皮蛋（2 顆）", "grams": 92, "track": "base" },
+    { "food": "醬油膏", "label": "醬油膏", "grams": 30, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 8, "track": "base", "pantry": true },
+    { "food": "青蔥", "label": "青蔥（切蔥花，可省略）", "grams": 10, "track": "base" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "嫩豆腐整塊倒到盤上，用紙巾吸掉多餘的水。" },
+    { "stage": "base", "type": "prep", "text": "皮蛋剝殼切成八塊，鋪在豆腐上。" },
+    { "stage": "base", "type": "serve", "text": "淋醬油膏與香油，撒蔥花。冰過再吃更好。" }
+  ]
+}

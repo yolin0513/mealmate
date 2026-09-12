@@ -176,5 +176,35 @@ export async function setWantThisWeek(recipeId, on) {
   return { ok: true };
 }
 
+// ---------- 週計畫與歷史 ----------
+export async function getPlan(weekKey) { return (await db.get('plans', weekKey)) ?? null; }
+
+/** 存一週計畫，並用它取代那一週的 history 列（重新產生時舊的要清掉，不然會殘留）。 */
+export async function savePlan(plan) {
+  await db.put('plans', { ...plan, savedAt: new Date().toISOString() });
+  const old = (await db.getAll('history')).filter((h) => h.weekKey === plan.weekKey);
+  for (const h of old) await db.del('history', [h.date, h.recipeId]);
+  const rows = [];
+  for (const s of plan.slots) {
+    if (s.kind !== 'cook') continue;
+    for (const it of s.items) rows.push({ date: s.date, recipeId: it.recipeId, meal: s.meal, role: it.role, weekKey: plan.weekKey });
+  }
+  // 同一天同一道菜出現兩餐時主鍵會撞；保留第一筆就好（不重複的判斷只看日期）
+  const seen = new Set();
+  const unique = rows.filter((r) => { const k = `${r.date}|${r.recipeId}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  if (unique.length) await db.putAll('history', unique);
+  emit();
+}
+
+export async function deletePlan(weekKey) {
+  await db.del('plans', weekKey);
+  const old = (await db.getAll('history')).filter((h) => h.weekKey === weekKey);
+  for (const h of old) await db.del('history', [h.date, h.recipeId]);
+  emit();
+}
+
+export async function history() { return db.getAll('history'); }
+export function favoritesList() { return [...state.favorites.values()]; }
+
 // ---------- 衛教 ----------
 export function eduEntry(id) { return state.edu?.get(id) ?? null; }

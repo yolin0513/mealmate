@@ -1,0 +1,26 @@
+{
+  "id": "r-cold-kelp",
+  "name": "涼拌海帶絲",
+  "role": "side",
+  "servings": 4,
+  "time": 15,
+  "method": "cold",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "海帶", "label": "海帶（切絲）", "grams": 300, "track": "base" },
+    { "food": "大蒜", "label": "蒜末（可省略）", "grams": 8, "track": "base" },
+    { "food": "辣椒", "label": "辣椒（切絲）", "grams": 5, "track": "base" },
+    { "food": "白醋", "label": "白醋", "grams": 15, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 8, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 8, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "海帶絲用滾水燙一分鐘撈起，泡冷水後瀝乾。" },
+    { "stage": "base", "type": "prep", "text": "蒜末、辣椒絲、白醋、醬油、糖、香油調成醬。" },
+    { "stage": "base", "type": "serve", "text": "醬倒入海帶絲拌勻，冰 10 分鐘更入味。" }
+  ]
+}

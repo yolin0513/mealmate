@@ -1,0 +1,24 @@
+{
+  "id": "r-garlic-pork-belly",
+  "name": "蒜泥白肉",
+  "role": "main",
+  "servings": 4,
+  "time": 40,
+  "method": "boil",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "五花肉", "label": "五花肉（整塊）", "grams": 500, "track": "base" },
+    { "food": "小黃瓜", "label": "小黃瓜（切片墊底）", "grams": 150, "track": "base" },
+    { "food": "大蒜", "label": "蒜泥", "grams": 20, "track": "base" },
+    { "food": "醬油膏", "label": "醬油膏", "grams": 40, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 5, "track": "base", "pantry": true },
+    { "food": "薑", "label": "薑片（煮肉用）", "grams": 10, "track": "base" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "五花肉整塊冷水下鍋，加薑片，煮滾後轉小火煮 25 分鐘到筷子能輕鬆插入。" },
+    { "stage": "base", "type": "prep", "text": "肉撈起放涼一點再切薄片；小黃瓜切片鋪在盤底。" },
+    { "stage": "base", "type": "serve", "text": "蒜泥、醬油膏、香油調成醬，肉片鋪上去淋醬。" }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "r-blanched-okra",
+  "name": "涼拌秋葵",
+  "role": "side",
+  "servings": 4,
+  "time": 10,
+  "method": "boil",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [5, 6, 7, 8, 9, 10],
+  "ingredients": [
+    { "food": "秋葵", "label": "秋葵", "grams": 300, "track": "base" },
+    { "food": "醬油膏", "label": "醬油膏", "grams": 25, "track": "base", "pantry": true },
+    { "food": "白芝麻", "label": "熟白芝麻", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "秋葵洗淨，蒂頭削掉硬的部分但不要切開，比較不會流出黏液。" },
+    { "stage": "base", "type": "cook", "text": "滾水燙兩分鐘撈起，泡冰水後瀝乾，喜歡的話對切。" },
+    { "stage": "base", "type": "serve", "text": "淋醬油膏、撒白芝麻。不含蔥蒜，全素的家人也能吃。" }
+  ]
+}

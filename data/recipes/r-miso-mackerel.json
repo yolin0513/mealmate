@@ -1,0 +1,24 @@
+{
+  "id": "r-miso-mackerel",
+  "name": "味噌燒鯖魚",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "pan",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "鯖魚", "label": "鯖魚片", "grams": 500, "track": "base" },
+    { "food": "味噌", "label": "味噌", "grams": 30, "track": "base", "pantry": true },
+    { "food": "味醂", "label": "味醂", "grams": 20, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "薑", "label": "薑片", "grams": 10, "track": "base" },
+    { "food": "油", "label": "沙拉油", "grams": 8, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "鯖魚吸乾切段；味噌、味醂、糖加半碗水調成醬汁。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，魚皮朝下中火煎 3 分鐘，翻面再煎 2 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "下薑片，倒入味噌醬汁，小火燒 5 分鐘到醬汁濃稠、裹在魚身上。" }
+  ]
+}

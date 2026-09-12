@@ -1,0 +1,24 @@
+{
+  "id": "r-cold-wood-ear",
+  "name": "涼拌木耳",
+  "role": "side",
+  "servings": 4,
+  "time": 20,
+  "method": "cold",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "乾木耳", "label": "乾木耳", "grams": 30, "track": "base", "pantry": true },
+    { "food": "薑", "label": "薑絲", "grams": 10, "track": "base" },
+    { "food": "白醋", "label": "白醋", "grams": 15, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 8, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "乾木耳泡冷水 30 分鐘到完全展開，去蒂撕小片。" },
+    { "stage": "base", "type": "cook", "text": "滾水燙木耳兩分鐘撈起，泡冰水後瀝乾。" },
+    { "stage": "base", "type": "serve", "text": "薑絲、白醋、醬油、糖、香油調醬拌入。不含蔥蒜，全素的家人也能吃。" }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "r-steamed-ribs-black-bean",
+  "name": "豉汁蒸排骨",
+  "role": "main",
+  "servings": 4,
+  "time": 35,
+  "method": "steam",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "豬小排", "label": "豬小排（切小塊）", "grams": 500, "track": "base" },
+    { "food": "豆豉", "label": "豆豉", "grams": 20, "track": "base", "pantry": true },
+    { "food": "大蒜", "label": "蒜末", "grams": 10, "track": "base" },
+    { "food": "辣椒", "label": "辣椒（切圈）", "grams": 5, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "太白粉", "label": "太白粉", "grams": 8, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 10, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "排骨泡水 10 分鐘去血水，瀝乾；豆豉沖水略切；蒜切末、辣椒切圈。" },
+    { "stage": "base", "type": "prep", "text": "排骨加豆豉、蒜末、醬油、糖、太白粉、油拌勻，醃 15 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "平鋪在盤上，放進冒蒸氣的蒸鍋大火蒸 20 分鐘，起鍋撒辣椒圈。" }
+  ]
+}

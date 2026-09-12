@@ -1,0 +1,19 @@
+{
+  "id": "r-multigrain-rice",
+  "name": "五穀飯",
+  "role": "staple",
+  "servings": 4,
+  "time": 70,
+  "method": "rice",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "五穀米", "label": "五穀米（生）", "grams": 320, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "五穀米洗淨泡水至少一小時。" },
+    { "stage": "base", "type": "prep", "text": "加水到米的 1.5 倍。" },
+    { "stage": "base", "type": "cook", "text": "電鍋煮好悶 15 分鐘再翻鬆。牙口較弱的長輩可以白米混三分之一五穀米。" }
+  ]
+}

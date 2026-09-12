@@ -46,10 +46,14 @@ export function toast(msg, ms = 2400) {
   }, ms);
 }
 
-export function modal({ title, body, actions, closeX = false }) {
+/**
+ * 對話框。actions 按了就用它的 value 關閉；bind(close) 讓 body 裡的元素（例如選單列）也能關閉並回傳值。
+ */
+export function modal({ title, body, actions, closeX = false, bind = null }) {
   const root = document.getElementById('modalRoot');
   return new Promise((resolve) => {
     const close = (val) => { overlay.remove(); document.removeEventListener('keydown', onKey); resolve(val); };
+    if (typeof bind === 'function') bind(close);
     const onKey = (e) => { if (e.key === 'Escape') close(null); };
     const card = h('div', { class: 'modal-card', role: 'dialog', 'aria-modal': 'true' },
       closeX ? h('button', { class: 'modal-x', 'aria-label': '關閉', onclick: () => close(null) }, '✕') : null,

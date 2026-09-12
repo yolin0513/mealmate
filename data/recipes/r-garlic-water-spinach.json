@@ -1,0 +1,23 @@
+{
+  "id": "r-garlic-water-spinach",
+  "name": "蒜炒空心菜",
+  "role": "side",
+  "servings": 4,
+  "time": 8,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [4, 5, 6, 7, 8, 9, 10],
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "空心菜", "label": "空心菜（切段）", "grams": 400, "track": "base" },
+    { "food": "大蒜", "label": "蒜末（可省略）", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "空心菜切 5 公分段，梗與葉分開；蒜切末。" },
+    { "stage": "base", "type": "cook", "text": "鍋燒很熱下油，蒜末爆香，先下梗炒 20 秒。" },
+    { "stage": "base", "type": "cook", "text": "再下葉子大火翻炒 30 秒，加鹽立刻起鍋，久炒會黑。" }
+  ]
+}

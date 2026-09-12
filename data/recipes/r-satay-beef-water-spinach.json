@@ -1,0 +1,25 @@
+{
+  "id": "r-satay-beef-water-spinach",
+  "name": "沙茶牛肉空心菜",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [4, 5, 6, 7, 8, 9, 10],
+  "ingredients": [
+    { "food": "牛肉片", "label": "牛肉片", "grams": 350, "track": "base" },
+    { "food": "空心菜", "label": "空心菜（切段）", "grams": 300, "track": "base" },
+    { "food": "沙茶醬", "label": "沙茶醬", "grams": 30, "track": "base", "pantry": true },
+    { "food": "大蒜", "label": "蒜片", "grams": 10, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "太白粉", "label": "太白粉（醃肉）", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "牛肉片用醬油和太白粉抓醃十分鐘；空心菜切 5 公分段；蒜切片。" },
+    { "stage": "base", "type": "cook", "text": "鍋燒熱下油，牛肉大火快炒到八分熟盛起。" },
+    { "stage": "base", "type": "cook", "text": "同鍋爆香蒜片，下空心菜大火炒半分鐘，牛肉回鍋加沙茶醬翻炒均勻起鍋。" }
+  ]
+}

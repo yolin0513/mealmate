@@ -1,0 +1,19 @@
+{
+  "id": "r-plain-noodles",
+  "name": "白麵條",
+  "role": "staple",
+  "servings": 4,
+  "time": 12,
+  "method": "boil",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "乾麵條", "label": "乾麵條", "grams": 320, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "cook", "text": "大鍋水煮滾，下麵條，用筷子攪開不要黏在一起。" },
+    { "stage": "base", "type": "cook", "text": "依包裝時間煮，中途水太滾就加半碗冷水。" },
+    { "stage": "base", "type": "serve", "text": "撈起瀝乾，直接拌菜的醬汁或配湯吃。" }
+  ]
+}

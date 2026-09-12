@@ -10,9 +10,13 @@ import * as db from './db.js';
 export const DEFAULTS = {
   fontScale: 'md',                 // md | lg（長輩模式）
   shoppingDays: [],                // 0=週日 … 6=週六
-  noRepeatDays: { main: 14, side: 7, soup: 7, breakfast: 0 },
+  noRepeatDays: { main: 14, side: 7, soup: 7, breakfast: 0, staple: 0 },
   disclaimerAcceptedAt: null,
   dailyTargets: {},
+  // 「避開」開關：使用者自己打開才會把菜排除出池子；預設全關（慢性病留意項目本身只降分、不排除）
+  avoid: { sweet: false, processed: false, fried: false },
+  // 這週用的亂數種子；「重新產生」會換一個
+  planSeed: null,
 };
 
 const cache = new Map();

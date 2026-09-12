@@ -1,0 +1,20 @@
+{
+  "id": "r-sweet-potato-congee",
+  "name": "地瓜稀飯",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 35,
+  "method": "porridge",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "白米", "label": "白米（生）", "grams": 160, "track": "base", "pantry": true },
+    { "food": "地瓜", "label": "地瓜（去皮切塊）", "grams": 300, "track": "base" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "米洗淨；地瓜削皮切 2 公分塊。" },
+    { "stage": "base", "type": "cook", "text": "鍋放米與 1500 毫升水煮滾，轉小火煮 15 分鐘，中途攪幾次。" },
+    { "stage": "base", "type": "cook", "text": "加入地瓜塊再煮 15 分鐘到地瓜軟、粥變濃。" }
+  ]
+}

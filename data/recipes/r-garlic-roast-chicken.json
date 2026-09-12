@@ -1,0 +1,24 @@
+{
+  "id": "r-garlic-roast-chicken",
+  "name": "蒜香烤雞腿",
+  "role": "main",
+  "servings": 4,
+  "time": 40,
+  "method": "bake",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "去骨雞腿", "label": "去骨雞腿（4 片）", "grams": 600, "track": "base" },
+    { "food": "大蒜", "label": "蒜末", "grams": 15, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 25, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 4, "track": "base", "pantry": true },
+    { "food": "黑胡椒粉", "label": "黑胡椒粉", "grams": 2, "track": "base", "pantry": true },
+    { "food": "橄欖油", "label": "橄欖油", "grams": 10, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "雞腿排用蒜末、醬油、糖、黑胡椒粉、橄欖油抓勻，醃 20 分鐘（前一晚醃更好）。" },
+    { "stage": "base", "type": "cook", "text": "烤箱預熱 200 度；雞腿皮朝上放烤盤，烤 20 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "取出刷一次醃汁再烤 5 分鐘到皮金黃；用筷子戳最厚處沒有血水就熟了。" }
+  ]
+}

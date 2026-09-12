@@ -1,0 +1,23 @@
+{
+  "id": "r-sesame-oil-king-oyster",
+  "name": "麻油薑燒杏鮑菇",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [10, 11, 12, 1, 2, 3],
+  "ingredients": [
+    { "food": "杏鮑菇", "label": "杏鮑菇（滾刀塊）", "grams": 400, "track": "base" },
+    { "food": "老薑", "label": "老薑（切片）", "grams": 30, "track": "base" },
+    { "food": "麻油", "label": "黑麻油", "grams": 25, "track": "base", "pantry": true },
+    { "food": "枸杞", "label": "枸杞", "grams": 8, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "杏鮑菇切滾刀塊；老薑切片；枸杞用水沖一下。" },
+    { "stage": "base", "type": "cook", "text": "鍋下黑麻油，小火把薑片煸到邊緣捲起、香氣出來。" },
+    { "stage": "base", "type": "cook", "text": "轉中大火下杏鮑菇炒到表面微焦出水，加枸杞和鹽，再炒一分鐘。不含蔥蒜，全素的家人也能吃。" }
+  ]
+}

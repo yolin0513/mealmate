@@ -1,0 +1,22 @@
+{
+  "id": "r-bun-egg",
+  "name": "饅頭夾蛋",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 12,
+  "method": "steam",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "白饅頭", "label": "白饅頭（4 顆）", "grams": 320, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋", "grams": 220, "track": "base" },
+    { "food": "油", "label": "沙拉油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "cook", "text": "饅頭放進蒸鍋蒸 8 分鐘到鬆軟（冷凍的蒸 12 分鐘）。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋抹薄油，打入雞蛋撒一點鹽，煎成荷包蛋。" },
+    { "stage": "base", "type": "serve", "text": "饅頭從側面剖開夾入荷包蛋。" }
+  ]
+}

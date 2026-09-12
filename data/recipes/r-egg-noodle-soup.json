@@ -1,0 +1,23 @@
+{
+  "id": "r-egg-noodle-soup",
+  "name": "青菜蛋麵線",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 15,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "麵線", "label": "麵線", "grams": 200, "track": "base", "pantry": true },
+    { "food": "雞蛋", "label": "雞蛋", "grams": 220, "track": "base" },
+    { "food": "青江菜", "label": "青江菜（切段）", "grams": 200, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "cook", "text": "鍋放 1200 毫升水煮滾，加鹽，下麵線煮 2 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "下青江菜段煮 1 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "蛋打散繞圈淋入成蛋花，關火淋香油。麵線本身有鹹味，鹽先放少一點。" }
+  ]
+}

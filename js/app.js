@@ -19,7 +19,7 @@ const guarded = (fn) => async (ctx) => {
   return fn(ctx);
 };
 route('/welcome', async () => (await import(`./views/welcome.js${V}`)).default());
-route('/', guarded(async () => (await import(`./views/week.js${V}`)).default()));
+route('/', guarded(async ({ query }) => (await import(`./views/week.js${V}`)).default(query)));
 route('/shopping', guarded(async () => (await import(`./views/shopping.js${V}`)).default()));
 route('/recipes', guarded(async ({ query }) => (await import(`./views/recipes.js${V}`)).default(query)));
 route('/recipes/new', guarded(async ({ query }) => (await import(`./views/recipeedit.js${V}`)).default({ from: query.from ?? null })));

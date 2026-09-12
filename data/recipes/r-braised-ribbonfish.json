@@ -1,0 +1,26 @@
+{
+  "id": "r-braised-ribbonfish",
+  "name": "紅燒白帶魚",
+  "role": "main",
+  "servings": 4,
+  "time": 25,
+  "method": "braise",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [9, 10, 11, 12, 1, 2],
+  "ingredients": [
+    { "food": "白帶魚", "label": "白帶魚（切段）", "grams": 500, "track": "base" },
+    { "food": "薑", "label": "薑片", "grams": 15, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切段）", "grams": 20, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 30, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 6, "track": "base", "pantry": true },
+    { "food": "太白粉", "label": "太白粉（沾魚）", "grams": 8, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 25, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "白帶魚段吸乾，兩面薄薄沾一層太白粉；薑切片、蔥切段。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，魚段中火煎到兩面金黃定型，先推到鍋邊。" },
+    { "stage": "base", "type": "cook", "text": "下薑片蔥段爆香，加醬油、糖和半碗水，煮滾後小火燒 8 分鐘，中途翻一次面。" },
+    { "stage": "base", "type": "serve", "text": "開大火把醬汁收到濃稠、能掛在魚身上就起鍋。" }
+  ]
+}

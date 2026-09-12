@@ -1,0 +1,29 @@
+{
+  "id": "r-pepper-pork-split",
+  "name": "青椒炒肉絲／青椒炒豆干",
+  "role": "main",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 20,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "青椒", "label": "青椒（切絲）", "grams": 300, "track": "base" },
+    { "food": "大蒜", "label": "蒜片", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "五香豆干", "label": "五香豆干（切絲）", "grams": 120, "track": "veg" },
+    { "food": "豬肉片", "label": "豬肉絲", "grams": 300, "track": "meat" },
+    { "food": "醬油", "label": "醬油", "grams": 15, "track": "meat", "pantry": true },
+    { "food": "太白粉", "label": "太白粉（醃肉）", "grams": 5, "track": "meat", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "青椒去籽切絲；蒜切片；豆干切絲；豬肉切絲，用醬油和太白粉抓醃。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油爆香蒜片，青椒大火炒一分鐘到微軟，加鹽。" },
+    { "stage": "split", "type": "split", "text": "青椒分成兩鍋，素食那鍋依吃素的人數分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：下豆干絲炒到熱透上色。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：另起鍋把肉絲炒到變白，倒回青椒翻炒均勻。" }
+  ]
+}

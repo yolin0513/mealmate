@@ -1,0 +1,27 @@
+{
+  "id": "r-tomato-tofu",
+  "name": "番茄燴豆腐",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "braise",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [11, 12, 1, 2, 3, 4, 5],
+  "ingredients": [
+    { "food": "番茄", "label": "番茄（切塊）", "grams": 400, "track": "base" },
+    { "food": "板豆腐", "label": "板豆腐（切塊）", "grams": 500, "track": "base" },
+    { "food": "薑", "label": "薑末", "grams": 10, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 2, "track": "base", "pantry": true },
+    { "food": "太白粉", "label": "太白粉（勾芡）", "grams": 6, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "番茄切塊；豆腐切 2 公分塊；薑切末。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油爆香薑末，下番茄中火炒到出汁變軟，約三分鐘。" },
+    { "stage": "base", "type": "cook", "text": "加醬油、糖、鹽和半碗水煮滾，放入豆腐，小火煮五分鐘讓豆腐吸味。" },
+    { "stage": "base", "type": "serve", "text": "用太白粉水勾薄芡起鍋。不含蔥蒜，全素的家人也能吃。" }
+  ]
+}

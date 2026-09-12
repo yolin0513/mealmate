@@ -1,0 +1,28 @@
+{
+  "id": "r-pumpkin-chicken-split",
+  "name": "南瓜燉雞／南瓜燉豆腐",
+  "role": "main",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 35,
+  "method": "braise",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "南瓜", "label": "南瓜（去皮切塊）", "grams": 600, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切塊）", "grams": 100, "track": "base" },
+    { "food": "薑", "label": "薑片", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 4, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "板豆腐", "label": "板豆腐（切塊）", "grams": 200, "track": "veg" },
+    { "food": "雞腿", "label": "雞腿（切塊）", "grams": 400, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "南瓜去皮去籽切 3 公分塊；洋蔥切塊、薑切片；豆腐切塊；雞腿切塊。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油炒香薑片與洋蔥，下南瓜略炒，加水到半蓋，煮滾後小火煮 10 分鐘。" },
+    { "stage": "split", "type": "split", "text": "南瓜分成兩鍋，素食那鍋依吃素的人數分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：放豆腐塊，小火再煮 8 分鐘，加鹽調味。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：雞腿塊先煎到表面金黃再放入，小火燉 15 分鐘到肉熟南瓜軟，加鹽調味。" }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "r-pan-fried-salmon",
+  "name": "香煎鮭魚",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "pan",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "鮭魚", "label": "鮭魚切片", "grams": 480, "track": "base" },
+    { "food": "嫩薑", "label": "嫩薑（切絲）", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "黑胡椒粉", "label": "黑胡椒粉", "grams": 1, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 8, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "鮭魚用紙巾吸乾，兩面抹薄薄的鹽，放十分鐘。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋下少許油，魚皮朝下中火煎 4 分鐘不翻動，讓皮變脆。" },
+    { "stage": "base", "type": "cook", "text": "翻面再煎 2 到 3 分鐘到魚肉剛好變不透明，起鍋撒黑胡椒粉、鋪薑絲。" }
+  ]
+}

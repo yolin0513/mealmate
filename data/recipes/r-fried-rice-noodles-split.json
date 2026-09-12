@@ -1,0 +1,33 @@
+{
+  "id": "r-fried-rice-noodles-split",
+  "name": "什錦炒米粉／素炒米粉",
+  "role": "main",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 30,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "normal",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "米粉", "label": "米粉（乾）", "grams": 200, "track": "base", "pantry": true },
+    { "food": "高麗菜", "label": "高麗菜（切絲）", "grams": 300, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切絲）", "grams": 60, "track": "base" },
+    { "food": "乾香菇", "label": "乾香菇（泡軟切絲）", "grams": 15, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 30, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 25, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "白胡椒粉", "label": "白胡椒粉", "grams": 1, "track": "base", "pantry": true },
+    { "food": "五香豆干", "label": "五香豆干（切絲）", "grams": 100, "track": "veg" },
+    { "food": "豬肉片", "label": "豬肉絲", "grams": 150, "track": "meat" },
+    { "food": "蝦米", "label": "蝦米", "grams": 10, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "米粉泡溫水 5 分鐘軟化後剪短瀝乾；高麗菜、胡蘿蔔切絲；乾香菇泡軟切絲（泡菇水留著）。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油炒香香菇絲，下胡蘿蔔與高麗菜炒軟，加醬油、鹽、白胡椒粉與一碗泡菇水煮滾。" },
+    { "stage": "split", "type": "split", "text": "把菜與湯汁分成兩鍋，素食那鍋依吃素的人數分；米粉也照比例分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：下豆干絲與米粉，用筷子翻拌到湯汁被米粉吸乾。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：先炒香蝦米與豬肉絲，再倒回菜料與米粉翻拌到收乾。" }
+  ]
+}

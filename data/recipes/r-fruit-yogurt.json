@@ -1,0 +1,21 @@
+{
+  "id": "r-fruit-yogurt",
+  "name": "水果優格",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 8,
+  "method": "cold",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "優格", "label": "無糖優格", "grams": 400, "track": "base" },
+    { "food": "香蕉", "label": "香蕉（切片）", "grams": 240, "track": "base" },
+    { "food": "蘋果", "label": "蘋果（切丁）", "grams": 340, "track": "base" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "蘋果洗淨帶皮切丁；香蕉切片。" },
+    { "stage": "base", "type": "prep", "text": "優格分成四碗。" },
+    { "stage": "base", "type": "serve", "text": "水果鋪在優格上。想吃甜一點的家人可以自己加一點蜂蜜。" }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "r-bitter-melon-salted-egg",
+  "name": "苦瓜鹹蛋",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [5, 6, 7, 8, 9, 10],
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "苦瓜", "label": "苦瓜（去籽切薄片）", "grams": 500, "track": "base" },
+    { "food": "鹹蛋", "label": "鹹蛋（2 顆，切碎）", "grams": 120, "track": "base" },
+    { "food": "大蒜", "label": "蒜末（可省略）", "grams": 10, "track": "base" },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 3, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "苦瓜剖半去籽、刮掉白膜（比較不苦），切薄片用滾水燙一分鐘撈起；鹹蛋剝殼切碎。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油小火炒鹹蛋碎，炒到蛋黃起泡變沙。" },
+    { "stage": "base", "type": "cook", "text": "下蒜末與苦瓜片，中大火翻炒兩分鐘讓蛋沙裹住苦瓜，加糖拌勻起鍋。鹹蛋本身夠鹹，不另加鹽。" }
+  ]
+}

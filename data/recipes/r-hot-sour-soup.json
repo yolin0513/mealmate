@@ -1,0 +1,29 @@
+{
+  "id": "r-hot-sour-soup",
+  "name": "素酸辣湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 25,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "板豆腐", "label": "板豆腐（切絲）", "grams": 150, "track": "base" },
+    { "food": "乾木耳", "label": "乾木耳（泡軟切絲）", "grams": 10, "track": "base", "pantry": true },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切絲）", "grams": 50, "track": "base" },
+    { "food": "金針菇", "label": "金針菇（切段）", "grams": 100, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋", "grams": 55, "track": "base" },
+    { "food": "白醋", "label": "白醋", "grams": 30, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "白胡椒粉", "label": "白胡椒粉", "grams": 3, "track": "base", "pantry": true },
+    { "food": "太白粉", "label": "太白粉（勾芡）", "grams": 15, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "木耳泡軟切絲；豆腐、胡蘿蔔切絲；金針菇切段；雞蛋打散。" },
+    { "stage": "base", "type": "cook", "text": "鍋放 1000 毫升水煮滾，下胡蘿蔔、木耳、金針菇煮 3 分鐘，再下豆腐絲，加醬油。" },
+    { "stage": "base", "type": "cook", "text": "太白粉水勾芡到微稠，蛋液繞圈淋入成蛋花，關火。" },
+    { "stage": "base", "type": "serve", "text": "起鍋前才加白醋、白胡椒粉、香油，酸味和辣味才不會煮掉。" }
+  ]
+}

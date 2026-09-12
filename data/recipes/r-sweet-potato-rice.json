@@ -1,0 +1,20 @@
+{
+  "id": "r-sweet-potato-rice",
+  "name": "地瓜飯",
+  "role": "staple",
+  "servings": 4,
+  "time": 50,
+  "method": "rice",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "白米", "label": "白米（生）", "grams": 320, "track": "base", "pantry": true },
+    { "food": "地瓜", "label": "地瓜（去皮切塊）", "grams": 200, "track": "base" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "米洗淨加水到 1.1 倍，泡 20 分鐘。" },
+    { "stage": "base", "type": "prep", "text": "地瓜削皮切 2 公分塊，鋪在米上。" },
+    { "stage": "base", "type": "cook", "text": "電鍋煮好悶 10 分鐘，把地瓜拌進飯裡。" }
+  ]
+}

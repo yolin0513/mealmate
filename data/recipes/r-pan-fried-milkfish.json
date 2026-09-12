@@ -1,0 +1,21 @@
+{
+  "id": "r-pan-fried-milkfish",
+  "name": "香煎虱目魚",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "pan",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "虱目魚", "label": "虱目魚肚（去刺）", "grams": 500, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 4, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 10, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "魚肚吸乾水分，兩面抹鹽，放十分鐘。" },
+    { "stage": "base", "type": "cook", "text": "鍋燒熱下油，魚皮朝下中火煎 4 分鐘，不要急著翻。" },
+    { "stage": "base", "type": "cook", "text": "翻面再煎 3 分鐘到金黃；魚肚本身油脂多，不用再加油。" }
+  ]
+}

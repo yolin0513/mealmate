@@ -1,0 +1,26 @@
+{
+  "id": "r-scallion-beef",
+  "name": "蔥爆牛肉",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "牛肉片", "label": "牛肉片", "grams": 400, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切長段）", "grams": 60, "track": "base" },
+    { "food": "薑", "label": "薑絲", "grams": 10, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 4, "track": "base", "pantry": true },
+    { "food": "太白粉", "label": "太白粉（醃肉）", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "白胡椒粉", "label": "白胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "牛肉片用一半的醬油和太白粉抓醃十分鐘；蔥切 5 公分段，蔥白蔥綠分開；薑切絲。" },
+    { "stage": "base", "type": "cook", "text": "鍋燒到很熱下油，牛肉攤平大火快炒到變色就先盛起。" },
+    { "stage": "base", "type": "cook", "text": "同鍋爆香薑絲與蔥白，牛肉回鍋，加剩下的醬油、糖，最後下蔥綠翻炒幾下，撒白胡椒粉起鍋。" }
+  ]
+}

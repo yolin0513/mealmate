@@ -1,0 +1,26 @@
+{
+  "id": "r-braised-chicken-legs",
+  "name": "滷雞腿",
+  "role": "main",
+  "servings": 4,
+  "time": 45,
+  "method": "braise",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "雞腿", "label": "雞腿（4 支）", "grams": 600, "track": "base" },
+    { "food": "薑", "label": "薑片", "grams": 15, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切段）", "grams": 20, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 50, "track": "base", "pantry": true },
+    { "food": "冰糖", "label": "冰糖", "grams": 12, "track": "base", "pantry": true },
+    { "food": "八角", "label": "八角", "grams": 2, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 10, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "雞腿洗淨用紙巾吸乾；薑切片、蔥切段。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，雞腿皮朝下中火煎到表皮金黃，下薑片蔥段略炒。" },
+    { "stage": "base", "type": "cook", "text": "加醬油、冰糖、八角和水到剛好蓋過雞腿，煮滾後轉小火蓋鍋滷 30 分鐘。" },
+    { "stage": "base", "type": "serve", "text": "關火再悶 10 分鐘更入味；滷汁可以留著拌飯。" }
+  ]
+}

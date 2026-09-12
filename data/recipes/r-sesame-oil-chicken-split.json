@@ -1,0 +1,27 @@
+{
+  "id": "r-sesame-oil-chicken-split",
+  "name": "麻油薑燒雞／麻油杏鮑菇",
+  "role": "main",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 35,
+  "method": "braise",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [10, 11, 12, 1, 2, 3],
+  "ingredients": [
+    { "food": "麻油", "label": "黑麻油", "grams": 30, "track": "base", "pantry": true },
+    { "food": "老薑", "label": "老薑（切片）", "grams": 40, "track": "base" },
+    { "food": "枸杞", "label": "枸杞", "grams": 8, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "杏鮑菇", "label": "杏鮑菇（滾刀塊）", "grams": 200, "track": "veg" },
+    { "food": "雞腿", "label": "雞腿（切塊）", "grams": 500, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "老薑切片；杏鮑菇切滾刀塊；雞腿切塊。這道不用米酒，靠麻油與薑的香氣。" },
+    { "stage": "base", "type": "cook", "text": "鍋下黑麻油，小火把薑片煸到邊緣捲起。" },
+    { "stage": "split", "type": "split", "text": "薑與麻油分成兩鍋，素食那鍋依吃素的人數分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：下杏鮑菇炒到微焦，加一碗水與枸杞煮 5 分鐘，加鹽。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：雞腿塊皮朝下煎到金黃，加水到半蓋與枸杞，蓋鍋小火燉 20 分鐘，加鹽。" }
+  ]
+}

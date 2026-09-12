@@ -1,0 +1,25 @@
+{
+  "id": "r-shrimp-scrambled-egg",
+  "name": "蝦仁炒蛋",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "蝦仁", "label": "蝦仁", "grams": 200, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋", "grams": 220, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切蔥花，可省略）", "grams": 15, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "白胡椒粉", "label": "白胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "蝦仁退冰吸乾，用一點鹽和白胡椒粉抓一下；雞蛋打散加鹽；蔥切蔥花。" },
+    { "stage": "base", "type": "cook", "text": "鍋下一半的油，蝦仁中火炒到變紅捲起，先盛出。" },
+    { "stage": "base", "type": "cook", "text": "下剩下的油，倒入蛋液，稍微凝固就把蝦仁倒回去，輕推成大塊，八分熟起鍋撒蔥花。" }
+  ]
+}

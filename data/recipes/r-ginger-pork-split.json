@@ -1,0 +1,29 @@
+{
+  "id": "r-ginger-pork-split",
+  "name": "薑燒豚肉／薑燒杏鮑菇",
+  "role": "main",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 20,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "洋蔥", "label": "洋蔥（切絲）", "grams": 200, "track": "base" },
+    { "food": "薑", "label": "薑泥", "grams": 20, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 30, "track": "base", "pantry": true },
+    { "food": "味醂", "label": "味醂", "grams": 20, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "杏鮑菇", "label": "杏鮑菇（切厚片）", "grams": 200, "track": "veg" },
+    { "food": "梅花肉", "label": "梅花肉片", "grams": 350, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "洋蔥切絲；薑磨泥，和醬油、味醂、糖調成薑燒醬；杏鮑菇切厚片。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，洋蔥中火炒到透明變軟。" },
+    { "stage": "split", "type": "split", "text": "洋蔥與薑燒醬分成兩鍋，素食那鍋依吃素的人數分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：杏鮑菇片先乾煎到兩面金黃，倒入洋蔥與醬汁燒到收汁。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：肉片攤開炒到變色，倒入洋蔥與醬汁，中火燒到醬汁裹住肉片。" }
+  ]
+}

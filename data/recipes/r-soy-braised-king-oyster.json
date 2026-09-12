@@ -1,0 +1,23 @@
+{
+  "id": "r-soy-braised-king-oyster",
+  "name": "醬燒杏鮑菇",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "pan",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "杏鮑菇", "label": "杏鮑菇（切厚片）", "grams": 300, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "黑胡椒粉", "label": "黑胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "杏鮑菇切 1 公分厚片，可在表面劃淺格紋更入味。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，杏鮑菇片中火煎到兩面金黃、邊緣微焦。" },
+    { "stage": "base", "type": "cook", "text": "加醬油、糖與兩大匙水，翻面燒到收汁，撒黑胡椒粉。不含蔥蒜，全素的家人也能吃。" }
+  ]
+}

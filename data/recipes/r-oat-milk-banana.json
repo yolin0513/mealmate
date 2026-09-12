@@ -1,0 +1,21 @@
+{
+  "id": "r-oat-milk-banana",
+  "name": "燕麥牛奶",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 10,
+  "method": "porridge",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "燕麥片", "label": "燕麥片", "grams": 160, "track": "base", "pantry": true },
+    { "food": "鮮乳", "label": "鮮乳", "grams": 800, "track": "base" },
+    { "food": "香蕉", "label": "香蕉（切片）", "grams": 240, "track": "base" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "cook", "text": "鮮乳倒進鍋裡小火加熱到微溫，倒入燕麥片。" },
+    { "stage": "base", "type": "cook", "text": "小火邊煮邊攪 3 到 5 分鐘到燕麥變軟，不要煮滾以免溢鍋。" },
+    { "stage": "base", "type": "serve", "text": "盛碗鋪香蕉片。" }
+  ]
+}

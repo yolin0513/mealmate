@@ -1,0 +1,24 @@
+{
+  "id": "r-black-bean-bitter-melon",
+  "name": "蔭豉苦瓜",
+  "role": "main",
+  "servings": 4,
+  "time": 25,
+  "method": "braise",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [5, 6, 7, 8, 9, 10],
+  "ingredients": [
+    { "food": "苦瓜", "label": "苦瓜（去籽切塊）", "grams": 500, "track": "base" },
+    { "food": "豆豉", "label": "豆豉", "grams": 20, "track": "base", "pantry": true },
+    { "food": "大蒜", "label": "蒜末", "grams": 10, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "苦瓜去籽切 3 公分塊；豆豉用水沖一下瀝乾；蒜切末。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，小火爆香蒜末與豆豉。" },
+    { "stage": "base", "type": "cook", "text": "下苦瓜塊翻炒，加醬油、糖和一碗水，蓋鍋小火燒 15 分鐘到苦瓜軟透。" }
+  ]
+}

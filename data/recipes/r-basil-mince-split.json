@@ -1,0 +1,30 @@
+{
+  "id": "r-basil-mince-split",
+  "name": "打拋豬／打拋豆干",
+  "role": "main",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 20,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "minced",
+  "season": [],
+  "ingredients": [
+    { "food": "九層塔", "label": "九層塔", "grams": 30, "track": "base" },
+    { "food": "番茄", "label": "番茄（切小塊）", "grams": 150, "track": "base" },
+    { "food": "大蒜", "label": "蒜末", "grams": 15, "track": "base" },
+    { "food": "辣椒", "label": "辣椒（切末）", "grams": 10, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 30, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 8, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "五香豆干", "label": "五香豆干（切小丁）", "grams": 150, "track": "veg" },
+    { "food": "豬絞肉", "label": "豬絞肉", "grams": 350, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "九層塔摘葉；番茄切小塊；蒜、辣椒切末；豆干切小丁。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，小火爆香蒜末與辣椒末，加醬油、糖調成醬汁底。" },
+    { "stage": "split", "type": "split", "text": "醬汁底分成兩鍋，素食那鍋依吃素的人數分；番茄與九層塔也照比例分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：下豆干丁大火炒到上色，加番茄塊略炒，關火拌入九層塔。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：豬絞肉炒散炒到微焦，倒入醬汁與番茄塊翻炒，關火拌入九層塔。" }
+  ]
+}

@@ -11,7 +11,7 @@ const OUT = path.join(ROOT, 'screenshots/features');
 fs.mkdirSync(OUT, { recursive: true });
 
 const SHOTS = [
-  { name: 'week', hash: '#/', wait: '#view [data-card="weekEmpty"]' },
+  { name: 'week-empty', hash: '#/', wait: '#view [data-card="weekEmpty"]' },
   { name: 'recipes', hash: '#/recipes', wait: '#view [data-list="recipes"] a.row' },
   { name: 'recipe-split', hash: '#/recipes/r-cabbage-pork-stirfry', wait: '#view [data-card="recipeNutrition"] .nutri-value' },
   { name: 'recipe-veg', hash: '#/recipes/r-tomato-egg', wait: '#view [data-card="recipeNutrition"] .nutri-value' },
@@ -43,6 +43,18 @@ try {
     await page.screenshot({ path: file, fullPage: true });
     console.log(`${s.name}.png  ${(fs.statSync(file).size / 1024).toFixed(0)} KB`);
   }
+  // 已產生的本週菜單（先設買菜日再產生）
+  await page.evaluate(async () => { const prefs = await import('./js/prefs.js'); await prefs.set('shoppingDays', [1, 4]); });
+  await goto(page, '#/family');
+  await page.waitForSelector('#view [data-card="about"]');
+  await goto(page, '#/');
+  await page.waitForSelector('[data-action="generate"]');
+  await page.$eval('[data-action="generate"]', (el) => el.click());
+  await page.waitForSelector('[data-card="weekHead"]');
+  await page.$eval('[data-card="day"][data-day="0"] [data-field="dayEstimate"] summary', (el) => el.click());
+  await sleep(300);
+  await page.screenshot({ path: path.join(OUT, 'week-plan.png'), fullPage: true });
+  console.log('week-plan.png');
 } finally {
   await close();
 }

@@ -1,0 +1,23 @@
+{
+  "id": "r-stir-fried-garland",
+  "name": "清炒茼蒿",
+  "role": "side",
+  "servings": 4,
+  "time": 8,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [11, 12, 1, 2, 3],
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "茼蒿", "label": "茼蒿", "grams": 400, "track": "base" },
+    { "food": "大蒜", "label": "蒜末（可省略）", "grams": 8, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "茼蒿一葉葉剝開洗淨，瀝乾。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱下油，蒜末小火爆香。" },
+    { "stage": "base", "type": "cook", "text": "大火下茼蒿，翻炒 40 秒到葉子變軟就加鹽起鍋，茼蒿炒久會苦。" }
+  ]
+}

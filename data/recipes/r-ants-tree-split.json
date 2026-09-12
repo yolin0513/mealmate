@@ -1,0 +1,30 @@
+{
+  "id": "r-ants-tree-split",
+  "name": "螞蟻上樹／素螞蟻上樹",
+  "role": "main",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 25,
+  "method": "braise",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "冬粉", "label": "冬粉（乾）", "grams": 120, "track": "base", "pantry": true },
+    { "food": "薑", "label": "薑末", "grams": 10, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切蔥花）", "grams": 15, "track": "base" },
+    { "food": "辣豆瓣醬", "label": "辣豆瓣醬", "grams": 20, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "乾香菇", "label": "乾香菇（泡軟切末）", "grams": 15, "track": "veg" },
+    { "food": "豬絞肉", "label": "豬絞肉", "grams": 200, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "冬粉泡溫水 10 分鐘軟化剪短；薑切末、蔥切蔥花；乾香菇泡軟切末。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油小火炒香薑末與辣豆瓣醬，加醬油與兩碗水煮滾成湯底。" },
+    { "stage": "split", "type": "split", "text": "湯底分成兩鍋，素食那鍋依吃素的人數分；冬粉也照比例分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：下香菇末與冬粉，中火煮到冬粉吸乾湯汁變透明，撒蔥花。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：另起鍋把絞肉炒散炒香，倒入湯底與冬粉煮到收乾，撒蔥花。" }
+  ]
+}

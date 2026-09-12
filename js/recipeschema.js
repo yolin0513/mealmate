@@ -20,8 +20,11 @@ export const TRACK_LABELS = { base: '共用', veg: '素食那鍋', meat: '葷食
 export const STAGES = ['base', 'split', 'veg', 'meat'];
 export const STAGE_LABELS = { base: '共同', split: '分流', veg: '素', meat: '葷' };
 export const STEP_TYPES = ['prep', 'cook', 'split', 'serve'];
-export const METHODS = ['stirfry', 'steam', 'braise', 'boil', 'soup', 'pan', 'bake', 'cold', 'rice', 'porridge'];
-export const METHOD_LABELS = { stirfry: '炒', steam: '蒸', braise: '滷／燉', boil: '水煮／燙', soup: '煮湯', pan: '煎', bake: '烤', cold: '涼拌', rice: '煮飯', porridge: '煮粥' };
+export const METHODS = ['stirfry', 'steam', 'braise', 'boil', 'soup', 'pan', 'bake', 'cold', 'rice', 'porridge', 'deepfry'];
+export const METHOD_LABELS = { stirfry: '炒', steam: '蒸', braise: '滷／燉', boil: '水煮／燙', soup: '煮湯', pan: '煎', bake: '烤', cold: '涼拌', rice: '煮飯', porridge: '煮粥', deepfry: '油炸' };
+
+/** 「避開含精緻糖的菜」的門檻：糖類食材每人一份 ≥ 4 克（約一茶匙）。這是排菜用的分類，不是任何營養學上限。 */
+export const SWEET_GRAMS_PER_SERVING = 4;
 export const TEXTURES = ['normal', 'soft', 'minced'];
 export const TEXTURE_LABELS = { normal: '一般', soft: '軟質', minced: '需剁碎' };
 
@@ -32,7 +35,14 @@ export const CAT_TAGS = {
   '蛋類': 'egg',
   '乳品類': 'dairy',
 };
-export const TAG_LABELS = { meat: '肉', seafood: '海鮮', egg: '蛋', dairy: '奶', allium: '五辛', peanut: '花生', gluten: '麩質' };
+export const TAG_LABELS = { meat: '肉', seafood: '海鮮', egg: '蛋', dairy: '奶', allium: '五辛', peanut: '花生', gluten: '麩質', sweet: '含精緻糖', processed: '加工肉／醃漬', wholegrain: '全穀雜糧' };
+
+/** 加工肉、醃漬品：加工調理食品類裡帶肉／海鮮的，或名稱看得出來的。給「避開加工肉與醃漬」開關用。 */
+const PROCESSED_NAME_RX = /培根|火腿|香腸|臘肉|臘腸|貢丸|魚丸|肉鬆|肉乾|醃|漬|榨菜|酸菜|泡菜|鹹菜|菜脯/;
+export function isProcessedFood(food, fTags) {
+  if (PROCESSED_NAME_RX.test(food.name)) return true;
+  return food.cat === '加工調理食品及其他類' && (fTags.has('meat') || fTags.has('seafood'));
+}
 
 const ID_RX = /^r-[a-z0-9-]+$/;
 
@@ -108,6 +118,9 @@ export function validateRecipe(recipe, ctx) {
   const meatTags = new Set();  // base ＋ meat 軌的標籤：葷食成員實際吃到的
   const proteins = new Set();
   const tracksSeen = new Set();
+  let sugarGrams = 0;          // 糖類食材總克數（推導「含精緻糖」）
+  let processed = false;
+  let wholegrain = false;
   const normIngredients = ingredients.map((ing, i) => {
     const where = `食材 #${i + 1}（${ing?.label ?? '?'}）`;
     if (typeof ing?.label !== 'string' || !ing.label.trim()) err(`${where} 缺 label`);
@@ -132,6 +145,9 @@ export function validateRecipe(recipe, ctx) {
       }
       const pg = proteinGroupOf(food, fTags);
       if (pg) proteins.add(pg);
+      if (food.cat === '糖類' && isPosNum(ing?.grams)) sugarGrams += ing.grams;
+      if (isProcessedFood(food, fTags)) processed = true;
+      if (fTags.has('wholegrain')) wholegrain = true;
       const nonVeg = fTags.has('meat') || fTags.has('seafood');
       if (nonVeg && r.vegMode === 'nativeVeg') err(`${where} 是葷的（${food.name}），但這道菜標成 nativeVeg`);
       if (nonVeg && r.vegMode === 'splittable' && track !== 'meat') err(`${where} 是葷的（${food.name}），在 splittable 的菜裡只能放 meat 軌，現在在 ${track}`);
@@ -182,6 +198,12 @@ export function validateRecipe(recipe, ctx) {
     void stageIdx;
   }
 
+  // 由食材推導的排菜標籤（不是使用者手寫的）
+  if (isInt(r.servings) && r.servings > 0 && sugarGrams / r.servings >= SWEET_GRAMS_PER_SERVING) { tags.add('sweet'); vegTags.add('sweet'); meatTags.add('sweet'); }
+  if (processed) tags.add('processed');
+  if (wholegrain) { tags.add('wholegrain'); vegTags.add('wholegrain'); meatTags.add('wholegrain'); }
+  if (r.includesStaple != null && typeof r.includesStaple !== 'boolean') err('includesStaple 要是布林');
+
   const normalized = {
     id: r.id,
     name: r.name,
@@ -194,6 +216,7 @@ export function validateRecipe(recipe, ctx) {
     season: r.season ?? [],
     ...(r.vegMode === 'splittable' && r.splitServings ? { splitServings: { veg: r.splitServings.veg, meat: r.splitServings.meat } } : {}),
     ...(r.alliumOptional ? { alliumOptional: true } : {}),
+    ...(r.includesStaple ? { includesStaple: true } : {}),
     ...(r.notes ? { notes: String(r.notes) } : {}),
     ingredients: normIngredients,
     steps: steps.map((st) => ({ stage: st?.stage ?? 'base', type: st?.type ?? 'cook', text: st?.text })),

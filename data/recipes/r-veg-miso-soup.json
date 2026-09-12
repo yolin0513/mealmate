@@ -1,0 +1,23 @@
+{
+  "id": "r-veg-miso-soup",
+  "name": "蔬菜味噌湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 20,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "味噌", "label": "味噌", "grams": 50, "track": "base", "pantry": true },
+    { "food": "高麗菜", "label": "高麗菜（切片）", "grams": 200, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切片）", "grams": 60, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切絲）", "grams": 80, "track": "base" },
+    { "food": "金針菇", "label": "金針菇（切段）", "grams": 100, "track": "base" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "高麗菜切片、胡蘿蔔切薄片、洋蔥切絲、金針菇切段。" },
+    { "stage": "base", "type": "cook", "text": "鍋放 1000 毫升水，先煮洋蔥與胡蘿蔔 5 分鐘，再下高麗菜與金針菇煮 3 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "味噌用一勺熱湯在碗裡化開倒回鍋中，關火，不要再煮滾。" }
+  ]
+}

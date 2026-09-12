@@ -1,0 +1,25 @@
+{
+  "id": "r-cabbage-egg-pancake",
+  "name": "高麗菜蛋餅",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 20,
+  "method": "pan",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "中筋麵粉", "label": "中筋麵粉", "grams": 200, "track": "base", "pantry": true },
+    { "food": "雞蛋", "label": "雞蛋", "grams": 220, "track": "base" },
+    { "food": "高麗菜", "label": "高麗菜（切細絲）", "grams": 200, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切蔥花，可省略）", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "麵粉加 300 毫升水與鹽攪成沒有顆粒的麵糊，靜置 10 分鐘；高麗菜切細絲、蔥切蔥花，拌進麵糊。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋抹油，舀一勺麵糊攤成薄餅，中火煎到底面定型翻面。" },
+    { "stage": "base", "type": "cook", "text": "另一邊打一顆蛋攤開，把餅皮蓋上去煎到蛋熟，捲起切段。重複做四份。" }
+  ]
+}
