@@ -30,10 +30,13 @@ try {
   await page.type('[data-field="name"]', '阿嬤');
   await clickEl(page, chipSel('diet', 'lactoOvo'));
   await clickEl(page, chipSel('ageGroup', 'senior'));
+  // 要驗「真的看不到」，不是只驗 hidden 屬性：display:flex 的 class 會蓋掉 hidden（截圖走查抓到過）。
+  const shownBox = (sel) => page.$eval(sel, (el) => { const cs = getComputedStyle(el); return cs.display !== 'none' && el.getBoundingClientRect().height > 0; });
+  eq(await shownBox('.sub-block'), false, '腎臟病還沒開之前，子項（鈉／鉀／磷／蛋白質）是看不到的');
+  eq(await shownBox('.err-box'), false, '沒有錯誤時，錯誤框看不到（不是一條空的紅框）');
   await clickEl(page, '[data-pref="cond-kidney"]');
   await sleep(150);
-  const subVisible = await page.$eval('.sub-block', (el) => !el.hidden);
-  ok(subVisible, '開腎臟病後出現子項（鈉／鉀／磷／蛋白質）');
+  eq(await shownBox('.sub-block'), true, '開腎臟病後出現子項（鈉／鉀／磷／蛋白質）');
   const subChecked = await page.$$eval(chipSel('kidneyWatch', 'potassium').replace(' .chip[data-value="potassium"]', ' .chip.on'), (els) => els.length);
   eq(subChecked, 0, '子項預設全不勾');
   await clickEl(page, '[data-action="saveMember"]');

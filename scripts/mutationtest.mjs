@@ -291,6 +291,14 @@ const MUTATIONS = [
     test: 'shelltest',
   },
   {
+    name: '拿掉 [hidden] 的 display:none !important',
+    why: '.sub-block 與 .notice 是 display:flex，hidden 屬性會被蓋掉：腎臟病沒開時子項照樣顯示、空的錯誤框變成一條紅框。',
+    file: 'css/style.css',
+    find: '[hidden] { display: none !important; }',
+    replace: '',
+    test: 'familytest',
+  },
+  {
     name: 'toast 拿掉 pointer-events:none',
     why: 'toast 淡出的 250 毫秒會擋住底下的按鈕；使用者按存檔那一下會沒反應。',
     file: 'css/style.css',

@@ -120,6 +120,13 @@ try {
   await goto(page, '#/recipes/new');
   await titleIs(page, '新增食譜');
   await page.waitForSelector('[data-field="recipeName"]');
+  const splitBoxShown = () => page.$eval('[data-card="editBasics"] .sub-block', (el) => getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0);
+  eq(await splitBoxShown(), false, '預設「素」的新食譜看不到「素食那鍋幾人份」的區塊');
+  await clickEl(page, chipSel('vegMode', 'splittable'));
+  await sleep(100);
+  eq(await splitBoxShown(), true, '切到可分流才出現');
+  await clickEl(page, chipSel('vegMode', 'nativeVeg'));
+  await sleep(100);
   await page.type('[data-field="recipeName"]', '我的燙青菜');
   await page.type('[data-ingredient="0"] [data-field="foodSearch"]', '青江菜');
   await page.waitForSelector('[data-ingredient="0"] .picker-item');

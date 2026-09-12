@@ -1,6 +1,6 @@
 # MealMate 專案狀態（docs/STATUS.md）
 
-> 最後更新：2026-09-13。**M0、M1 完成並上線（`mealmate-v0.2.0`）；M2 尚未開始。**
+> 最後更新：2026-09-13。**M0、M1 完成並上線（`mealmate-v0.2.1`）；M2 尚未開始。**
 > repo `yolin0513/mealmate`，GitHub Pages `https://yolin0513.github.io/mealmate/`。
 > 給接手的工作階段快速接手用。規劃細節見 `PLAN.md`（唯一真相來源），實測見 `FEASIBILITY.md`，資料與衛教來源見 `SOURCES.md`。
 
@@ -9,17 +9,17 @@
 | 里程碑 | 狀態 | 線上版本 |
 |---|---|---|
 | M0 資料與骨架 | ✅ 完成（2026-09-13） | `mealmate-v0.1.0` |
-| M1 家人與食譜瀏覽 | ✅ 完成（2026-09-13） | `mealmate-v0.2.0` |
+| M1 家人與食譜瀏覽 | ✅ 完成（2026-09-13） | `mealmate-v0.2.1` |
 | M2 週計畫 | ⏳ 未開始（**下一步從這裡開始**） | — |
 | M3 買菜 | ⏳ 未開始 | — |
 | M4 今日煮與打磨 | ⏳ 未開始 | — |
 | M5 上線 | ⏳ 未開始 | — |
 
-測試現況：12 支測試 ＋ `mutationtest`。Node 端：datatest 57、aliastest 26、unittest 29、edutest 13、copytest 7、recipetest 45、membertest 41、nutritiontest 65；瀏覽器端（puppeteer）：shelltest 104、familytest 27、recipeviewtest 47、backuptest 30。`mutationtest` **47 條突變逐一證明關鍵斷言改壞會紅**。全套約 15 分鐘（突變佔大半）；平常只跑受影響的（慣例 15）。
+測試現況：12 支測試 ＋ `mutationtest`。Node 端：datatest 57、aliastest 26、unittest 29、edutest 13、copytest 7、recipetest 45、membertest 41、nutritiontest 65；瀏覽器端（puppeteer）：shelltest 104、familytest 29、recipeviewtest 49、backuptest 30。`mutationtest` **48 條突變逐一證明關鍵斷言改壞會紅**。全套約 15 分鐘（突變佔大半）；平常只跑受影響的（慣例 15）。
 
 ### M1 開發期的實測發現
 
-1. **兩個真 bug 都是測試抓到的，不是人眼**：(a) 沒有家人時營養卡多印出一個「null」字（`replaceChildren(null)` 不像 `h()` 會略過 null）→ shelltest 每條路由現在都斷言畫面上沒有 `null`／`undefined`／`NaN`；(b) toast 淡出的 250 毫秒仍在畫面上（opacity 0），會擋住底下的按鈕 → `#toast { pointer-events: none }`，shelltest 有斷言、mutationtest 有突變。
+1. **三個真 bug**：(a) 沒有家人時營養卡多印出一個「null」字（`replaceChildren(null)` 不像 `h()` 會略過 null）→ shelltest 每條路由現在都斷言畫面上沒有 `null`／`undefined`／`NaN`；(b) toast 淡出的 250 毫秒仍在畫面上（opacity 0），會擋住底下的按鈕 → `#toast { pointer-events: none }`；(c) `.sub-block`／`.notice` 的 `display:flex` 蓋掉 `hidden` 屬性，腎臟病沒開時子項照樣顯示、空的錯誤框變成一條紅框 → `[hidden] { display: none !important }`。(a)(b) 是測試抓到的，(c) 是截圖走查抓到的——familytest 原本只驗「開了會出現」沒驗「沒開要看不到」，已補成量 computed style 與高度。三個都有突變。
 2. **puppeteer 的 `page.click` 只檢查元素在視窗範圔內就點中心**，頁面底部的按鈕會被固定分頁列或 toast 蓋住。瀏覽器測試一律用 `browserlib.clickEl()`（先捲到畫面中央再點）。
 3. **可分流的菜要宣告 `splitServings`**（素幾人份、葷幾人份，加起來等於 servings），否則「每人一份」算不出來。10 道內建食譜都設素 1、葷 3；分流步驟文字改成「依吃素的人數分」。M2 依實際家人人數縮放兩軌。
 4. **醣類份數不做**（使用者 2026-09-13 確認）：食物代換表頁是檔案下載、沒有可引用原文；在拿到出處之前只顯示「估 醣 X g」。recipeviewtest 有一條斷言畫面上沒有「份醣／醣類份數」。
@@ -78,7 +78,7 @@
 
 食藥署轉檔、別名表、採買單位、國健署人工開頁、36 道食譜、PWA 殼、七支測試與 30 條突變。驗收明細見 git 歷史 `bf0cc6b`。
 
-### M1 家人與食譜瀏覽 ✅（`mealmate-v0.2.0`）
+### M1 家人與食譜瀏覽 ✅（`mealmate-v0.2.1`）
 
 | 工作 | 驗收（實際） |
 |---|---|
@@ -133,5 +133,6 @@
 5. **用名稱字串（尤其子字串）去查食藥署營養。** 食譜只存整合編號；口語詞經 `resolveFood` 精確比對；新食材先 `npm run findfood -- 詞`。
 6. **`replaceChildren()` 傳 null 進去。** 畫面上會出現「null」字。h() 會略過 null，`replaceChildren` 不會 —— 先 `.filter(Boolean)`。shelltest 每條路由都掃。
 7. **瀏覽器測試用 `page.click` 點頁面底部的東西。** 會點到固定分頁列或正在淡出的 toast。用 `clickEl()`。
+8. **「看不到」只驗 `hidden` 屬性。** 屬性在、東西照樣顯示（display:flex 蓋掉它）。要驗就量 `getComputedStyle().display` 與 `getBoundingClientRect().height`（familytest 的 `shownBox`）。
 
 另外三件較小但會一路痛的：**早餐納入不重複計分**（`noRepeatDays.breakfast` 是 0，有突變）；**池子不夠時靜默重複**（要進 `diagnostics` 並在本週頁明講）；**改了食譜沒跑 `npm run build-recipes`**（`recipetest` 會紅）。

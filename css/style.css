@@ -25,6 +25,10 @@
 
 * { box-sizing: border-box; }
 
+/* hidden 屬性要贏過 .notice／.sub-block／.picker-results 這些 display:flex 的 class。
+   沒有這一條，腎臟病沒開時子項照樣顯示、空的錯誤框會變成一條紅框（截圖走查抓到的）。 */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;
