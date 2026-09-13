@@ -228,8 +228,22 @@ Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、
 14. **斷言驗語意、不貼字面。**
 15. **測試範圍：平常只跑受影響的，全面檢測由使用者叫**（沿用 StockDiary 的使用者指示）。判斷受影響：`grep -l "views/<改到的檔>" scripts/*.mjs`；改到任何 view → `shelltest`；`js/views/family.js`／`member.js` → `familytest`；`js/views/recipe*.js`／`js/nutrition.js`／`js/store.js` → `recipeviewtest`、`nutritiontest`；`js/planner.js`／`js/views/week*.js` → `plannertest`、`weekviewtest`；`js/backup.js`／`js/db.js` → `backuptest`；`js/shopping.js`／`js/views/shopping.js`／`js/units.js` → `shoppingtest`、`shoppingviewtest`；`js/timeline.js`／`js/views/today.js` → `timelinetest`、`todaytest`；`js/router.js`／`js/shell.js` → `racetest`、`shelltest`；`js/app.js`／`sw.js`／`js/version.js` → `shelltest`、`versionmixtest`；`css/style.css`／`js/prefs.js`（字級） → `layouttest`、`uikittest`、`shelltest`；`js/members.js` → `membertest`、`familytest`、`recipeviewtest`、`plannertest`；`js/recipeschema.js`／`data/recipes/` → `recipetest`、`copytest`、`plannertest`；`js/foods.js`／`data/aliases.json`／**`data/units.json`** → `aliastest`、`recipetest`、`unittest`（2026-09-13 補：改了 `data/units.json` 的保存天數卻只跑了 shoppingtest，unittest 紅了一版沒被發現）；`data/edu.json`／任何 `edu(` 呼叫 → `edutest`、`copytest`；`css/style.css` → `shelltest`（M4 起加 `layouttest`、`uikittest`）。**沒有放寬的那一條：新的斷言仍然必須經突變驗證會紅**（`npm run mutationtest -- --only <關鍵字>`）。
 16. **瀏覽器測試的點擊一律 `clickEl()`**（先捲到中央再點）；要量 toast 文字就等 `#toast.show`，要等它走就 `waitToastGone()`。
-17. **全面檢測怎麼跑**（使用者叫的時候）：`npm run checkmutations`（幾秒，先確認沒有過期的突變）→ `npm run doctest` → `npm run redlinetest` → `npm run scenariotest` → `npm run assertaudit`（會跑完整套件並分析假斷言，約 25 分）→ `npm run mutationtest`（105 條，約 20 分）。**只跑 `--only` 子集永遠看不到過期的突變**，那是 M2 到 M5 之間漏掉一條的原因。
-18. **資料庫換季（食藥署每季更新）**：`npm run build-foods -- --download` 會印出差異；消失的編號若被別名表或食譜用到，`aliastest`／`recipetest` 會紅；`aliases.json` 的 `foodsVersion` 要同步改。
+17. **全面檢測怎麼跑**（使用者叫的時候）：`npm run checkmutations`（幾秒，先確認沒有過期的突變）→ `npm run doctest` → `npm run redlinetest` → `npm run scenariotest` → `npm run assertaudit`（會跑完整套件並分析假斷言，約 25 分）→ `npm run mutationtest`（115 條，約 25 分）。**只跑 `--only` 子集永遠看不到過期的突變**，那是 M2 到 M5 之間漏掉一條的原因。
+19. **UI 產生的計畫是隨機 seed —— 需要「特定情境」的斷言不可以靠按鈕。**
+    `js/views/week.js` 的「產生菜單」與「重新產生」都走 `newSeed: true`，seed 取自 `Date.now()`。
+    所以 `weekviewtest`／`todaytest`／`shoppingviewtest`／`scenariotest`／`versionmixtest` 每次跑驗到的是**不同的菜單**。
+    結構性的斷言（21 個餐格、每道菜素食成員都吃得到）照樣成立，沒問題；
+    但**需要某個情境存在才分得出對錯**的斷言會靜默失效 ——
+    2026-09-13 的實例：「診斷卡一道菜一筆」只有在**某道菜同時踩到兩條限制**時才驗得到東西，
+    那一輪剛好每道菜只踩一條，改成「一個旗標一筆」筆數一模一樣，**突變沒紅**。
+    規矩兩條：
+    · 需要特定情境時，用 `page.evaluate` 自己呼叫 `generateWeek({ seed: '固定字串', … })` 再 `store.savePlan`，
+      不要按按鈕（`redlinetest` 與 `weekviewtest` 的診斷卡那一節就是這樣寫）。
+      湊不出情境就調 `rules`（例如把 `timeCaps` 壓低讓時間與保存期限同時咬得到），不要試 seed 碰運氣。
+    · 而且要加一條**前置斷言**把那個情境講出來（「其中 N 道同時踩到兩條以上」）。
+      哪天食譜池變了、情境不再成立，前置斷言會大聲紅，而不是讓主斷言安靜地變成恆真。
+    順帶一提：種完計畫後若目前就停在 `#/`，`goto(page, '#/')` 不會重畫（hash 沒變），要先離開再回來。
+20. **資料庫換季（食藥署每季更新）**：`npm run build-foods -- --download` 會印出差異；消失的編號若被別名表或食譜用到，`aliastest`／`recipetest` 會紅；`aliases.json` 的 `foodsVersion` 要同步改。
 
 ## 開發順序與驗收條件
 

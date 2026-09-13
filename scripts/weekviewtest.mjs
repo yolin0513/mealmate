@@ -225,24 +225,33 @@ try {
   // 舊版兩個毛病：(1) 拿 diagnostics.relaxed.length 當道數，但那時一道菜每開一個旗標推一筆，
   // 12 道會被講成 37 道；(2) 文案寫死「時間上限或同餐烹法」，真正的主因（保存期限）從來沒被講出來。
   {
-    // 一週只買一次菜 → 保存期限吃緊，正是會出現放寬的情境
-    await page.evaluate(async () => {
+    // 固定 seed 自己種一份計畫，不按「重新產生」——那顆按鈕走 newSeed: true，
+    // seed 取自 Date.now()，每次跑驗到的是不同的菜單（慣例 18）。
+    // 另外把平日時間上限壓到 25 分鐘：一週只買一次菜已經讓保存期限咬得到，
+    // 再讓時間也咬得到，就一定會有菜同時踩到兩條 —— 「一道菜一筆」那條才分得出對錯。
+    const diag = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
       const prefs = await import('./js/prefs.js');
+      const { generateWeek, mondayOf, isoDate } = await import('./js/planner.js');
       await prefs.set('shoppingDays', [3]);
+      const mondayIso = mondayOf(isoDate(new Date()));
+      const { plan, diagnostics } = generateWeek({
+        recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
+        rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid'),
+          timeCaps: { weekday: { breakfast: 15, lunch: 25, dinner: 25 }, weekend: { breakfast: 20, lunch: 30, dinner: 30 } } },
+        favorites: [], history: [], mondayIso, seed: 'diagfix', shoppingDays: [3], haveFoods: new Set(),
+      });
+      await store.savePlan({ ...plan, diagnostics });
+      return diagnostics.relaxed;
     });
     await goto(page, '#/');
     await titleIs(page, '本週菜單');
-    await clickEl(page, '[data-action="regenerate"]');
-    await page.waitForFunction(() => !document.querySelector('[data-action="regenerate"]')?.disabled);
-    await waitToastGone(page);
-
-    const diag = await page.evaluate(async () => {
-      const store = await import('./js/store.js');
-      const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
-      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
-      return plan?.diagnostics?.relaxed ?? [];
-    });
-    ok(diag.length >= 1, `（前提）一週買一次菜時這週有 ${diag.length} 道被放寬`);
+    await page.waitForSelector('[data-card="diagnostics"]');
+    ok(diag.length >= 1, `（前提）這份 fixture 有 ${diag.length} 道被放寬`);
+    const multi = diag.filter((r) => r.constraints.length >= 2);
+    ok(multi.length >= 1,
+      `（前提）其中 ${multi.length} 道**同時**踩到兩條以上（例：${multi[0]?.constraints.join('＋')}）——` +
+      '沒有這種菜的話，下面「一道菜一筆」那條分不出對錯（改成一個旗標一筆也會得到一樣的筆數）');
     const dishKeys = diag.map((r) => `${r.date}|${r.meal}|${r.pos}`);
     eq(dishKeys.length, new Set(dishKeys).size, '存進計畫的 relaxed 是一道菜一筆');
 
@@ -270,20 +279,27 @@ try {
     eq(href, '#/family', '提示裡的連結直接到家人分頁（就是改買菜日的地方）');
 
     // 買菜日加到兩天 → 保存期限的壓力消失，提示也跟著不見
-    await page.evaluate(async () => {
-      const prefs = await import('./js/prefs.js');
-      await prefs.set('shoppingDays', [3, 6]);
-    });
-    await goto(page, '#/');
-    await clickEl(page, '[data-action="regenerate"]');
-    await page.waitForFunction(() => !document.querySelector('[data-action="regenerate"]')?.disabled);
-    await waitToastGone(page);
     const after = await page.evaluate(async () => {
       const store = await import('./js/store.js');
-      const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
-      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
-      return (plan?.diagnostics?.relaxed ?? []).filter((r) => r.constraints.includes('relaxShelf')).length;
+      const prefs = await import('./js/prefs.js');
+      const { generateWeek, mondayOf, isoDate } = await import('./js/planner.js');
+      await prefs.set('shoppingDays', [3, 6]);
+      const mondayIso = mondayOf(isoDate(new Date()));
+      // 除了買菜日，其他條件跟上面那份一模一樣（同 seed、同時間上限），差異才歸得到買菜日
+      const { plan, diagnostics } = generateWeek({
+        recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
+        rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid'),
+          timeCaps: { weekday: { breakfast: 15, lunch: 25, dinner: 25 }, weekend: { breakfast: 20, lunch: 30, dinner: 30 } } },
+        favorites: [], history: [], mondayIso, seed: 'diagfix', shoppingDays: [3, 6], haveFoods: new Set(),
+      });
+      await store.savePlan({ ...plan, diagnostics });
+      return diagnostics.relaxed.filter((r) => r.constraints.includes('relaxShelf')).length;
     });
+    // 先離開再回來：hash 沒變的話 router 不會重畫，畫面還會是上一份計畫的卡片
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    await goto(page, '#/');
+    await page.waitForSelector('[data-card="weekHead"]');
     ok(after < shelfN, `（對照）多勾一個買菜日之後，卡在保存期限的從 ${shelfN} 道降到 ${after} 道 —— 提示講的是真的`);
     eq((await page.$$('[data-field="shelfHint"]')).length, 0, '沒有保存期限的壓力時，提示不出現');
   }
