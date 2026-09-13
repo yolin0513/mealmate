@@ -33,7 +33,12 @@ const cats = [...new Set(foods.foods.map((f) => f.cat))];
 ok(cats.length >= 15, `（母體）foods.json 有 ${cats.length} 個分類`);
 everyOf(cats, (c) => Number.isInteger(units.shelfDays.byCategory[c]) && units.shelfDays.byCategory[c] >= 1, '每個分類在 byCategory 都有值');
 ok(units.shelfDays.byCategory['蔬菜類'] <= 3, `蔬菜類預設 ${units.shelfDays.byCategory['蔬菜類']} 天（葉菜要在買菜日後 3 天內煮掉）`);
-ok(units.shelfDays.byCategory['魚貝類'] <= 2, `魚貝類預設 ${units.shelfDays.byCategory['魚貝類']} 天`);
+// 魚貝 3 天、肉類 4 天是「買回來當天冷藏、超過兩天先冷凍」的排菜假設（units.json 的 note 寫明不是食安建議）：
+// 一週買兩次的家庭離下一次買菜最遠就是 3 天，設 2 天的話那幾天排不出任何葷菜。
+ok(units.shelfDays.byCategory['魚貝類'] <= 3, `魚貝類預設 ${units.shelfDays.byCategory['魚貝類']} 天（≤ 3，仍然是全部分類裡最短的一群）`);
+ok(units.shelfDays.byCategory['肉類'] <= 4, `肉類預設 ${units.shelfDays.byCategory['肉類']} 天`);
+ok(units.shelfDays.byCategory['魚貝類'] <= units.shelfDays.byCategory['肉類'], '魚貝比肉更不耐放（順序沒有顛倒）');
+ok(/不是食品安全建議/.test(units.shelfDays.note), 'note 明講這是排菜假設、不是食品安全建議');
 
 section('換算：不少買、不多買一整個單位');
 const samples = [0.3, 0.5, 0.9, 1, 1.2, 1.5, 1.7, 2.6, 3];
@@ -62,7 +67,8 @@ eq(spoonToGrams('不存在', '小匙', units), null, '沒列的調味料 → nul
 section('保存天數：override 優先，再用分類預設');
 eq(shelfDaysFor({ alias: '高麗菜', cat: '蔬菜類' }, units), 10, '高麗菜有 override → 10 天，不是蔬菜類的 3 天');
 eq(shelfDaysFor({ alias: '青江菜', cat: '蔬菜類' }, units), 3, '青江菜沒 override → 蔬菜類預設 3 天');
-eq(shelfDaysFor({ alias: null, cat: '魚貝類' }, units), 2, '沒有口語詞也拿得到分類預設');
+eq(shelfDaysFor({ alias: null, cat: '魚貝類' }, units), units.shelfDays.byCategory['魚貝類'], '沒有口語詞也拿得到分類預設（魚貝類）');
+eq(shelfDaysFor({ alias: null, cat: '肉類' }, units), 4, '肉類的分類預設是 4 天');
 eq(shelfDaysFor({ alias: '不存在', cat: '不存在的分類' }, units), null, '兩個都沒有 → null');
 ok(shelfDaysFor({ alias: '文蛤', cat: '魚貝類' }, units) === 1, '文蛤 override 1 天');
 

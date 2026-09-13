@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ok, eq, section, done, everyOf, noneOf } from './tap.mjs';
+import { ok, eq, section, done, everyOf, noneOf, note } from './tap.mjs';
 import { openApp, acceptWelcome, goto, titleIs, textOf, sleep, clickEl } from './browserlib.mjs';
 import { indexFoods, NUTRIENT_LABELS } from '../js/foods.js';
 import { fmtNutrient } from '../js/ui.js';
@@ -95,7 +95,7 @@ try {
   await sleep(400);
   const otherProgress = await page.$('[data-field="cookProgress"]');
   if (otherProgress) ok((await textOf(page, '[data-field="cookProgress"]')).startsWith('已完成 0'), '另一餐的進度是 0（勾不會跨餐）');
-  else ok(true, '另一餐沒有要煮（外食或不煮），本來就沒有進度');
+  else note('另一餐沒有要煮（外食或不煮），本來就沒有進度 —— 這是說明，不是斷言');
   await goto(page, `#/today?d=${target.date}&meal=${target.meal}`);
   await page.waitForSelector('[data-card="timeline"] .tl-step');
   eq(await textOf(page, '[data-field="cookProgress"]'), `已完成 1／${domSteps.length} 步`, '回到原本那一餐，勾還在');

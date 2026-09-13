@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ok, eq, section, done, everyOf, noneOf } from './tap.mjs';
+import { ok, eq, section, done, everyOf, noneOf, note } from './tap.mjs';
 import { openApp, acceptWelcome, goto, titleIs, textOf, sleep, clickEl, waitToastGone } from './browserlib.mjs';
 import { versionFor } from '../js/members.js';
 
@@ -68,7 +68,7 @@ try {
   if (diag) {
     const t = await textOf(page, '[data-card="diagnostics"]');
     ok(/因為符合條件的菜不夠|排不出菜|放寬/.test(t), `有勉強排的地方就講清楚：${t.slice(0, 80)}`);
-  } else ok(true, '這週沒有勉強排的地方（沒有 diagnostics 卡片）');
+  } else note('這週沒有勉強排的地方，所以沒有 diagnostics 卡片 —— 這是說明，不是斷言');
 
   section('為什麼選這道');
   await clickEl(page, '.meal-item[data-role="main"] .item-menu');
@@ -178,6 +178,38 @@ try {
   const dayText = await textOf(page, '[data-card="day"][data-day="0"]');
   ok(dayText.includes('阿嬤') && dayText.includes('（蛋奶素）'), '列出飲食型態');
   noneOf([dayText], (t) => /建議攝取|應該吃/.test(t), '每日估計沒有處方式的字');
+
+  section('舊版存下來的計畫（沒有位置欄位）也要能用');
+  // v0.6.0 以前一餐一個角色只有一道菜，存進 IndexedDB 的 item 沒有 pos。
+  // 使用者升級之後那一週的計畫還在，本週頁要照樣畫得出來、換菜也要換到對的那一道。
+  const oldShape = await page.evaluate(async () => {
+    const db = await import('./js/db.js');
+    const store = await import('./js/store.js');
+    const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js');
+    const weekKey = weekKeyOf(mondayOf(isoDate(new Date())));
+    const plan = await store.getPlan(weekKey);
+    // 把它改回舊格式：拿掉每個 pos，順序也打亂成「後面的角色排前面」
+    const stripped = {
+      ...plan,
+      slots: plan.slots.map((s) => ({ ...s, items: [...s.items].reverse().map(({ pos, extraMeat, ...rest }) => rest) })),
+    };
+    await db.put('plans', stripped);
+    const readBack = await store.getPlan(weekKey);
+    const lunch = readBack.slots.find((s) => s.meal === 'lunch' && s.kind === 'cook');
+    return { weekKey, positions: lunch.items.map((it) => it.pos), roles: lunch.items.map((it) => it.role) };
+  });
+  everyOf(oldShape.positions, (p) => Number.isInteger(p), `讀出來時補上了位置：${oldShape.positions.join('、')}`);
+  eq(oldShape.roles[0], 'main', '而且照位置排好，主菜回到第一個');
+  await goto(page, '#/family');
+  await titleIs(page, '家人');
+  await goto(page, '#/');
+  await titleIs(page, '本週菜單');
+  await page.waitForSelector('[data-card="weekHead"]');
+  const afterMigrate = await page.$$eval('.meal-item[data-item]', (els) => els.length);
+  ok(afterMigrate >= 60, `舊格式的計畫照樣畫得出 ${afterMigrate} 道菜`);
+  const lunchItems = await page.$$eval('.meal-block[data-meal="lunch"] .meal-item[data-item]', (els) => els.map((e) => `${e.dataset.pos}:${e.dataset.role}`));
+  ok(lunchItems.length >= 3, `（母體）七個午餐一共畫出 ${lunchItems.length} 道`);
+  everyOf(lunchItems, (t) => /^\d+:/.test(t), '每一道都有位置編號，畫面找得到它們');
 
   section('下週與重新載入');
   await page.reload({ waitUntil: 'networkidle0' });

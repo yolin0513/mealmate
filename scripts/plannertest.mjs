@@ -19,7 +19,7 @@ import { indexFoods } from '../js/foods.js';
 import { newMember } from '../js/members.js';
 import {
   generateWeek, swapItem, buildContext, scoreSoft, hardBlock, makeRng, hashSeed, weekKeyOf, mondayOf, addDays,
-  lastShoppingDayOnOrBefore, historyRowsOf, dailyEstimates, medianOf, MEALS, isMeaty, VEG_MIN_DISHES,
+  lastShoppingDayOnOrBefore, historyRowsOf, dailyEstimates, medianOf, MEALS, isMeaty, VEG_MIN_DISHES, withPositions,
 } from '../js/planner.js';
 import { versionFor } from '../js/members.js';
 
@@ -401,6 +401,34 @@ section('家裡有人留意醣 → 主食「優先」排全穀雜糧（是加分
   ok(plain.pct <= 0.5, `（對照）沒有人留意醣的同一個家庭只有 ${plain.whole}/${plain.total}（${Math.round(plain.pct * 100)}%）—— 差別是那個加分做出來的`);
   ok(watch.pct - plain.pct >= 0.3, `兩者差 ${Math.round((watch.pct - plain.pct) * 100)} 個百分點`);
   ok(watch.names.length >= 2, `而且不是只排同一種：${watch.names.join('、')}`);
+}
+
+section('舊版計畫沒有位置欄位 → 讀出來時補上（相容轉換）');
+{
+  // v0.6.0 以前一餐一個角色只有一道菜，item 沒有 pos。使用者升級之後那一週的計畫還在 IndexedDB 裡，
+  // 補不上位置的話，本週頁會找不到菜（用 pos 找）、換菜也會換錯道。
+  const old = {
+    weekKey: '2026-W38', monday: MONDAY, seed: 'old',
+    slots: [
+      { day: 0, date: MONDAY, meal: 'lunch', kind: 'cook', items: [
+        { recipeId: 'r-stir-fried-cabbage', role: 'side', locked: false, reasons: ['舊的'] },
+        { recipeId: 'r-white-rice', role: 'staple', locked: false, reasons: ['舊的'] },
+        { recipeId: 'r-cabbage-pork-stirfry', role: 'main', locked: true, reasons: ['舊的'] },
+      ] },
+      { day: 0, date: MONDAY, meal: 'breakfast', kind: 'eatOut', items: [] },
+    ],
+  };
+  const migrated = withPositions(JSON.parse(JSON.stringify(old)));
+  const lunch = migrated.slots.find((x) => x.meal === 'lunch');
+  eq(lunch.items.map((it) => it.pos), [0, 1, 3], '主菜補到位置 0、配菜補到位置 1、主食補到位置 3（午餐是 main／side／side／staple）');
+  eq(lunch.items.map((it) => it.role), ['main', 'side', 'staple'], '而且照位置排好（原本主菜排在最後）');
+  everyOf(lunch.items, (it) => Number.isInteger(it.pos), '每一道都有位置');
+  eq(lunch.items.find((it) => it.role === 'main').locked, true, '鎖定狀態沒有被弄丟');
+  eq(migrated.slots.find((x) => x.meal === 'breakfast').items, [], '外食那一格沒有菜，也不會出事');
+  // 已經有 pos 的計畫不可以被動到
+  const fresh = { slots: [{ meal: 'lunch', kind: 'cook', items: [{ recipeId: 'r-white-rice', role: 'staple', pos: 3 }] }] };
+  eq(withPositions(JSON.parse(JSON.stringify(fresh))).slots[0].items[0].pos, 3, '已經有位置的計畫維持原樣');
+  eq(withPositions(null), null, '沒有計畫也不會炸');
 }
 
 section('每日估計：素食成員吃素版');

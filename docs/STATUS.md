@@ -19,9 +19,37 @@
 | 追加優化：營養標示精簡 | ✅ 完成（2026-09-13） | `mealmate-v0.7.0` |
 | 全面檢測 | ⏳ 未執行（**下一步從這裡開始**：假斷言全掃、文件對程式、真實使用路徑、完整突變） | — |
 
-測試現況：**23 支測試 ＋ `mutationtest`**。Node 端：datatest 64、aliastest 26、unittest 29、edutest 13、copytest 7、recipetest 48、membertest 41、nutritiontest 131、plannertest 124、shoppingtest 49、timelinetest 71；瀏覽器端（puppeteer）：shelltest 106、familytest 45、recipeviewtest 54、backuptest 30、weekviewtest 48、shoppingviewtest 25、todaytest 41、racetest 16、versionmixtest 40、layouttest 18（81 組版面掃描）、uikittest 28、pwatest 35。`mutationtest` 共 **103 條**（M5 新增 4 條、追加優化新增 8 條）。平常只跑受影響的（慣例 15）；完整套件約 50 分鐘，只在使用者要求時全跑。
+測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
+Node 端：datatest 64、aliastest 26、unittest 33、edutest 13、copytest 7、recipetest 48、membertest 41、nutritiontest 131、plannertest 131、shoppingtest 49、timelinetest 71、**doctest 61**；
+瀏覽器端（puppeteer）：shelltest 106、familytest 45、recipeviewtest 54、backuptest 30、weekviewtest 53、shoppingviewtest 25、todaytest 41、racetest 16、versionmixtest 40、layouttest 18（81 組版面掃描）、uikittest 28、pwatest 35、**redlinetest 24**、**scenariotest 39**。
+健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
+`mutationtest` 共 **105 條**，2026-09-13 全套跑過一次**全綠**（103 條當時全紅，之後再加 2 條相容轉換的也驗過）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
 
 食譜現況：**180 道**（主菜 80、配菜 50、湯 25、早餐 19、主食 6）。
+
+### 全面檢測（2026-09-13，使用者要求，比照 StockDiary 的深度）
+
+五個面向都做過一輪；發現與處理如下（完整清單見當次回報）。
+
+1. **假斷言全掃**（新增 `scripts/assertaudit.mjs`，不是抽樣）：用 `MM_AUDIT=1` 把 26 支測試的每一條斷言與母體大小寫成 JSONL 再分析，掃六種形狀 ——
+   母體 ≤ 2、常數述詞、`ok(true, …)`、`eq(x, x)`、regex 雙反斜線、突變過期。
+   · 抓到 **3 處 `ok(true, …)`** 混進斷言數（改成 `note()` 或真的斷言）。
+   · 抓到 **1 條突變自 M2 起過期**：`prefs.js` 的 `noRepeatDays` 加了 `staple: 0` 之後，
+     「早餐也吃 14 天不重複」那條的 find 字串就對不到了 —— 代表「早餐不吃不重複扣分」**自 M2 之後沒有被證明過會紅**。
+     根因是平常只跑 `--only <關鍵字>` 的子集，過期的躲在沒被選到的那些裡面。新增 `scripts/checkmutations.mjs`（純字串比對、幾秒跑完）擋這件事。
+   · 16 條母體 ≤ 2 的逐條看過：都是 fixture 本身就只有兩個元素（例如某道菜只有兩個共同步驟），不是弱斷言。
+2. **文件對程式**（新增 `scripts/doctest.mjs` 61 條）：PLAN／STATUS 宣稱的每一條可機械檢查的事都回去對程式 ——
+   慢性病欄位對應、禁用詞清單、飲食型態、不重複天數、食譜數量門檻、保存期限、深色模式不做、CSP、
+   STATUS 點名的測試都存在且進得了 `npm test`、db store 名單、餐次組成、`VEG_MIN_DISHES`、預設營養欄位、字級三段。
+   寫法是**兩段式**：先斷言文件裡真的有那句話，再斷言程式跟它一致 —— 少了前半段，文件刪掉之後測試會繼續綠，等於守著一個幽靈。
+3. **真實使用路徑**（新增 `scripts/scenariotest.mjs` 39 條）：第一次開啟 → 只有一位家人 → 加入素食成員 → 加入慢性病成員 → 跨週 → 菜池不夠（三個避開開關全開）→ 離線。換版那條在 `versionmixtest`。
+4. **健康紅線總驗**（新增 `scripts/redlinetest.mjs` 24 條）：掃**渲染出來的 DOM**，不是讀程式碼 ——
+   素葷不相加（六道可分流的菜 × 兩個版本逐欄位比對）、732 個營養數字全部帶「估」或「未估算」、
+   留意項目一定看得見且不在收合區、腎臟病沒勾子項不自動限鉀、六頁文字零禁用詞、醣類份數不顯示。
+   禁用詞判準抽到 `scripts/copyrules.mjs` 與 `copytest` 共用，兩邊才不會各自維護一份而漂開。
+5. **完整突變套件**：105 條全跑一次**全綠**（24 個基準先過，再逐條改壞、確認會紅、還原）。
+
+檢測期間**沒有動任何產品程式碼**（js／css／data 零改動），改的都是測試與工具。
 
 ### 追加優化（使用者 2026-09-13 提出、確認方案後實作）
 
@@ -160,9 +188,10 @@
 12. 打真網路的測試：**沒有**。`build-foods.mjs --download` 是開發者本機工具，不進 `npm test`。
 13. 不動 `D:\Claude\App\TripQuest`、`D:\Claude\App\JLPT_App`、`D:\Claude\App\StockDiary` 的任何檔案（可讀，用來抄慣例：`layouttest`／`uikittest` 的全頁掃描、`racetest`／`versionmixtest`）。
 14. **斷言驗語意、不貼字面。**
-15. **測試範圍：平常只跑受影響的，全面檢測由使用者叫**（沿用 StockDiary 的使用者指示）。判斷受影響：`grep -l "views/<改到的檔>" scripts/*.mjs`；改到任何 view → `shelltest`；`js/views/family.js`／`member.js` → `familytest`；`js/views/recipe*.js`／`js/nutrition.js`／`js/store.js` → `recipeviewtest`、`nutritiontest`；`js/planner.js`／`js/views/week*.js` → `plannertest`、`weekviewtest`；`js/backup.js`／`js/db.js` → `backuptest`；`js/shopping.js`／`js/views/shopping.js`／`js/units.js` → `shoppingtest`、`shoppingviewtest`；`js/timeline.js`／`js/views/today.js` → `timelinetest`、`todaytest`；`js/router.js`／`js/shell.js` → `racetest`、`shelltest`；`js/app.js`／`sw.js`／`js/version.js` → `shelltest`、`versionmixtest`；`css/style.css`／`js/prefs.js`（字級） → `layouttest`、`uikittest`、`shelltest`；`js/members.js` → `membertest`、`familytest`、`recipeviewtest`、`plannertest`；`js/recipeschema.js`／`data/recipes/` → `recipetest`、`copytest`、`plannertest`；`js/foods.js`／`data/aliases.json` → `aliastest`、`recipetest`、`unittest`；`data/edu.json`／任何 `edu(` 呼叫 → `edutest`、`copytest`；`css/style.css` → `shelltest`（M4 起加 `layouttest`、`uikittest`）。**沒有放寬的那一條：新的斷言仍然必須經突變驗證會紅**（`npm run mutationtest -- --only <關鍵字>`）。
+15. **測試範圍：平常只跑受影響的，全面檢測由使用者叫**（沿用 StockDiary 的使用者指示）。判斷受影響：`grep -l "views/<改到的檔>" scripts/*.mjs`；改到任何 view → `shelltest`；`js/views/family.js`／`member.js` → `familytest`；`js/views/recipe*.js`／`js/nutrition.js`／`js/store.js` → `recipeviewtest`、`nutritiontest`；`js/planner.js`／`js/views/week*.js` → `plannertest`、`weekviewtest`；`js/backup.js`／`js/db.js` → `backuptest`；`js/shopping.js`／`js/views/shopping.js`／`js/units.js` → `shoppingtest`、`shoppingviewtest`；`js/timeline.js`／`js/views/today.js` → `timelinetest`、`todaytest`；`js/router.js`／`js/shell.js` → `racetest`、`shelltest`；`js/app.js`／`sw.js`／`js/version.js` → `shelltest`、`versionmixtest`；`css/style.css`／`js/prefs.js`（字級） → `layouttest`、`uikittest`、`shelltest`；`js/members.js` → `membertest`、`familytest`、`recipeviewtest`、`plannertest`；`js/recipeschema.js`／`data/recipes/` → `recipetest`、`copytest`、`plannertest`；`js/foods.js`／`data/aliases.json`／**`data/units.json`** → `aliastest`、`recipetest`、`unittest`（2026-09-13 補：改了 `data/units.json` 的保存天數卻只跑了 shoppingtest，unittest 紅了一版沒被發現）；`data/edu.json`／任何 `edu(` 呼叫 → `edutest`、`copytest`；`css/style.css` → `shelltest`（M4 起加 `layouttest`、`uikittest`）。**沒有放寬的那一條：新的斷言仍然必須經突變驗證會紅**（`npm run mutationtest -- --only <關鍵字>`）。
 16. **瀏覽器測試的點擊一律 `clickEl()`**（先捲到中央再點）；要量 toast 文字就等 `#toast.show`，要等它走就 `waitToastGone()`。
-17. **資料庫換季（食藥署每季更新）**：`npm run build-foods -- --download` 會印出差異；消失的編號若被別名表或食譜用到，`aliastest`／`recipetest` 會紅；`aliases.json` 的 `foodsVersion` 要同步改。
+17. **全面檢測怎麼跑**（使用者叫的時候）：`npm run checkmutations`（幾秒，先確認沒有過期的突變）→ `npm run doctest` → `npm run redlinetest` → `npm run scenariotest` → `npm run assertaudit`（會跑完整套件並分析假斷言，約 25 分）→ `npm run mutationtest`（105 條，約 20 分）。**只跑 `--only` 子集永遠看不到過期的突變**，那是 M2 到 M5 之間漏掉一條的原因。
+18. **資料庫換季（食藥署每季更新）**：`npm run build-foods -- --download` 會印出差異；消失的編號若被別名表或食譜用到，`aliastest`／`recipetest` 會紅；`aliases.json` 的 `foodsVersion` 要同步改。
 
 ## 開發順序與驗收條件
 

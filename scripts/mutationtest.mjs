@@ -56,8 +56,8 @@ const MUTATIONS = [
     name: '早餐也吃 14 天不重複的扣分',
     why: '10 道早餐兩週就耗光，每天早餐都被迫「重複」。',
     file: 'js/prefs.js',
-    find: 'noRepeatDays: { main: 14, side: 7, soup: 7, breakfast: 0 },',
-    replace: 'noRepeatDays: { main: 14, side: 7, soup: 7, breakfast: 14 },',
+    find: 'noRepeatDays: { main: 14, side: 7, soup: 7, breakfast: 0, staple: 0 },',
+    replace: 'noRepeatDays: { main: 14, side: 7, soup: 7, breakfast: 14, staple: 0 },',
     test: 'datatest',
   },
   {
@@ -755,6 +755,23 @@ const MUTATIONS = [
     replace: '    applyNow(worker);',
     test: 'versionmixtest',
   },
+  {
+    name: '舊版計畫不補位置欄位（純函式）',
+    why: 'v0.6.0 以前存的計畫沒有 pos。不補的話，升級後那一週的本週頁找不到菜、換菜也會換錯道。',
+    file: 'js/planner.js',
+    find: '  if (!plan?.slots) return plan;',
+    replace: '  if (plan) return plan;',
+    test: 'plannertest',
+  },
+  {
+    name: '讀計畫時不做相容轉換（畫面端）',
+    why: '同上，但這條守的是「讀出來就補」這個接線 —— 純函式對了、沒有接上也一樣壞。',
+    file: 'js/store.js',
+    find: "export async function getPlan(weekKey) { return withPositions((await db.get('plans', weekKey)) ?? null); }",
+    replace: "export async function getPlan(weekKey) { return (await db.get('plans', weekKey)) ?? null; }",
+    test: 'weekviewtest',
+  },
+
   // ---- 優化：一餐 3–5 道、每餐有葷、營養標示精簡 ----
   {
     name: '午晚餐回到一道配菜',

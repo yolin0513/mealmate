@@ -9,19 +9,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, section, done, noneOf, detects, note } from './tap.mjs';
 import { stripComments } from './srcscan.mjs';
+import { FORBIDDEN as WORDS, forbiddenIn as scan } from './copyrules.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
-export const FORBIDDEN = [
-  '治療', '療效', '控制血糖', '降血糖', '降血壓', '改善腎功能',
-  '適合糖尿病', '糖尿病專用', '腎臟病專用', '減重', '瘦身', '排毒', '保證',
-  '建議攝取', '應該吃', '取代醫囑',
-];
-
-export function forbiddenIn(text) {
-  const s = String(text ?? '');
-  return FORBIDDEN.filter((w) => s.includes(w));
-}
+// 判準搬到 scripts/copyrules.mjs，跟 redlinetest（掃畫面上渲染出來的字）共用同一份清單，
+// 兩邊才不會各自維護一份而漂開。
+export { FORBIDDEN, forbiddenIn } from './copyrules.mjs';
 
 /** JS 原始碼裡的字串字面值（去掉註解之後）。 */
 export function stringLiterals(source) {
@@ -75,13 +69,13 @@ ok(files.size >= 40, `來自 ${files.size} 個檔案`);
 ok(corpus.some((c) => c.file.startsWith('js/views/')), '有掃到畫面文案');
 ok(corpus.some((c) => c.file.startsWith('data/recipes/')), '有掃到食譜文字');
 ok(corpus.some((c) => c.file === 'data/edu.json'), '有掃到衛教引用');
-note(`禁用詞 ${FORBIDDEN.length} 個：${FORBIDDEN.join('、')}`);
+note(`禁用詞 ${WORDS.length} 個：${WORDS.join("、")}`);
 
 section('沒有任何禁用詞');
-noneOf(corpus, (c) => forbiddenIn(c.s).length > 0, '所有文案、食譜、衛教引用都不含禁用詞');
+noneOf(corpus, (c) => scan(c.s).length > 0, '所有文案、食譜、衛教引用都不含禁用詞');
 
 section('判準本身的對照組');
-detects((s) => forbiddenIn(s).length > 0, {
+detects((s) => scan(s).length > 0, {
   shouldHit: ['有助控制血糖', '這道菜可以治療感冒', '糖尿病專用餐', '每日建議攝取 2000 大卡', '低鹽有降血壓的療效', '可取代醫囑', '保證有效'],
   shouldMiss: ['低醣', '留意鈉', '鉀較低', '估 42 g', '建議選擇當季盛產的蔬菜', '請以醫師或營養師的指示為準', '不是醫囑', '減糖'],
 }, '禁用詞判準：抓得到療效與處方式的句子，不會誤抓「低醣」「留意鈉」「建議選擇當季」');
