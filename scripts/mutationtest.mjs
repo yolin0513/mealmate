@@ -772,7 +772,7 @@ const MUTATIONS = [
   },
   {
     name: '留意欄位整段不可斷行（被切出畫面外）',
-    why: '「碳水化合物（醣） 估 9.9 g」在一般手機上就會被切掉右半邊。',
+    why: '「碳水化合物（醣） 估 28.2 g」不可斷行時是 215px，而它那一欄只有 163px —— 右半邊會蓋掉旁邊的「約 20 分」。注意它**不會**超出畫面（右緣 248px < 320px），所以只比畫面寬度的溢出檢查抓不到，要比的是容器。',
     file: 'css/style.css',
     find: '.watch-line .num { white-space: normal; max-width: 100%; }',
     replace: '.watch-line .num { white-space: nowrap; }',

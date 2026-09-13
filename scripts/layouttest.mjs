@@ -207,7 +207,20 @@ try {
       });
     }
     const pillChars = [...root.querySelectorAll('.pill')].map((e) => e.textContent.trim().length);
-    return { overflow, overlaps, columns, docW, scrollW: document.documentElement.scrollWidth, leafCount: boxes.length, maxPillChars: pillChars.length ? Math.max(...pillChars) : 0 };
+    // 留意欄位：量「這一項有沒有寬過它的父層」。父層就是它該待的那一欄。
+    const watch = [];
+    for (const el of root.querySelectorAll('.watch-line .num')) {
+      if (inClosedDetails(el)) continue;
+      const r = el.getBoundingClientRect();
+      const pr = el.parentElement?.getBoundingClientRect();
+      if (!pr || r.width === 0) continue;
+      watch.push({ chars: el.textContent.trim().length, over: r.width > pr.width + 0.5, text: el.textContent.trim().slice(0, 24) });
+    }
+    return { overflow, overlaps, columns, docW, scrollW: document.documentElement.scrollWidth, leafCount: boxes.length,
+      maxPillChars: pillChars.length ? Math.max(...pillChars) : 0,
+      watchCount: watch.length,
+      maxWatchChars: watch.length ? Math.max(...watch.map((w) => w.chars)) : 0,
+      watchOver: watch.filter((w) => w.over).map((w) => w.text).slice(0, 3) };
   });
 
   const all = [];
@@ -244,6 +257,17 @@ try {
   // 沒有這一條，pill 的換行規則就沒有樣本可以驗 —— 標籤一改短，那條 CSS 的突變就不會紅了。
   ok(Math.max(...all.map((p) => p.maxPillChars)) >= 16,
     `（樣本要有最寬的組合）掃到的最長 pill 有 ${Math.max(...all.map((p) => p.maxPillChars))} 個字`);
+
+  // 留意欄位：跟 pill 一樣要先確認**樣本裡有最寬的那個標籤**。
+  // 少了這一條，哪天欄位順序或清單筆數一變、最長的標籤沒被渲染出來，
+  // 下面那條就會安靜地變成恆真（2026-09-13 就是這樣：改成照 NUTRIENT_ORDER 排之後，
+  // 「留意欄位整段不可斷行」那條突變不紅了，而且是完整套件才抓到的）。
+  const watchPages = all.filter((p) => p.watchCount > 0);
+  ok(watchPages.length >= 6, `（母體）${watchPages.length} 個組合真的渲染出留意欄位`);
+  ok(Math.max(...watchPages.map((p) => p.maxWatchChars)) >= 16,
+    `（樣本要有最寬的標籤）掃到的最長留意欄位有 ${Math.max(...watchPages.map((p) => p.maxWatchChars))} 個字（「碳水化合物（醣） 估 28.2 g」這種）`);
+  noneOf(watchPages, (p) => p.watchOver.length > 0, '留意欄位沒有一項撐破它所在的那一欄（撐破的話右半邊會蓋掉旁邊的烹調時間）',
+    watchPages.filter((p) => p.watchOver.length).slice(0, 3).map((p) => `${where(p)}：${p.watchOver.join('、')}`).join(' ／ '));
 
   noneOf(all, (p) => p.overflow.length > 0, '沒有任何元素超出畫面寬度',
     all.filter((p) => p.overflow.length).slice(0, 3).map((p) => `${where(p)}：${JSON.stringify(p.overflow.slice(0, 2))}`).join(' ／ '));
