@@ -1,0 +1,56 @@
+{
+  "id": "r-tomato-cheese-toast",
+  "name": "番茄起司烤吐司",
+  "role": "breakfast",
+  "servings": 2,
+  "time": 12,
+  "method": "bake",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    {
+      "food": "吐司",
+      "label": "吐司",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "牛番茄",
+      "label": "牛番茄（切片）",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "起司",
+      "label": "起司片",
+      "grams": 50,
+      "track": "base"
+    },
+    {
+      "food": "黑胡椒粉",
+      "label": "黑胡椒粉",
+      "grams": 1,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "番茄切薄片，用紙巾吸乾水分。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "吐司鋪番茄片、蓋起司，烤箱 200 度烤 6 分鐘到起司融化。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "撒一點黑胡椒。沒有烤箱就用平底鍋加蓋小火烘 5 分鐘。"
+    }
+  ]
+}

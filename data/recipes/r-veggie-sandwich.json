@@ -1,0 +1,55 @@
+{
+  "id": "r-veggie-sandwich",
+  "name": "蔬果三明治",
+  "role": "breakfast",
+  "servings": 2,
+  "time": 10,
+  "method": "cold",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    {
+      "food": "吐司",
+      "label": "吐司",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "牛番茄",
+      "label": "牛番茄（切片）",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "小黃瓜",
+      "label": "小黃瓜（切片）",
+      "grams": 80,
+      "track": "base"
+    },
+    {
+      "food": "起司",
+      "label": "起司片",
+      "grams": 40,
+      "track": "base"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "番茄與小黃瓜洗淨切薄片，用紙巾把表面水分吸乾，夾起來才不會濕答答。"
+    },
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "吐司可以先用乾鍋或烤箱烘一分鐘，比較有口感（不烘也可以）。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "一片吐司鋪起司、番茄、小黃瓜，蓋上另一片對切。整道不用開火也不用加醬。"
+    }
+  ]
+}

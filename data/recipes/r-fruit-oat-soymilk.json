@@ -1,0 +1,49 @@
+{
+  "id": "r-fruit-oat-soymilk",
+  "name": "水果燕麥豆漿",
+  "role": "breakfast",
+  "servings": 2,
+  "time": 10,
+  "method": "porridge",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    {
+      "food": "燕麥片",
+      "label": "燕麥片",
+      "grams": 60,
+      "track": "base"
+    },
+    {
+      "food": "無糖豆漿",
+      "label": "無糖豆漿",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "香蕉",
+      "label": "香蕉（切片）",
+      "grams": 150,
+      "track": "base"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "香蕉剝皮切片。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "豆漿倒進小鍋加熱到冒小泡（不要滾），關火拌入燕麥片，蓋著燜三分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "倒進碗裡鋪上香蕉片。香蕉本身有甜味，不用另外加糖。"
+    }
+  ]
+}

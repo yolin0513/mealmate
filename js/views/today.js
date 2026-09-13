@@ -8,13 +8,12 @@ import { setTop, render } from '../shell.js';
 import { refresh } from '../router.js';
 import * as store from '../store.js';
 import { eduNode } from '../edu.js';
-import { DIET_LABELS, familyWatchFields } from '../members.js';
+import { DIET_LABELS, displayFields, familyWatchFields } from '../members.js';
 import { ROLE_LABELS, VEG_MODE_LABELS } from '../recipeschema.js';
 import { NUTRIENT_LABELS } from '../foods.js';
 import { dailyEstimates, mondayOf, weekKeyOf, addDays, isoDate, parseDate, MEALS, MEAL_LABELS, DAY_LABELS } from '../planner.js';
 import { buildTimeline, mealNutrition, cookableSlot } from '../timeline.js';
 
-const DEFAULT_FIELDS = ['kcal', 'protein', 'carb', 'sodium'];
 const fmtMD = (iso) => { const d = parseDate(iso); return `${d.getMonth() + 1}/${d.getDate()}`; };
 const dayLabel = (iso) => DAY_LABELS[(parseDate(iso).getDay() + 6) % 7];
 
@@ -126,8 +125,9 @@ export default async function todayView(query = {}) {
   );
 
   // ---------- 營養：素版一欄、葷版一欄 ----------
+  // 預設熱量＋蛋白質；有設留意項目的家人，那幾項一定加顯
   const watch = familyWatchFields(members);
-  const fields = watch.length ? watch : DEFAULT_FIELDS;
+  const fields = displayFields(members);
   const mn = mealNutrition({ slot, recipesById, idx });
   const dishNutri = mn.dishes.map((d) => h('div', { class: 'dish-nutri', dataset: { dish: d.recipeId } },
     h('p', { class: 'row-title' }, d.name, ' ', pill(VEG_MODE_LABELS[d.vegMode], d.vegMode === 'meatOnly' ? '' : 'green')),

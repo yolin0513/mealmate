@@ -1,0 +1,49 @@
+{
+  "id": "r-papaya-yogurt",
+  "name": "木瓜優格",
+  "role": "breakfast",
+  "servings": 2,
+  "time": 5,
+  "method": "cold",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "木瓜",
+      "label": "木瓜（切丁）",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "優格",
+      "label": "無糖優格",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "白芝麻",
+      "label": "熟白芝麻",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "木瓜對切去籽，用湯匙挖出果肉切丁。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "優格倒進碗裡，鋪上木瓜丁，撒白芝麻。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "不用開火，五分鐘就好。木瓜換成香蕉、芭樂也可以。"
+    }
+  ]
+}

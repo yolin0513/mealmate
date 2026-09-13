@@ -1,0 +1,49 @@
+{
+  "id": "r-boiled-egg-toast",
+  "name": "水煮蛋佐吐司",
+  "role": "breakfast",
+  "servings": 2,
+  "time": 15,
+  "method": "boil",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    {
+      "food": "雞蛋",
+      "label": "雞蛋",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "吐司",
+      "label": "吐司",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "小黃瓜",
+      "label": "小黃瓜（切條）",
+      "grams": 80,
+      "track": "base"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "蛋從冰箱拿出來放五分鐘，比較不會煮裂。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "冷水下鍋，水滾後計時 8 分鐘（要全熟）撈起泡冷水，剝殼比較好剝。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "吐司烘一下，配水煮蛋與小黃瓜條。整道沒有用到油。"
+    }
+  ]
+}

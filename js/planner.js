@@ -18,8 +18,23 @@ import { ROLE_LABELS, METHOD_LABELS } from './recipeschema.js';
 export const MEALS = ['breakfast', 'lunch', 'dinner'];
 export const MEAL_LABELS = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐' };
 export const DAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
-/** 午晚餐的角色順序：主菜最受限所以先選；主食看主菜是否已含主食。 */
-export const MEAL_ROLES = { breakfast: ['breakfast'], lunch: ['main', 'side', 'staple'], dinner: ['main', 'side', 'soup', 'staple'] };
+/**
+ * 一餐由哪些位置組成（**依序**填，主菜最受限所以先選；主食看主菜是否已含主食）。
+ * 陣列裡可以有重複的角色（午晚餐各兩道配菜），所以每道菜記的是**位置 pos**，不是角色 ——
+ * 只用角色的話「第一道配菜」與「第二道配菜」在換菜、鎖定、指定時分不開。
+ * 早餐維持一道：台灣家庭的早餐本來就是一份（優格水果、燕麥粥這種），
+ * 硬湊三道只會逼出重複（早餐池 19 道，全素吃得到 4 道）。
+ */
+export const MEAL_ROLES = {
+  breakfast: ['breakfast'],
+  lunch: ['main', 'side', 'side', 'staple'],
+  dinner: ['main', 'side', 'side', 'soup', 'staple'],
+};
+
+/** 有素食成員時，每一餐至少要有這麼多道是**每位素食成員都吃得到**的。 */
+export const VEG_MIN_DISHES = 3;
+/** 吃葷的人能吃到肉的菜：純葷，或可分流（素食成員吃素版，同一鍋分兩邊）。 */
+export function isMeaty(recipe) { return !!recipe && recipe.vegMode !== 'nativeVeg'; }
 
 export const DEFAULT_RULES = {
   noRepeatDays: { main: 14, side: 7, soup: 7, breakfast: 0, staple: 0 },
@@ -152,7 +167,7 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
 
 // ---------- 硬約束 ----------
 /** 這道菜在這一格能不能選。回 null 表示可以，否則回不能的原因（給 diagnostics）。 */
-export function hardBlock(recipe, { role, meal, date }, ctx, state, { relaxTime = false, relaxMethod = false, relaxDay = false } = {}) {
+export function hardBlock(recipe, { role, meal, date }, ctx, state, { relaxTime = false, relaxMethod = false, relaxDay = false, relaxShelf = false, requireMeaty = false, meatOnlyExtra = false } = {}) {
   if (recipe.role !== role) return 'role';
   // 同一天不排同一道菜（午餐晚餐都是番茄炒蛋這種）；真的沒得選才放寬
   if (!relaxDay && state.dayRecipes && state.dayRecipes(date).has(recipe.id)) return 'sameDay';
@@ -160,11 +175,19 @@ export function hardBlock(recipe, { role, meal, date }, ctx, state, { relaxTime 
   if (rules.avoid.sweet && recipe.tags.includes('sweet')) return 'avoid:sweet';
   if (rules.avoid.processed && recipe.tags.includes('processed')) return 'avoid:processed';
   if (rules.avoid.fried && recipe.method === 'deepfry') return 'avoid:fried';
-  // 有素食成員：每一位都要吃得了（吃素版也算）
-  for (const m of ctx.vegetarians) if (versionFor(recipe, m.diet) === null) return `diet:${m.name}`;
+  if (meatOnlyExtra) {
+    // 「僅葷食成員」的加菜：這一格刻意排素食成員吃不到的菜，所以跳過飲食型態的過濾，
+    // 但只收純葷的（可分流的菜本來就兩邊都吃得到，不必當加菜），而且呼叫端要先確認素食保障還成立。
+    if (recipe.vegMode !== 'meatOnly') return 'notMeatOnly';
+  } else {
+    // 有素食成員：每一位都要吃得了（吃素版也算）
+    for (const m of ctx.vegetarians) if (versionFor(recipe, m.diet) === null) return `diet:${m.name}`;
+  }
+  // 家裡有吃葷的人時，午晚餐的主菜要排到葷的（可分流的算 —— 素食成員吃素版）
+  if (requireMeaty && !isMeaty(recipe)) return 'needMeat';
   // 保存期限：距上次買菜日太久的葉菜、海鮮不排
   const lastShop = lastShoppingDayOnOrBefore(date, ctx.shoppingDays);
-  if (lastShop && ctx.idx) {
+  if (!relaxShelf && lastShop && ctx.idx) {
     const since = daysBetween(lastShop, date);
     for (const ing of recipe.ingredients) {
       if (ing.pantry) continue;
@@ -322,8 +345,17 @@ function makeState(history, ctx, monday) {
 }
 
 /** 在一格裡為某個角色挑一道菜。回 { recipe, reasons, relaxed } 或 null（真的沒得選）。 */
-export function pickForSlot(ctx, state, slotInfo, role, rng, { exclude = new Set() } = {}) {
-  const attempts = [{}, { relaxMethod: true }, { relaxTime: true, relaxMethod: true }, { relaxTime: true, relaxMethod: true, relaxDay: true }];
+export function pickForSlot(ctx, state, slotInfo, role, rng, { exclude = new Set(), requireMeaty = false, meatOnlyExtra = false } = {}) {
+  const base = { requireMeaty, meatOnlyExtra };
+  // 放寬的順序＝「越後面越不想動」。保存期限排在「同一天重複同一道菜」前面：
+  // 拿離買菜日久一點的食材（冷凍的肉）比午晚餐吃同一道菜好。
+  const attempts = [
+    {},
+    { relaxMethod: true },
+    { relaxTime: true, relaxMethod: true },
+    { relaxTime: true, relaxMethod: true, relaxShelf: true },
+    { relaxTime: true, relaxMethod: true, relaxShelf: true, relaxDay: true },
+  ].map((a) => ({ ...base, ...a }));
   for (const relax of attempts) {
     let best = null;
     for (const recipe of ctx.recipes) {
@@ -333,8 +365,9 @@ export function pickForSlot(ctx, state, slotInfo, role, rng, { exclude = new Set
       if (!best || score > best.score) best = { recipe, score, reasons };
     }
     if (best) {
-      const relaxed = Object.keys(relax).filter((k) => relax[k]);
+      const relaxed = Object.keys(relax).filter((k) => relax[k] && k.startsWith('relax'));
       if (relaxed.includes('relaxTime')) best.reasons.push('超過這一餐的時間上限，因為符合條件的菜不夠');
+      if (relaxed.includes('relaxShelf')) best.reasons.push('離買菜日比較久，這道的生鮮食材買回來要先冷凍');
       return { ...best, relaxed };
     }
   }
@@ -353,7 +386,7 @@ export function generateWeek({ recipes, members = [], idx, units, rules = {}, fa
   // 這一週自己的歷史不算（重新產生時舊格子會被換掉）；只帶這週之前 28 天內的
   const past = history.filter((h) => h.date < monday && daysBetween(h.date, monday) <= 28);
   const state = makeState(past, ctx, monday);
-  const diagnostics = { forcedRepeats: [], relaxed: [], empty: [], poolSizes: {} };
+  const diagnostics = { forcedRepeats: [], relaxed: [], empty: [], noMeat: [], poolSizes: {} };
   for (const role of ['main', 'side', 'soup', 'staple', 'breakfast']) diagnostics.poolSizes[role] = recipes.filter((r) => r.role === role).length;
 
   const prevSlots = new Map((prevPlan?.slots ?? []).map((s) => [`${s.day}|${s.meal}`, s]));
@@ -376,20 +409,51 @@ export function generateWeek({ recipes, members = [], idx, units, rules = {}, fa
       const lockedItems = (prev?.items ?? []).filter((it) => it.locked && state.byId.has(it.recipeId));
       for (const it of lockedItems) items.push({ ...it, method: state.byId.get(it.recipeId).method });
       const hasStapleInMain = () => items.some((it) => it.role === 'main' && state.byId.get(it.recipeId)?.includesStaple);
-      for (const role of MEAL_ROLES[meal]) {
-        if (items.some((it) => it.role === role)) continue;           // 鎖住的已經有這個角色
-        if (role === 'staple' && hasStapleInMain()) continue;          // 炒米粉這類主菜本身就是主食
-        const picked = pickForSlot(ctx, state, slotInfo, role, rng);
-        if (!picked) { diagnostics.empty.push({ date, meal, role }); continue; }
+      const roles = MEAL_ROLES[meal];
+      // 家裡有吃葷的人（或還沒新增家人）→ 這一餐要有一道葷的。早餐不套用：
+      // 早餐以簡單健康為準（優格水果、燕麥粥這種），為了湊葷加重口味不划算，葷早餐的池子也太小。
+      const wantsMeat = ctx.hasOmni && meal !== 'breakfast';
+      const lastSidePos = roles.lastIndexOf('side');
+      /** 這一餐排完之後，每位素食成員吃得到幾道（還沒填的位置都會過飲食型態過濾，所以算得進去）。 */
+      const vegDishesAfter = (extraRecipe, pos) => {
+        if (!ctx.vegetarians.length) return Infinity;
+        const eatable = items.filter((it) => {
+          const r = state.byId.get(it.recipeId);
+          return r && ctx.vegetarians.every((m) => versionFor(r, m.diet) !== null);
+        }).length;
+        const extraOk = ctx.vegetarians.every((m) => versionFor(extraRecipe, m.diet) !== null) ? 1 : 0;
+        return eatable + extraOk + (roles.length - pos - 1);
+      };
+      roles.forEach((role, pos) => {
+        if (items.some((it) => it.pos === pos)) return;                // 鎖住的已經佔了這個位置
+        if (role === 'staple' && hasStapleInMain()) return;            // 炒米粉這類主菜本身就是主食
+        // 最後一道配菜：主菜排不到葷的時候，這一格改排「僅葷食成員」的加菜（素食保障仍要成立）
+        if (wantsMeat && role === 'side' && pos === lastSidePos && !items.some((it) => isMeaty(state.byId.get(it.recipeId)))) {
+          const extra = pickForSlot(ctx, state, slotInfo, 'main', rng, { meatOnlyExtra: true });
+          if (extra && vegDishesAfter(extra.recipe, pos) >= VEG_MIN_DISHES) {
+            items.push({ recipeId: extra.recipe.id, role: 'main', pos, locked: false, extraMeat: true, method: extra.recipe.method,
+              reasons: [...extra.reasons, '這一餐的主菜是素的，這道是給吃葷的人的加菜'] });
+            state.place(extra.recipe, slotInfo);
+            return;
+          }
+        }
+        const requireMeaty = wantsMeat && role === 'main';
+        let picked = requireMeaty ? pickForSlot(ctx, state, slotInfo, role, rng, { requireMeaty: true }) : null;
+        if (!picked) picked = pickForSlot(ctx, state, slotInfo, role, rng);
+        if (!picked) { diagnostics.empty.push({ date, meal, role, pos }); return; }
         const { recipe, reasons, relaxed } = picked;
         const last = state.lastServed(recipe.id, date);
         const noRepeat = ctx.rules.noRepeatDays[role] ?? 0;
         if (noRepeat > 0 && last != null && last <= noRepeat) diagnostics.forcedRepeats.push({ date, meal, role, recipeId: recipe.id, daysAgo: last });
         for (const c of relaxed) diagnostics.relaxed.push({ date, meal, role, constraint: c });
-        items.push({ recipeId: recipe.id, role, locked: false, reasons, method: recipe.method });
+        items.push({ recipeId: recipe.id, role, pos, locked: false, reasons, method: recipe.method });
         state.place(recipe, slotInfo);
+      });
+      // 排完還是沒有葷的 → 記下來，本週頁明講（不硬塞、也不靜默）
+      if (wantsMeat && !items.some((it) => isMeaty(state.byId.get(it.recipeId)))) {
+        diagnostics.noMeat.push({ date, meal, why: ctx.vegetarians.length ? '要先確保素食成員吃得到' : '沒有葷菜排得進來' });
       }
-      slots.push({ day, date, meal, kind: 'cook', items: items.map(({ method, ...it }) => it) });
+      slots.push({ day, date, meal, kind: 'cook', items: items.map(({ method, ...it }) => it).sort((a, b) => a.pos - b.pos) });
     }
   }
   state.slotItems = [];
@@ -397,7 +461,7 @@ export function generateWeek({ recipes, members = [], idx, units, rules = {}, fa
 }
 
 /** 把一格裡某個角色換一道（排除現在這道）。回新的 item 或 null。 */
-export function swapItem({ plan, slotIndex, role, recipes, members, idx, units, rules, favorites, history, shoppingDays, seed }) {
+export function swapItem({ plan, slotIndex, pos, recipes, members, idx, units, rules, favorites, history, shoppingDays, seed }) {
   const slot = plan.slots[slotIndex];
   const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays });
   const past = history.filter((h) => daysBetween(h.date, plan.monday) <= 28 && h.date < plan.monday);
@@ -406,25 +470,51 @@ export function swapItem({ plan, slotIndex, role, recipes, members, idx, units, 
   for (const s of plan.slots) {
     if (s.kind !== 'cook') continue;
     for (const it of s.items) {
-      if (s === slot && it.role === role) continue;
+      if (s === slot && it.pos === pos) continue;
       const r = state.byId.get(it.recipeId);
       if (r) state.place(r, { day: s.day, meal: s.meal, date: s.date });
     }
   }
-  state.slotItems = slot.items.filter((it) => it.role !== role).map((it) => ({ ...it, method: state.byId.get(it.recipeId)?.method }));
-  const current = slot.items.find((it) => it.role === role);
-  const rng = makeRng(`${seed}|swap|${slotIndex}|${role}|${Date.now()}`);
-  const picked = pickForSlot(ctx, state, { day: slot.day, meal: slot.meal, date: slot.date }, role, rng, { exclude: new Set(current ? [current.recipeId] : []) });
+  state.slotItems = slot.items.filter((it) => it.pos !== pos).map((it) => ({ ...it, method: state.byId.get(it.recipeId)?.method }));
+  const current = slot.items.find((it) => it.pos === pos);
+  const role = current?.role ?? MEAL_ROLES[slot.meal]?.[pos] ?? 'main';
+  const extraMeat = !!current?.extraMeat;
+  const rng = makeRng(`${seed}|swap|${slotIndex}|${pos}|${Date.now()}`);
+  const picked = pickForSlot(ctx, state, { day: slot.day, meal: slot.meal, date: slot.date }, role, rng,
+    { exclude: new Set(current ? [current.recipeId] : []), meatOnlyExtra: extraMeat });
   if (!picked) return null;
-  return { recipeId: picked.recipe.id, role, locked: false, reasons: picked.reasons };
+  return { recipeId: picked.recipe.id, role, pos, locked: false, reasons: picked.reasons, ...(extraMeat ? { extraMeat: true } : {}) };
 }
 
-/** 直接指定一道菜到某格的某個角色（使用者手選）。理由寫「你指定的」。 */
-export function assignItem(plan, slotIndex, role, recipe) {
+/** 直接指定一道菜到某格的某個位置（使用者手選）。理由寫「你指定的」。 */
+export function assignItem(plan, slotIndex, pos, recipe) {
   const slot = plan.slots[slotIndex];
-  const others = slot.items.filter((it) => it.role !== role);
-  slot.items = [...others, { recipeId: recipe.id, role, locked: true, reasons: ['你指定的，已鎖定'] }];
+  const others = slot.items.filter((it) => it.pos !== pos);
+  slot.items = [...others, { recipeId: recipe.id, role: recipe.role, pos, locked: true, reasons: ['你指定的，已鎖定'] }]
+    .sort((a, b) => a.pos - b.pos);
   return slot;
+}
+
+/**
+ * 舊版的計畫沒有 pos（那時一餐一個角色只有一道）。讀出來時補上，
+ * 換菜、鎖定、指定才對得到位置。就地修改並回傳同一個物件。
+ */
+export function withPositions(plan) {
+  if (!plan?.slots) return plan;
+  for (const slot of plan.slots) {
+    const list = slot.items ?? [];
+    if (!list.length || list.every((it) => Number.isInteger(it.pos))) continue;
+    const roles = MEAL_ROLES[slot.meal] ?? [];
+    const used = new Set();
+    for (const it of list) {
+      let pos = roles.findIndex((r, i) => r === it.role && !used.has(i));
+      if (pos < 0) pos = roles.length + used.size;
+      it.pos = pos;
+      used.add(pos);
+    }
+    list.sort((a, b) => a.pos - b.pos);
+  }
+  return plan;
 }
 
 /** 這一週要寫進 history 的列。 */

@@ -6,7 +6,7 @@ import { refresh } from '../router.js';
 import * as store from '../store.js';
 import * as prefs from '../prefs.js';
 import { eduNode } from '../edu.js';
-import { DIET_LABELS, familyWatchFields } from '../members.js';
+import { DIET_LABELS, displayFields, familyWatchFields } from '../members.js';
 import { ROLE_LABELS } from '../recipeschema.js';
 import { NUTRIENT_LABELS } from '../foods.js';
 import {
@@ -16,7 +16,6 @@ import {
 import { swapSlotItem, assignSlotItem, toggleLock, regenerateSlot } from './weekops.js';
 
 const KIND_LABELS = { cook: '自己煮', eatOut: '外食', skip: '不煮' };
-const DEFAULT_FIELDS = ['kcal', 'protein', 'carb', 'sodium'];
 
 function fmtMD(iso) { const d = parseDate(iso); return `${d.getMonth() + 1}/${d.getDate()}`; }
 
@@ -101,10 +100,12 @@ export default async function weekView(query = {}) {
       diag.forcedRepeats.length ? h('p', {}, `${diag.forcedRepeats.length} 道在不重複天數內重複了（${summarizeRoles(diag.forcedRepeats)}），因為符合條件的菜不夠。可以到食譜頁新增或收藏更多菜。`) : null,
       diag.relaxed.length ? h('p', {}, `${diag.relaxed.length} 道放寬了時間上限或同餐烹法的限制。`) : null,
       diag.empty.length ? h('p', {}, `${diag.empty.length} 個位置排不出菜（${summarizeRoles(diag.empty)}），可以手動指定。`) : null,
+      (diag.noMeat ?? []).length ? h('p', { dataset: { field: 'noMeat' } }, `${diag.noMeat.length} 餐沒有排到葷菜（${diag.noMeat[0].why}）。要吃葷的話可以在那一格手動指定。`) : null,
     ) : null;
 
+  // 預設只顯示熱量與蛋白質；有設留意項目的家人，那幾項一定加顯（displayFields）
+  const fields = displayFields(members);
   const watch = familyWatchFields(members);
-  const fields = watch.length ? watch : DEFAULT_FIELDS;
   const units = idx?.units ?? {};
 
   const dayCards = dates.map((date, day) => {
@@ -163,19 +164,21 @@ function mealBlock({ slot, slotIndex, plan, mondayIso, recipesById, members }) {
   });
 
   const items = slot.kind === 'cook'
-    ? h('div', { class: 'meal-items' }, ...MEAL_ROLES[slot.meal].map((role) => {
-      const it = slot.items.find((x) => x.role === role);
+    // 一餐有兩道配菜，所以每道菜認的是**位置**不是角色（只看角色的話兩道配菜分不開）
+    ? h('div', { class: 'meal-items' }, ...MEAL_ROLES[slot.meal].map((slotRole, pos) => {
+      const it = slot.items.find((x) => x.pos === pos);
       if (!it) {
         const main = slot.items.find((x) => x.role === 'main');
-        if (role === 'staple' && main && recipesById.get(main.recipeId)?.includesStaple) return null;
-        return h('div', { class: 'meal-item empty', dataset: { slot: String(slotIndex), role } }, pill(ROLE_LABELS[role]), h('span', { class: 'muted sm' }, '排不出菜'), itemMenuBtn({ slot, slotIndex, role, item: null, plan, mondayIso, recipesById, members }));
+        if (slotRole === 'staple' && main && recipesById.get(main.recipeId)?.includesStaple) return null;
+        return h('div', { class: 'meal-item empty', dataset: { slot: String(slotIndex), role: slotRole, pos: String(pos) } }, pill(ROLE_LABELS[slotRole]), h('span', { class: 'muted sm' }, '排不出菜'), itemMenuBtn({ slot, slotIndex, pos, role: slotRole, item: null, plan, mondayIso, recipesById, members }));
       }
       const r = recipesById.get(it.recipeId);
-      return h('div', { class: 'meal-item', dataset: { slot: String(slotIndex), role, item: it.recipeId } },
-        pill(ROLE_LABELS[role]),
+      return h('div', { class: 'meal-item', dataset: { slot: String(slotIndex), role: it.role, pos: String(pos), item: it.recipeId, ...(it.extraMeat ? { extra: 'meat' } : {}) } },
+        pill(it.extraMeat ? '加菜' : ROLE_LABELS[it.role]),
         h('a', { class: 'meal-name', href: `#/recipes/${it.recipeId}` }, r?.name ?? it.recipeId),
+        it.extraMeat ? pill('僅葷食成員', 'accent') : null,
         it.locked ? h('span', { class: 'lock', title: '已鎖定', 'aria-label': '已鎖定' }, '🔒') : null,
-        itemMenuBtn({ slot, slotIndex, role, item: it, plan, mondayIso, recipesById, members }),
+        itemMenuBtn({ slot, slotIndex, pos, role: it.role, item: it, plan, mondayIso, recipesById, members }),
       );
     }))
     : h('p', { class: 'muted sm' }, slot.kind === 'eatOut' ? '這一餐外食，不排菜。' : '這一餐不煮。');
@@ -186,13 +189,14 @@ function mealBlock({ slot, slotIndex, plan, mondayIso, recipesById, members }) {
   );
 }
 
-function itemMenuBtn({ slot, slotIndex, role, item, plan, mondayIso, recipesById, members }) {
-  const btn = h('button', { class: 'icon-btn item-menu', type: 'button', 'aria-label': `${MEAL_LABELS[slot.meal]}${ROLE_LABELS[role]}的選項`, dataset: { action: 'itemMenu', slot: String(slotIndex), role } }, '⋯');
+function itemMenuBtn({ slot, slotIndex, pos, role, item, plan, mondayIso, recipesById, members }) {
+  const btn = h('button', { class: 'icon-btn item-menu', type: 'button', 'aria-label': `${MEAL_LABELS[slot.meal]}${ROLE_LABELS[role]}的選項`, dataset: { action: 'itemMenu', slot: String(slotIndex), role, pos: String(pos) } }, '⋯');
   btn.addEventListener('click', async () => {
     const r = item ? recipesById.get(item.recipeId) : null;
     const reasons = item?.reasons ?? [];
     const body = h('div', {},
       r ? h('p', { class: 'row-title' }, r.name) : h('p', { class: 'muted' }, '這個位置目前沒有菜'),
+      item?.extraMeat ? h('p', { class: 'muted sm' }, '這道是給吃葷的人的加菜，素食成員吃不了；同一餐其他幾道他們吃得到。') : null,
       reasons.length ? h('div', { class: 'reasons', dataset: { field: 'reasons' } }, h('p', { class: 'muted xs' }, '為什麼選這道'), h('ul', { class: 'reason-list' }, ...reasons.map((t) => h('li', {}, t)))) : null,
     );
     const choice = await modal({
@@ -206,9 +210,9 @@ function itemMenuBtn({ slot, slotIndex, role, item, plan, mondayIso, recipesById
     });
     if (!choice) return;
     if (choice === 'open') { location.hash = `#/recipes/${item.recipeId}`; return; }
-    if (choice === 'lock') { await toggleLock({ plan, slotIndex, role }); refresh(); return; }
-    if (choice === 'swap') { const ok = await swapSlotItem({ plan, slotIndex, role }); toast(ok ? '換好了' : '沒有別的菜可以換了', 2600); refresh(); return; }
-    if (choice === 'assign') { const done = await assignSlotItem({ plan, slotIndex, role, recipesById, members }); if (done) { toast('已指定並鎖定'); refresh(); } }
+    if (choice === 'lock') { await toggleLock({ plan, slotIndex, pos }); refresh(); return; }
+    if (choice === 'swap') { const ok = await swapSlotItem({ plan, slotIndex, pos }); toast(ok ? '換好了' : '沒有別的菜可以換了', 2600); refresh(); return; }
+    if (choice === 'assign') { const done = await assignSlotItem({ plan, slotIndex, pos, recipesById, members }); if (done) { toast('已指定並鎖定'); refresh(); } }
   });
   return btn;
 }
@@ -216,6 +220,7 @@ function itemMenuBtn({ slot, slotIndex, role, item, plan, mondayIso, recipesById
 // ---------- 每日估計 ----------
 function estimateBlock({ daySlots, members, idx, recipesById, fields, units }) {
   if (!idx) return null;
+  const watch = familyWatchFields(members);
   const rows = dailyEstimates(daySlots, members, idx, recipesById, fields);
   const anyCook = daySlots.some((s) => s.kind === 'cook' && s.items.length);
   if (!anyCook) return null;
@@ -232,6 +237,8 @@ function estimateBlock({ daySlots, members, idx, recipesById, fields, units }) {
         row.missing ? h('p', { class: 'muted xs' }, `有 ${row.missing} 道這位吃不了，沒算進去`) : null,
       );
     }),
-    h('p', { class: 'muted xs' }, '早餐、午餐、晚餐每人一份的估計值加總；沒有算進外食與零食。數字前的「估」代表依食藥署資料庫估算。'),
+    h('p', { class: 'muted xs' }, watch.length
+      ? `早餐、午餐、晚餐每人一份的估計值加總；沒有算進外食與零食。熱量與蛋白質之後那幾項（${watch.map((k) => NUTRIENT_LABELS[k]).join('、')}）是家人設定的留意項目。`
+      : '早餐、午餐、晚餐每人一份的估計值加總；沒有算進外食與零食。數字前的「估」代表依食藥署資料庫估算。'),
   );
 }

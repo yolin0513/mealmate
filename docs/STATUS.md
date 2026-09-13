@@ -1,6 +1,7 @@
 # MealMate 專案狀態（docs/STATUS.md）
 
-> 最後更新：2026-09-13。**M0–M5 全部完成（`mealmate-v0.6.0`）。使用者要求的「全面檢測」尚未執行 —— 那是下一步。**
+> 最後更新：2026-09-13。**M0–M5 全部完成，另做完兩項使用者追加的優化（`mealmate-v0.7.0`）。
+> 使用者要求的「全面檢測」尚未執行 —— 那是下一步。**
 > repo `yolin0513/mealmate`，GitHub Pages `https://yolin0513.github.io/mealmate/`。
 > 給接手的工作階段快速接手用。規劃細節見 `PLAN.md`（唯一真相來源），實測見 `FEASIBILITY.md`，資料與衛教來源見 `SOURCES.md`。
 
@@ -14,9 +15,44 @@
 | M3 買菜 | ✅ 完成（2026-09-13） | `mealmate-v0.4.0` |
 | M4 今日煮與打磨 | ✅ 完成（2026-09-13） | `mealmate-v0.5.0` |
 | M5 上線 | ✅ 完成（2026-09-13） | `mealmate-v0.6.0` |
+| 追加優化：一餐 3–5 道、每餐有葷 | ✅ 完成（2026-09-13） | `mealmate-v0.7.0` |
+| 追加優化：營養標示精簡 | ✅ 完成（2026-09-13） | `mealmate-v0.7.0` |
 | 全面檢測 | ⏳ 未執行（**下一步從這裡開始**：假斷言全掃、文件對程式、真實使用路徑、完整突變） | — |
 
-測試現況：**23 支測試 ＋ `mutationtest`**。Node 端：datatest 64、aliastest 26、unittest 29、edutest 13、copytest 7、recipetest 48、membertest 41、nutritiontest 131、plannertest 99、shoppingtest 49、timelinetest 71；瀏覽器端（puppeteer）：shelltest 106、familytest 45、recipeviewtest 49、backuptest 30、weekviewtest 32、shoppingviewtest 25、todaytest 39、racetest 16、versionmixtest 39、layouttest 18（81 組版面掃描）、uikittest 28、pwatest 35。`mutationtest` 共 **95 條**（M5 新增 4 條）。平常只跑受影響的（慣例 15）；完整套件約 45 分鐘，只在使用者要求時全跑。
+測試現況：**23 支測試 ＋ `mutationtest`**。Node 端：datatest 64、aliastest 26、unittest 29、edutest 13、copytest 7、recipetest 48、membertest 41、nutritiontest 131、plannertest 124、shoppingtest 49、timelinetest 71；瀏覽器端（puppeteer）：shelltest 106、familytest 45、recipeviewtest 54、backuptest 30、weekviewtest 48、shoppingviewtest 25、todaytest 41、racetest 16、versionmixtest 40、layouttest 18（81 組版面掃描）、uikittest 28、pwatest 35。`mutationtest` 共 **103 條**（M5 新增 4 條、追加優化新增 8 條）。平常只跑受影響的（慣例 15）；完整套件約 50 分鐘，只在使用者要求時全跑。
+
+食譜現況：**180 道**（主菜 80、配菜 50、湯 25、早餐 19、主食 6）。
+
+### 追加優化（使用者 2026-09-13 提出、確認方案後實作）
+
+#### 1. 一餐 3–5 道、每餐都要有葷
+
+1. **餐次組成改成位置制**：`MEAL_ROLES` 的午餐是 `['main','side','side','staple']`、晚餐是 `['main','side','side','soup','staple']`，
+   陣列裡有**重複的角色**，所以每道菜記的是 `pos`（位置）不是角色 —— 只記角色的話兩道配菜在換菜、鎖定、指定時分不開。
+   舊計畫沒有 `pos`，`store.getPlan()` 讀出來時用 `withPositions()` 補上。
+   實測：午餐 3.9 道、晚餐 5.0 道、一週 55 → 69 道（早餐維持 1 道）。
+2. **早餐不套用「每餐有葷」**（使用者決定）：早餐以簡單準備又健康為準，補了 8 道（蔬果三明治、蒸地瓜配豆漿、水煮蛋佐吐司、
+   水果燕麥豆漿、番茄起司烤吐司、蔬菜蛋捲、木瓜優格、玉米蛋花粥），早餐池 11 → 19 道，全素吃得到的從 2 道變 4 道。
+3. **兩條規則的優先順序**（使用者確認）：素食保障 > 葷食保障。
+   · 午晚餐的主菜，家裡有吃葷的人就**硬性要求葷**（可分流的算 —— 素食成員吃素版，同一鍋分兩邊）。
+   · 主菜排不到葷的時候，最後一道配菜的位置改排一道純葷的**加菜**，畫面標「僅葷食成員」；
+     但**放之前先算**：放了之後每位素食成員這一餐還吃得到 ≥ 3 道（`VEG_MIN_DISHES`）才放。
+   · 放不下就不放，記進 `diagnostics.noMeat`，本週頁明講「要先確保素食成員吃得到」。
+4. **加菜在真實池子裡很少出現**（可分流主菜夠多），所以規劃器那條用**合成池**驗（沒有可分流主菜 → 14 道加菜），
+   畫面那條用**寫死的資料**驗（直接把一道加菜寫進計畫，看 UI 有沒有標示）。不這樣做的話母體是空的，斷言等於沒檢查。
+5. **改完之後冒出「每週二都吃培根、香腸」**：根因是保存期限 —— 肉類 2 天、魚貝 2 天，而一週買兩次（週三、週六）
+   離下一次買菜最遠是 3 天，週二只剩兩道加工肉過得了關，「每餐有葷」就把它們每週排一次。
+   改成肉類 4 天、魚貝 3 天（假設買回來當天冷藏、超過兩天先冷凍，`units.json` 的 note 寫明這是排菜假設不是食安建議），
+   並把保存期限加進放寬鏈（排在「同一天重複同一道菜」之前，理由會寫「離買菜日比較久，生鮮要先冷凍」）。
+   改完：四週 56 個午晚餐全部有葷、零被迫重複、零放寬。突變「肉類回到 2 天」會紅。
+
+#### 2. 營養標示精簡（預設熱量＋蛋白質）
+
+1. `members.displayFields(members)` 一支管四個畫面（本週每日估算、今日煮的素葷兩欄、食譜詳情、食譜清單）：
+   **沒有人設留意項目 → 只有熱量與蛋白質**；有設的 → 熱量、蛋白質 ＋ 那幾項（糖尿病的醣糖纖維、腎臟病勾選的鈉鉀磷），
+   而且**加顯在同一塊、不收進展開區**。完整 12 項一律收在食譜詳情的「看全部 12 項」裡（預設收起來）。
+2. 保留不動的紅線：每個數字的「估」字、「怎麼算的」可展開來源、素版葷版兩欄各自估算不相加、`未估算` 不寫 0。
+3. 兩條突變：「忽略家人的留意項目」與「又變回全部 12 項」，分別讓 weekviewtest 與 recipeviewtest 紅。
 
 ### M5 開發期的實測發現
 

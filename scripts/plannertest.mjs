@@ -19,8 +19,9 @@ import { indexFoods } from '../js/foods.js';
 import { newMember } from '../js/members.js';
 import {
   generateWeek, swapItem, buildContext, scoreSoft, hardBlock, makeRng, hashSeed, weekKeyOf, mondayOf, addDays,
-  lastShoppingDayOnOrBefore, historyRowsOf, dailyEstimates, medianOf, MEALS,
+  lastShoppingDayOnOrBefore, historyRowsOf, dailyEstimates, medianOf, MEALS, isMeaty, VEG_MIN_DISHES,
 } from '../js/planner.js';
+import { versionFor } from '../js/members.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const foods = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foods.json'), 'utf8'));
@@ -181,7 +182,6 @@ const fam = [{ ...newMember(), name: '爸', diet: 'omni' }, { ...newMember(), na
 const { plan: vp } = gen({ members: fam });
 const vItems = cookSlots(vp).flatMap((s) => s.items.map((it) => byId.get(it.recipeId)));
 ok(vItems.length >= 50, `（母體）${vItems.length} 道菜`);
-const { versionFor } = await import('../js/members.js');
 everyOf(vItems, (r) => versionFor(r, 'lactoOvo') !== null && versionFor(r, 'veganNoAllium') !== null, '每一道菜蛋奶素與全素不含五辛的成員都吃得了');
 noneOf(vItems, (r) => r.vegMode === 'meatOnly', '沒有任何 meatOnly 的菜');
 ok(vItems.some((r) => r.vegMode === 'splittable'), '（對照）有可分流的菜（葷食成員吃葷版），不是全變成素菜');
@@ -252,6 +252,97 @@ detects((t) => /建議|應該|適合|療效|治療|控制|改善/.test(t), {
   shouldHit: ['建議多吃這道', '適合糖尿病患者', '有助控制血糖', '這道很健康應該常吃'],
   shouldMiss: ['估 鈉 320 mg／份，不高於主菜池子的中位數 450', '14 天內沒出現過', '姊（全素不含五辛）可吃素版', '當季（9 月）'],
 }, '「建議語氣」的判準有對照組');
+
+section('一餐 3–5 道：午餐 4、晚餐 5、早餐 1');
+{
+  const fam3 = [{ ...newMember(), name: '爸' }, { ...newMember(), name: '媽' }, { ...newMember(), name: '弟' }];
+  const { plan: cp } = gen({ members: fam3 });
+  const countsOf = (meal) => cookSlots(cp).filter((s) => s.meal === meal).map((s) => s.items.length);
+  const lunches = countsOf('lunch');
+  const dinners = countsOf('dinner');
+  const breakfasts = countsOf('breakfast');
+  eq([lunches.length, dinners.length, breakfasts.length], [7, 7, 7], '（母體）一週 7 個午餐、7 個晚餐、7 個早餐');
+  everyOf(lunches, (n) => n >= 3 && n <= 5, `午餐 3–5 道（實際 ${lunches.join('、')}；主菜本身含主食時會少一道主食）`);
+  everyOf(dinners, (n) => n >= 4 && n <= 5, `晚餐 4–5 道（實際 ${dinners.join('、')}）`);
+  everyOf(breakfasts, (n) => n === 1, '早餐一道 —— 使用者決定早餐以簡單準備又健康為準，不套用「每餐有葷」');
+  const total = cp.slots.reduce((n, s) => n + s.items.length, 0);
+  ok(total >= 65, `一週共 ${total} 道（改成一餐 3–5 道之前是 55 道）`);
+  // 一餐有兩道配菜，所以每道菜認的是位置：同一格裡不可以有兩道菜佔同一個位置
+  everyOf(cookSlots(cp), (s) => new Set(s.items.map((it) => it.pos)).size === s.items.length, '同一格裡每道菜的位置都不一樣');
+  everyOf(cookSlots(cp).flatMap((s) => s.items), (it) => Number.isInteger(it.pos), '每道菜都有位置編號（換菜、鎖定、指定靠它）');
+  const sideCounts = cookSlots(cp).filter((s) => s.meal !== 'breakfast').map((s) => s.items.filter((it) => it.role === 'side').length);
+  everyOf(sideCounts, (n) => n === 2, '每個午晚餐都有兩道配菜');
+}
+
+section('每餐都要有葷（午晚餐）');
+{
+  const fam3 = [{ ...newMember(), name: '爸' }, { ...newMember(), name: '媽' }, { ...newMember(), name: '弟' }];
+  const check = (members) => {
+    let meaty = 0; let total = 0; const noMeat = [];
+    for (const seed of ['a', 'b', 'c', 'd']) {
+      const { plan, diagnostics } = gen({ members, seed });
+      for (const s of cookSlots(plan)) {
+        if (s.meal === 'breakfast') continue;
+        total += 1;
+        if (s.items.some((it) => isMeaty(byId.get(it.recipeId)))) meaty += 1;
+      }
+      noMeat.push(...diagnostics.noMeat);
+    }
+    return { meaty, total, noMeat };
+  };
+  const omni = check(fam3);
+  ok(omni.total === 56, `（母體）四週 ${omni.total} 個午晚餐`);
+  eq(omni.meaty, omni.total, `全葷家庭：每一個午晚餐都有葷菜（${omni.meaty}/${omni.total}）`);
+  eq(omni.noMeat.length, 0, '沒有任何一餐要靠 diagnostics 說明缺葷菜');
+  const mixed = check([{ ...newMember(), name: '爸' }, { ...newMember(), name: '姊', diet: 'veganNoAllium' }]);
+  eq(mixed.meaty, mixed.total, `有全素不含五辛的成員時也一樣（${mixed.meaty}/${mixed.total}）—— 靠的是可分流的菜，素食成員吃素版`);
+  // 對照組：全家都吃素 → 不需要葷菜，也不可以硬塞 meatOnly
+  const vegFam = [{ ...newMember(), name: '姊', diet: 'vegan' }, { ...newMember(), name: '妹', diet: 'veganNoAllium' }];
+  const { plan: vpp } = gen({ members: vegFam });
+  noneOf(cookSlots(vpp).flatMap((s) => s.items), (it) => byId.get(it.recipeId).vegMode === 'meatOnly', '（對照）全素家庭一道純葷的都沒有');
+}
+
+section('素食保障優先於「每餐有葷」');
+{
+  const fam = [{ ...newMember(), name: '爸' }, { ...newMember(), name: '姊', diet: 'vegan' }];
+  // 真實池：每個午晚餐素食成員都吃得到至少 3 道
+  const { plan: rp2 } = gen({ members: fam });
+  const vegCounts = cookSlots(rp2).filter((s) => s.meal !== 'breakfast')
+    .map((s) => s.items.filter((it) => versionFor(byId.get(it.recipeId), 'vegan') !== null).length);
+  ok(vegCounts.length === 14, `（母體）${vegCounts.length} 個午晚餐`);
+  everyOf(vegCounts, (n) => n >= VEG_MIN_DISHES, `每個午晚餐全素成員都吃得到 ≥ ${VEG_MIN_DISHES} 道（實際最少 ${Math.min(...vegCounts)} 道）`);
+
+  // 合成池：沒有任何「可分流」的主菜 → 葷菜只能當加菜，而且素食保障要先成立
+  const vegMains = recipes.filter((r) => r.role === 'main' && r.vegMode === 'nativeVeg').slice(0, 8);
+  const meatMains = recipes.filter((r) => r.role === 'main' && r.vegMode === 'meatOnly').slice(0, 8);
+  const others = recipes.filter((r) => r.role !== 'main');
+  const noSplit = [...vegMains, ...meatMains, ...others];
+  const { plan: xp, diagnostics: xd } = gen({ members: fam, recipes: noSplit });
+  const extras = cookSlots(xp).flatMap((s) => s.items.filter((it) => it.extraMeat));
+  ok(extras.length >= 10, `（母體）沒有可分流主菜時，出現 ${extras.length} 道「僅葷食成員」的加菜`);
+  everyOf(extras, (it) => byId.get(it.recipeId).vegMode === 'meatOnly', '加菜都是純葷的菜');
+  everyOf(extras, (it) => it.reasons.some((t) => t.includes('加菜')), '加菜的理由講明它是加菜');
+  const xVeg = cookSlots(xp).filter((s) => s.meal !== 'breakfast')
+    .map((s) => s.items.filter((it) => versionFor(byId.get(it.recipeId), 'vegan') !== null).length);
+  everyOf(xVeg, (n) => n >= VEG_MIN_DISHES, `加了葷加菜之後，全素成員每餐仍吃得到 ≥ ${VEG_MIN_DISHES} 道（實際最少 ${Math.min(...xVeg)} 道）`);
+  void xd;
+
+  // 再收緊：連素的主菜都沒有 → 主菜整格排不出來。這時「放不放加菜」剛好在午餐與晚餐給出不同答案，
+  // 因為素食保障算的是**這一餐**還剩幾道吃得到的：午餐只剩配菜與主食，晚餐多一道湯。
+  const onlyMeatMains = [...meatMains, ...others];
+  const { plan: yp, diagnostics: yd } = gen({ members: fam, recipes: onlyMeatMains });
+  const yLunch = cookSlots(yp).filter((s) => s.meal === 'lunch');
+  const yDinner = cookSlots(yp).filter((s) => s.meal === 'dinner');
+  ok(yLunch.length === 7 && yDinner.length === 7, '（母體）七個午餐、七個晚餐');
+  eq(yLunch.flatMap((s) => s.items.filter((it) => it.extraMeat)).length, 0,
+    '午餐不放加菜 —— 主菜排不出來時再放一道葷的，全素成員只剩兩道');
+  eq(yd.noMeat.filter((x) => x.meal === 'lunch').length, 7, '七個午餐都記進 diagnostics.noMeat（本週頁會明講）');
+  everyOf(yd.noMeat, (x) => x.why.includes('素食成員'), '理由寫的是「要先確保素食成員吃得到」');
+  const dinnerExtras = yDinner.flatMap((s) => s.items.filter((it) => it.extraMeat));
+  ok(dinnerExtras.length >= 5, `晚餐放得下加菜（${dinnerExtras.length} 餐）—— 還有湯與主食，全素成員仍有三道`);
+  everyOf(yDinner, (s) => s.items.filter((it) => versionFor(byId.get(it.recipeId), 'vegan') !== null).length >= VEG_MIN_DISHES,
+    `而且那幾個晚餐全素成員確實吃得到 ≥ ${VEG_MIN_DISHES} 道`);
+}
 
 section('避開開關：使用者自己開才排除');
 {

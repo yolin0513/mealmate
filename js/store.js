@@ -4,6 +4,7 @@
 // 抓不到不能擋住 App 開啟，但也不能假裝成功：錯誤留著，畫面要講「尚未取得」。
 
 import * as db from './db.js';
+import { withPositions } from './planner.js';
 import * as prefs from './prefs.js';
 import { indexFoods } from './foods.js';
 import { validateRecipe } from './recipeschema.js';
@@ -177,7 +178,7 @@ export async function setWantThisWeek(recipeId, on) {
 }
 
 // ---------- 週計畫與歷史 ----------
-export async function getPlan(weekKey) { return (await db.get('plans', weekKey)) ?? null; }
+export async function getPlan(weekKey) { return withPositions((await db.get('plans', weekKey)) ?? null); }
 
 /** 存一週計畫，並用它取代那一週的 history 列（重新產生時舊的要清掉，不然會殘留）。 */
 export async function savePlan(plan) {

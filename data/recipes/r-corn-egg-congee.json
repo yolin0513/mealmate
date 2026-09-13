@@ -1,0 +1,62 @@
+{
+  "id": "r-corn-egg-congee",
+  "name": "玉米蛋花粥",
+  "role": "breakfast",
+  "servings": 3,
+  "time": 20,
+  "method": "porridge",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    {
+      "food": "白飯",
+      "label": "白飯（冷飯就可以）",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "玉米粒",
+      "label": "玉米粒",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "雞蛋",
+      "label": "雞蛋",
+      "grams": 100,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔（切小丁）",
+      "grams": 50,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "胡蘿蔔切小丁；蛋打散。用前一晚的冷飯最省事。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中放白飯與 700 毫升水，中火煮滾後下玉米粒與胡蘿蔔丁，小火煮 8 分鐘到米粒散開。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "轉小火，蛋液繞圈倒入，等十秒再輕輕推開，加鹽調味。"
+    }
+  ]
+}

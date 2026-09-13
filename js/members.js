@@ -68,6 +68,18 @@ export function watchFields(member) {
   return out;
 }
 
+/**
+ * 畫面上預設顯示哪幾個營養欄位。
+ * 「熱量＋蛋白質」是給自己家人看的基本盤（使用者 2026-09-13 決定：標示太多了）；
+ * **有設慢性病留意項目的，那幾項一定加顯在同一塊、不收進展開區** —— 那正是這個 App 對慢性病使用者的用處。
+ * 完整 12 項一律收在「看全部 12 項」裡。
+ */
+export const BASE_DISPLAY_FIELDS = ['kcal', 'protein'];
+export function displayFields(members) {
+  const watch = familyWatchFields(members);
+  return [...BASE_DISPLAY_FIELDS, ...watch.filter((k) => !BASE_DISPLAY_FIELDS.includes(k))];
+}
+
 /** 全家的留意欄位聯集（有人留意就顯示）。 */
 export function familyWatchFields(members) {
   const out = [];

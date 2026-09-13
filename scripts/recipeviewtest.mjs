@@ -87,7 +87,35 @@ try {
   eq(vegVals2.map((v) => v.t), vegVals.map((v) => v.t), '每人一份的數字不因人份改變');
   const cabbageAfter = (await page.$$eval('[data-card="recipeIngredients"] tbody tr', (els) => els.map((e) => e.textContent.replace(/\s+/g, ' ')))).find((t) => t.startsWith('高麗菜'));
   ok(cabbageBefore !== cabbageAfter && num(cabbageAfter) === num(cabbageBefore) * 2, `食材克數跟著人份變（${cabbageBefore} → ${cabbageAfter}）`);
-  const howText = await textOf(page, '[data-card="recipeNutrition"] details.how');
+  section('營養標示：預設熱量＋蛋白質，12 項收在展開區');
+  const mainFields = await page.$$eval('[data-card="recipeNutrition"] [data-field="mainFields"] .nutri-value', (els) => els.map((e) => e.dataset.nutrient));
+  eq(mainFields, ['kcal', 'protein'], '沒有人設留意項目 → 主要區塊只有熱量與蛋白質');
+  const allDetails = await page.$eval('[data-card="recipeNutrition"] [data-field="allFields"]', (el) => ({ open: el.open, summary: el.querySelector('summary').textContent.trim(), n: el.querySelectorAll('.nutri-value').length }));
+  eq(allDetails.open, false, '全部 12 項預設是收起來的');
+  eq(allDetails.n, 12, `展開區裡有 12 項（${allDetails.summary}）`);
+  // 加一位糖尿病家人 → 醣、糖、膳食纖維要直接出現在主要區塊
+  await page.evaluate(async () => {
+    const store = await import('./js/store.js');
+    const { newMember } = await import('./js/members.js');
+    await store.saveMember({ ...newMember(), name: '阿公', conditions: ['diabetes'] });
+  });
+  await goto(page, '#/recipes');
+  await titleIs(page, '食譜');
+  await goto(page, '#/recipes/r-cabbage-pork-stirfry');
+  await page.waitForSelector('[data-card="recipeNutrition"] [data-field="mainFields"] .nutri-value');
+  const withWatch = await page.$$eval('[data-card="recipeNutrition"] [data-field="mainFields"] .nutri-value', (els) => els.map((e) => e.dataset.nutrient));
+  eq(withWatch, ['kcal', 'protein', 'carb', 'sugar', 'fiber'], '有糖尿病家人 → 醣、糖、膳食纖維加顯在主要區塊（不是收進展開區）');
+  ok((await textOf(page, '[data-card="recipeNutrition"]')).includes('家人設定的留意項目'), '而且講明後面那幾項是家人設定的留意項目');
+  await page.evaluate(async () => {
+    const store = await import('./js/store.js');
+    for (const mm of store.members()) await store.deleteMember(mm.id);
+  });
+  await goto(page, '#/recipes');
+  await titleIs(page, '食譜');
+  await goto(page, '#/recipes/r-cabbage-pork-stirfry');
+  await page.waitForSelector('[data-card="recipeNutrition"] [data-field="mainFields"] .nutri-value');
+
+  const howText = await textOf(page, '[data-card="recipeNutrition"] [data-field="how"]');
   ok(howText.includes('食品藥物管理署') && howText.includes('未計烹調'), '「怎麼算的」有食藥署來源與「未計烹調」');
   ok(howText.includes('→ 甘藍平均值'), '「怎麼算的」列出對到的食藥署條目');
   ok(!/份醣|醣類份數|份的醣/.test(await textOf(page, '#view')), '沒有出現醣類份數（尚無可引用來源，不顯示）');

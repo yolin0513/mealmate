@@ -1,0 +1,62 @@
+{
+  "id": "r-veggie-egg-roll",
+  "name": "蔬菜蛋捲",
+  "role": "breakfast",
+  "servings": 2,
+  "time": 12,
+  "method": "pan",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "雞蛋",
+      "label": "雞蛋",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔（切細絲）",
+      "grams": 50,
+      "track": "base"
+    },
+    {
+      "food": "菠菜",
+      "label": "菠菜（切碎）",
+      "grams": 80,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 8,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 2,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "胡蘿蔔切細絲、菠菜切碎；蛋打散加鹽拌勻。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "平底鍋抹薄薄一層油，先炒胡蘿蔔絲與菠菜一分鐘，倒回蛋液裡拌勻。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "同一鍋倒入蛋液鋪平，小火煎到表面快凝固時，從一邊慢慢捲起來，起鍋切段。"
+    }
+  ]
+}

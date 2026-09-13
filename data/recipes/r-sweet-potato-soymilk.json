@@ -1,0 +1,43 @@
+{
+  "id": "r-sweet-potato-soymilk",
+  "name": "蒸地瓜配豆漿",
+  "role": "breakfast",
+  "servings": 2,
+  "time": 20,
+  "method": "steam",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    {
+      "food": "地瓜",
+      "label": "地瓜",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "無糖豆漿",
+      "label": "無糖豆漿",
+      "grams": 400,
+      "track": "base"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "地瓜洗乾淨，皮不用削（蒸過就軟，纖維也在皮附近）。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "電鍋外鍋一杯水，蒸到筷子可以輕鬆插穿。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "配一杯溫豆漿。前一晚先蒸好、早上復熱兩分鐘也可以。"
+    }
+  ]
+}

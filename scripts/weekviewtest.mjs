@@ -11,7 +11,7 @@ const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const recipes = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/recipes.json'), 'utf8')).recipes;
 const byId = new Map(recipes.map((r) => [r.id, r]));
 
-const mainIds = (page) => page.$$eval('.meal-item[data-role="main"]', (els) => els.map((e) => e.dataset.item));
+const mainIds = (page) => page.$$eval('.meal-item[data-pos="0"][data-role="main"]', (els) => els.map((e) => e.dataset.item));
 const allItemIds = (page) => page.$$eval('.meal-item[data-item]', (els) => els.map((e) => e.dataset.item));
 
 const { page, pageErrors, close } = await openApp();
@@ -40,10 +40,26 @@ try {
   eq(await page.$$eval('.meal-block', (els) => els.length), 21, '21 個餐格');
   const mains = await mainIds(page);
   eq(mains.length, 14, '14 個午晚餐都有主菜');
+  const perMeal = await page.$$eval('.meal-block', (els) => els.map((e) => ({ meal: e.dataset.meal, n: e.querySelectorAll('.meal-item[data-item]').length })));
+  const lunchN = perMeal.filter((x) => x.meal === 'lunch').map((x) => x.n);
+  const dinnerN = perMeal.filter((x) => x.meal === 'dinner').map((x) => x.n);
+  const bfN = perMeal.filter((x) => x.meal === 'breakfast').map((x) => x.n);
+  eq([lunchN.length, dinnerN.length, bfN.length], [7, 7, 7], '（母體）七個午餐、七個晚餐、七個早餐');
+  everyOf(lunchN, (n) => n >= 3 && n <= 5, `午餐 3–5 道（${lunchN.join('、')}）`);
+  everyOf(dinnerN, (n) => n >= 4 && n <= 5, `晚餐 4–5 道（${dinnerN.join('、')}）`);
+  everyOf(bfN, (n) => n === 1, '早餐一道');
+  const meatyPerMeal = await page.$$eval('.meal-block', (els) => els.filter((e) => e.dataset.meal !== 'breakfast')
+    .map((e) => [...e.querySelectorAll('.meal-item[data-item]')].map((x) => x.dataset.item)));
+  ok(meatyPerMeal.length === 14, `（母體）${meatyPerMeal.length} 個午晚餐`);
+  everyOf(meatyPerMeal, (ids) => ids.some((id) => byId.get(id) && byId.get(id).vegMode !== 'nativeVeg'), '每個午晚餐都有一道葷的（可分流的算 —— 素食成員吃素版）');
   const items = await allItemIds(page);
   ok(items.length >= 50, `（母體）${items.length} 道菜`);
   everyOf(items, (id) => byId.get(id) && versionFor(byId.get(id), 'lactoOvo') !== null && versionFor(byId.get(id), 'veganNoAllium') !== null, '每一道菜阿嬤（蛋奶素）與姊（全素不含五辛）都吃得了');
-  noneOf(items, (id) => byId.get(id)?.vegMode === 'meatOnly', '沒有任何 meatOnly 的菜');
+  const vegPerMeal = await page.$$eval('.meal-block', (els) => els.filter((e) => e.dataset.meal !== 'breakfast')
+    .map((e) => [...e.querySelectorAll('.meal-item[data-item]')].map((x) => x.dataset.item)));
+  everyOf(vegPerMeal, (ids) => ids.filter((id) => byId.get(id) && versionFor(byId.get(id), 'veganNoAllium') !== null).length >= 3,
+    '每個午晚餐，全素不含五辛的姊至少吃得到 3 道（素食保障優先於「每餐有葷」）');
+  noneOf(items, (id) => byId.get(id)?.vegMode === 'meatOnly', '這個家庭這一週沒有排到純葷的菜（靠可分流的菜就湊得出每餐有葷）');
   ok(items.some((id) => byId.get(id)?.vegMode === 'splittable'), '（對照）有可分流的菜，爸吃葷版');
   const pageText = await textOf(page, '#view');
   noneOf(['建議攝取', '應該吃', '治療', '療效'], (w) => pageText.includes(w), '整頁沒有處方式的字');
@@ -95,6 +111,40 @@ try {
   ok(eatOut.text.includes('外食'), '寫著外食');
   eq((await mainIds(page)).length, 13, '主菜剩 13 個');
 
+  section('「僅葷食成員」的加菜怎麼顯示');
+  // 加菜是「排不到可分流主菜時」才會出現的少數情況，真實池子常常一整週都碰不到。
+  // 這裡直接把一道加菜寫進計畫，驗的是**畫面**有沒有照規矩標示（規劃器那邊由 plannertest 驗）。
+  const extraDishId = recipes.find((r) => r.role === 'main' && r.vegMode === 'meatOnly').id;
+  await page.evaluate(async (id) => {
+    const store = await import('./js/store.js');
+    const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js');
+    const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+    const slot = plan.slots.find((s) => s.meal === 'dinner' && s.kind === 'cook');
+    const target = slot.items.filter((it) => it.role === 'side').pop();
+    target.recipeId = id;
+    target.role = 'main';
+    target.extraMeat = true;
+    target.reasons = ['這一餐的主菜是素的，這道是給吃葷的人的加菜'];
+    await store.savePlan(plan);
+  }, extraDishId);
+  await goto(page, '#/family');
+  await titleIs(page, '家人');
+  await goto(page, '#/');
+  await titleIs(page, '本週菜單');
+  await page.waitForSelector('.meal-item[data-extra="meat"]');
+  const extraEl = await page.$$eval('.meal-item[data-extra="meat"]', (els) => els.map((e) => ({ id: e.dataset.item, role: e.dataset.role, text: e.textContent.replace(/\s+/g, ' ') })));
+  eq(extraEl.length, 1, '（母體）畫面上有一道加菜');
+  ok(extraEl[0].text.includes('僅葷食成員'), `加菜標明「僅葷食成員」：${extraEl[0].text}`);
+  ok(extraEl[0].text.includes('加菜'), '而且角色標籤寫「加菜」，不是「主菜」');
+  eq(extraEl[0].id, extraDishId, '就是那道純葷的菜');
+  await clickEl(page, '.meal-item[data-extra="meat"] .item-menu');
+  await page.waitForSelector('.modal-card');
+  const extraModal = await textOf(page, '.modal-card');
+  ok(extraModal.includes('素食成員吃不了'), `選單裡講明素食成員吃不了：${extraModal.slice(0, 60)}`);
+  ok(extraModal.includes('其他幾道他們吃得到'), '也講了同一餐他們吃得到什麼');
+  await page.keyboard.press('Escape');
+  await sleep(200);
+
   section('每日估計與目標對照');
   await page.waitForSelector('[data-card="day"][data-day="0"] [data-field="dayEstimate"]');
   await page.$eval('[data-card="day"][data-day="0"] [data-field="dayEstimate"] summary', (el) => el.click());
@@ -106,6 +156,25 @@ try {
   eq(grandma.targets.length, 1, '阿嬤有填醣的目標 → 一條對照');
   ok(grandma.targets[0].includes('醫師或營養師給的每日目標 180') && /今日估 [\d.]+/.test(grandma.targets[0]) && /\d+%/.test(grandma.targets[0]), `對照條講事實：${grandma.targets[0]}`);
   everyOf(estRows.filter((r) => r.member !== '阿嬤'), (r) => r.targets.length === 0, '沒填目標的家人沒有對照條（App 不替人設目標）');
+
+  section('營養標示：預設熱量＋蛋白質，有留意項目的加顯');
+  const fieldsOf = () => page.$$eval('[data-card="day"][data-day="0"] .est-row', (els) => [...els[0].querySelectorAll('.nutri-value')].map((e) => e.dataset.nutrient));
+  const withWatch = await fieldsOf();
+  eq(withWatch.slice(0, 2), ['kcal', 'protein'], '前兩項固定是熱量與蛋白質');
+  eq(withWatch, ['kcal', 'protein', 'carb', 'sugar', 'fiber'], '阿嬤有糖尿病 → 醣、糖、膳食纖維直接顯示在畫面上（不收進展開區）');
+  // 把留意項目拿掉：預設就只剩兩項
+  await page.evaluate(async () => {
+    const store = await import('./js/store.js');
+    for (const mm of store.members()) await store.saveMember({ ...mm, conditions: [], kidneyWatch: [] });
+  });
+  await goto(page, '#/family');
+  await titleIs(page, '家人');
+  await goto(page, '#/');
+  await titleIs(page, '本週菜單');
+  await page.waitForSelector('[data-card="day"][data-day="0"] [data-field="dayEstimate"]');
+  await page.$eval('[data-card="day"][data-day="0"] [data-field="dayEstimate"] summary', (el) => el.click());
+  await sleep(200);
+  eq(await fieldsOf(), ['kcal', 'protein'], '沒有人設留意項目 → 只剩熱量與蛋白質兩項');
   const dayText = await textOf(page, '[data-card="day"][data-day="0"]');
   ok(dayText.includes('阿嬤') && dayText.includes('（蛋奶素）'), '列出飲食型態');
   noneOf([dayText], (t) => /建議攝取|應該吃/.test(t), '每日估計沒有處方式的字');

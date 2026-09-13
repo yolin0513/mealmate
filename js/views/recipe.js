@@ -8,7 +8,7 @@ import { eduNode } from '../edu.js';
 import { ROLE_LABELS, VEG_MODE_LABELS, METHOD_LABELS, TEXTURE_LABELS, STAGE_LABELS, TRACK_LABELS, TAG_LABELS } from '../recipeschema.js';
 import { NUTRIENT_ORDER, NUTRIENT_LABELS } from '../foods.js';
 import { estimate, servingsFor } from '../nutrition.js';
-import { familyWatchFields, versionFor, allergenHits, DIET_LABELS, ALLERGEN_LABELS } from '../members.js';
+import { familyWatchFields, displayFields, versionFor, allergenHits, DIET_LABELS, ALLERGEN_LABELS } from '../members.js';
 import { vegTone } from './recipes.js';
 
 const MONTHS = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
@@ -111,12 +111,16 @@ export default async function recipeView(id) {
     const partialKeys = NUTRIENT_ORDER.filter((k) => est.partial[k].length > 0);
     const valueNode = (k) => h('span', { class: 'num nutri-value', dataset: { nutrient: k, partial: est.partial[k].length ? '1' : '0' } },
       fmtNutrient(est.perServing[k], units[k]), est.partial[k].length ? h('sup', { title: '有食材未計入' }, '＊') : null);
-    const watchBlock = watch.length ? h('div', { class: 'watch-block', dataset: { field: 'watch' } },
-      h('p', { class: 'muted xs' }, '家人要留意的'),
-      ...watch.map((k) => h('div', { class: 'nutri-row big' }, h('span', {}, NUTRIENT_LABELS[k]), valueNode(k)))) : null;
+    // 預設只列熱量與蛋白質；有設留意項目的家人，那幾項一定在同一塊裡（不收進展開區）
+    const fields = displayFields(members);
+    const mainBlock = h('div', { class: 'watch-block', dataset: { field: 'mainFields' } },
+      ...fields.map((k) => h('div', { class: 'nutri-row big' }, h('span', {}, NUTRIENT_LABELS[k]), valueNode(k))));
+    const watchNote = watch.length
+      ? h('p', { class: 'muted xs' }, `後面那幾項（${watch.map((k) => NUTRIENT_LABELS[k]).join('、')}）是家人設定的留意項目。`)
+      : null;
     const allRows = h('div', { class: 'nutri-grid' }, ...NUTRIENT_ORDER.map((k) => h('div', { class: 'nutri-row' }, h('span', {}, NUTRIENT_LABELS[k]), valueNode(k))));
 
-    const how = h('details', { class: 'how' },
+    const how = h('details', { class: 'how', dataset: { field: 'how' } },
       h('summary', {}, '怎麼算的'),
       h('table', { class: 'ing-table sm' }, h('tbody', {},
         ...est.rows.map((row) => h('tr', {},
@@ -135,8 +139,9 @@ export default async function recipeView(id) {
     // replaceChildren 不像 h() 會略過 null —— 傳進去會變成畫面上一個「null」字，所以先過濾。
     nutriBox.replaceChildren(...[
       h('p', { class: 'muted sm' }, `每人一份的估計值${isSplit ? `（${version === 'veg' ? '素版' : '葷版'}）` : ''}；下方食材表是 ${servings} 人份的量。`),
-      watchBlock,
-      watch.length ? h('details', { class: 'how' }, h('summary', {}, '全部 12 項'), allRows) : allRows,
+      mainBlock,
+      watchNote,
+      h('details', { class: 'how', dataset: { field: 'allFields' } }, h('summary', {}, '看全部 12 項'), allRows),
       est.rows.length === 0 ? h('p', { class: 'muted' }, `所有食材都沒填克數，整道菜${NOT_ESTIMATED}。`) : null,
       how,
     ].filter(Boolean));

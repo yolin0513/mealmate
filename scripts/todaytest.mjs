@@ -122,6 +122,9 @@ try {
   const units = idx.units ?? {};
   const shownOf = (t, k) => (t.values.find((v) => v.k === k)?.text ?? '').replace('＊', '');
   const fields = tracks[0].values.map((v) => v.k);
+  // 阿嬤有糖尿病 → 熱量、蛋白質 ＋ 醣、糖、膳食纖維
+  eq(fields.slice(0, 2), ['kcal', 'protein'], '每一欄前兩項固定是熱量與蛋白質（預設就這兩項）');
+  eq(fields, ['kcal', 'protein', 'carb', 'sugar', 'fiber'], '有糖尿病家人 → 留意項目加顯在同一欄裡');
   ok(fields.length >= 3, `（母體）兩欄各顯示 ${fields.length} 個欄位：${fields.join('、')}`);
   eq(tracks[1].values.map((v) => v.k), fields, '兩欄顯示的是同一組欄位');
   everyOf(fields, (k) => shownOf(tracks[0], k) === fmtNutrient(vegEst.perServing[k], units[k]), '素版那一欄逐欄位等於 estimate(veg)（base＋veg 軌 ÷ 素版份數）');

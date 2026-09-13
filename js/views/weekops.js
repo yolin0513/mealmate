@@ -21,18 +21,18 @@ async function pastHistory(plan) {
 }
 
 /** 換一道：排除現在這道，用同一套規則再挑一道。回 true 表示有換到。 */
-export async function swapSlotItem({ plan, slotIndex, role }) {
-  const next = swapItem({ plan, slotIndex, role, history: await pastHistory(plan), ...planArgs() });
+export async function swapSlotItem({ plan, slotIndex, pos }) {
+  const next = swapItem({ plan, slotIndex, pos, history: await pastHistory(plan), ...planArgs() });
   if (!next) return false;
   const slot = plan.slots[slotIndex];
-  slot.items = [...slot.items.filter((it) => it.role !== role), next];
+  slot.items = [...slot.items.filter((it) => it.pos !== pos), next].sort((a, b) => a.pos - b.pos);
   await store.savePlan(plan);
   return true;
 }
 
-export async function toggleLock({ plan, slotIndex, role }) {
+export async function toggleLock({ plan, slotIndex, pos }) {
   const slot = plan.slots[slotIndex];
-  const it = slot.items.find((x) => x.role === role);
+  const it = slot.items.find((x) => x.pos === pos);
   if (!it) return false;
   it.locked = !it.locked;
   await store.savePlan(plan);
@@ -40,7 +40,9 @@ export async function toggleLock({ plan, slotIndex, role }) {
 }
 
 /** 讓使用者從這個角色的食譜裡挑一道；挑了就指定並鎖定。回 true 表示有改。 */
-export async function assignSlotItem({ plan, slotIndex, role, recipesById, members }) {
+export async function assignSlotItem({ plan, slotIndex, pos, recipesById, members }) {
+  const slotForRole = plan.slots[slotIndex];
+  const role = slotForRole.items.find((it) => it.pos === pos)?.role ?? MEAL_ROLES[slotForRole.meal]?.[pos] ?? 'main';
   const pool = [...recipesById.values()].filter((r) => r.role === role);
   const list = h('div', { class: 'list picker-list', dataset: { list: 'assignPicker' } });
   const input = h('input', { class: 'field', type: 'search', placeholder: `找${ROLE_LABELS[role]}`, 'aria-label': '搜尋' });
@@ -64,7 +66,7 @@ export async function assignSlotItem({ plan, slotIndex, role, recipesById, membe
     bind: (fn) => { close = fn; },
   });
   if (!picked || !recipesById.has(picked)) return false;
-  assignItem(plan, slotIndex, role, recipesById.get(picked));
+  assignItem(plan, slotIndex, pos, recipesById.get(picked));
   await store.savePlan(plan);
   return true;
 }
@@ -76,10 +78,11 @@ export async function regenerateSlot({ plan, slotIndex }) {
   const slot = plan.slots[slotIndex];
   slot.items = [];
   const byId = new Map(args.recipes.map((r) => [r.id, r]));
-  for (const role of MEAL_ROLES[slot.meal]) {
+  MEAL_ROLES[slot.meal].forEach((role, pos) => {
     const main = slot.items.find((x) => x.role === 'main');
-    if (role === 'staple' && main && byId.get(main.recipeId)?.includesStaple) continue;
-    const next = swapItem({ plan, slotIndex, role, history, ...args });
+    if (role === 'staple' && main && byId.get(main.recipeId)?.includesStaple) return;
+    const next = swapItem({ plan, slotIndex, pos, history, ...args });
     if (next) slot.items.push(next);
-  }
+  });
+  slot.items.sort((a, b) => a.pos - b.pos);
 }
