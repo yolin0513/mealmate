@@ -5,7 +5,8 @@ import { setTop, render } from '../shell.js';
 import * as store from '../store.js';
 import * as prefs from '../prefs.js';
 import { mondayOf, weekKeyOf, addDays, isoDate, parseDate, DAY_LABELS } from '../planner.js';
-import { buildShoppingList, quantityText, listAsText, SECTIONS } from '../shopping.js';
+import { buildShoppingList, quantityText, listAsText, extraText, SECTIONS, rangesOfPlan } from '../shopping.js';
+import { refresh } from '../router.js';
 
 function fmtMD(iso) { const d = parseDate(iso); return `${d.getMonth() + 1}/${d.getDate()}`; }
 function dayLabel(iso) { return DAY_LABELS[(parseDate(iso).getDay() + 6) % 7]; }
@@ -44,7 +45,14 @@ export default async function shoppingView(query = {}) {
   const members = store.members();
   const idx = store.foodsIndex();
   const recipesById = new Map(store.allRecipes().map((r) => [r.id, r]));
-  const { ranges } = buildShoppingList({ plan, recipesById, members, idx, units: store.units(), shoppingDays });
+  // 份數是每張採買卡各自調的（客人通常只來週末，不該把整週都加倍），
+  // 所以要先讀出每張卡存著的人數，再算數量。
+  const extraByRange = {};
+  for (const r of rangesOfPlan(plan, shoppingDays)) {
+    const saved = await store.getShopping(r.key);
+    extraByRange[r.key] = { meat: saved.extra?.meat ?? 0, veg: saved.extra?.veg ?? 0 };
+  }
+  const { ranges } = buildShoppingList({ plan, recipesById, members, idx, units: store.units(), shoppingDays, extraByRange });
   if (!ranges.length) {
     render(h('section', { class: 'card', dataset: { card: 'shoppingEmpty' } }, h('div', { class: 'row-actions' }, weekChips), h('h2', { class: 'card-title' }, '這週沒有自己煮的餐'), h('p', { class: 'muted' }, '菜單裡每一餐都是外食或不煮，所以沒有東西要買。')));
     return;
@@ -106,9 +114,38 @@ export default async function shoppingView(query = {}) {
     copyBtn.addEventListener('click', () => copyText(listAsText(range, { checked: row.checked ?? {}, have: row.have ?? {} })));
     const printBtn = h('button', { class: 'btn', type: 'button', dataset: { action: 'print' } }, '印出');
     printBtn.addEventListener('click', () => window.print());
+    // 「多幾個人吃」：預設 0 ＝ 照家人實際人數。分葷素是因為分軌要各自正確 ——
+    // 家裡 1 素 2 葷、來了 2 位吃葷的，正確是葷鍋軌 ×2、素鍋軌 ×1，
+    // 單一倍率會同時多買素菜又買不夠肉。
+    const numField = (kind, label) => {
+      const input = h('input', {
+        type: 'number', class: 'field field-num', min: '0', max: '20', step: '1',
+        value: String(range.extra[kind] ?? 0), inputMode: 'numeric',
+        'aria-label': `多幾位${label}`, dataset: { field: `extra${kind === 'meat' ? 'Meat' : 'Veg'}` },
+      });
+      input.addEventListener('change', async () => {
+        const n = Math.max(0, Math.min(20, Math.floor(Number(input.value) || 0)));
+        input.value = String(n);
+        row.extra = { ...(row.extra ?? { meat: 0, veg: 0 }), [kind]: n };
+        await save();
+        refresh();     // 數量要重算，整頁重畫最單純
+      });
+      return h('label', { class: 'extra-field' }, h('span', { class: 'muted sm' }, label), input);
+    };
+    const extraNote = extraText(range.extra);
+    const extraBlock = h('div', { class: 'extra-row no-print', dataset: { field: 'extraRow' } },
+      h('span', { class: 'muted sm' }, '這張清單多幾個人吃'),
+      numField('meat', '吃葷'), numField('veg', '吃素'),
+      h('span', { class: 'muted xs' }, '0 ＝ 照家裡人數'));
+
     cards.push(h('section', { class: 'card shop-card', dataset: { card: 'shopRange', range: range.key } },
-      h('h2', { class: 'card-title' }, range.label),
+      h('h2', { class: 'card-title' }, range.label,
+        // 調過就一定要看得出來，不然她對不起來為什麼買這麼多
+        extraNote ? ' ' : '', extraNote ? pill(extraNote, 'accent') : null),
       h('p', { class: 'muted sm' }, `給 ${range.dates.map((d) => `${fmtMD(d)}（${dayLabel(d)}）`).join('、')} 的餐`),
+      extraBlock,
+      extraNote ? h('p', { class: 'muted sm', dataset: { field: 'extraNote' } },
+        `下面的數量已經${extraNote}算進去了（家裡 ${members.length} 位 ＋ 這些人）。`) : null,
       progress,
       ...sections,
       range.pantry.length ? h('details', { class: 'how', dataset: { field: 'pantry' } }, h('summary', {}, `常備品 ${range.pantry.length} 項（用完再補）`),

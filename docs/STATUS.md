@@ -20,14 +20,14 @@
 | 全面檢測 | ✅ 完成（2026-09-13） | 未動程式碼 |
 | 檢測後修正六項 | ✅ 完成（2026-09-13） | `mealmate-v0.8.0` |
 | iPhone 四項實機檢查 | ✅ 使用者回報全部正常（2026-09-13） | — |
-| 新功能 2：本週每天可摺疊 | ✅ 完成（2026-09-13） | 待發布 |
-| 新功能 1：購物清單份數可調 | ⏳ 方案待使用者確認 | — |
+| 新功能 2：本週每天可摺疊 | ✅ 完成（2026-09-13） | `mealmate-v0.10.0` |
+| 新功能 1：購物清單份數可調 | ✅ 完成（2026-09-13） | `mealmate-v0.10.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 48、membertest 47、nutritiontest 131、plannertest 154、shoppingtest 49、timelinetest 71、doctest 82；
-瀏覽器端（puppeteer）：shelltest 106、familytest 45、recipeviewtest 54、backuptest 30、weekviewtest 91、shoppingviewtest 25、todaytest 41、racetest 16、versionmixtest 40、layouttest 41（90 組版面掃描 ＋ 桌機七欄）、uikittest 28、pwatest 35、redlinetest 28、scenariotest 39。
+Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 48、membertest 47、nutritiontest 131、plannertest 154、shoppingtest 87、timelinetest 71、doctest 82；
+瀏覽器端（puppeteer）：shelltest 106、familytest 45、recipeviewtest 54、backuptest 30、weekviewtest 91、shoppingviewtest 44、todaytest 41、racetest 16、versionmixtest 40、layouttest 41（90 組版面掃描 ＋ 桌機七欄）、uikittest 28、pwatest 35、redlinetest 28、scenariotest 39。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **121 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
+`mutationtest` 共 **126 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
 
 食譜現況：**180 道**（主菜 80、配菜 50、湯 25、早餐 19、主食 6）。
 
@@ -54,6 +54,25 @@ Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、
 5. **完整突變套件**：105 條全跑一次**全綠**（24 個基準先過，再逐條改壞、確認會紅、還原）。
 
 檢測期間**沒有動任何產品程式碼**（js／css／data 零改動），改的都是測試與工具。
+
+### 新功能：購物清單「這張清單多幾個人吃」（2026-09-13）
+
+使用者原話是「份數可以自行調整」。**沒有做全域倍率**，做的是「多幾個人吃，而且分葷素」。
+
+· **為什麼不是倍率**：家裡 3 人（1 素 2 葷）來了 2 位吃葷的客人，正確的縮放是葷鍋軌 ×2、素鍋軌 ×1。
+  全域 ×1.67 會**同時多買素菜、又買不夠肉** —— 倍率在混合葷素的家庭裡不是「簡化版的正確」，它就是錯的，
+  而且倍率愈大偏差愈大。改成填人數之後，客人走跟家人**完全同一套** `versionFor` 判斷
+  （`guestScaleFor`），分軌正確性由結構保證，不是靠額外檢查守住。
+· **每張採買卡各自調**（存在既有的 per-range `shopping` 那筆，跟「買了」「家裡有」放一起）。
+  客人通常只來週末；一週只設一個買菜日的人只有一張卡，效果就等於全域。
+· **素的客人算「蛋奶素」不算「全素」**：差別只在含蛋奶的菜算不算他吃得到，算得到就會多買一點。
+  跟 `toBuyQty` 同一個原則 —— 寧可多買半個，不可少買。
+· **先乘人數再換算顆把**（倍數作用在克數上，最後才進位成顆把）。反過來的話每一項的進位誤差也會被乘進去。
+· **常備品不乘**：油鹽醬油走 `pantry`，清單上本來就只列名稱、沒有數量，所以沒有東西可乘。
+· **調過一定看得出痕跡**（使用者要求）：預設 0 ＝ 照家裡人數；調過之後標題旁出現「多加 2 位吃葷」的標記、
+  底下多一行「數量已經算進去了」，複製出去的文字也帶著那一行。不然她對不起來為什麼買這麼多。
+· 「家裡有」與週菜單都不動。
+· 5 條突變：忽略人數、人數套到兩軌、倍數提早進位、常備品也乘、換頁後忘記。
 
 ### 新功能：本週頁每一天可以摺疊（2026-09-13）
 

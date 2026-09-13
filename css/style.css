@@ -516,6 +516,10 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 
 /* 買菜清單 */
 .shop-section { border-top: 1px solid var(--line); padding-top: 6px; }
+/* 「這張清單多幾個人吃」：兩個小數字框。輸入框本身守 44px（uikittest 盯著）。 */
+.extra-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.extra-field { display: flex; align-items: center; gap: 6px; }
+.field-num { width: 4.5em; min-height: 44px; text-align: center; }
 .shop-section-title { margin: 0 0 4px; font-size: 0.95em; color: var(--fg-muted); }
 .shop-row { display: grid; grid-template-columns: minmax(0, 1fr) max-content; column-gap: 8px; align-items: center; padding: 2px 0; }
 /* 名稱與數量同一行、「用在」整行放下面：手機上「用在」才不會被數量擠成一欄四行（截圖走查抓到的） */

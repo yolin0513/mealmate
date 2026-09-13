@@ -106,6 +106,109 @@ try {
   await clickEl(page, `[data-card="shopRange"][data-range="${firstKey}"] [data-action="print"]`);
   eq(await page.evaluate(() => window.__printed), true, '印出鈕呼叫 window.print');
 
+
+  section('這張清單多幾個人吃：預設 0、調過看得出痕跡、數量跟著變');
+  {
+    await goto(page, '#/shopping');
+    await page.waitForSelector('[data-card="shopRange"]');
+
+    const cardKey = await page.$eval('[data-card="shopRange"]', (el) => el.dataset.range);
+    const sel = `[data-card="shopRange"][data-range="${cardKey}"]`;
+    const readCard = () => page.evaluate((s) => {
+      const card = document.querySelector(s);
+      const rows = [...card.querySelectorAll('.shop-row')].map((r) => ({
+        food: r.dataset.buy,
+        qty: r.querySelector('.shop-qty')?.textContent?.trim() ?? '',
+      }));
+      const meat = card.querySelector('[data-field="extraMeat"]');
+      const veg = card.querySelector('[data-field="extraVeg"]');
+      return {
+        meatVal: meat?.value, vegVal: veg?.value,
+        meatH: meat ? Math.round(meat.getBoundingClientRect().height) : null,
+        note: card.querySelector('[data-field="extraNote"]')?.textContent?.trim() ?? '',
+        pill: card.querySelector('.card-title .pill')?.textContent?.trim() ?? '',
+        rows,
+        pantry: card.querySelector('[data-field="pantry"]')?.textContent?.trim() ?? '',
+      };
+    }, sel);
+
+    const before = await readCard();
+    eq(before.meatVal, '0', '「吃葷」預設是 0');
+    eq(before.vegVal, '0', '「吃素」預設是 0');
+    eq(before.note, '', '沒調過就沒有那行說明');
+    eq(before.pill, '', '沒調過標題旁也沒有標記');
+    ok(before.meatH >= 44, `數字框按得到（${before.meatH}px ≥ 44）`);
+    ok(before.rows.length >= 5, `（母體）這張卡有 ${before.rows.length} 項`);
+
+    // 加 2 位吃葷
+    await page.evaluate((s) => {
+      const el = document.querySelector(`${s} [data-field="extraMeat"]`);
+      el.value = '2';
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, sel);
+    await sleep(700);
+    await page.waitForSelector(`${sel} [data-field="extraNote"]`, { timeout: 10000 });
+    const after = await readCard();
+    eq(after.meatVal, '2', '調過之後欄位記著 2');
+    ok(/多加 2 位吃葷/.test(after.pill), `標題旁看得出來：「${after.pill}」`);
+    ok(/多加 2 位吃葷/.test(after.note) && /家裡/.test(after.note), `而且有一行說明數量已經算進去了：「${after.note}」`);
+
+    // 數量真的變多（至少一項），而且沒有任何一項變少
+    const byFood = new Map(before.rows.map((r) => [r.food, r.qty]));
+    const changed = after.rows.filter((r) => byFood.has(r.food) && byFood.get(r.food) !== r.qty);
+    ok(changed.length >= 1, `${changed.length} 項的數量跟著變了（例：${changed[0]?.food} ${byFood.get(changed[0]?.food)} → ${changed[0]?.qty}）`);
+    const gramsOf = (t) => Number(/(\d+) g/.exec(t)?.[1] ?? 0);
+    everyOf(after.rows.filter((r) => byFood.has(r.food)), (r) => gramsOf(r.qty) >= gramsOf(byFood.get(r.food)),
+      '加人之後沒有任何一項變少');
+
+    // 常備品那一段沒有數字
+    ok(after.pantry.length > 0, `（前提）常備品那一段有內容：「${after.pantry.slice(0, 24)}…」`);
+    noneOf([after.pantry.replace(/常備品 \d+ 項/, '')], (t) => /\d+ g|約 \d/.test(t), '常備品只列名稱，沒有數量（所以不會被乘）');
+
+    // 重新載入之後還記得
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector(`${sel} [data-field="extraMeat"]`);
+    await sleep(300);
+    const reloaded = await readCard();
+    eq(reloaded.meatVal, '2', '重新載入後仍然記得加了 2 位');
+    ok(/多加 2 位吃葷/.test(reloaded.pill), '痕跡也還在');
+
+    // 複製出去的文字帶得到
+    const copied = await page.evaluate(async (s) => {
+      const store = await import('./js/store.js');
+      const prefs = await import('./js/prefs.js');
+      const { buildShoppingList, listAsText, rangesOfPlan } = await import('./js/shopping.js');
+      const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const days = prefs.get('shoppingDays') ?? [];
+      const extraByRange = {};
+      for (const r of rangesOfPlan(plan, days)) {
+        const row = await store.getShopping(r.key);
+        extraByRange[r.key] = { meat: row.extra?.meat ?? 0, veg: row.extra?.veg ?? 0 };
+      }
+      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days, extraByRange });
+      const target = ranges.find((r) => r.key === s);
+      return listAsText(target, {});
+    }, cardKey);
+    ok(/多加 2 位吃葷/.test(copied), '複製出去的文字也講明加了 2 位吃葷');
+
+    // 調回 0 → 痕跡消失、數量回原本
+    await page.evaluate((s) => {
+      const el = document.querySelector(`${s} [data-field="extraMeat"]`);
+      el.value = '0';
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, sel);
+    await sleep(700);
+    const reset = await readCard();
+    eq(reset.pill, '', '調回 0 → 標題旁的標記消失');
+    eq(reset.note, '', '說明那一行也消失');
+    const backToSame = after.rows.filter((r) => byFood.has(r.food)).every((r) => {
+      const now = reset.rows.find((x) => x.food === r.food);
+      return now && now.qty === byFood.get(r.food);
+    });
+    ok(backToSame, '每一項的數量都回到原本（0 ＝ 照家裡人數，不是「回不去了」）');
+  }
+
   eq(pageErrors, [], '沒有未攔截的例外');
 } finally {
   await close();

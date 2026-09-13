@@ -19,6 +19,47 @@ import { ok, eq, section, done, note } from './tap.mjs';
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const MUTATIONS = [
+  // ---- 購物清單：這張清單多幾個人吃 ----
+  {
+    name: "購物清單忽略「多幾個人吃」",
+    why: "她填了「多 2 位吃葷」，數量卻一點都沒變 —— 客人來了買不夠。",
+    file: "js/shopping.js",
+    find: "        const scale = scaleWithGuests(r, members, extraByRange[range.key]);",
+    replace: "        const scale = scaleFor(r, members);",
+    test: "shoppingtest",
+  },
+  {
+    name: "客人的人數套到素葷兩軌",
+    why: "加 2 位吃葷的客人，素鍋軌也跟著乘 —— 這就是「全域倍率」的錯法：同時多買素菜、又買不夠肉。分軌的正確性要由結構保證。",
+    file: "js/shopping.js",
+    find: "  return { base: (veg + meat) / recipe.servings, veg: veg / recipe.splitServings.veg, meat: meat / recipe.splitServings.meat };",
+    replace: "  return { base: (veg + meat) / recipe.servings, veg: (veg + meat) / recipe.splitServings.veg, meat: (veg + meat) / recipe.splitServings.meat };",
+    test: "shoppingtest",
+  },
+  {
+    name: "客人的倍數提早進位（先四捨五入再加）",
+    why: "倍數在合併進克數之前就被進位，手算對照的數字全部對不上。份量換算只能在**最後**做一次。",
+    file: "js/shopping.js",
+    find: "  if (recipe.vegMode !== 'splittable') return { base: all / recipe.servings, veg: 0, meat: 0 };\n  return { base: (veg + meat) / recipe.servings",
+    replace: "  if (recipe.vegMode !== 'splittable') return { base: Math.round(all / recipe.servings), veg: 0, meat: 0 };\n  return { base: (veg + meat) / recipe.servings",
+    test: "shoppingtest",
+  },
+  {
+    name: "常備品也跟著人數乘",
+    why: "油鹽醬油被列進主清單並乘上人數。常備品是「用完再補」，不該因為多兩個客人就叫她再買一瓶醬油。",
+    file: "js/shopping.js",
+    find: "          if (ing.pantry) {",
+    replace: "          if (false) {",
+    test: "shoppingtest",
+  },
+  {
+    name: "換頁之後忘記加過幾個人",
+    why: "她調好人數、去別頁看一眼再回來，數量又縮回去了，而且畫面上的痕跡也不見了。",
+    file: "js/views/shopping.js",
+    find: "    extraByRange[r.key] = { meat: saved.extra?.meat ?? 0, veg: saved.extra?.veg ?? 0 };",
+    replace: "    extraByRange[r.key] = { meat: 0, veg: 0 };\n    void saved;",
+    test: "shoppingviewtest",
+  },
   // ---- 本週頁：每一天可以摺疊 ----
   {
     name: "摺疊只改外觀，不用 hidden 移出版面",
