@@ -599,6 +599,170 @@ const MUTATIONS = [
     replace: "    h('p', { dataset: { field: 'appVersion' } }, 'MealMate 家庭三餐規劃'),",
     test: 'shelltest',
   },
+
+  // ---- M4：今日煮時間線、非同步守門、換版、版面 ----
+  {
+    name: '備料沒有排在開火之前',
+    why: '一邊炒一邊切，鍋子燒焦。時間線的第一條規則。',
+    file: 'js/timeline.js',
+    find: "  if (step?.type === 'prep') return 'prep';",
+    replace: "  if (false) return 'prep';",
+    test: 'timelinetest',
+  },
+  {
+    name: '煮最久的那道沒有先下鍋',
+    why: '先炒五分鐘的青菜、最後才燉五十分鐘的湯，全家等到九點。',
+    file: 'js/timeline.js',
+    find: '    .sort((a, b) => (b.d.recipe.time ?? 0) - (a.d.recipe.time ?? 0) || a.i - b.i)',
+    replace: '    .sort((a, b) => (a.d.recipe.time ?? 0) - (b.d.recipe.time ?? 0) || a.i - b.i)',
+    test: 'timelinetest',
+  },
+  {
+    name: '素葷收尾排到「盛出素食份」之前',
+    why: '肉下鍋之後才盛素食份，素食成員吃到的是葷的。這是這個 App 的核心分流。',
+    file: 'js/timeline.js',
+    find: "export const PHASES = ['prep', 'cookBase', 'split', 'veg', 'meat', 'serve'];",
+    replace: 'export const PHASES = ["prep", "cookBase", "veg", "meat", "split", "serve"];',
+    test: 'timelinetest',
+  },
+  {
+    name: '外食那一餐也給一條時間線',
+    why: '說好外食，App 還叫人開火。',
+    file: 'js/timeline.js',
+    find: "  return !!slot && slot.kind === 'cook' && Array.isArray(slot.items) && slot.items.length > 0;",
+    replace: '  return !!slot && Array.isArray(slot.items) && slot.items.length > 0;',
+    test: 'timelinetest',
+  },
+  {
+    name: '**把素版與葷版的營養加起來**',
+    why: 'PLAN §3.3 的核心紅線：素版＝base＋veg、葷版＝base＋meat，各除各的份數，兩版永遠不相加。加起來的數字不屬於任何一個人。',
+    file: 'js/timeline.js',
+    find: '        est: estimate(r, idx, { version }),',
+    replace: "        est: (() => { const e = estimate(r, idx, { version }); if (r.vegMode === 'splittable') { const o = estimate(r, idx, { version: version === 'veg' ? 'meat' : 'veg' }); for (const k of Object.keys(e.perServing)) { if (e.perServing[k] != null && o.perServing[k] != null) e.perServing[k] += o.perServing[k]; } } return e; })(),",
+    test: 'timelinetest',
+  },
+  {
+    name: '兩道菜的步驟共用同一個編號',
+    why: '勾一步，另一道菜的那一步也跟著被劃掉。',
+    file: 'js/timeline.js',
+    find: '        id: `${dish.recipeId}#${i}`,',
+    replace: '        id: dish.recipeId,',
+    test: 'timelinetest',
+  },
+  {
+    name: '畫面上把素版葷版加起來顯示',
+    why: '同一條紅線的畫面版：邏輯層分開算，畫面卻印出兩版相加的數字。',
+    file: 'js/views/today.js',
+    find: '          fmtNutrient(t.est.perServing[f], units[f]),',
+    replace: '          fmtNutrient(d.tracks.reduce((n, x) => n + (x.est.perServing[f] ?? 0), 0), units[f]),',
+    test: 'todaytest',
+  },
+  {
+    name: '勾了「完成」不存起來',
+    why: '煮到一半去接個電話，回來全部重來。',
+    file: 'js/views/today.js',
+    find: '        await store.saveCookDone(dateIso, meal, done);',
+    replace: '        void 0;',
+    test: 'todaytest',
+  },
+  {
+    name: '本週頁沒有「一起煮」的入口',
+    why: 'PLAN §6：今日煮是從本週頁點今天進去的，沒有入口等於這個功能不存在。',
+    file: 'js/views/week.js',
+    find: "        anyCook ? h('a', { class: 'btn btn-sm no-print', href: `#/today?d=${date}`, dataset: { action: 'cookToday', day: String(day) } }, '一起煮 ›') : null),",
+    replace: '        null),',
+    test: 'todaytest',
+  },
+  {
+    name: '沒有特大字級可以選',
+    why: '會去調字級的人正是看不清楚的長輩；只有「標準／大字」對他們不夠。',
+    file: 'js/prefs.js',
+    find: "export const FONT_SCALES = ['md', 'lg', 'xl'];",
+    replace: 'export const FONT_SCALES = ["md", "lg"];',
+    test: 'familytest',
+  },
+  {
+    name: 'pill 回到不可斷行（特大字級下壓到旁邊的字）',
+    why: '「可分流（一鍋兩吃）」在 320px／特大下比整欄還寬，會蓋住右邊的「約 25 分」。',
+    file: 'css/style.css',
+    find: '  white-space: normal; overflow-wrap: anywhere; max-width: 100%;',
+    replace: '  white-space: nowrap;',
+    test: 'layouttest',
+  },
+  {
+    name: '留意欄位整段不可斷行（被切出畫面外）',
+    why: '「碳水化合物（醣） 估 9.9 g」在一般手機上就會被切掉右半邊。',
+    file: 'css/style.css',
+    find: '.watch-line .num { white-space: normal; max-width: 100%; }',
+    replace: '.watch-line .num { white-space: nowrap; }',
+    test: 'layouttest',
+  },
+  {
+    name: '買菜列的名稱與數量不放在同一行',
+    why: '站在菜攤前要一眼看到「這個買幾顆」。',
+    file: 'css/style.css',
+    find: '.shop-line1 { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }',
+    replace: '.shop-line1 { display: block; }',
+    test: 'layouttest',
+  },
+  {
+    name: '菜名連結縮回 27px',
+    why: '本週頁最常按的就是菜名（點進去看食譜）。整列 44px 不夠，連結自己要 44px。',
+    file: 'css/style.css',
+    find: '.meal-name { color: inherit; text-decoration: none; font-weight: 600; overflow-wrap: anywhere; display: flex; align-items: center; min-height: 44px; }',
+    replace: '.meal-name { color: inherit; text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }',
+    test: 'uikittest',
+  },
+  {
+    name: '衛教「開原文」縮回 20px',
+    why: '每一句衛教都要點得到出處，那是紅線七的一部分。',
+    file: 'css/style.css',
+    find: '.edu a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; }',
+    replace: '.edu a { text-decoration: underline; }',
+    test: 'uikittest',
+  },
+  {
+    name: '拿掉非同步畫面的守門',
+    why: 'StockDiary 的使用者實際回報過：「點某顆按鈕會直接跳回主頁」。根因是慢的舊畫面醒來之後把自己畫上去。',
+    file: 'js/router.js',
+    find: 'export function renderIsStale() { return paintGen !== gen; }',
+    replace: 'export function renderIsStale() { return false; }',
+    test: 'racetest',
+  },
+  {
+    name: '過期的畫面還能把使用者導走',
+    why: '查不到食譜 id 時的 navigate 在 await 之後；使用者早就點去別頁了，這一導就是把人硬扯回來。',
+    file: 'js/router.js',
+    find: '  if (renderIsStale()) return;',
+    replace: '  if (false) return;',
+    test: 'racetest',
+  },
+  {
+    name: '不認得的網址靜默跳回首頁',
+    why: '版本混搭時使用者只會看到「按了就跳回首頁」，完全不知道要更新。',
+    file: 'js/app.js',
+    find: '  showVersionMismatch(path);',
+    replace: "  void path; navigate('/', { replace: true });",
+    // 守這條的是 shelltest：versionmixtest 的混搭情境服務的是**舊版** app.js，
+    // 改新版的 notFound 影響不到它（第一版指錯測試，突變不會紅）。
+    test: 'shelltest',
+  },
+  {
+    name: '換版時直接在使用者手上重載，不問一聲',
+    why: '使用者正在看菜單、正在照著時間線煮，畫面突然被抽掉重載。剛開 App 還沒動過才可以自動換版。',
+    file: 'js/app.js',
+    find: '    showUpdateBar(() => applyNow(worker));',
+    replace: '    applyNow(worker);',
+    test: 'versionmixtest',
+  },
+  {
+    name: 'SW 快取照字面比對版本參數',
+    why: '帶 ?v= 的請求命中不了預快取，線上看不出來（會走網路），**離線就整個打不開**。',
+    file: 'sw.js',
+    find: '    e.respondWith(caches.match(request, { ignoreSearch: true }).then((hit) => hit || fetch(request)));',
+    replace: '    e.respondWith(caches.match(request).then((hit) => hit || fetch(request)));',
+    test: 'versionmixtest',
+  },
 ];
 
 const only = (() => {
@@ -641,7 +805,9 @@ section('基準：沒有突變時全部要綠');
 let baselineOk = true;
 for (const t of TESTS) {
   const r = runTest(t);
-  ok(r.passed, `基準 ${t} 通過`, r.passed ? '' : r.out.split('\n').filter((l) => l.includes('✗')).slice(0, 5).join('\n      '));
+  // 沒有任何 ✗ 的失敗＝子行程根本沒跑完（崩潰、逾時、被殺），那時候要看的是尾端輸出，不是斷言。
+  const fails = r.out.split('\n').filter((l) => l.includes('✗')).slice(0, 5);
+  ok(r.passed, `基準 ${t} 通過`, r.passed ? '' : (fails.length ? fails : r.out.split('\n').filter(Boolean).slice(-8)).join('\n      '));
   if (!r.passed) baselineOk = false;
 }
 

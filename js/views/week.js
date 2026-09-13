@@ -87,9 +87,11 @@ export default async function weekView(query = {}) {
     try { await generate({ mondayIso, prevPlan: plan, newSeed: true }); toast('已重新排好'); refresh(); }
     catch (e) { regenBtn.disabled = false; toast(`排不出來：${String(e.message || e)}`, 4000); }
   });
+  const printBtn = h('button', { class: 'btn', type: 'button', dataset: { action: 'printWeek' } }, '印出');
+  printBtn.addEventListener('click', () => window.print());
   const head = h('section', { class: 'card', dataset: { card: 'weekHead' } },
     h('div', { class: 'row-actions' }, weekChips, h('span', { class: 'muted sm' }, rangeLabel)),
-    h('div', { class: 'btn-row' }, regenBtn),
+    h('div', { class: 'btn-row no-print' }, regenBtn, printBtn),
   );
 
   const diag = plan.diagnostics ?? { forcedRepeats: [], relaxed: [], empty: [], poolSizes: {} };
@@ -113,8 +115,11 @@ export default async function weekView(query = {}) {
       const slotIndex = plan.slots.indexOf(slot);
       return mealBlock({ slot, slotIndex, plan, mondayIso, recipesById, members });
     });
+    const anyCook = daySlots.some((s) => s.kind === 'cook' && s.items.length);
     return h('section', { class: 'card day-card', dataset: { card: 'day', day: String(day) } },
-      h('h2', { class: 'card-title' }, `週${DAY_LABELS[day]} ${fmtMD(date)}`, isShop ? ' ' : '', isShop ? pill('買菜日', 'green') : null),
+      h('div', { class: 'day-head' },
+        h('h2', { class: 'card-title' }, `週${DAY_LABELS[day]} ${fmtMD(date)}`, isShop ? ' ' : '', isShop ? pill('買菜日', 'green') : null),
+        anyCook ? h('a', { class: 'btn btn-sm no-print', href: `#/today?d=${date}`, dataset: { action: 'cookToday', day: String(day) } }, '一起煮 ›') : null),
       ...mealBlocks,
       estimateBlock({ daySlots, members, idx, recipesById, fields, units }),
     );

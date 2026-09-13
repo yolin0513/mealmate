@@ -103,16 +103,28 @@ try {
   await clickEl(page, '[data-pref="avoid-sweet"]');
   await sleep(300);
 
-  section('長輩模式');
-  await clickEl(page, '[data-pref="fontScale"]');
-  await sleep(300);
-  await page.waitForSelector('[data-card="display"]');
-  eq(await page.evaluate(() => document.documentElement.dataset.fontScale), 'lg', '切到大字後 html 帶 data-font-scale=lg');
+  section('字級：標準／大字／特大');
+  await page.waitForSelector('[data-chips="fontScale"] .chip');
+  const scaleOptions = await page.$$eval('[data-chips="fontScale"] .chip', (els) => els.map((e) => e.dataset.value));
+  eq(scaleOptions, ['md', 'lg', 'xl'], '三段字級（特大是給看不清楚的長輩用的）');
+  const bodyPx = () => page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize));
+  const px = { md: await bodyPx() };
+  for (const s of ['lg', 'xl']) {
+    await clickEl(page, chipSel('fontScale', s));
+    await sleep(300);
+    await page.waitForSelector('[data-card="display"]');
+    eq(await page.evaluate(() => document.documentElement.dataset.fontScale), s, `切到「${s}」後 html 帶 data-font-scale=${s}`);
+    px[s] = await bodyPx();
+  }
+  ok(px.md < px.lg && px.lg < px.xl, `字級真的一段比一段大：${px.md} → ${px.lg} → ${px.xl} px`);
+  ok(px.xl >= 21, `特大至少 21px（實際 ${px.xl}px）`);
   await page.reload({ waitUntil: 'networkidle0' });
   await titleIs(page, '家人');
-  eq(await page.evaluate(() => document.documentElement.dataset.fontScale), 'lg', '重新載入後仍是大字');
-  const fs = await page.evaluate(() => getComputedStyle(document.body).fontSize);
-  ok(parseFloat(fs) > 18, `body 字級 ${fs}（> 18px）`);
+  await page.waitForSelector('[data-chips="fontScale"] .chip.on');
+  eq(await page.evaluate(() => document.documentElement.dataset.fontScale), 'xl', '重新載入後仍是特大');
+  eq(await page.$eval('[data-chips="fontScale"] .chip.on', (el) => el.dataset.value), 'xl', '選中的那顆也對');
+  await clickEl(page, chipSel('fontScale', 'md'));
+  await sleep(300);
 
   section('編輯與刪除');
   const grandmaId = await page.$$eval('[data-member]', (els) => els.find((e) => e.textContent.includes('阿嬤'))?.dataset.member);

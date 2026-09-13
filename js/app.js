@@ -20,6 +20,7 @@ const guarded = (fn) => async (ctx) => {
 };
 route('/welcome', async () => (await import(`./views/welcome.js${V}`)).default());
 route('/', guarded(async ({ query }) => (await import(`./views/week.js${V}`)).default(query)));
+route('/today', guarded(async ({ query }) => (await import(`./views/today.js${V}`)).default(query)));
 route('/shopping', guarded(async ({ query }) => (await import(`./views/shopping.js${V}`)).default(query)));
 route('/recipes', guarded(async ({ query }) => (await import(`./views/recipes.js${V}`)).default(query)));
 route('/recipes/new', guarded(async ({ query }) => (await import(`./views/recipeedit.js${V}`)).default({ from: query.from ?? null })));

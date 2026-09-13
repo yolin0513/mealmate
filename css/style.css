@@ -173,6 +173,9 @@ a.btn {
 }
 .btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
 .btn-row > .btn { flex: 1 1 auto; }
+/* 同一列的幾個控制項（chip 群、加減器、輸入欄＋單位、前一天／後一天）。
+   少了這一條它們各佔一整列 —— 今日煮的「‹ 前一天　9/8（二）　後一天 ›」會變成三行（走查抓到）。 */
+.row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
@@ -197,7 +200,9 @@ a.btn {
   line-height: 1.6;
   background: var(--bg-card-2);
   color: var(--fg-muted);
-  white-space: nowrap;
+  /* 不可以 nowrap：特大字級下「可分流（一鍋兩吃）」比整欄還寬，會壓到右邊的「約 25 分」
+     （layouttest 在 320px／特大抓到）。放行換行，並且永遠不超過容器。 */
+  white-space: normal; overflow-wrap: anywhere; max-width: 100%;
 }
 .pill-green { background: var(--green-soft); color: var(--green); }
 .pill-yellow { background: var(--yellow-soft); color: #8a6512; }
@@ -384,7 +389,8 @@ a.row { color: inherit; text-decoration: none; }
 
 /* ---------- 表單 ---------- */
 .field-label { display: block; margin: 6px 0 2px; font-weight: 600; font-size: 0.95em; }
-.field-inline { width: auto; min-width: 110px; }
+/* width:auto 的 input 會用它自己的預設字元寬（約 20 字），在 320px／大字下比容器還寬 —— 要夾住。 */
+.field-inline { width: auto; min-width: 110px; max-width: 100%; }
 textarea.field { resize: vertical; line-height: 1.5; }
 .sub-block { padding: 10px 12px; background: var(--bg-card-2); border-radius: 12px; display: flex; flex-direction: column; gap: 8px; }
 .check { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; }
@@ -441,7 +447,13 @@ textarea.field { resize: vertical; line-height: 1.5; }
 .nutri-value { white-space: nowrap; }
 .nutri-value sup { color: var(--accent-strong); }
 .watch-block { padding: 10px 12px; background: var(--yellow-soft); border-radius: 12px; display: flex; flex-direction: column; gap: 2px; }
-.watch-line .num { white-space: nowrap; }
+/* 衛教出處的「開原文」：行內連結也要按得到（不用負的 margin 撐大 —— 那會跟旁邊的字疊在一起）。 */
+.edu a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; }
+
+.watch-line { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.watch-line .num { white-space: normal; max-width: 100%; }
+.watch-line .wl-k { overflow-wrap: anywhere; }
+.watch-line .wl-v { white-space: nowrap; }
 details.how { border-top: 1px solid var(--line); padding-top: 8px; }
 details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
 .ing-table.sm td { font-size: 0.9em; padding: 6px 4px; }
@@ -451,11 +463,14 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 .day-card { gap: 10px; }
 .meal-block { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
 .meal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.chip-sm { padding: 6px 12px; min-height: 36px; font-size: 0.85em; }
+/* 小一號的膠囊鈕。**高度仍然是 44px** —— 它用在「這一餐怎麼安排」「家裡有」「一起煮」
+   這些每天會按的地方，看起來小不代表可以按不到（StockDiary 的 .btn-sm 踩過 36px）。 */
+.chip-sm { padding: 6px 12px; min-height: 44px; font-size: 0.85em; }
 .meal-items { display: flex; flex-direction: column; gap: 4px; }
 .meal-item { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content max-content; gap: 8px; align-items: center; min-height: 44px; }
 .meal-item.empty { color: var(--fg-muted); }
-.meal-name { color: inherit; text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
+/* 菜名是本週頁最常按的連結（點進去看食譜）。整列 44px 不夠，**連結自己**要 44px。 */
+.meal-name { color: inherit; text-decoration: none; font-weight: 600; overflow-wrap: anywhere; display: flex; align-items: center; min-height: 44px; }
 .meal-name:active { color: var(--accent-strong); }
 .item-menu { font-size: 1.2em; min-width: 44px; }
 .lock { font-size: 0.9em; }
@@ -463,6 +478,23 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 .est-row { padding: 8px 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
 .target-line { margin: 0; color: var(--fg); }
 .picker-list { max-height: 50vh; overflow-y: auto; margin-top: 8px; }
+
+/* 今日一起煮 */
+.day-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.tl-group { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.tl-phase { margin: 0; font-size: 1.02em; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tl-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; counter-reset: none; }
+.tl-step { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 10px; align-items: start; padding: 6px 0; border-top: 1px dashed var(--line); }
+.tl-step:first-child { border-top: 0; }
+.tl-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tl-text { margin: 0; overflow-wrap: anywhere; }
+.tl-step.done .tl-text { color: var(--fg-muted); text-decoration: line-through; }
+.tl-done { white-space: nowrap; }
+.dish-nutri { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.track-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.track { background: var(--bg-card-2); border-radius: 12px; padding: 8px 10px; min-width: 0; }
+.track[data-track="veg"] { background: var(--green-soft); }
+.track-label { margin: 0 0 2px; font-weight: 700; font-size: 0.92em; }
 
 /* 買菜清單 */
 .shop-section { border-top: 1px solid var(--line); padding-top: 6px; }
@@ -489,17 +521,30 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
   details.how { display: block; }
   details.how > summary { display: block; }
   .shop-row { break-inside: avoid; }
+  /* 週菜單貼冰箱：一天一塊不要被切成兩頁；桌機的七欄在紙上會太窄，改回一欄 */
+  .day-card, .meal-block, .tl-step, .dish-nutri { break-inside: avoid; }
+  .week-grid { display: block; }
+  .week-grid > .day-card { margin-bottom: 8px; }
+  /* 貼冰箱的是菜單本身。收起來的「今日估算」在紙上只會剩一行沒有內容的標題。 */
+  .day-estimate { display: none !important; }
 }
 
 /* 桌機：內容區加寬、食譜清單兩欄、本週七欄 */
 @media (min-width: 720px) {
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .nutri-grid { grid-template-columns: 1fr 1fr 1fr; }
+  .track-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (min-width: 1100px) {
   #view { max-width: 1400px; }
   .week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: start; }
   .day-card .nutri-grid { grid-template-columns: 1fr; }
+}
+/* 很窄的手機（iPhone SE 這種 320px）：「家裡有」佔掉的那 70px 會把數量擠到名稱下一行。
+   讓它自己一列、靠右，名稱與數量就留在同一行 —— 站在菜攤前要一眼看到「買幾顆」。 */
+@media (max-width: 360px) {
+  .shop-row { grid-template-columns: minmax(0, 1fr); }
+  .shop-row > [data-action="have"] { justify-self: end; }
 }
 @media (max-width: 420px) {
   .nutri-grid { grid-template-columns: 1fr; }

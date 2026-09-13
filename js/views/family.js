@@ -1,6 +1,6 @@
 // 家人：成員清單、買菜日、長輩模式、備份、常駐說明、關於與資料來源。
 
-import { h, pill, switchRow, toast, confirmDialog, modal } from '../ui.js';
+import { h, pill, chips, switchRow, toast, confirmDialog, modal } from '../ui.js';
 import { setTop, render } from '../shell.js';
 import { refresh } from '../router.js';
 import * as store from '../store.js';
@@ -91,9 +91,11 @@ export default async function familyView() {
   // ---- 顯示 ----
   const displayCard = h('section', { class: 'card', dataset: { card: 'display' } },
     h('h2', { class: 'card-title' }, '顯示'),
-    switchRow({
-      label: '長輩模式（大字）', hint: '字級放大約一成，按鈕也跟著變大', checked: prefs.get('fontScale') === 'lg', key: 'fontScale',
-      onChange: async (on) => { await prefs.set('fontScale', on ? 'lg' : 'md'); prefs.applyFontScale(); refresh(); },
+    h('p', { class: 'muted sm' }, '字級。看不清楚就往右調，按鈕與可以點的地方會跟著變大。'),
+    chips({
+      options: prefs.FONT_SCALES.map((s) => ({ value: s, label: prefs.FONT_SCALE_LABELS[s] })),
+      value: prefs.get('fontScale'), name: 'fontScale',
+      onChange: async (v) => { await prefs.set('fontScale', v); prefs.applyFontScale(); refresh(); },
     }),
   );
 

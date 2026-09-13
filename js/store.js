@@ -217,5 +217,19 @@ export async function haveFoodsForWeek(weekKey) {
   return out;
 }
 
+// ---------- 今日一起煮：哪幾步做完了（一餐一筆，存在 settings） ----------
+//
+// 煮菜是幾十分鐘內的事，但中途會離開畫面（去接電話、去拿東西），所以要存起來。
+// key 帶日期與餐別，隔天不會沿用昨天的勾。
+export function cookKey(dateIso, meal) { return `cook:${dateIso}:${meal}`; }
+export async function getCookDone(dateIso, meal) {
+  const row = await db.get('settings', cookKey(dateIso, meal));
+  return new Set(Array.isArray(row?.value) ? row.value : []);
+}
+export async function saveCookDone(dateIso, meal, ids) {
+  await db.put('settings', { key: cookKey(dateIso, meal), value: [...ids] });
+  emit();
+}
+
 // ---------- 衛教 ----------
 export function eduEntry(id) { return state.edu?.get(id) ?? null; }

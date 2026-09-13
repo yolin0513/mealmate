@@ -81,10 +81,14 @@ export default async function shoppingView(query = {}) {
           const line = h('div', { class: 'shop-row' + (row.checked?.[it.foodId] ? ' done' : '') + (row.have?.[it.foodId] ? ' have' : ''), dataset: { buy: it.foodId } },
             h('label', { class: 'check shop-check' }, cb,
               h('span', { class: 'shop-main' },
+                // 第一行只留「名稱＋數量」：別名（薑絲／老薑／薑片）擠在名稱後面會把數量推到下一行，
+                // 而站在菜攤前要一眼看到買幾顆。別名移到下面那行（layouttest 量出來的）。
                 h('span', { class: 'shop-line1' },
-                  h('span', { class: 'shop-name' }, it.labels[0] ?? it.name, it.labels.length > 1 ? h('span', { class: 'muted xs' }, `（${it.labels.slice(1, 3).join('、')}）`) : null),
+                  h('span', { class: 'shop-name' }, it.labels[0] ?? it.name),
                   h('span', { class: 'shop-qty num' }, quantityText(it))),
-                h('span', { class: 'muted xs shop-uses' }, `用在：${it.uses.slice(0, 2).map((u) => `${fmtMD(u.date)} ${u.recipe}`).join('、')}${it.uses.length > 2 ? ` 等 ${it.uses.length} 餐` : ''}`))),
+                h('span', { class: 'muted xs shop-uses' },
+                  it.labels.length > 1 ? `也叫${it.labels.slice(1, 3).join('、')}；` : '',
+                  `用在：${it.uses.slice(0, 2).map((u) => `${fmtMD(u.date)} ${u.recipe}`).join('、')}${it.uses.length > 2 ? ` 等 ${it.uses.length} 餐` : ''}`))),
             haveBtn,
           );
           cb.addEventListener('change', async () => { row.checked = { ...(row.checked ?? {}), [it.foodId]: cb.checked }; line.classList.toggle('done', cb.checked); await save(); drawProgress(); });

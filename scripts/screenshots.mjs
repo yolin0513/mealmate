@@ -60,6 +60,20 @@ try {
   await sleep(250);
   await page.screenshot({ path: path.join(OUT, 'shopping-list.png'), fullPage: true });
   console.log('shopping-list.png');
+  // 今日一起煮：挑一格有可分流的菜的餐，素葷兩欄才看得到
+  const today = await page.evaluate(async () => {
+    const store = await import('./js/store.js');
+    const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js');
+    const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+    const byId = new Map(store.allRecipes().map((r) => [r.id, r]));
+    const slot = plan.slots.find((s) => s.kind === 'cook' && s.items.length > 1 && s.items.some((it) => byId.get(it.recipeId)?.vegMode === 'splittable'));
+    return slot ? `#/today?d=${slot.date}&meal=${slot.meal}` : '#/today';
+  });
+  await goto(page, today);
+  await page.waitForSelector('[data-card="timeline"] .tl-step');
+  await sleep(250);
+  await page.screenshot({ path: path.join(OUT, 'today-cook.png'), fullPage: true });
+  console.log('today-cook.png');
 } finally {
   await close();
 }

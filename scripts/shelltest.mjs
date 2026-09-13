@@ -311,6 +311,7 @@ try {
   const EXPECT_TITLE = {
     '/welcome': '開始之前',
     '/': '本週菜單',
+    '/today': '今天一起煮',
     '/shopping': '買菜',
     '/recipes': '食譜',
     '/recipes/new': '新增食譜',

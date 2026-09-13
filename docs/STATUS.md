@@ -1,6 +1,6 @@
 # MealMate 專案狀態（docs/STATUS.md）
 
-> 最後更新：2026-09-13。**M0、M1、M2、M3 完成並上線（`mealmate-v0.4.0`）；M4 尚未開始。**
+> 最後更新：2026-09-13。**M0–M4 完成並上線（`mealmate-v0.5.0`）；只剩 M5 上線前的收尾。**
 > repo `yolin0513/mealmate`，GitHub Pages `https://yolin0513.github.io/mealmate/`。
 > 給接手的工作階段快速接手用。規劃細節見 `PLAN.md`（唯一真相來源），實測見 `FEASIBILITY.md`，資料與衛教來源見 `SOURCES.md`。
 
@@ -12,10 +12,31 @@
 | M1 家人與食譜瀏覽 | ✅ 完成（2026-09-13） | `mealmate-v0.2.1` |
 | M2 週計畫 | ✅ 完成（2026-09-13） | `mealmate-v0.3.1` |
 | M3 買菜 | ✅ 完成（2026-09-13） | `mealmate-v0.4.0` |
-| M4 今日煮與打磨 | ⏳ 未開始（**下一步從這裡開始**） | — |
-| M5 上線 | ⏳ 未開始 | — |
+| M4 今日煮與打磨 | ✅ 完成（2026-09-13） | `mealmate-v0.5.0` |
+| M5 上線 | ⏳ 未開始（**下一步從這裡開始**） | — |
 
-測試現況：16 支測試 ＋ `mutationtest`。Node 端：datatest 57、aliastest 26、unittest 29、edutest 13、copytest 7、recipetest 45、membertest 41、nutritiontest 95、plannertest 95、shoppingtest 49；瀏覽器端（puppeteer）：shelltest 104、familytest 35、recipeviewtest 49、backuptest 30、weekviewtest 32、shoppingviewtest 25。`mutationtest` **71 條突變逐一證明關鍵斷言改壞會紅**（M3 新增 9 條各別驗過會紅；完整套件約 30 分鐘，只在使用者要求時全跑）。平常只跑受影響的（慣例 15）。
+測試現況：22 支測試 ＋ `mutationtest`。Node 端另加 timelinetest 71；瀏覽器端另加 todaytest 39、racetest 15、versionmixtest 39、layouttest 18（81 組版面掃描）、uikittest 28。`mutationtest` 共 **91 條**（M4 新增 20 條，逐條驗過會紅）。
+
+### M4 開發期的實測發現
+
+1. **時間線只合併步驟，營養永遠兩欄**：`js/timeline.js` 的 `mealNutrition()` 對可分流的菜回**兩份各自獨立**的估計，沒有任何函式回傳「合起來」的數字。`timelinetest` 把素版＋葷版的每一個和算出來，斷言回傳值裡**沒有任何數字等於它**；`todaytest` 在畫面上做同一件事（逐欄位比對兩欄的字串）。兩邊各有一條突變（純函式一條、畫面一條）。
+   · 這條檢查器第一版是紅的，但原因是**假陽性**：素版膽固醇是 0 時「素＋葷」剛好等於葷版自己那個數字。母體要限縮到**兩版都大於 0** 的欄位，那個和才是一個「不該存在」的數字。
+2. **合併規則**：備料全部在開火之前 → 煮最久的先下鍋（湯 50 分先於快炒 20 分）→ 同一道菜 base → split → veg／meat → 上桌。畫面上「同時要顧 3 個鍋、最久的一道約 50 分鐘」是事實描述，**沒有承諾總時間**（三道一起煮不是各自相加）。
+3. **`layouttest` 抓到三個真的版面 bug**（都是標準字級下看不出來、或根本每天都看得到卻沒人量過的）：
+   · 食譜清單的「膳食纖維 估 0.8 g」在 **390px 一般手機上就被切出畫面外** —— 分隔用的空白寫在 `white-space: nowrap` 的 span **裡面**，整行變成一個不可斷的長字串。改成 flex ＋ gap，欄位名可斷、數值不可斷。
+   · 「可分流（一鍋兩吃）」這顆 pill 在 320px／特大下比整欄還寬，蓋住右邊的「約 25 分」。pill 改成可換行且 `max-width:100%`，清單改用短標籤（詳情頁才寫全）。
+   · 新增食譜的數字欄 `width:auto` 會用它自己的預設字元寬（約 20 字），在 320px／大字下比容器還寬 —— 要 `max-width:100%` 夾住。
+4. **`uikittest` 抓到兩個每天都會按到的觸控區**：本週頁的**菜名連結只有 27px**（整列 44px 不等於連結 44px），衛教的「開原文」只有 20px。掃描範圍是 9 頁 × 標準與特大字級、1,134 個可點元素。這正是 StockDiary 慣例裡「寫在註解裡的規則要有一條斷言對得起來」那一條。
+5. **「一律不准換行」在買菜清單做不到，所以不要那樣寫斷言**：320px／特大下「豬里肌肉片」＋「約 0.5 斤（133 g）」＋「家裡有」本來就比一行寬。真正的規則是**放得下的列一定要在同一行**（母體 276 列），放不下的才准換到自己那一行、仍然靠右。寫成「全部都不准換行」只會得到一條永遠紅、或被放寬到沒有意義的斷言。
+6. **掃描器自己也會有假陽性**：收起來的 `<details>` 裡面沒有排版，Chrome 仍會回傳矩形（全部疊在 details 自己的位置上），不排除的話每一頁都冒出一堆假的「重疊」（第一版 81 組裡 46 組中招）。
+7. **`racetest` 的空窗前提會被 import 圖偷走**：原本用「點買菜 → 改點食譜」測空窗，但本週頁的 `weekops.js` 會 import `recipes.js`，食譜頁早就載好了，根本沒有空窗。改用不會被預載的家人頁，並加一條前提斷言「此刻家人頁確實還沒載完」。
+8. **`versionmixtest` 用 M3 的 commit 當舊版**（`git rev-list -1 --grep=M3 買菜`）：舊 app.js 沒有 `/today` 路由、新本週頁有「一起煮」按鈕，混搭時按下去**不是靜默跳首頁**，而是「這個畫面在你目前的版本裡還沒有」＋「更新到最新版」。另外實證了 SW 換版是整組的、離線（伺服器真的關掉）仍開得起來、帶 `?v=` 的動態 import 也命中快取。
+9. **字級加到三段**（標準 17px／大字 19px／特大 22px）。原本的「長輩模式」開關換成三顆 chip；會去調字級的人正是最需要看得清楚的長輩，所以 `layouttest` 與 `uikittest` 都必須掃到特大。
+10. **換版提示列有了自己的測試**：裝上舊版 SW → 使用者碰了畫面 → 部署新版 → 應該出現「有新版本／點一下更新」而**不是**在他手上重載；按下去要真的換版重載。突變「換版時直接重載，不問一聲」會紅。
+11. **兩個測試設計上的教訓（都花了一輪才發現）**：
+    · **突變不紅不一定是斷言弱，也可能是指錯測試**：「不認得的網址靜默跳回首頁」原本掛在 `versionmixtest`，但那支的混搭情境服務的是**舊版** app.js，改新版的 notFound 影響不到它。守這條的其實是 `shelltest`。
+    · **兩個修法互相掩護，突變就不會紅**：pill 換行（CSS）與清單改用短標籤（資料）各自都能擋住同一個 bug，於是 CSS 那條突變改壞了也沒事。作法不是刪掉其中一個修法，而是**讓 fixture 一定含有最寬的組合**（今日煮那一頁挑菜名最長的一餐，pill 22 個字），並加一條「掃到的最長 pill ≥ 16 字」的樣本斷言擋住它再退化。
+12. **`.row-actions` 根本沒有 CSS 規則**（走查抓到）：今日煮的「‹ 前一天　9/8（二）　後一天 ›」被拆成三列。補上 flex 之後，食譜編輯器的「克數 [輸入] g」「烹法 [下拉]」也一起回到同一行。Node 端：datatest 57、aliastest 26、unittest 29、edutest 13、copytest 7、recipetest 45、membertest 41、nutritiontest 95、plannertest 95、shoppingtest 49；瀏覽器端（puppeteer）：shelltest 104、familytest 35、recipeviewtest 49、backuptest 30、weekviewtest 32、shoppingviewtest 25。`mutationtest` **71 條突變逐一證明關鍵斷言改壞會紅**（M3 新增 9 條各別驗過會紅；完整套件約 30 分鐘，只在使用者要求時全跑）。平常只跑受影響的（慣例 15）。
 
 ### M3 開發期的實測發現
 
@@ -64,7 +85,7 @@
 | 前端（GitHub Pages） | `https://yolin0513.github.io/mealmate/`（repo `yolin0513/mealmate`，公開；push main 即部署；`sw.js` 的 VERSION 每版必 bump） |
 | Worker／後端 | **無**。App 沒有任何外部請求，CSP `connect-src 'self'`；`shelltest` 掃程式碼確認零外部 fetch |
 | 靜態資料 | `data/foods.json` 由 `scripts/build-foods.mjs` 從食藥署 zip 產生（本機執行、commit；`--download` 重抓）；`data/recipes.json` 由 `scripts/build-recipes.mjs` 合併 `data/recipes/*.json`（改食譜忘了 build → recipetest 紅）；`data/edu.json`、`data/aliases.json`、`data/units.json`、`data/foodtags.json` 手寫 |
-| 使用者資料 | IndexedDB `mealmate`（members、settings、userRecipes、favorites、plans、history、shopping、recipeNotes）；匯出／匯入在家人分頁「備份」 |
+| 使用者資料 | IndexedDB `mealmate`（members、settings、userRecipes、favorites、plans、history、shopping、recipeNotes）；匯出／匯入在家人分頁「備份」。今日煮的「哪幾步做完了」放在 `settings`，key 是 `cook:<日期>:<餐別>`（一餐一筆，隔天不會沿用；`store.getCookDone`／`saveCookDone`） |
 | 原始資料 | `data/raw/tfnd-2026-08-26.{zip,json}` 在本機（`.gitignore`），不進 repo |
 | 本機預覽 | `npm run dev`（5190）；Claude 桌面版用 `.claude/launch.json` 的 `mealmate-dev` |
 
@@ -89,7 +110,7 @@
 12. 打真網路的測試：**沒有**。`build-foods.mjs --download` 是開發者本機工具，不進 `npm test`。
 13. 不動 `D:\Claude\App\TripQuest`、`D:\Claude\App\JLPT_App`、`D:\Claude\App\StockDiary` 的任何檔案（可讀，用來抄慣例：`layouttest`／`uikittest` 的全頁掃描、`racetest`／`versionmixtest`）。
 14. **斷言驗語意、不貼字面。**
-15. **測試範圍：平常只跑受影響的，全面檢測由使用者叫**（沿用 StockDiary 的使用者指示）。判斷受影響：`grep -l "views/<改到的檔>" scripts/*.mjs`；改到任何 view → `shelltest`；`js/views/family.js`／`member.js` → `familytest`；`js/views/recipe*.js`／`js/nutrition.js`／`js/store.js` → `recipeviewtest`、`nutritiontest`；`js/planner.js`／`js/views/week*.js` → `plannertest`、`weekviewtest`；`js/backup.js`／`js/db.js` → `backuptest`；`js/shopping.js`／`js/views/shopping.js`／`js/units.js` → `shoppingtest`、`shoppingviewtest`；`js/members.js` → `membertest`、`familytest`、`recipeviewtest`、`plannertest`；`js/recipeschema.js`／`data/recipes/` → `recipetest`、`copytest`、`plannertest`；`js/foods.js`／`data/aliases.json` → `aliastest`、`recipetest`、`unittest`；`data/edu.json`／任何 `edu(` 呼叫 → `edutest`、`copytest`；`css/style.css` → `shelltest`（M4 起加 `layouttest`、`uikittest`）。**沒有放寬的那一條：新的斷言仍然必須經突變驗證會紅**（`npm run mutationtest -- --only <關鍵字>`）。
+15. **測試範圍：平常只跑受影響的，全面檢測由使用者叫**（沿用 StockDiary 的使用者指示）。判斷受影響：`grep -l "views/<改到的檔>" scripts/*.mjs`；改到任何 view → `shelltest`；`js/views/family.js`／`member.js` → `familytest`；`js/views/recipe*.js`／`js/nutrition.js`／`js/store.js` → `recipeviewtest`、`nutritiontest`；`js/planner.js`／`js/views/week*.js` → `plannertest`、`weekviewtest`；`js/backup.js`／`js/db.js` → `backuptest`；`js/shopping.js`／`js/views/shopping.js`／`js/units.js` → `shoppingtest`、`shoppingviewtest`；`js/timeline.js`／`js/views/today.js` → `timelinetest`、`todaytest`；`js/router.js`／`js/shell.js` → `racetest`、`shelltest`；`js/app.js`／`sw.js`／`js/version.js` → `shelltest`、`versionmixtest`；`css/style.css`／`js/prefs.js`（字級） → `layouttest`、`uikittest`、`shelltest`；`js/members.js` → `membertest`、`familytest`、`recipeviewtest`、`plannertest`；`js/recipeschema.js`／`data/recipes/` → `recipetest`、`copytest`、`plannertest`；`js/foods.js`／`data/aliases.json` → `aliastest`、`recipetest`、`unittest`；`data/edu.json`／任何 `edu(` 呼叫 → `edutest`、`copytest`；`css/style.css` → `shelltest`（M4 起加 `layouttest`、`uikittest`）。**沒有放寬的那一條：新的斷言仍然必須經突變驗證會紅**（`npm run mutationtest -- --only <關鍵字>`）。
 16. **瀏覽器測試的點擊一律 `clickEl()`**（先捲到中央再點）；要量 toast 文字就等 `#toast.show`，要等它走就 `waitToastGone()`。
 17. **資料庫換季（食藥署每季更新）**：`npm run build-foods -- --download` 會印出差異；消失的編號若被別名表或食譜用到，`aliastest`／`recipetest` 會紅；`aliases.json` 的 `foodsVersion` 要同步改。
 
@@ -130,13 +151,19 @@
 | 保存期限與買菜日的端對端驗證 | 併入 M4 的截圖走查（planner 端 `plannertest` 已有「只有週一買菜時葉菜都在週一到週四」） |
 | 不重複天數的 UI | **未做**（M2 起 `prefs.noRepeatDays` 有預設值 14／7／7，尚無 UI；留到 M4 打磨） |
 
-### M4 今日煮與打磨
+### M4 今日煮與打磨 ✅（`mealmate-v0.5.0`）
 
-| 工作 | 驗收 |
+| 工作 | 驗收（實際） |
 |---|---|
-| `js/timeline.js`：當餐所有菜的步驟合併成一條時間線（`prep` 全部在前；燉湯的 `cook` 先開火；`split` 在同道菜的 `veg`／`meat` 之前；每步大按鈕「完成」） | `timelinetest`：順序斷言各一條＋突變；**時間線只合併步驟，不合併營養**（斷言時間線頁的營養區塊仍是素版／葷版兩欄） |
-| 印出樣式（週菜單＋清單）、首次啟動三步、觸控 ≥ 44px | `layouttest`：全部頁 × 2 字級 × 3 寬度，零溢出、零重疊、零橫向捲動，母體是全部組合；fixture 放最長菜名與最多家人；`uikittest` 掃全頁所有可點元件 ≥ 44px |
-| 非同步畫面守門、換版提示列（照 StockDiary） | `racetest`、`versionmixtest` 沿用 |
+| ~~`js/timeline.js` 純函式：當餐所有菜的步驟合併成一條時間線（備料全部在前、煮最久的先下鍋、`split` 在同道菜的 `veg`／`meat` 之前、上桌最後）~~ | `timelinetest` 71：階段判定逐條；備料最後一步在開火第一步之前；50 分的湯比 20 分的炒菜先開火；每道菜 base → split → veg／meat；素鍋整段在葷鍋之前；不分流的菜不會多出分流階段；外食／不煮／空格零步驟；步驟編號唯一 |
+| ~~**時間線只合併步驟，不合併營養**~~ | `timelinetest`：可分流的菜回兩份獨立估計、逐項等於 `estimate(veg)`／`estimate(meat)`；**把素版＋葷版的每一個和算出來（母體 44 個，兩版都不是 0），回傳值裡沒有任何數字等於它**，並有對照組證明檢查器抓得到。`todaytest` 在畫面上做同一件事。兩條突變（純函式一條、畫面一條） |
+| ~~今日煮頁：早／午／晚切換、前後一天、每一步大按鈕「完成」並存起來、進度、全部重來、素版葷版兩欄、每人一份加總、外食空狀態、從本週頁進入~~ | `todaytest` 39：畫面上的步驟順序跟 `buildTimeline` 逐步相同；勾完成重新載入還在、不跨餐；兩欄逐欄位等於各自那一軌；外食那一餐講出原因且零步驟；七天都有「一起煮」入口 |
+| ~~印出樣式（週菜單＋購物清單）~~ | 本週頁「印出」呼叫 `window.print`；`@media print` 隱藏頂列／分頁列／按鈕，一天一塊不跨頁，桌機七欄在紙上改回一欄。版面用 `emulateMediaType('print')` 截圖走查 |
+| ~~字級三段（標準／大字／特大）、觸控 ≥ 44px~~ | `familytest`：三顆 chip、一段比一段大、重新載入還在；`uikittest` 28：9 頁 × 標準與特大、1,134 個可點元素**沒有一個低於 44px**（抓到菜名連結 27px、衛教連結 20px 並修掉），開關滑塊真的會動，156 顆 chip 都有 aria-pressed |
+| ~~版面掃描（含特大字級）~~ | `layouttest` 16：9 頁 × 3 字級 × 3 寬度 ＝ **81 組**，零溢出、零重疊、零橫向捲動；買菜清單數量欄右緣對齊、放得下的 276 列都跟名稱同一行。fixture 放最長菜名、20 字暱稱、四種留意項目、外食與不煮的格子 |
+| ~~非同步畫面守門~~ | `racetest` 15：慢的舊畫面不准蓋掉現在這頁；空窗期間不准閃出沒選的那頁（附「此刻真的還沒載完」的前提斷言）；過期的 view 不准 `navigate` 把人拉走（對照組：停著不動時該退回還是要退）；連按四下停在最後那一頁 |
+| ~~換版與版本混搭~~ | `versionmixtest` 31：M3 的 app.js ＋ M4 的本週頁 → 按鈕在、進不去、**畫面上有「更新到最新版」而不是靜默跳首頁**；新版多出來的每條路由都一樣；SW 換版是整組的；伺服器真的關掉之後仍開得起來、動態 import 的 view 也命中快取 |
+| 首次啟動三步 | 本週頁空狀態已經是「家人 → 買菜日 → 產生菜單」三步，做完的那一步顯示 ✓（M2 就在，`weekviewtest` 有斷言）。沒有另做引導精靈 |
 
 ### M5 上線
 
@@ -158,6 +185,9 @@
 8. **「看不到」只驗 `hidden` 屬性。** 屬性在、東西照樣顯示（display:flex 蓋掉它）。要驗就量 `getComputedStyle().display` 與 `getBoundingClientRect().height`（familytest 的 `shownBox`）。
 9. **用「池子只剩 X」去證明「只降分不排除」。** 相對池子自己的中位數永遠有一半不算高，排除掉一半照樣填得滿，突變不會紅。要讓被扣分的菜跟被扣更多的菜對決（plannertest「高醣沒吃過 vs 低醣昨天吃過」）。
 10. **規劃器的 `lastServed()` 把「同一天」排除。** 午晚餐會排到同一道菜。同日也算，另加「同一天不排同一道」硬約束。
-11. **購物數量用家人總數縮放。** 要用「吃得了這一軌的人數」：素鍋軌只算吃素版的人、葷鍋軌只算吃葷版的人、共用軌算兩者相加，各除各的份數（`shopping.scaleFor`）。全家吃葷時素鍋軌是 0，不是 1。三條突變。
+11. **把時間線的營養合成一個數字。** 合併的是**步驟**。素版＝base＋veg、葷版＝base＋meat，各除各的份數，畫面上永遠兩欄。相加出來的那個數字不屬於家裡任何一個人。`timelinetest` 與 `todaytest` 各有一條「畫面上／回傳值裡沒有任何數字等於素＋葷」的斷言，各有突變。
+12. **量版面只量標準字級。** 特大字級（22px）才是會出事的那一個，而會去調它的正是最需要看得清楚的長輩。`layouttest` 三種字級 × 三種寬度全掃，`uikittest` 標準與特大各掃一次。
+13. **「整列 44px」不等於「連結 44px」。** 本週頁的菜名是最常按的東西，它在 `.meal-item` 裡只有 27px 高。要量的是**可點元素自己**的高度。
+14. **購物數量用家人總數縮放。** 要用「吃得了這一軌的人數」：素鍋軌只算吃素版的人、葷鍋軌只算吃葷版的人、共用軌算兩者相加，各除各的份數（`shopping.scaleFor`）。全家吃葷時素鍋軌是 0，不是 1。三條突變。
 
 另外三件較小但會一路痛的：**早餐納入不重複計分**（`noRepeatDays.breakfast` 是 0，有突變）；**池子不夠時靜默重複**（要進 `diagnostics` 並在本週頁明講）；**改了食譜沒跑 `npm run build-recipes`**（`recipetest` 會紅）。

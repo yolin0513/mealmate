@@ -3,7 +3,7 @@
 import { h, pill, fmtNutrient } from '../ui.js';
 import { setTop, render } from '../shell.js';
 import * as store from '../store.js';
-import { ROLE_LABELS, VEG_MODE_LABELS, TEXTURE_LABELS } from '../recipeschema.js';
+import { ROLE_LABELS, VEG_MODE_LABELS, VEG_MODE_SHORT, TEXTURE_LABELS } from '../recipeschema.js';
 import { NUTRIENT_LABELS } from '../foods.js';
 import { estimate } from '../nutrition.js';
 import { versionFor, familyWatchFields, DIETS, DIET_LABELS } from '../members.js';
@@ -130,14 +130,21 @@ export default async function recipesView(query = {}) {
 function rowFor(r, watch, perServing, idx) {
   const units = idx?.units ?? {};
   const watchLine = watch.length && perServing
-    ? h('p', { class: 'muted xs watch-line' }, ...watch.slice(0, 3).map((k, i) => h('span', { class: 'num', dataset: { nutrient: k } }, `${i ? '　' : ''}${NUTRIENT_LABELS[k]} ${fmtNutrient(perServing[k], units[k])}`)))
+    // 分隔用的空白不可以放在 span 裡面：span 是 white-space:nowrap，行首那個空白就不是斷行點，
+    // 整行變成一個不可斷的長字串，在 390px 手機上直接被切出畫面外（layouttest 抓到的）。
+    // 改成 flex ＋ gap，讓每個欄位自己是一塊、可以換行。
+    // 欄位名可以斷行、數值本身不可以斷（「估 9.9 g」拆成兩行會看成兩個數字）。
+    // 整段 nowrap 的話，特大字級下「碳水化合物（醣） 估 9.9 g」會比整欄還寬，壓到右邊的「約 20 分」。
+    ? h('p', { class: 'muted xs watch-line' }, ...watch.slice(0, 3).map((k) => h('span', { class: 'num', dataset: { nutrient: k } },
+      h('span', { class: 'wl-k' }, `${NUTRIENT_LABELS[k]} `), h('span', { class: 'wl-v' }, fmtNutrient(perServing[k], units[k])))))
     : null;
   return h('a', { class: 'row', href: `#/recipes/${r.id}`, dataset: { recipe: r.id } },
     h('div', { class: 'row-main' },
       h('p', { class: 'row-title' }, store.isFavorite(r.id) ? '♥ ' : '', r.name),
       h('div', { class: 'pill-row' },
         pill(ROLE_LABELS[r.role]),
-        pill(VEG_MODE_LABELS[r.vegMode], vegTone(r.vegMode)),
+        // 清單用短標籤（詳情頁才寫全）：「可分流（一鍋兩吃）」在窄螢幕大字下會比整欄還寬
+        pill(VEG_MODE_SHORT[r.vegMode], vegTone(r.vegMode)),
         r.texture !== 'normal' ? pill(TEXTURE_LABELS[r.texture]) : null,
         r.source === 'user' ? pill('我的', 'accent') : null,
       ),

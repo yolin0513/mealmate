@@ -45,13 +45,16 @@ export function all() {
   return out;
 }
 
-const SCALES = { md: 1, lg: 1.12 };
+// 標準 17px、大字約 19px、特大約 22px。特大是給看不清楚的長輩用的 ——
+// 會去調到特大的人正是最需要看得清楚的人，所以 layouttest 三種字級都要掃過。
+const SCALES = { md: 1, lg: 1.12, xl: 1.3 };
 
-/** 把字級套到 <html> 上（基準 17px；長輩模式約 19px）。 */
+/** 把字級套到 <html> 上。 */
 export function applyFontScale(scale = get('fontScale')) {
   const root = document.documentElement;
   root.style.setProperty('--font-scale', String(SCALES[scale] ?? 1));
   root.dataset.fontScale = scale;
 }
 
-export const FONT_SCALE_LABELS = { md: '標準', lg: '長輩模式（大字）' };
+export const FONT_SCALES = ['md', 'lg', 'xl'];
+export const FONT_SCALE_LABELS = { md: '標準', lg: '大字', xl: '特大' };

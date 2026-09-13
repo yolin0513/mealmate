@@ -15,6 +15,8 @@ export const ROLES = ['main', 'side', 'soup', 'staple', 'breakfast'];
 export const ROLE_LABELS = { main: '主菜', side: '配菜', soup: '湯', staple: '主食', breakfast: '早餐' };
 export const VEG_MODES = ['nativeVeg', 'splittable', 'meatOnly'];
 export const VEG_MODE_LABELS = { nativeVeg: '素', splittable: '可分流（一鍋兩吃）', meatOnly: '葷' };
+/** 清單那種一列一道的地方用短的；詳情頁才寫全（窄螢幕＋特大字級下長標籤會比整欄還寬）。 */
+export const VEG_MODE_SHORT = { nativeVeg: '素', splittable: '可分流', meatOnly: '葷' };
 export const TRACKS = ['base', 'veg', 'meat'];
 export const TRACK_LABELS = { base: '共用', veg: '素食那鍋', meat: '葷食那鍋' };
 export const STAGES = ['base', 'split', 'veg', 'meat'];
