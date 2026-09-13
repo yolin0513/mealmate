@@ -101,14 +101,38 @@ try {
     // 把收合區打開，藏起來的數字也要驗
     await page.evaluate(() => { for (const d of document.querySelectorAll('#view details')) d.open = true; });
     await sleep(250);
-    const vals = await page.$$eval('#view .nutri-value, #view .watch-line .num', (els) => els.map((e) => e.textContent.trim()));
+    // 取**數值**本身，不要連標籤一起取。食譜清單的欄位是
+    // <span class="num"><span class="wl-k">膳食纖維 </span><span class="wl-v">未估算</span></span>，
+    // 整個 .num 的 textContent 是「膳食纖維 未估算」—— 判準只好放寬成「中間有『估 』就算」，
+    // 結果「未估算」（沒有「估」加空白）掉出去了。只看 .wl-v 的話判準就能收緊成兩種而已。
+    const vals = await page.$$eval('#view .nutri-value, #view .watch-line .num',
+      (els) => els.map((e) => (e.querySelector('.wl-v') ?? e).textContent.trim()));
     allValues.push(...vals.map((t) => ({ route: name, t })));
     pageTexts.push({ route: name, text: await textOf(page, '#view') });
   }
   ok(allValues.length >= 60, `（母體）六頁一共 ${allValues.length} 個營養數字`);
-  everyOf(allValues, (v) => v.t.startsWith('估 ') || v.t.startsWith('未估算') || /^[^\d]*估 /.test(v.t),
-    '每一個都以「估」開頭或寫「未估算」');
-  noneOf(allValues, (v) => /^0(\.0)?\s*(g|mg|kcal)?$/.test(v.t.replace('估 ', '')), '沒有任何一個是光禿禿的 0');
+  everyOf(allValues, (v) => v.t.startsWith('估 ') || v.t === '未估算',
+    '每一個數值不是「估 …」就是「未估算」（沒有第三種寫法，也沒有裸數字）');
+  const unknown = allValues.filter((v) => v.t === '未估算').length;
+  ok(unknown >= 1, `（母體）其中 ${unknown} 個是「未估算」—— 拿不到的欄位真的有被這樣寫出來，不是剛好全部都估得到`);
+  eq(fmtNutrient(null, 'g'), '未估算', '拿不到的欄位走 fmtNutrient 會變成「未估算」');
+  eq(fmtNutrient(0, 'g'), '估 0.0 g', '（對照）估出來真的是 0 的欄位寫成「估 0.0 g」—— 0 是估計結果，跟「沒資料」不是同一件事');
+  {
+    // 獨立把食譜詳情頁那道菜自己算一遍，比對畫面上「未估算」的個數。
+    // 只看「畫面上有沒有 0」擋不住真正的錯法：把 null 當成 0 算出來的數字長得很合理。
+    const detail = byId.get('r-blanched-okra');
+    const est = estimate(detail, idx, { version: detail.vegMode === 'splittable' ? 'meat' : 'all' });
+    const nulls = Object.entries(est.perServing).filter(([, v]) => v == null).map(([k]) => k);
+    ok(nulls.length >= 1, `（前提）${detail.name} 真的有 ${nulls.length} 個欄位估不出來，這條才驗得到東西`);
+    await goto(page, '#/recipes/r-blanched-okra');
+    await page.waitForSelector('[data-card="recipeNutrition"]');
+    await page.evaluate(() => { for (const d of document.querySelectorAll('#view details')) d.open = true; });
+    await sleep(250);
+    const shownNulls = await page.$$eval('#view [data-card="recipeNutrition"] .nutri-value',
+      (els) => els.map((e) => e.textContent.trim()).filter((t) => t === '未估算').length);
+    eq(shownNulls, nulls.length,
+      `${detail.name}：獨立算出 ${nulls.length} 個拿不到的欄位（${nulls.join("、") || "無"}），畫面上「未估算」也是 ${shownNulls} 個 —— 沒有被偷偷算成 0`);
+  }
 
   section('紅線 3：有設留意項目的家人，那幾項一定看得見');
   await goto(page, '#/');

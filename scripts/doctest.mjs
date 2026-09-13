@@ -13,6 +13,7 @@ import { ok, eq, section, done, everyOf, noneOf } from './tap.mjs';
 import { FORBIDDEN } from './copyrules.mjs';
 import { CONDITION_FIELDS, DIETS, CONDITIONS, KIDNEY_FIELDS, BASE_DISPLAY_FIELDS } from '../js/members.js';
 import { DEFAULTS, FONT_SCALES } from '../js/prefs.js';
+import { DEFAULT_RULES } from '../js/planner.js';
 import { MEAL_ROLES, VEG_MIN_DISHES } from '../js/planner.js';
 import { STORE_NAMES } from '../js/db.js';
 
@@ -109,5 +110,44 @@ ok(fs.existsSync(path.join(ROOT, 'scripts/assertaudit.mjs')), '有一支會掃�
 ok(STATUS.includes('每條斷言都要能用突變測試證明它真的會紅'), '（文件）慣例 4：每條斷言要有突變證明');
 ok(fs.existsSync(path.join(ROOT, 'scripts/checkmutations.mjs')), '有一支會檢查突變是否過期的工具（checkmutations）');
 ok(STATUS.includes('不動 `D:\\Claude\\App\\TripQuest`') || STATUS.includes('不動 `D:\\Claude\\App\\TripQuest`'), '（文件）慣例 13：不動其他專案');
+
+section('PLAN 對齊（2026-09-13 全面檢測抓到五處漂開，逐條補守）');
+// 這五條在檢測前都是綠的 —— 因為根本沒有人守。文件漂開是靜默的：
+// 讀的人照文件做決定，程式早就不是那樣了。
+
+// 1. 醣類份數：紅線是「拿到可引用來源前不顯示」，文件要標成延後，不能留成待辦
+ok(PLAN.includes('「醣類份數」：**v1 不做，已延後**'), '（文件）PLAN §4.1 把醣類份數標成已延後');
+ok(PLAN.includes('拿到來源之前不要恢復'), '（文件）而且寫明為什麼不要急著恢復');
+noneOf(jsFiles, (f) => read(f).includes('醣類份數'), '程式：沒有任何一頁顯示醣類份數');
+
+// 2. 保存天數：§2、§4.3 與 data/units.json 三邊一致
+ok(PLAN.includes('葉菜 3、海鮮 3、肉類 4'), '（文件）PLAN §4.3 的天數改成海鮮 3、肉類 4（原本寫 2，跟自己的 §2 打架）');
+eq([units.shelfDays.byCategory['蔬菜類'], units.shelfDays.byCategory['魚貝類'], units.shelfDays.byCategory['肉類']], [3, 3, 4],
+  '程式：蔬菜 3、魚貝 3、肉類 4，跟 §4.3 寫的一樣');
+ok(PLAN.includes('不是食品安全建議'), '（文件）§4.3 也講明這是排菜假設、不是食安建議');
+ok(PLAN.includes('一個食材的**所有**口語詞都會拿去對 overrides'), '（文件）PLAN 寫了別名要全查');
+
+// 3. 「可設／可關」但其實只有寫死的預設值 —— 文件要講明還沒實作
+ok(PLAN.includes('**「可關」尚未實作**'), '（文件）PLAN 講明「魚每週 2 次」還不能關');
+ok(PLAN.includes('**「可設」尚未實作**'), '（文件）PLAN 講明時間上限還不能設');
+eq(DEFAULT_RULES.fishPerWeek, 2, '程式：fishPerWeek 是寫死的 2');
+eq(DEFAULT_RULES.timeCaps.weekday, { breakfast: 20, lunch: 35, dinner: 40 }, '程式：平日時間上限是寫死的 20／35／40');
+const viewFiles = fs.readdirSync(path.join(ROOT, 'js/views')).filter((f) => f.endsWith('.js')).map((f) => `js/views/${f}`);
+noneOf(viewFiles, (f) => read(f).includes('fishPerWeek') || read(f).includes('timeCaps'),
+  `程式：${viewFiles.length} 個畫面檔裡真的沒有這兩個設定（所以文件不能寫成「可設」）`);
+
+// 4. wasteRate：M5 瘦身時刪掉，欄位表不可以還列著
+const schemaLine = PLAN.split('\n').find((l) => l.includes('data/foods.json') && l.includes('食材：'));
+ok(schemaLine, '（文件）PLAN §3 有 foods.json 的欄位表');
+ok(!schemaLine.includes('wasteRate'), 'PLAN 的欄位表不再列 wasteRate');
+ok(PLAN.includes('M5 瘦身 `foods.json` 時刪掉了'), '（文件）PLAN 講明它是什麼時候被刪的');
+noneOf(JSON.parse(read('data/foods.json')).foods.slice(0, 200), (f) => 'wasteRate' in f, '程式：資料裡真的沒有這個欄位');
+
+// 5. 格子順序：實作是位置制，主菜先選、主食最後
+ok(PLAN.includes('午餐 主菜 → 配菜 → 配菜 → 主食'), '（文件）PLAN §4.3 的午餐順序改成跟實作一致');
+ok(PLAN.includes('晚餐 主菜 → 配菜 → 配菜 → 湯 → 主食'), '（文件）晚餐順序也是');
+eq(MEAL_ROLES.lunch, ['main', 'side', 'side', 'staple'], '程式：午餐的位置順序');
+eq(MEAL_ROLES.dinner, ['main', 'side', 'side', 'soup', 'staple'], '程式：晚餐的位置順序');
+ok(PLAN.includes('位置 `pos`'), '（文件）PLAN 講了每道菜記的是位置不是角色');
 
 done('doctest');

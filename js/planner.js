@@ -130,8 +130,10 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
   const needsSoft = members.some((m) => m.texture && m.texture !== 'normal');
   const favSet = new Set(favorites.map((f) => f.recipeId));
   const wantSet = new Set(favorites.filter((f) => f.wantThisWeek).map((f) => f.recipeId));
-  const aliasById = new Map();
-  for (const [term, id] of idx?.aliasMap ?? []) if (!aliasById.has(id)) aliasById.set(id, term);
+  // 一個編號的**所有**口語詞都收著。只留第一個的話，保存天數的 override 會查不到
+  // （「薑」在表上是 30 天，但第一個別名是「老薑」，就落回蔬菜類的 3 天了）。
+  const aliasesById = new Map();
+  for (const [term, id] of idx?.aliasMap ?? []) { if (!aliasesById.has(id)) aliasesById.set(id, []); aliasesById.get(id).push(term); }
 
   const estCache = new Map();
   const perServing = (recipe, version) => {
@@ -162,7 +164,30 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
     for (const f of watchers.keys()) medians[role][f] = medianOf(recipes.filter((x) => x.role === role).map((x) => watchedValue(x, f)));
   }
 
-  return { recipes, members, idx, units, rules: r, vegetarians, hasOmni, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasById, perServing, watchedValue, medians, shoppingDays, haveFoods: new Set(haveFoods) };
+  return { recipes, members, idx, units, rules: r, vegetarians, hasOmni, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, haveFoods: new Set(haveFoods) };
+}
+
+// ---------- 保存期限 ----------
+/** 冷凍講得通的分類。葉菜、辛香料叫人冷凍是錯的建議，所以措辭要分開。 */
+export const FREEZABLE_CATS = new Set(['肉類', '魚貝類']);
+
+/**
+ * 這道菜排在這一天時，第一個「從買菜日撐不到」的生鮮食材。撐得到（或沒設買菜日）回 null。
+ * 抽出來是為了讓 hardBlock 與「為什麼選這道」的理由用**同一份計算** ——
+ * 理由自己再算一次的話，兩邊會各自漂開，畫面上說的食材可能根本不是擋住的那一個。
+ */
+export function shelfBlocker(recipe, date, ctx) {
+  const lastShop = lastShoppingDayOnOrBefore(date, ctx.shoppingDays);
+  if (!lastShop || !ctx.idx) return null;
+  const since = daysBetween(lastShop, date);
+  for (const ing of recipe.ingredients) {
+    if (ing.pantry) continue;
+    const food = ctx.idx.byId.get(ing.food);
+    if (!food) continue;
+    const days = shelfDaysFor({ aliases: ctx.aliasesById.get(food.id) ?? [], cat: food.cat }, ctx.units);
+    if (days != null && since > days) return { label: ing.label, cat: food.cat, days, since };
+  }
+  return null;
 }
 
 // ---------- 硬約束 ----------
@@ -186,16 +211,9 @@ export function hardBlock(recipe, { role, meal, date }, ctx, state, { relaxTime 
   // 家裡有吃葷的人時，午晚餐的主菜要排到葷的（可分流的算 —— 素食成員吃素版）
   if (requireMeaty && !isMeaty(recipe)) return 'needMeat';
   // 保存期限：距上次買菜日太久的葉菜、海鮮不排
-  const lastShop = lastShoppingDayOnOrBefore(date, ctx.shoppingDays);
-  if (!relaxShelf && lastShop && ctx.idx) {
-    const since = daysBetween(lastShop, date);
-    for (const ing of recipe.ingredients) {
-      if (ing.pantry) continue;
-      const food = ctx.idx.byId.get(ing.food);
-      if (!food) continue;
-      const days = shelfDaysFor({ alias: ctx.aliasById.get(food.id) ?? null, cat: food.cat }, ctx.units);
-      if (days != null && since > days) return `shelf:${ing.label}`;
-    }
+  if (!relaxShelf) {
+    const b = shelfBlocker(recipe, date, ctx);
+    if (b) return `shelf:${b.label}`;
   }
   // 時間上限不算主食：電鍋煮飯是放著不管的時間，不是動手時間
   if (!relaxTime && role !== 'staple') {
@@ -344,19 +362,63 @@ function makeState(history, ctx, monday) {
   return state;
 }
 
+/**
+ * 可以被放寬的四條限制，**由輕到重**（越後面越不想動）。
+ * 這個順序同時決定 pickForSlot 的嘗試順序與畫面上列理由的順序。
+ */
+export const RELAXABLE = ['relaxMethod', 'relaxTime', 'relaxShelf', 'relaxDay'];
+const BLOCK_PREFIX = { relaxMethod: 'method', relaxTime: 'time', relaxShelf: 'shelf', relaxDay: 'sameDay' };
+
+/**
+ * 這道菜在這一格，**實際**踩到哪幾條可放寬的限制。
+ *
+ * 為什麼需要這支：pickForSlot 的放寬是**累加**的（第 4 次嘗試同時開烹法、時間、保存期限），
+ * 所以「這次開了哪些旗標」≠「這道菜實際被哪些擋住」。照旗標寫理由的話，
+ * 只是因為保存期限才需要放寬的菜會被一起貼上「超過這一餐的時間上限」——
+ * 使用者看到的是一個不存在的原因，照著它去調時間上限也不會有用。
+ *
+ * 作法：逐條把**那一條關掉、其餘全放寬**，hardBlock 回什麼就是什麼。
+ * 這道菜既然被選上，不可放寬的那些（角色、飲食型態、避開開關、同餐重複）本來就都過了，
+ * 所以每次探測只會回那一條的代碼或 null。
+ */
+export function actualRelaxations(recipe, slotInfo, ctx, state, base = {}) {
+  const out = [];
+  for (const key of RELAXABLE) {
+    const relax = { ...base, relaxMethod: true, relaxTime: true, relaxShelf: true, relaxDay: true, [key]: false };
+    const hit = hardBlock(recipe, slotInfo, ctx, state, relax);
+    if (typeof hit === 'string' && hit.startsWith(BLOCK_PREFIX[key])) out.push(key);
+  }
+  return out;
+}
+
+/** 把「實際踩到的那一條」寫成一句話。只陳述事實，建議留給診斷卡。 */
+export function relaxReason(key, recipe, { meal, date }, ctx) {
+  if (key === 'relaxTime') {
+    const caps = isWeekend(date) ? ctx.rules.timeCaps.weekend : ctx.rules.timeCaps.weekday;
+    return `約 ${recipe.time} 分鐘，超過這一餐的 ${caps[meal]} 分鐘上限，因為符合條件的菜不夠`;
+  }
+  if (key === 'relaxShelf') {
+    const b = shelfBlocker(recipe, date, ctx);
+    if (!b) return null;
+    // 肉魚才講冷凍：叫人把九層塔、青江菜冷凍是錯的。
+    return FREEZABLE_CATS.has(b.cat)
+      ? `離上次買菜 ${b.since} 天，${b.label}冷藏大約放 ${b.days} 天，這道的肉要先冷凍`
+      : `離上次買菜 ${b.since} 天，${b.label}大約只放 ${b.days} 天，不耐放`;
+  }
+  if (key === 'relaxMethod') return `同一餐已經有一道${METHOD_LABELS[recipe.method]}的菜，因為符合條件的菜不夠`;
+  if (key === 'relaxDay') return '今天另一餐也排了這道，因為符合條件的菜不夠';
+  return null;
+}
+
 /** 在一格裡為某個角色挑一道菜。回 { recipe, reasons, relaxed } 或 null（真的沒得選）。 */
 export function pickForSlot(ctx, state, slotInfo, role, rng, { exclude = new Set(), requireMeaty = false, meatOnlyExtra = false } = {}) {
   const base = { requireMeaty, meatOnlyExtra };
   // 放寬的順序＝「越後面越不想動」。保存期限排在「同一天重複同一道菜」前面：
   // 拿離買菜日久一點的食材（冷凍的肉）比午晚餐吃同一道菜好。
-  const attempts = [
-    {},
-    { relaxMethod: true },
-    { relaxTime: true, relaxMethod: true },
-    { relaxTime: true, relaxMethod: true, relaxShelf: true },
-    { relaxTime: true, relaxMethod: true, relaxShelf: true, relaxDay: true },
-  ].map((a) => ({ ...base, ...a }));
-  for (const relax of attempts) {
+  const attempts = [{}];
+  for (let i = 0; i < RELAXABLE.length; i += 1) attempts.push(Object.fromEntries(RELAXABLE.slice(0, i + 1).map((k) => [k, true])));
+  const tries = attempts.map((a) => ({ ...base, ...a }));
+  for (const relax of tries) {
     let best = null;
     for (const recipe of ctx.recipes) {
       if (exclude.has(recipe.id)) continue;
@@ -365,9 +427,12 @@ export function pickForSlot(ctx, state, slotInfo, role, rng, { exclude = new Set
       if (!best || score > best.score) best = { recipe, score, reasons };
     }
     if (best) {
-      const relaxed = Object.keys(relax).filter((k) => relax[k] && k.startsWith('relax'));
-      if (relaxed.includes('relaxTime')) best.reasons.push('超過這一餐的時間上限，因為符合條件的菜不夠');
-      if (relaxed.includes('relaxShelf')) best.reasons.push('離買菜日比較久，這道的生鮮食材買回來要先冷凍');
+      // 注意：不是 Object.keys(relax) —— 那是「這次開了哪些旗標」，不是「實際踩到哪幾條」。
+      const relaxed = actualRelaxations(best.recipe, { ...slotInfo, role }, ctx, state, base);
+      for (const key of relaxed) {
+        const line = relaxReason(key, best.recipe, { ...slotInfo, role }, ctx);
+        if (line) best.reasons.push(line);
+      }
       return { ...best, relaxed };
     }
   }
@@ -445,7 +510,8 @@ export function generateWeek({ recipes, members = [], idx, units, rules = {}, fa
         const last = state.lastServed(recipe.id, date);
         const noRepeat = ctx.rules.noRepeatDays[role] ?? 0;
         if (noRepeat > 0 && last != null && last <= noRepeat) diagnostics.forcedRepeats.push({ date, meal, role, recipeId: recipe.id, daysAgo: last });
-        for (const c of relaxed) diagnostics.relaxed.push({ date, meal, role, constraint: c });
+        // 一道菜一筆。舊版是「每開一個旗標推一筆」，12 道菜會被講成 37 道。
+        if (relaxed.length) diagnostics.relaxed.push({ date, meal, role, pos, recipeId: recipe.id, constraints: relaxed });
         items.push({ recipeId: recipe.id, role, pos, locked: false, reasons, method: recipe.method });
         state.place(recipe, slotInfo);
       });

@@ -9,8 +9,9 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import {
   watchFields, familyWatchFields, validateMember, newMember, versionFor, fitsDiet, allergenHits, splitByDiet,
-  KIDNEY_FIELDS, TARGET_FIELDS, CONDITION_FIELDS, DIETS,
+  KIDNEY_FIELDS, TARGET_FIELDS, CONDITION_FIELDS, DIETS, displayFields,
 } from '../js/members.js';
+import { NUTRIENT_ORDER } from '../js/foods.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const recipes = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/recipes.json'), 'utf8')).recipes;
@@ -99,5 +100,22 @@ const sp = splitByDiet(cabbagePork, fam);
 eq([sp.veg.length, sp.meat.length, sp.none.length], [2, 2, 0], '四人家庭（2 葷 1 蛋奶素 1 全素）吃高麗菜炒肉片：素版 2、葷版 2');
 const sp2 = splitByDiet(tomatoEgg, fam);
 eq([sp2.veg.length, sp2.meat.length, sp2.none.length], [3, 0, 1], '番茄炒蛋：3 人吃（素的菜算素版）、全素那位吃不了');
+
+section('留意欄位的順序：照營養素的固定順序，不照誰先被加進來');
+{
+  const lipid = { ...newMember(), id: 'a', name: '甲', conditions: ['lipid'] };
+  const diab = { ...newMember(), id: 'b', name: '乙', conditions: ['diabetes'] };
+  const salt = { ...newMember(), id: 'c', name: '丙', conditions: ['hypertension'] };
+  const one = familyWatchFields([lipid, diab, salt]);
+  const two = familyWatchFields([salt, diab, lipid]);
+  eq(one, two, `換家人的新增順序，欄位順序不變（${one.join('、')}）`);
+  eq(one, NUTRIENT_ORDER.filter((k) => one.includes(k)), '而且就是 NUTRIENT_ORDER 的順序');
+  ok(one.indexOf('satFat') < one.indexOf('carb') && one.indexOf('carb') < one.indexOf('sodium'),
+    '飽和脂肪排在醣前面、醣排在鈉前面（跟食品標示的順序一致）');
+  const d = displayFields([salt, diab, lipid]);
+  eq(d.slice(0, 2), ['kcal', 'protein'], '顯示欄位仍然是熱量、蛋白質打頭');
+  eq(d.slice(2), one, '後面接的就是排好序的留意欄位');
+  eq(familyWatchFields([]), [], '沒有人留意任何項目 → 空陣列（不是硬塞 12 項）');
+}
 
 done('membertest');

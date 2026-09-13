@@ -220,6 +220,75 @@ try {
   await page.waitForSelector('[data-card="weekEmpty"]');
   ok((await textOf(page, '[data-card="weekEmpty"]')).includes('產生下週菜單'), '下週還沒有計畫，按鈕寫「產生下週菜單」');
 
+
+  section('診斷卡：道數是道數，原因是實際原因，保存期限要接到買菜日設定');
+  // 舊版兩個毛病：(1) 拿 diagnostics.relaxed.length 當道數，但那時一道菜每開一個旗標推一筆，
+  // 12 道會被講成 37 道；(2) 文案寫死「時間上限或同餐烹法」，真正的主因（保存期限）從來沒被講出來。
+  {
+    // 一週只買一次菜 → 保存期限吃緊，正是會出現放寬的情境
+    await page.evaluate(async () => {
+      const prefs = await import('./js/prefs.js');
+      await prefs.set('shoppingDays', [3]);
+    });
+    await goto(page, '#/');
+    await titleIs(page, '本週菜單');
+    await clickEl(page, '[data-action="regenerate"]');
+    await page.waitForFunction(() => !document.querySelector('[data-action="regenerate"]')?.disabled);
+    await waitToastGone(page);
+
+    const diag = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      return plan?.diagnostics?.relaxed ?? [];
+    });
+    ok(diag.length >= 1, `（前提）一週買一次菜時這週有 ${diag.length} 道被放寬`);
+    const dishKeys = diag.map((r) => `${r.date}|${r.meal}|${r.pos}`);
+    eq(dishKeys.length, new Set(dishKeys).size, '存進計畫的 relaxed 是一道菜一筆');
+
+    const line = await textOf(page, '[data-card="diagnostics"] [data-field="relaxed"]');
+    ok(line.startsWith(`${diag.length} 道放寬了限制`), `卡片講的道數＝實際道數 ${diag.length}：「${line}」`);
+    const shown = [...line.matchAll(/(\d+) 道/g)].map((m) => Number(m[1]));
+    eq(shown[0], diag.length, '開頭那個數字就是道數');
+    ok(shown.slice(1).reduce((a, b) => a + b, 0) >= diag.length, '後面分項的加總不少於道數（一道菜可能踩到兩條）');
+
+    // 實際原因要被講出來，沒發生的原因不可以出現
+    const kinds = new Set(diag.flatMap((r) => r.constraints));
+    const LABEL = { relaxShelf: '食材放不到那一天', relaxTime: '超過這一餐的時間上限', relaxMethod: '同一餐有兩道同樣烹法', relaxDay: '同一天重複同一道' };
+    everyOf([...kinds], (k) => line.includes(LABEL[k]), `這週實際踩到的 ${kinds.size} 種原因（${[...kinds].join('、')}）都寫在卡片上`);
+    const notHit = Object.keys(LABEL).filter((k) => !kinds.has(k));
+    ok(notHit.length >= 1, `（母體）這週沒踩到的原因有 ${notHit.length} 種`);
+    noneOf(notHit, (k) => line.includes(LABEL[k]), '沒踩到的原因一個都沒出現在卡片上');
+
+    // 保存期限 → 直接接到「多勾一個買菜日」
+    const shelfN = diag.filter((r) => r.constraints.includes('relaxShelf')).length;
+    ok(shelfN >= 1, `（前提）其中 ${shelfN} 道是保存期限`);
+    const hint = await textOf(page, '[data-card="diagnostics"] [data-field="shelfHint"]');
+    ok(hint.includes(`${shelfN} 道`), `提示講的道數也是實際的 ${shelfN} 道`);
+    ok(hint.includes('星期三'), '提示點名使用者自己設的買菜日（星期三）');
+    const href = await page.$eval('[data-field="shelfHint"] a', (a) => a.getAttribute('href'));
+    eq(href, '#/family', '提示裡的連結直接到家人分頁（就是改買菜日的地方）');
+
+    // 買菜日加到兩天 → 保存期限的壓力消失，提示也跟著不見
+    await page.evaluate(async () => {
+      const prefs = await import('./js/prefs.js');
+      await prefs.set('shoppingDays', [3, 6]);
+    });
+    await goto(page, '#/');
+    await clickEl(page, '[data-action="regenerate"]');
+    await page.waitForFunction(() => !document.querySelector('[data-action="regenerate"]')?.disabled);
+    await waitToastGone(page);
+    const after = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      return (plan?.diagnostics?.relaxed ?? []).filter((r) => r.constraints.includes('relaxShelf')).length;
+    });
+    ok(after < shelfN, `（對照）多勾一個買菜日之後，卡在保存期限的從 ${shelfN} 道降到 ${after} 道 —— 提示講的是真的`);
+    eq((await page.$$('[data-field="shelfHint"]')).length, 0, '沒有保存期限的壓力時，提示不出現');
+  }
+
+
   eq(pageErrors, [], '沒有未攔截的例外');
 } finally {
   await close();

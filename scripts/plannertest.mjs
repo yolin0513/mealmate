@@ -20,7 +20,9 @@ import { newMember } from '../js/members.js';
 import {
   generateWeek, swapItem, buildContext, scoreSoft, hardBlock, makeRng, hashSeed, weekKeyOf, mondayOf, addDays,
   lastShoppingDayOnOrBefore, historyRowsOf, dailyEstimates, medianOf, MEALS, isMeaty, VEG_MIN_DISHES, withPositions,
+  actualRelaxations, shelfBlocker, RELAXABLE, FREEZABLE_CATS,
 } from '../js/planner.js';
+import { shelfDaysFor } from '../js/units.js';
 import { versionFor } from '../js/members.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -451,5 +453,106 @@ everyOf(dayRows, (row) => row.fields.kcal > 0 && row.fields.carb > 0, '每位都
 ok(dayRows.find((r) => r.label === '姊').fields.kcal <= dayRows.find((r) => r.label === '爸').fields.kcal, '全素成員吃素版，熱量不高於吃葷版的爸（同一天同幾道菜）');
 const empty = dailyEstimates([], [], idx, byId, ['kcal']);
 eq(empty, [{ label: '每人一份', diet: 'omni', fields: { kcal: null }, missing: 0 }], '沒有菜 → null 不是 0');
+
+section('放寬的理由要照「實際擋住的那一條」寫，不是照「開了哪些旗標」');
+// 背景：pickForSlot 的放寬是累加的（第 4 次嘗試同時開烹法、時間、保存期限）。
+// 舊版拿 Object.keys(relax) 當理由來源，所以只是因為保存期限才放寬的菜，
+// 會被一起貼上「超過這一餐的時間上限」—— 使用者看到一個不存在的原因。
+{
+  const CAPS = { weekday: { breakfast: 20, lunch: 35, dinner: 40 }, weekend: { breakfast: 40, lunch: 60, dinner: 60 } };
+  const fam = [
+    { ...newMember(), id: 'm1', name: '媽' },
+    { ...newMember(), id: 'm2', name: '姊', diet: 'veganNoAllium' },
+    { ...newMember(), id: 'm3', name: '嬤' },
+  ];
+  // 一週只買一次菜 → 保存期限吃緊，正是舊版會亂貼理由的情境
+  const tight = gen({ members: fam, shoppingDays: [3], seed: 'a' });
+  const tightCtx = buildContext({ recipes, members: fam, idx, units, shoppingDays: [3] });
+  const timeClaims = [];
+  for (const s of cookSlots(tight.plan)) {
+    const cap = CAPS[[0, 6].includes(new Date(`${s.date}T00:00:00`).getDay()) ? 'weekend' : 'weekday'][s.meal];
+    for (const it of s.items) {
+      const r = byId.get(it.recipeId);
+      for (const line of it.reasons ?? []) if (line.includes('超過這一餐的')) timeClaims.push({ name: r.name, time: r.time, cap });
+    }
+  }
+  ok(timeClaims.length >= 1, `（母體）這週有 ${timeClaims.length} 句「超過這一餐的時間上限」：${timeClaims.map((c) => `${c.name} ${c.time}/${c.cap}`).join('、')}`);
+  everyOf(timeClaims, (c) => c.time > c.cap, '每一句「超過時間上限」的菜，時間**真的**超過那一餐的上限');
+
+  // 對照：保存期限的理由也要指到真的撐不到的那個食材
+  const shelfClaims = [];
+  for (const s of cookSlots(tight.plan)) {
+    for (const it of s.items) {
+      for (const line of it.reasons ?? []) {
+        if (!line.includes('不耐放') && !line.includes('要先冷凍')) continue;
+        shelfClaims.push({ line, blocker: shelfBlocker(byId.get(it.recipeId), s.date, tightCtx) });
+      }
+    }
+  }
+  ok(shelfClaims.length >= 1, `（母體）這週有 ${shelfClaims.length} 句保存期限的理由`);
+  everyOf(shelfClaims, (c) => c.blocker !== null, '每一句保存期限的理由，這道菜在那一天**真的**有食材撐不到');
+  everyOf(shelfClaims, (c) => c.line.includes(c.blocker.label), '而且句子裡講的食材就是實際擋住的那一個');
+
+  // 冷凍那句只對肉魚講：叫人把九層塔、青江菜冷凍是錯的
+  everyOf(shelfClaims, (c) => (c.line.includes('要先冷凍') ? FREEZABLE_CATS.has(c.blocker.cat) : true), '「要先冷凍」只出現在肉類與魚貝類');
+  everyOf(shelfClaims, (c) => (FREEZABLE_CATS.has(c.blocker.cat) ? c.line.includes('要先冷凍') : c.line.includes('不耐放')), '蔬菜、辛香料那些講的是「不耐放」，不是叫人冷凍');
+}
+
+section('actualRelaxations：逐條探測，回的是實際踩到的那一條');
+{
+  const ctx = buildContext({ recipes, members: [], idx, units, shoppingDays: [3] });
+  const stub = { slotItems: [], dayRecipes: () => new Set() };
+  const slow = recipes.find((r) => r.role === 'main' && r.time > 40 && !r.ingredients.some((i) => !i.pantry));
+  const slowAny = slow ?? recipes.find((r) => r.role === 'main' && r.time > 40);
+  const info = { role: 'main', meal: 'dinner', date: '2026-09-17' }; // 買菜日隔天：保存期限鬆
+  eq(actualRelaxations(slowAny, info, ctx, stub), ['relaxTime'], `${slowAny.name} ${slowAny.time} 分鐘、離買菜日 1 天 → 只踩到時間`);
+  const quick = recipes.find((r) => r.role === 'main' && r.time <= 20 && shelfBlocker(r, '2026-09-20', ctx));
+  ok(quick, `（前提）找得到一道快、但食材撐不到週日的主菜：${quick?.name}`);
+  eq(actualRelaxations(quick, { role: 'main', meal: 'dinner', date: '2026-09-20' }, ctx, stub), ['relaxShelf'],
+    `${quick.name} 只有 ${quick.time} 分鐘 → 只踩到保存期限，**不會**被講成超過時間上限`);
+  eq(actualRelaxations(quick, { role: 'main', meal: 'dinner', date: '2026-09-17' }, ctx, stub), [], '（對照）同一道菜排在買菜日隔天 → 一條都沒踩到');
+  const soup = recipes.find((r) => r.role === 'soup' && r.method === 'soup' && r.time <= 30);
+  eq(actualRelaxations(soup, { role: 'soup', meal: 'dinner', date: '2026-09-17' }, ctx,
+    { slotItems: [{ recipeId: 'x', role: 'main', method: 'soup' }], dayRecipes: () => new Set() }), ['relaxMethod'],
+  '同一餐已經有一道湯 → 只踩到烹法');
+  eq(actualRelaxations(soup, { role: 'soup', meal: 'dinner', date: '2026-09-17' }, ctx,
+    { slotItems: [], dayRecipes: (d) => new Set(d === '2026-09-17' ? [soup.id] : []) }), ['relaxDay'],
+  '今天另一餐排過這道 → 只踩到同一天重複');
+}
+
+section('diagnostics.relaxed：一道菜一筆，記的是實際原因');
+{
+  const fam = [{ ...newMember(), id: 'm1', name: '媽' }, { ...newMember(), id: 'm2', name: '姊', diet: 'veganNoAllium' }];
+  const { plan, diagnostics } = gen({ members: fam, shoppingDays: [3], seed: 'a' });
+  const keys = diagnostics.relaxed.map((r) => `${r.date}|${r.meal}|${r.pos}`);
+  eq(keys.length, new Set(keys).size, `${keys.length} 筆 relaxed 全部是不同的位置（一道菜一筆，不是一個旗標一筆）`);
+  ok(diagnostics.relaxed.length >= 1, `（母體）這週有 ${diagnostics.relaxed.length} 道被放寬`);
+  everyOf(diagnostics.relaxed, (r) => Array.isArray(r.constraints) && r.constraints.length >= 1, '每一筆都帶著實際踩到的限制清單');
+  everyOf(diagnostics.relaxed, (r) => r.constraints.every((c) => RELAXABLE.includes(c)), '清單裡的每一條都是可放寬的四條之一');
+  everyOf(diagnostics.relaxed, (r) => plan.slots.some((s) => s.date === r.date && s.meal === r.meal && s.items.some((it) => it.pos === r.pos && it.recipeId === r.recipeId)),
+    '每一筆都指得到計畫裡真的存在的那道菜');
+  // 多一個買菜日就解得掉保存期限的壓力 —— 診斷卡的建議就是根據這件事
+  const loose = gen({ members: fam, shoppingDays: [3, 6], seed: 'a' });
+  const shelfTight = diagnostics.relaxed.filter((r) => r.constraints.includes('relaxShelf')).length;
+  const shelfLoose = loose.diagnostics.relaxed.filter((r) => r.constraints.includes('relaxShelf')).length;
+  ok(shelfTight > shelfLoose, `一週買一次菜有 ${shelfTight} 道卡在保存期限，買兩次剩 ${shelfLoose} 道（診斷卡建議多勾一天就是根據這個）`);
+}
+
+section('保存天數：一個食材的所有口語詞都要拿去對 overrides');
+{
+  const ctx = buildContext({ recipes, members: [], idx, units, shoppingDays: [3] });
+  const ov = units.shelfDays.overrides;
+  const terms = Object.keys(ov).filter((t) => idx.aliasMap.get(t));
+  ok(terms.length >= 50, `（母體）overrides 有 ${terms.length} 條查得到編號`);
+  everyOf(terms, (t) => {
+    const id = idx.aliasMap.get(t);
+    const food = idx.byId.get(id);
+    return shelfDaysFor({ aliases: ctx.aliasesById.get(id) ?? [], cat: food.cat }, units) <= ov[t];
+  }, 'overrides 上的每一條都拿得到（不會因為別名表先收了「老薑」就落回蔬菜類的 3 天）');
+  const gingerId = idx.aliasMap.get('薑');
+  eq(shelfDaysFor({ aliases: ctx.aliasesById.get(gingerId) ?? [], cat: idx.byId.get(gingerId).cat }, units), ov['薑'],
+    `薑拿到 override 的 ${ov['薑']} 天（別名表第一個收的是「老薑」）`);
+  eq(shelfDaysFor({ alias: '老薑', cat: '蔬菜類' }, units), units.shelfDays.byCategory['蔬菜類'], '（對照）只給「老薑」一個詞的話就是落回蔬菜類');
+}
 
 done('plannertest');

@@ -23,10 +23,19 @@ export function spoonToGrams(term, spoon, units) {
 /**
  * 從買菜日起算幾天內要煮掉。口語詞的 override 優先，再用食藥署分類的預設；
  * 兩個都沒有回 null（週計畫會把 null 當「不限制」並在說明裡講出來）。
+ *
+ * `aliases` 收一個食材的**所有**口語詞，不是隨便挑一個。同一個編號常常有好幾個叫法
+ * （E1900103 是「老薑」也是「薑」、E3101001 是「紅蘿蔔」也是「胡蘿蔔」），
+ * 只看其中一個的話，override 表上明明寫了 30 天的薑會落回蔬菜類的 3 天 ——
+ * 使用者在「為什麼選這道」會看到「薑大約只放 3 天」這種錯數字。
+ * 好幾個都命中時取**最短**的：排菜寧可早點煮掉。
  */
-export function shelfDaysFor({ alias, cat }, units) {
+export function shelfDaysFor({ alias = null, aliases = null, cat = null }, units) {
   const o = units?.shelfDays?.overrides ?? {};
-  if (alias && typeof o[alias] === 'number') return o[alias];
+  const terms = aliases ?? (alias == null ? [] : [alias]);
+  let best = null;
+  for (const t of terms) if (typeof o[t] === 'number' && (best == null || o[t] < best)) best = o[t];
+  if (best != null) return best;
   const c = units?.shelfDays?.byCategory ?? {};
   if (cat && typeof c[cat] === 'number') return c[cat];
   return null;

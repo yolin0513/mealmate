@@ -5,6 +5,8 @@
 //   · 腎臟病只帶出使用者自己勾的鈉／鉀／磷／蛋白質；沒勾就什麼都不帶（不自動限鉀）
 //   · 每日目標 targets 預設全部 null，由使用者輸入醫師或營養師給的數字；App 只做加總對照
 
+import { NUTRIENT_ORDER } from './foods.js';
+
 export const AGE_GROUPS = ['child', 'adult', 'senior'];
 export const AGE_LABELS = { child: '小孩', adult: '成人', senior: '長輩' };
 
@@ -80,11 +82,15 @@ export function displayFields(members) {
   return [...BASE_DISPLAY_FIELDS, ...watch.filter((k) => !BASE_DISPLAY_FIELDS.includes(k))];
 }
 
-/** 全家的留意欄位聯集（有人留意就顯示）。 */
+/**
+ * 全家的留意欄位聯集（有人留意就顯示），**一律照 NUTRIENT_ORDER 排**。
+ * 照成員的新增順序排的話，同一個家庭換個先後新增，週計畫的欄位順序就不一樣 ——
+ * 數字沒錯，但每次看到的位置不同，等於每次都要重新找。
+ */
 export function familyWatchFields(members) {
-  const out = [];
-  for (const m of members ?? []) for (const k of watchFields(m)) if (!out.includes(k)) out.push(k);
-  return out;
+  const set = new Set();
+  for (const m of members ?? []) for (const k of watchFields(m)) set.add(k);
+  return NUTRIENT_ORDER.filter((k) => set.has(k));
 }
 
 export function validateMember(m) {

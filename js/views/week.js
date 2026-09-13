@@ -11,7 +11,7 @@ import { ROLE_LABELS } from '../recipeschema.js';
 import { NUTRIENT_LABELS } from '../foods.js';
 import {
   generateWeek, dailyEstimates, mondayOf, weekKeyOf, weekDates, addDays, isoDate, parseDate,
-  MEALS, MEAL_LABELS, MEAL_ROLES, DAY_LABELS,
+  MEALS, MEAL_LABELS, MEAL_ROLES, DAY_LABELS, RELAXABLE,
 } from '../planner.js';
 import { swapSlotItem, assignSlotItem, toggleLock, regenerateSlot } from './weekops.js';
 
@@ -98,7 +98,8 @@ export default async function weekView(query = {}) {
     ? h('section', { class: 'card notice', dataset: { card: 'diagnostics' } },
       h('strong', {}, '這週有幾個地方是勉強排的'),
       diag.forcedRepeats.length ? h('p', {}, `${diag.forcedRepeats.length} 道在不重複天數內重複了（${summarizeRoles(diag.forcedRepeats)}），因為符合條件的菜不夠。可以到食譜頁新增或收藏更多菜。`) : null,
-      diag.relaxed.length ? h('p', {}, `${diag.relaxed.length} 道放寬了時間上限或同餐烹法的限制。`) : null,
+      diag.relaxed.length ? h('p', { dataset: { field: 'relaxed' } }, `${diag.relaxed.length} 道放寬了限制：${summarizeRelaxed(diag.relaxed)}。`) : null,
+      shelfHint(diag.relaxed, shoppingDays),
       diag.empty.length ? h('p', {}, `${diag.empty.length} 個位置排不出菜（${summarizeRoles(diag.empty)}），可以手動指定。`) : null,
       (diag.noMeat ?? []).length ? h('p', { dataset: { field: 'noMeat' } }, `${diag.noMeat.length} 餐沒有排到葷菜（${diag.noMeat[0].why}）。要吃葷的話可以在那一格手動指定。`) : null,
     ) : null;
@@ -127,6 +128,40 @@ export default async function weekView(query = {}) {
   });
 
   render(head, diagCard, h('div', { class: 'week-grid' }, ...dayCards), noticeFooter());
+}
+
+const RELAX_LABELS = {
+  relaxShelf: '食材放不到那一天',
+  relaxTime: '超過這一餐的時間上限',
+  relaxMethod: '同一餐有兩道同樣烹法',
+  relaxDay: '同一天重複同一道',
+};
+
+/**
+ * 診斷卡要講**實際**被放寬的那幾條，而且一道菜算一道。
+ * 舊版拿 diagnostics.relaxed.length 當道數（那時候一道菜每開一個旗標推一筆，12 道會講成 37 道），
+ * 文案又寫死「時間上限或同餐烹法」—— 真正的主因（保存期限）從來沒被講出來過，
+ * 使用者照那句去加菜是加錯方向。
+ */
+function summarizeRelaxed(list) {
+  const counts = {};
+  for (const r of list) for (const c of r.constraints ?? []) counts[c] = (counts[c] ?? 0) + 1;
+  return RELAXABLE.filter((k) => counts[k]).map((k) => `${counts[k]} 道${RELAX_LABELS[k]}`).join('、');
+}
+
+/**
+ * 保存期限造成的放寬，最有效的解法是多一個買菜日（實測：同一組家人只買週三時 6 道被放寬，
+ * 加上週六變 0 道）。把這件事跟使用者自己的買菜日設定連起來，不然他看到「食材放不到那一天」
+ * 也不知道該做什麼。買菜日一天都沒設的話保存期限根本不會生效，所以只有「剛好一天」要提示。
+ */
+function shelfHint(list, shoppingDays) {
+  const n = list.filter((r) => (r.constraints ?? []).includes('relaxShelf')).length;
+  if (!n || shoppingDays.length !== 1) return null;
+  const day = '日一二三四五六'[shoppingDays[0]];
+  return h('p', { dataset: { field: 'shelfHint' } },
+    `其中 ${n} 道是食材放不到那一天：你一週只買一次菜（星期${day}），離買菜日最遠有 6 天。`,
+    h('a', { href: '#/family' }, '到「家人」分頁多勾一個買菜日'),
+    '，這幾道就排得開了。');
 }
 
 function summarizeRoles(list) {

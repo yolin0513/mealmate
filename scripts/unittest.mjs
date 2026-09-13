@@ -72,4 +72,15 @@ eq(shelfDaysFor({ alias: null, cat: '肉類' }, units), 4, '肉類的分類預�
 eq(shelfDaysFor({ alias: '不存在', cat: '不存在的分類' }, units), null, '兩個都沒有 → null');
 ok(shelfDaysFor({ alias: '文蛤', cat: '魚貝類' }, units) === 1, '文蛤 override 1 天');
 
+section('保存天數：一個編號有好幾個叫法時，全部都要拿去對 override');
+// 只挑第一個別名的話，override 表上寫 30 天的「薑」會落回蔬菜類的 3 天，
+// 使用者在「為什麼選這道」就會看到「薑大約只放 3 天」這種錯數字。
+eq(shelfDaysFor({ aliases: ['老薑', '薑'], cat: '蔬菜類' }, units), 30, '別名裡有「薑」就拿得到 30 天，即使第一個是「老薑」');
+eq(shelfDaysFor({ aliases: ['老薑'], cat: '蔬菜類' }, units), 3, '（對照）別名裡沒有「薑」就落回蔬菜類的 3 天');
+eq(shelfDaysFor({ aliases: ['紅蘿蔔', '胡蘿蔔'], cat: '蔬菜類' }, units), 14, '紅蘿蔔／胡蘿蔔拿得到 14 天');
+eq(shelfDaysFor({ aliases: ['高麗菜', '文蛤'], cat: '蔬菜類' }, units), 1, '好幾個都命中時取最短的（排菜寧可早點煮掉）');
+eq(shelfDaysFor({ aliases: [], cat: '肉類' }, units), 4, '空的別名清單 → 分類預設');
+eq(shelfDaysFor({ cat: '肉類' }, units), 4, '完全沒給別名 → 分類預設');
+eq(shelfDaysFor({ alias: '高麗菜', cat: '蔬菜類' }, units), 10, '舊的單一 alias 寫法還是通（呼叫端還有人用）');
+
 done('unittest');
