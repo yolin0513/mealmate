@@ -227,7 +227,7 @@ try {
   {
     // 固定 seed 自己種一份計畫，不按「重新產生」——那顆按鈕走 newSeed: true，
     // seed 取自 Date.now()，每次跑驗到的是不同的菜單（慣例 18）。
-    // 另外把平日時間上限壓到 25 分鐘：一週只買一次菜已經讓保存期限咬得到，
+    // 另外把平日時間上限壓到 15 分鐘（25 分鐘時 10 月那幾週會湊不出同時踩兩條的菜，前置斷言就紅了；15 分鐘在一整年 52 週裡最少也有 5 道）：一週只買一次菜已經讓保存期限咬得到，
     // 再讓時間也咬得到，就一定會有菜同時踩到兩條 —— 「一道菜一筆」那條才分得出對錯。
     const diag = await page.evaluate(async () => {
       const store = await import('./js/store.js');
@@ -238,7 +238,7 @@ try {
       const { plan, diagnostics } = generateWeek({
         recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
         rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid'),
-          timeCaps: { weekday: { breakfast: 15, lunch: 25, dinner: 25 }, weekend: { breakfast: 20, lunch: 30, dinner: 30 } } },
+          timeCaps: { weekday: { breakfast: 10, lunch: 15, dinner: 15 }, weekend: { breakfast: 15, lunch: 20, dinner: 20 } } },
         favorites: [], history: [], mondayIso, seed: 'diagfix', shoppingDays: [3], haveFoods: new Set(),
       });
       await store.savePlan({ ...plan, diagnostics });
@@ -289,7 +289,7 @@ try {
       const { plan, diagnostics } = generateWeek({
         recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
         rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid'),
-          timeCaps: { weekday: { breakfast: 15, lunch: 25, dinner: 25 }, weekend: { breakfast: 20, lunch: 30, dinner: 30 } } },
+          timeCaps: { weekday: { breakfast: 10, lunch: 15, dinner: 15 }, weekend: { breakfast: 15, lunch: 20, dinner: 20 } } },
         favorites: [], history: [], mondayIso, seed: 'diagfix', shoppingDays: [3, 6], haveFoods: new Set(),
       });
       await store.savePlan({ ...plan, diagnostics });
