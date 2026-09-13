@@ -616,4 +616,37 @@ section('早餐池太小的時候：誠實放寬，不是硬排也不是報錯')
   eq(t1.empty, 0, '也不是丟一個排不出來的空格給使用者');
 }
 
+section('「家裡有」要一路傳到排菜器（少接一個參數就靜默失效）');
+// 實際踩過：generateWeek 沒有收 haveFoods，本週頁傳進來的那一包被丟掉，
+// 「勾了家裡有的菜會加分」在 App 裡從來沒生效過。scoreSoft 是對的，
+// 但沒有人驗「從 generateWeek 進去」這條路。
+{
+  const cabbage = idx.aliasMap.get('高麗菜');
+  const carrot = idx.aliasMap.get('胡蘿蔔');
+  ok(cabbage && carrot, '（前提）查得到高麗菜與胡蘿蔔的編號');
+  const have = new Set([cabbage, carrot, idx.aliasMap.get('洋蔥'), idx.aliasMap.get('雞蛋')].filter(Boolean));
+
+  const withHave = gen({ seed: 'have', haveFoods: have });
+  const without = gen({ seed: 'have' });
+  const reasonsOf = (r) => cookSlots(r.plan).flatMap((s) => s.items).flatMap((it) => it.reasons ?? []);
+  const hit = reasonsOf(withHave).filter((x) => x.includes('你勾了家裡有'));
+  ok(hit.length >= 1, `傳了 haveFoods → ${hit.length} 道菜的理由講出「你勾了家裡有」`);
+  eq(reasonsOf(without).filter((x) => x.includes('你勾了家裡有')).length, 0, '（對照）沒傳就一句都沒有');
+  everyOf(hit.slice(0, 8), (x) => ['高麗菜', '胡蘿蔔', '紅蘿蔔', '洋蔥', '雞蛋', '蛋'].some((f) => x.includes(f)),
+    '講出來的食材就是我勾的那幾樣');
+
+  // 換一道也要走同一套
+  const si = withHave.plan.slots.findIndex((s) => s.kind === 'cook' && s.items.some((it) => it.role === 'side'));
+  const pos = withHave.plan.slots[si].items.find((it) => it.role === 'side').pos;
+  const swapped = swapItem({ plan: withHave.plan, slotIndex: si, pos, recipes, members: [], idx, units, favorites: [], history: [], shoppingDays: [3, 6], seed: 'have', haveFoods: have });
+  ok(swapped, '（前提）換得出一道');
+  const swappedPlain = swapItem({ plan: without.plan, slotIndex: si, pos, recipes, members: [], idx, units, favorites: [], history: [], shoppingDays: [3, 6], seed: 'have' });
+  ok(swappedPlain, '（前提）沒傳 haveFoods 也換得出一道');
+  // 換一道拿到的那道菜，如果用到勾過的食材，理由裡就要講出來
+  const usedHave = (swapped.reasons ?? []).some((x) => x.includes('你勾了家裡有'));
+  const r2 = byId.get(swapped.recipeId);
+  const actuallyUses = r2.ingredients.some((ing) => !ing.pantry && have.has(ing.food));
+  eq(usedHave, actuallyUses, `換一道也考慮「家裡有」：${r2.name} ${actuallyUses ? '用到了、理由有講' : '沒用到、理由也沒講'}`);
+}
+
 done('plannertest');

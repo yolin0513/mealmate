@@ -132,6 +132,15 @@ try {
       };
     }, sel);
 
+    const beforeFold = await page.evaluate((s2) => {
+      const d = document.querySelector(`${s2} [data-field="extraRow"]`);
+      return { open: d?.open, summary: d?.querySelector('summary')?.textContent?.trim() };
+    }, sel);
+    eq(beforeFold.open, false, '「這次有客人？」預設是收起來的（逐項手改才是主角）');
+    eq(beforeFold.summary, '這次有客人？', `收起來時的字：「${beforeFold.summary}」`);
+    await page.evaluate((s2) => { document.querySelector(`${s2} [data-field="extraRow"]`).open = true; }, sel);
+    await sleep(150);
+
     const before = await readCard();
     eq(before.meatVal, '0', '「吃葷」預設是 0');
     eq(before.vegVal, '0', '「吃素」預設是 0');
@@ -152,6 +161,12 @@ try {
     eq(after.meatVal, '2', '調過之後欄位記著 2');
     ok(/多加 2 位吃葷/.test(after.pill), `標題旁看得出來：「${after.pill}」`);
     ok(/多加 2 位吃葷/.test(after.note) && /家裡/.test(after.note), `而且有一行說明數量已經算進去了：「${after.note}」`);
+    const afterFold = await page.evaluate((s2) => {
+      const d = document.querySelector(`${s2} [data-field="extraRow"]`);
+      return { open: d?.open, summary: d?.querySelector('summary')?.textContent?.trim() };
+    }, sel);
+    eq(afterFold.open, true, '填了人數之後預設是展開的（收起來就看不到痕跡了）');
+    ok(/2 位吃葷/.test(afterFold.summary), `連收合的那一行都講得出加了幾個人：「${afterFold.summary}」`);
 
     // 數量真的變多（至少一項），而且沒有任何一項變少
     const byFood = new Map(before.rows.map((r) => [r.food, r.qty]));

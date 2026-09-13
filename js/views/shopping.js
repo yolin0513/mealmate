@@ -87,7 +87,10 @@ export default async function shoppingView(query = {}) {
         h('h3', { class: 'shop-section-title' }, sec, ' ', pill(String(items.length))),
         ...items.map((it) => {
           const cb = h('input', { type: 'checkbox', checked: !!row.checked?.[it.foodId], 'aria-label': `買了 ${it.labels[0] ?? it.name}` });
-          const haveBtn = h('button', { class: 'chip chip-sm' + (row.have?.[it.foodId] ? ' on' : ''), type: 'button', 'aria-pressed': row.have?.[it.foodId] ? 'true' : 'false', dataset: { action: 'have', food: it.foodId } }, '家裡有');
+          // 「打勾」是主動作，「家裡有」降成第二行的小連結（使用者回報兩個並排看起來重複）。
+          // 沒有合併成一個勾：兩者對排菜器的意義不同 —— 勾「家裡有」的食材，下次用到它的菜會加分，
+          // 目的是先把冰箱裡的東西吃掉；「買了」只是這一趟的採買紀錄，合併會靜默失去那個訊號。
+          const haveBtn = h('button', { class: 'linklike have-link' + (row.have?.[it.foodId] ? ' on' : ''), type: 'button', 'aria-pressed': row.have?.[it.foodId] ? 'true' : 'false', dataset: { action: 'have', food: it.foodId } }, row.have?.[it.foodId] ? '家裡有 ✓' : '家裡有');
           // 數量本身就是按鈕：站在菜攤前看到「建議 2 條」但想買 3 條，點一下就改。
           // 改過的用「已改」標出來，並且講得出原本建議多少 —— 不然她下次看不懂這個數字哪來的。
           const unit = manualUnitOf(it);
@@ -119,7 +122,7 @@ export default async function shoppingView(query = {}) {
             refresh();
           });
           const line = h('div', { class: 'shop-row' + (row.checked?.[it.foodId] ? ' done' : '') + (row.have?.[it.foodId] ? ' have' : '') + (it.manual ? ' manual' : ''), dataset: { buy: it.foodId, manual: it.manual ? 'true' : 'false' } },
-            h('label', { class: 'check shop-check' }, cb,
+            h('label', { class: 'check shop-check', 'aria-label': `買了 ${it.labels[0] ?? it.name}` }, cb,
               h('span', { class: 'shop-main' },
                 // 第一行只留「名稱＋數量」：別名（薑絲／老薑／薑片）擠在名稱後面會把數量推到下一行，
                 // 而站在菜攤前要一眼看到買幾顆。別名移到下面那行（layouttest 量出來的）。
@@ -127,11 +130,11 @@ export default async function shoppingView(query = {}) {
                   h('span', { class: 'shop-name' }, it.labels[0] ?? it.name),
                   qtyBtn),
                 h('span', { class: 'muted xs shop-uses' },
+                  haveBtn, '　',
                   it.manual ? h('span', { class: 'qty-manual' }, '已改') : null,
                   it.manual ? '；' : '',
                   it.labels.length > 1 ? `也叫${it.labels.slice(1, 3).join('、')}；` : '',
                   `用在：${it.uses.slice(0, 2).map((u) => `${fmtMD(u.date)} ${u.recipe}`).join('、')}${it.uses.length > 2 ? ` 等 ${it.uses.length} 餐` : ''}`))),
-            haveBtn,
           );
           cb.addEventListener('change', async () => { row.checked = { ...(row.checked ?? {}), [it.foodId]: cb.checked }; line.classList.toggle('done', cb.checked); await save(); drawProgress(); });
           haveBtn.addEventListener('click', async () => {
@@ -167,10 +170,15 @@ export default async function shoppingView(query = {}) {
       return h('label', { class: 'extra-field' }, h('span', { class: 'muted sm' }, label), input);
     };
     const extraNote = extraText(range.extra);
-    const extraBlock = h('div', { class: 'extra-row no-print', dataset: { field: 'extraRow' } },
-      h('span', { class: 'muted sm' }, '這張清單多幾個人吃'),
-      numField('meat', '吃葷'), numField('veg', '吃素'),
-      h('span', { class: 'muted xs' }, '0 ＝ 照家裡人數'));
+    // 逐項手改是每次買菜都會用的，客人數是偶爾才用 —— 讓前者當主角，客人數收起來。
+    // 已經填了人數就預設展開，不然痕跡會被藏起來。
+    const extraOpen = (range.extra.meat + range.extra.veg) > 0;
+    const extraBlock = h('details', { class: 'how no-print', open: extraOpen ? 'open' : null, dataset: { field: 'extraRow' } },
+      h('summary', {}, extraOpen ? `這次有客人（${extraText(range.extra).replace('多加 ', '')}）` : '這次有客人？'),
+      h('div', { class: 'extra-row' },
+        h('span', { class: 'muted sm' }, '這張清單多幾個人吃'),
+        numField('meat', '吃葷'), numField('veg', '吃素'),
+        h('span', { class: 'muted xs' }, '0 ＝ 照家裡人數')));
 
     cards.push(h('section', { class: 'card shop-card', dataset: { card: 'shopRange', range: range.key } },
       h('h2', { class: 'card-title' }, range.label,

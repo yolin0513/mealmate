@@ -448,10 +448,10 @@ export function pickForSlot(ctx, state, slotInfo, role, rng, { exclude = new Set
  * 產生一週。prevPlan 裡 kind 不是 cook 的格子與 locked 的菜會原樣保留。
  * @returns {{ plan, diagnostics }}
  */
-export function generateWeek({ recipes, members = [], idx, units, rules = {}, favorites = [], history = [], mondayIso, seed, prevPlan = null, shoppingDays = [] }) {
+export function generateWeek({ recipes, members = [], idx, units, rules = {}, favorites = [], history = [], mondayIso, seed, prevPlan = null, shoppingDays = [], haveFoods = new Set() }) {
   const monday = mondayOf(mondayIso);
   const dates = weekDates(monday);
-  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays });
+  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays, haveFoods });
   const rng = makeRng(`${seed}|${monday}`);
   // 這一週自己的歷史不算（重新產生時舊格子會被換掉）；只帶這週之前 28 天內的
   const past = history.filter((h) => h.date < monday && daysBetween(h.date, monday) <= 28);
@@ -532,9 +532,9 @@ export function generateWeek({ recipes, members = [], idx, units, rules = {}, fa
 }
 
 /** 把一格裡某個角色換一道（排除現在這道）。回新的 item 或 null。 */
-export function swapItem({ plan, slotIndex, pos, recipes, members, idx, units, rules, favorites, history, shoppingDays, seed }) {
+export function swapItem({ plan, slotIndex, pos, recipes, members, idx, units, rules, favorites, history, shoppingDays, seed, haveFoods = new Set() }) {
   const slot = plan.slots[slotIndex];
-  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays });
+  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays, haveFoods });
   const past = history.filter((h) => daysBetween(h.date, plan.monday) <= 28 && h.date < plan.monday);
   const state = makeState(past, ctx, plan.monday);
   // 這一週其他格子的菜都算「已排」

@@ -25,13 +25,13 @@
 | 實測回報 1：逐項手改數量 | ✅ 完成（2026-09-13） | `mealmate-v0.11.0` |
 | 實測回報 2：新增食譜簡化 | ✅ 完成（2026-09-13） | `mealmate-v0.11.0` |
 | 實測回報 4：早餐不連兩天一樣 | ✅ 完成（2026-09-13） | `mealmate-v0.11.0` |
-| 實測回報 3：「家裡有」是否多餘 | ⏳ 評估已交，等使用者決定 | — |
+| 實測回報 3：「家裡有」降為次選項＋自己解釋自己 | ✅ 完成（2026-09-13） | `mealmate-v0.12.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 65、membertest 47、nutritiontest 131、plannertest 168、shoppingtest 115、timelinetest 71、doctest 82；
-瀏覽器端（puppeteer）：shelltest 106、familytest 45、recipeviewtest 55、backuptest 30、weekviewtest 91、shoppingviewtest 63、todaytest 41、racetest 16、versionmixtest 40、layouttest 45（108 組版面掃描 ＋ 桌機七欄）、uikittest 28、pwatest 35、redlinetest 28、scenariotest 39。
+Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 65、membertest 47、nutritiontest 131、plannertest 175、shoppingtest 115、timelinetest 71、doctest 82；
+瀏覽器端（puppeteer）：shelltest 106、familytest 45、recipeviewtest 55、backuptest 30、weekviewtest 98、shoppingviewtest 67、todaytest 41、racetest 16、versionmixtest 40、layouttest 45（108 組版面掃描 ＋ 桌機七欄）、uikittest 28、pwatest 35、redlinetest 28、scenariotest 39。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **136 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
+`mutationtest` 共 **140 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
 
 食譜現況：**180 道**（主菜 80、配菜 50、湯 25、早餐 19、主食 6）。
 
@@ -58,6 +58,25 @@ Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、
 5. **完整突變套件**：105 條全跑一次**全綠**（24 個基準先過，再逐條改壞、確認會紅、還原）。
 
 檢測期間**沒有動任何產品程式碼**（js／css／data 零改動），改的都是測試與工具。
+
+### 「家裡有」降為次選項，並讓它自己解釋自己（2026-09-13）
+
+使用者問「家裡有」是不是多餘（打勾也是不用再買）。**沒有合併**，採降級：
+
+· 打勾是主動作，「家裡有」變成第二行的小連結（仍然是按鈕、仍然守 44px）。
+· **合併會靜默失去一個訊號**：勾「家裡有」的食材，用到它的菜在排菜時會加分，目的是先把冰箱裡的吃掉；
+  「買了」只是這一趟的採買紀錄。把「買了」也餵給排菜器則是重複計算（她買那樣東西正是因為菜單需要）。
+· **本週頁新增一張卡**講出它的作用：「N 道菜是因為你在買菜清單勾了「家裡有」才排進來的（高麗菜、胡蘿蔔…）」。
+  以前這件事只寫在每道菜的「為什麼選這道」裡，翻不到就會覺得這個勾是多餘的。
+
+**做這張卡時追出一個真的 bug： 從來沒有收 。**
+本週頁一直有傳，但函式簽名裡沒有這個參數，整包被靜默丟掉 ——
+也就是說「勾了家裡有會加分」**在 App 裡從來沒有生效過**。
+ 的程式是對的， 也直接呼叫  驗過它，
+但沒有人驗「從  進去」這條路，所以少接一個參數沒被發現。
+（換一道）與  的  同樣沒傳，一起補上。
+修好之後同一組 seed 有 31 道菜的理由講出「你勾了家裡有」，修好前是 0 道。
+新增兩條斷言與一條突變盯著這條傳遞路徑。
 
 ### 使用者實測回報的修正（2026-09-13）
 

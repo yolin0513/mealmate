@@ -19,6 +19,39 @@ import { ok, eq, section, done, note } from './tap.mjs';
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const MUTATIONS = [
+  // ---- 「家裡有」降級並自己解釋自己、客人數收合 ----
+  {
+    name: "generateWeek 不把 haveFoods 接下去",
+    why: "本週頁傳進來的「家裡有」被靜默丟掉，冰箱裡的東西不會被優先吃掉。這是實際踩過的 bug：scoreSoft 是對的，少接一個參數就整個功能沒作用，而且畫面上看不出來。",
+    file: "js/planner.js",
+    find: "  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays, haveFoods });\n  const rng = makeRng(`${seed}|${monday}`);",
+    replace: "  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays });\n  const rng = makeRng(`${seed}|${monday}`);",
+    test: "plannertest",
+  },
+  {
+    name: "本週頁不講「家裡有」讓哪幾道菜被選上",
+    why: "使用者覺得「家裡有」跟「買了」重複，就是因為看不到它的作用。不講的話這個功能永遠自己解釋不了自己。",
+    file: "js/views/week.js",
+    find: "  const haveCard = haveUsed.count ? h('section', { class: 'card', dataset: { card: 'usedHave' } },",
+    replace: "  const haveCard = false ? h('section', { class: 'card', dataset: { card: 'usedHave' } },",
+    test: "weekviewtest",
+  },
+  {
+    name: "「這次有客人」不收合",
+    why: "逐項手改是每次買菜都用的，客人數偶爾才用。兩個並排會讓主要動作被稀釋。",
+    file: "js/views/shopping.js",
+    find: "    const extraBlock = h('details', { class: 'how no-print', open: extraOpen ? 'open' : null, dataset: { field: 'extraRow' } },",
+    replace: "    const extraBlock = h('details', { class: 'how no-print', open: 'open', dataset: { field: 'extraRow' } },",
+    test: "shoppingviewtest",
+  },
+  {
+    name: "填了客人數卻仍然收起來",
+    why: "調過的痕跡被藏在收合區裡，她看不到數量為什麼變多（使用者明確要求要看得出來）。",
+    file: "js/views/shopping.js",
+    find: "    const extraOpen = (range.extra.meat + range.extra.veg) > 0;",
+    replace: "    const extraOpen = false;",
+    test: "shoppingviewtest",
+  },
   // ---- 使用者實測回報的四項 ----
   {
     name: "手改的數量被忽略",

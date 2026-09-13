@@ -389,6 +389,65 @@ try {
     ok(Object.keys(stored.all).length <= 4, `只留最近幾週（現在存了 ${Object.keys(stored.all).length} 週）`);
   }
 
+
+  section('「家裡有」要自己解釋自己：本週頁講出它讓哪幾道菜被選上');
+  // 使用者回報「家裡有」看起來跟「買了」重複。它其實會讓用到那個食材的菜加分（先吃掉冰箱裡的），
+  // 但那件事以前只寫在每道菜的「為什麼選這道」裡，翻不到就會覺得多餘。
+  {
+    // 先確認沒有勾任何「家裡有」時，這張卡不出現
+    await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const prefs = await import('./js/prefs.js');
+      const { generateWeek, mondayOf, isoDate } = await import('./js/planner.js');
+      await prefs.set('shoppingDays', [3, 6]);
+      const mondayIso = mondayOf(isoDate(new Date()));
+      const { plan, diagnostics } = generateWeek({
+        recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
+        rules: {}, favorites: [], history: [], mondayIso, seed: 'havecard', shoppingDays: [3, 6], haveFoods: new Set(),
+      });
+      await store.savePlan({ ...plan, diagnostics });
+    });
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    await goto(page, '#/');
+    await page.waitForSelector('[data-card="weekHead"]');
+    eq((await page.$$('[data-card="usedHave"]')).length, 0, '沒勾任何「家裡有」→ 這張卡不出現');
+
+    // 勾幾個常見食材當「家裡有」，重排
+    const info = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const prefs = await import('./js/prefs.js');
+      const { generateWeek, mondayOf, isoDate } = await import('./js/planner.js');
+      const idx = store.foodsIndex();
+      const have = new Set(['高麗菜', '洋蔥', '雞蛋', '紅蘿蔔', '馬鈴薯', '豆腐']
+        .map((t) => idx.aliasMap.get(t)).filter(Boolean));
+      const mondayIso = mondayOf(isoDate(new Date()));
+      const { plan, diagnostics } = generateWeek({
+        recipes: store.allRecipes(), members: store.members(), idx, units: store.units(),
+        rules: {}, favorites: [], history: [], mondayIso, seed: 'havecard', shoppingDays: [3, 6], haveFoods: have,
+      });
+      await store.savePlan({ ...plan, diagnostics });
+      const withReason = plan.slots.filter((s) => s.kind === 'cook')
+        .flatMap((s) => s.items ?? []).filter((it) => (it.reasons ?? []).some((r) => r.includes('你勾了家裡有')));
+      return { haveCount: have.size, dishes: withReason.length };
+    });
+    ok(info.haveCount >= 4, `（前提）勾了 ${info.haveCount} 個食材說家裡有`);
+    ok(info.dishes >= 1, `（前提）排菜器確實因此選上了 ${info.dishes} 道菜`);
+
+    await goto(page, '#/family');
+    await goto(page, '#/');
+    await page.waitForSelector('[data-card="usedHave"]');
+    const card = await textOf(page, '[data-card="usedHave"]');
+    ok(/家裡有/.test(card), `這張卡把「家裡有」講出來：「${card.slice(0, 60)}…」`);
+    ok(new RegExp(`${info.dishes} 道菜`).test(card), `講的道數就是實際的 ${info.dishes} 道`);
+    ok(/冰箱/.test(card), '而且講出好處（先吃掉冰箱裡的東西）—— 使用者才知道這個勾不是多餘的');
+    const named = await page.evaluate(() => {
+      const t = document.querySelector('[data-card="usedHave"] p')?.textContent ?? '';
+      return (/（([^）]+)）/.exec(t)?.[1] ?? '').split('、').filter(Boolean);
+    });
+    ok(named.length >= 1, `而且點名是哪幾樣：${named.join('、')}`);
+  }
+
   eq(pageErrors, [], '沒有未攔截的例外');
 } finally {
   await close();

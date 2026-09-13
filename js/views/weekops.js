@@ -8,11 +8,13 @@ import { ROLE_LABELS, timeText } from '../recipeschema.js';
 import { versionFor, DIET_LABELS } from '../members.js';
 import { matchesQuery } from './recipes.js';
 
-function planArgs() {
+async function planArgs(plan) {
   return {
     recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
     rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid') },
     favorites: store.favoritesList(), shoppingDays: prefs.get('shoppingDays') ?? [], seed: prefs.get('planSeed') ?? 'mealmate',
+    // 換一道也要考慮冰箱裡已經有什麼（跟「產生」走同一套），不然換完的那道菜會忽略「家裡有」。
+    haveFoods: plan ? await store.haveFoodsForWeek(plan.weekKey) : new Set(),
   };
 }
 
@@ -22,7 +24,7 @@ async function pastHistory(plan) {
 
 /** 換一道：排除現在這道，用同一套規則再挑一道。回 true 表示有換到。 */
 export async function swapSlotItem({ plan, slotIndex, pos }) {
-  const next = swapItem({ plan, slotIndex, pos, history: await pastHistory(plan), ...planArgs() });
+  const next = swapItem({ plan, slotIndex, pos, history: await pastHistory(plan), ...(await planArgs(plan)) });
   if (!next) return false;
   const slot = plan.slots[slotIndex];
   slot.items = [...slot.items.filter((it) => it.pos !== pos), next].sort((a, b) => a.pos - b.pos);
@@ -73,7 +75,7 @@ export async function assignSlotItem({ plan, slotIndex, pos, recipesById, member
 
 /** 某一格從外食改回自己煮時把它重排（其他格不動）。 */
 export async function regenerateSlot({ plan, slotIndex }) {
-  const args = planArgs();
+  const args = await planArgs(plan);
   const history = await pastHistory(plan);
   const slot = plan.slots[slotIndex];
   slot.items = [];

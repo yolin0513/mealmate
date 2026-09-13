@@ -105,6 +105,15 @@ export default async function weekView(query = {}) {
       (diag.noMeat ?? []).length ? h('p', { dataset: { field: 'noMeat' } }, `${diag.noMeat.length} 餐沒有排到葷菜（${diag.noMeat[0].why}）。要吃葷的話可以在那一格手動指定。`) : null,
     ) : null;
 
+  // 「家裡有」不只是購物清單上的記號，它會讓用到那個食材的菜加分（先把冰箱裡的東西吃掉）。
+  // 這件事以前只寫在每道菜的「為什麼選這道」裡，使用者翻不到，就會覺得這個勾是多餘的。
+  // 這張卡讓它自己講出來。
+  const haveUsed = usedHaveDishes(plan, recipesById);
+  const haveCard = haveUsed.count ? h('section', { class: 'card', dataset: { card: 'usedHave' } },
+    h('strong', {}, '有先用到你說「家裡有」的東西'),
+    h('p', { class: 'muted sm' }, `${haveUsed.count} 道菜是因為你在買菜清單勾了「家裡有」才排進來的（${haveUsed.foods.join('、')}）。這樣冰箱裡的東西會先吃掉。`),
+  ) : null;
+
   // 預設只顯示熱量與蛋白質；有設留意項目的家人，那幾項一定加顯（displayFields）
   const fields = displayFields(members);
   const watch = familyWatchFields(members);
@@ -155,7 +164,31 @@ export default async function weekView(query = {}) {
     return card;
   });
 
-  render(head, diagCard, h('div', { class: 'week-grid' }, ...dayCards), noticeFooter());
+  render(head, diagCard, haveCard, h('div', { class: 'week-grid' }, ...dayCards), noticeFooter());
+}
+
+/**
+ * 哪些菜是因為「家裡有」才被選上的。理由字串是排菜器寫的（scoreSoft），
+ * 這裡只是把它撈出來 —— 不另外算一次，免得兩邊的判斷漂開。
+ */
+function usedHaveDishes(plan, recipesById) {
+  const foods = new Set();
+  let count = 0;
+  for (const s of plan.slots) {
+    if (s.kind !== 'cook') continue;
+    for (const it of s.items ?? []) {
+      const line = (it.reasons ?? []).find((r) => r.includes('你勾了家裡有'));
+      if (!line) continue;
+      count += 1;
+      // 「胡蘿蔔片」「胡蘿蔔絲」「胡蘿蔔」是同一樣東西，切法去掉再去重，不然卡片上會列三次
+      for (const f of line.replace('你勾了家裡有', '').split('、')) {
+        const t = f.trim().replace(/[片絲塊段末丁條泥碎]$/, '');
+        if (t) foods.add(t);
+      }
+      void recipesById;
+    }
+  }
+  return { count, foods: [...foods].slice(0, 4) };
 }
 
 const RELAX_LABELS = {
