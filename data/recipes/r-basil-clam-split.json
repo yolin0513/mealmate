@@ -1,0 +1,94 @@
+{
+  "id": "r-basil-clam-split",
+  "name": "塔香蛤蜊／塔香菇菇",
+  "role": "main",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 20,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "九層塔",
+      "label": "九層塔",
+      "grams": 30,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "辣椒",
+      "label": "紅辣椒（可省略）",
+      "grams": 5,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "醬油膏",
+      "label": "醬油膏",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鴻喜菇",
+      "label": "鴻喜菇",
+      "grams": 200,
+      "track": "veg"
+    },
+    {
+      "food": "杏鮑菇",
+      "label": "杏鮑菇（切塊）",
+      "grams": 150,
+      "track": "veg"
+    },
+    {
+      "food": "文蛤",
+      "label": "蛤蜊（吐過沙）",
+      "grams": 600,
+      "track": "meat"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "蛤蜊泡淡鹽水吐沙至少一小時；菇類撥散或切塊；九層塔摘葉；薑切片。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，薑片與辣椒爆香。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "把爆香的薑油分成兩鍋，素食那鍋依吃素的人數分。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：下菇類炒到出水收乾，加醬油膏炒勻，關火拌入九層塔。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：下蛤蜊與兩大匙水，蓋鍋燜到殼全開，加醬油膏拌勻，關火拌入九層塔。"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "id": "r-mushroom-broccoli",
+  "name": "洋菇炒青花菜",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    11,
+    12,
+    1,
+    2,
+    3
+  ],
+  "ingredients": [
+    {
+      "food": "青花菜",
+      "label": "青花菜（切小朵）",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "洋菇",
+      "label": "洋菇（對切）",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "橄欖油",
+      "label": "橄欖油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "黑胡椒粉",
+      "label": "黑胡椒粉",
+      "grams": 1,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "青花菜切小朵，梗削皮切片；洋菇對切。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "滾水燙青花菜兩分鐘撈起。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油炒洋菇到出水收乾、邊緣上色，下青花菜炒勻，加鹽與黑胡椒。"
+    }
+  ]
+}

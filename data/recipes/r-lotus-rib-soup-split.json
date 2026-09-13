@@ -1,0 +1,81 @@
+{
+  "id": "r-lotus-rib-soup-split",
+  "name": "蓮藕排骨湯／蓮藕香菇湯",
+  "role": "soup",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 50,
+  "method": "soup",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "ingredients": [
+    {
+      "food": "蓮藕",
+      "label": "蓮藕（切厚片）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "乾香菇",
+      "label": "乾香菇（泡軟）",
+      "grams": 20,
+      "track": "veg"
+    },
+    {
+      "food": "豬小排",
+      "label": "豬小排",
+      "grams": 400,
+      "track": "meat"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "蓮藕削皮切一公分厚片；薑切片；乾香菇泡軟，泡菇水留著；排骨用滾水汆燙兩分鐘洗去血水。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "大鍋放 1500 毫升水、蓮藕與薑片，煮滾後轉小火煮十分鐘。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "把湯底分成兩鍋，素食那鍋依吃素的人數分。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：加入香菇與泡菇水，小火煮二十分鐘，加鹽調味。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：加入汆燙好的排骨，小火煮三十五分鐘到排骨脫骨，加鹽調味。"
+    }
+  ]
+}

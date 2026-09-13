@@ -1,0 +1,62 @@
+{
+  "id": "r-corn-egg",
+  "name": "玉米炒蛋",
+  "role": "side",
+  "servings": 4,
+  "time": 10,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "玉米粒",
+      "label": "玉米粒",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "雞蛋",
+      "label": "雞蛋",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "青蔥",
+      "label": "青蔥（切蔥花）",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "玉米粒瀝乾；蛋打散加鹽；蔥切蔥花。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，先炒玉米粒一分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "倒入蛋液，等邊緣凝固再翻拌成大塊，撒蔥花起鍋。"
+    }
+  ]
+}

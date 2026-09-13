@@ -1,0 +1,67 @@
+{
+  "id": "r-basil-dried-tofu",
+  "name": "塔香豆干",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "五香豆干",
+      "label": "五香豆干（切片）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "九層塔",
+      "label": "九層塔",
+      "grams": 25,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑末",
+      "grams": 12,
+      "track": "base"
+    },
+    {
+      "food": "醬油膏",
+      "label": "醬油膏",
+      "grams": 25,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "豆干斜切成片；九層塔摘葉洗淨；薑切末。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，豆干片煎到兩面金黃。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下薑末爆香，加醬油膏與兩大匙水炒勻。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "關火後放九層塔，用餘溫拌到葉子軟就好，久炒會變黑。"
+    }
+  ]
+}

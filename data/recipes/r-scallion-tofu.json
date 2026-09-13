@@ -1,0 +1,63 @@
+{
+  "id": "r-scallion-tofu",
+  "name": "蔥燒豆腐",
+  "role": "side",
+  "servings": 4,
+  "time": 15,
+  "method": "braise",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "板豆腐",
+      "label": "板豆腐（切厚片）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "青蔥",
+      "label": "青蔥（切段）",
+      "grams": 25,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "糖",
+      "label": "糖",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "豆腐切一公分厚片，用廚房紙巾吸乾表面水分才不會噴油；蔥白蔥綠分開切段。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "平底鍋熱油，豆腐兩面煎到金黃。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "推到一邊，下蔥白爆香，加醬油、糖與 100 毫升水，燒三分鐘到入味，起鍋前撒蔥綠。"
+    }
+  ]
+}

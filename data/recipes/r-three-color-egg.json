@@ -1,0 +1,53 @@
+{
+  "id": "r-three-color-egg",
+  "name": "三色蛋",
+  "role": "main",
+  "servings": 4,
+  "time": 35,
+  "method": "steam",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "雞蛋",
+      "label": "雞蛋",
+      "grams": 250,
+      "track": "base"
+    },
+    {
+      "food": "皮蛋",
+      "label": "皮蛋（切丁）",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "鹹蛋",
+      "label": "鹹蛋（切丁）",
+      "grams": 120,
+      "track": "base"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "皮蛋、鹹蛋剝殼切小丁；雞蛋打散（鹹蛋黃可以先壓碎拌進蛋液）。"
+    },
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "長方形容器鋪一層耐熱保鮮膜或抹油，方便脫模。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "皮蛋丁與鹹蛋丁鋪平，倒入蛋液蓋過，輕輕敲一下讓氣泡跑掉。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "電鍋外鍋一杯水，蒸到蛋液完全凝固（約二十分鐘），放涼再切片才會整齊。"
+    }
+  ]
+}

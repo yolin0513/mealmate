@@ -1,0 +1,56 @@
+{
+  "id": "r-basil-omelet",
+  "name": "九層塔煎蛋",
+  "role": "side",
+  "servings": 4,
+  "time": 10,
+  "method": "pan",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "雞蛋",
+      "label": "雞蛋",
+      "grams": 250,
+      "track": "base"
+    },
+    {
+      "food": "九層塔",
+      "label": "九層塔（摘葉）",
+      "grams": 25,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "九層塔只取葉子，洗淨瀝乾切碎；蛋打散加鹽拌勻。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "蛋液拌入九層塔。平底鍋熱油，倒入蛋液鋪平。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "中火煎到底面凝固上色，翻面再煎一分鐘就起鍋。"
+    }
+  ]
+}

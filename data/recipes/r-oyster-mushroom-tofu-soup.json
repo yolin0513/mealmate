@@ -1,0 +1,69 @@
+{
+  "id": "r-oyster-mushroom-tofu-soup",
+  "name": "秀珍菇豆腐湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 20,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "alliumOptional": true,
+  "ingredients": [
+    {
+      "food": "秀珍菇",
+      "label": "秀珍菇",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "嫩豆腐",
+      "label": "嫩豆腐（切丁）",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "青蔥",
+      "label": "青蔥（切蔥花，可省略）",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "香油",
+      "label": "香油",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "秀珍菇撕成小朵；豆腐切丁；薑切絲；蔥切蔥花（不吃蔥可省略）。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中放 1200 毫升水與薑絲煮滾，下秀珍菇煮五分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下豆腐丁再煮五分鐘，加鹽與香油，起鍋撒蔥花。"
+    }
+  ]
+}

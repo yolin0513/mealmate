@@ -22,12 +22,18 @@ const { recipes, errors } = buildRecipes(path.join(ROOT, 'data/recipes'), ctx);
 section('內建食譜全部通過驗證');
 eq(errors, [], '沒有任何一道食譜有驗證錯誤');
 const s = summarize(recipes);
-ok(s.count >= 30, `${s.count} 道（≥ 30）`);
+// M5 的數量門檻（PLAN §8「上線前要有的量」）：主菜 80、配菜 50、湯 25、早餐 10、主食 6，
+// 而且主菜裡素食成員吃得到的（nativeVeg ＋ splittable）要 ≥ 45 —— 家裡有吃素的人才排得滿一週。
+ok(s.count >= 170, `${s.count} 道（≥ 170）`);
+ok((s.roles.main ?? 0) >= 80, `主菜 ${s.roles.main} 道（≥ 80）`);
+ok((s.roles.side ?? 0) >= 50, `配菜 ${s.roles.side} 道（≥ 50）`);
+ok((s.roles.soup ?? 0) >= 25, `湯 ${s.roles.soup} 道（≥ 25）`);
+ok((s.roles.breakfast ?? 0) >= 10, `早餐 ${s.roles.breakfast} 道（≥ 10）`);
+ok((s.roles.staple ?? 0) >= 6, `主食 ${s.roles.staple} 道（≥ 6）`);
 ok((s.vegModes.nativeVeg ?? 0) >= 8, `素的 ${s.vegModes.nativeVeg} 道（≥ 8）`);
 ok((s.vegModes.splittable ?? 0) >= 8, `可分流的 ${s.vegModes.splittable} 道（≥ 8）`);
-ok((s.roles.soup ?? 0) >= 5, `湯 ${s.roles.soup} 道（≥ 5）`);
-ok((s.roles.breakfast ?? 0) >= 3, `早餐 ${s.roles.breakfast} 道（≥ 3）`);
-ok((s.roles.staple ?? 0) >= 2, `主食 ${s.roles.staple} 道（≥ 2）`);
+const vegFriendlyMains = recipes.filter((r) => r.role === 'main' && r.vegMode !== 'meatOnly');
+ok(vegFriendlyMains.length >= 45, `素食成員吃得到的主菜 ${vegFriendlyMains.length} 道（≥ 45）`);
 
 section('每個食材都對到食藥署編號');
 const allIngredients = recipes.flatMap((r) => r.ingredients.map((ing) => ({ recipe: r.id, ...ing })));

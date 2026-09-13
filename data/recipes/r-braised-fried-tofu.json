@@ -1,0 +1,56 @@
+{
+  "id": "r-braised-fried-tofu",
+  "name": "醬燒油豆腐",
+  "role": "side",
+  "servings": 4,
+  "time": 15,
+  "method": "braise",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "油豆腐",
+      "label": "油豆腐",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "味醂",
+      "label": "味醂",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "油豆腐用滾水淋過一次去掉表面油耗味，對半切。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中放油豆腐、薑片、醬油、味醂與 200 毫升水，煮滾。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "轉小火燒十分鐘，中間翻面一次，收汁到剩一半。"
+    }
+  ]
+}

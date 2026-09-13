@@ -1,0 +1,81 @@
+{
+  "id": "r-bittermelon-rib-soup-split",
+  "name": "苦瓜排骨湯／苦瓜黃豆湯",
+  "role": "soup",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 55,
+  "method": "soup",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "ingredients": [
+    {
+      "food": "苦瓜",
+      "label": "白苦瓜（切塊）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "黃豆",
+      "label": "黃豆（前一晚泡水）",
+      "grams": 60,
+      "track": "veg"
+    },
+    {
+      "food": "豬小排",
+      "label": "豬小排",
+      "grams": 400,
+      "track": "meat"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "黃豆前一晚就要泡水；苦瓜對半剖開刮掉白膜切塊；排骨滾水汆燙兩分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "大鍋放 1500 毫升水與薑片煮滾。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "把湯底分成兩鍋，素食那鍋依吃素的人數分。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：先放泡好的黃豆小火煮三十分鐘，再放苦瓜煮十五分鐘，加鹽。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：放排骨煮三十分鐘，再放苦瓜煮十五分鐘到透軟，加鹽。"
+    }
+  ]
+}

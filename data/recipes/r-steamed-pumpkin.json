@@ -1,0 +1,43 @@
+{
+  "id": "r-steamed-pumpkin",
+  "name": "蒸南瓜",
+  "role": "side",
+  "servings": 4,
+  "time": 20,
+  "method": "steam",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "南瓜",
+      "label": "南瓜（切塊）",
+      "grams": 500,
+      "track": "base"
+    },
+    {
+      "food": "枸杞",
+      "label": "枸杞",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "南瓜洗淨切塊，皮可以留著（蒸過就軟了）；枸杞泡水兩分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "南瓜排在盤子上，撒枸杞，電鍋外鍋一杯水蒸到筷子可以插穿。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "直接上桌。南瓜本身有甜味，不加調味長輩也吃得下。"
+    }
+  ]
+}

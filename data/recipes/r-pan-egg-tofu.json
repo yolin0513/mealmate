@@ -1,0 +1,64 @@
+{
+  "id": "r-pan-egg-tofu",
+  "name": "香煎雞蛋豆腐",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "pan",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "alliumOptional": true,
+  "ingredients": [
+    {
+      "food": "雞蛋豆腐",
+      "label": "雞蛋豆腐（切厚片）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "太白粉",
+      "label": "太白粉",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "醬油膏",
+      "label": "醬油膏",
+      "grams": 25,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "青蔥",
+      "label": "青蔥（切蔥花）",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "雞蛋豆腐切一點五公分厚片，用紙巾吸乾表面，兩面沾薄薄一層太白粉。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "平底鍋熱油，豆腐下鍋後先不要動，煎到底面金黃再翻面。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "盛盤淋醬油膏，撒蔥花（不吃蔥可省略）。"
+    }
+  ]
+}

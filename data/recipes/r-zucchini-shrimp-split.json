@@ -1,0 +1,95 @@
+{
+  "id": "r-zucchini-shrimp-split",
+  "name": "櫛瓜炒蝦仁／櫛瓜炒鴻喜菇",
+  "role": "main",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 18,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "櫛瓜",
+      "label": "綠櫛瓜（切片）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔片",
+      "grams": 60,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑末",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "橄欖油",
+      "label": "橄欖油",
+      "grams": 18,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鴻喜菇",
+      "label": "鴻喜菇",
+      "grams": 150,
+      "track": "veg"
+    },
+    {
+      "food": "蝦仁",
+      "label": "蝦仁",
+      "grams": 250,
+      "track": "meat"
+    },
+    {
+      "food": "白胡椒粉",
+      "label": "白胡椒粉",
+      "grams": 1,
+      "track": "meat",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "櫛瓜切片；胡蘿蔔切薄片；鴻喜菇撥散；蝦仁去腸泥，用紙巾吸乾。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香薑末，下胡蘿蔔與櫛瓜中大火炒三分鐘到微軟，加鹽。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "先盛出素食成員要吃的份量（依吃素的人數分）。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：下鴻喜菇炒到出水收乾。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：下蝦仁炒到全部轉紅捲起，撒白胡椒粉。"
+    }
+  ]
+}

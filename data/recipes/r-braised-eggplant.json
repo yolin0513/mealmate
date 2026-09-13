@@ -1,0 +1,70 @@
+{
+  "id": "r-braised-eggplant",
+  "name": "醬燒茄子",
+  "role": "side",
+  "servings": 4,
+  "time": 15,
+  "method": "braise",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "ingredients": [
+    {
+      "food": "茄子",
+      "label": "茄子（切段）",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑末",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "糖",
+      "label": "糖",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "茄子切成手指長的段，泡淡鹽水五分鐘可以少變黑一點，撈起瀝乾。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，薑末爆香，茄子下鍋煎到表面軟化。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加醬油、糖與 100 毫升水，蓋鍋中小火燒五分鐘到茄子透軟、湯汁收乾一半。"
+    }
+  ]
+}

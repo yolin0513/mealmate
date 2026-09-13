@@ -1,0 +1,87 @@
+{
+  "id": "r-braised-beef-brisket",
+  "name": "滷牛腩",
+  "role": "main",
+  "servings": 4,
+  "time": 90,
+  "method": "braise",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "牛腩",
+      "label": "牛腩（切塊）",
+      "grams": 600,
+      "track": "base"
+    },
+    {
+      "food": "白蘿蔔",
+      "label": "白蘿蔔（切塊）",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "洋蔥",
+      "label": "洋蔥（切塊）",
+      "grams": 150,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 20,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 50,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "冰糖",
+      "label": "冰糖",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "八角",
+      "label": "八角",
+      "grams": 2,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "牛腩切大塊，冷水下鍋煮滾汆燙三分鐘，撈起沖淨浮沫；白蘿蔔、洋蔥切塊。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中下油炒香薑片與洋蔥，下牛腩炒到表面上色。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加醬油、冰糖、八角與熱水淹過食材，煮滾後轉最小火燉一小時。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加白蘿蔔再燉二十分鐘到蘿蔔透明、牛腩用筷子可以插入。"
+    }
+  ]
+}

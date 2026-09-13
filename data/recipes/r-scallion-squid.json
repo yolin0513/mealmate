@@ -1,0 +1,74 @@
+{
+  "id": "r-scallion-squid",
+  "name": "蔥燒小卷",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "stirfry",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "小卷",
+      "label": "小卷（切圈）",
+      "grams": 500,
+      "track": "base"
+    },
+    {
+      "food": "青蔥",
+      "label": "青蔥（切段）",
+      "grams": 60,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 25,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "烏醋",
+      "label": "烏醋",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 18,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "小卷去除軟骨與內臟，切成圈，用紙巾吸乾水分；蔥白蔥綠分開切段。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，薑絲與蔥白爆香。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "大火下小卷快炒一分半到轉白捲起，加醬油炒勻。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "關火後沿鍋邊淋烏醋，撒蔥綠拌一下。小卷炒太久會變硬，寧可短一點。"
+    }
+  ]
+}

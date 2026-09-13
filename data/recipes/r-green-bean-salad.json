@@ -1,0 +1,50 @@
+{
+  "id": "r-green-bean-salad",
+  "name": "涼拌四季豆",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "boil",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "四季豆",
+      "label": "四季豆",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "芝麻醬",
+      "label": "芝麻醬",
+      "grams": 25,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 8,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "四季豆撕掉兩側的老筋，切成三段。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "滾水加一小匙鹽，四季豆燙三分鐘到熟透（不能只燙半生），撈起沖冷水瀝乾。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "芝麻醬先用兩大匙冷開水與醬油調稀，再拌進四季豆。"
+    }
+  ]
+}

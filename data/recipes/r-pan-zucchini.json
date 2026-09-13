@@ -1,0 +1,57 @@
+{
+  "id": "r-pan-zucchini",
+  "name": "香煎櫛瓜",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "pan",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "櫛瓜",
+      "label": "綠櫛瓜（切圓片）",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "橄欖油",
+      "label": "橄欖油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "黑胡椒粉",
+      "label": "黑胡椒粉",
+      "grams": 1,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "櫛瓜切一公分厚的圓片，厚一點才不會煎爛。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "平底鍋熱油，櫛瓜片單層排好，中火煎到底面金黃再翻面。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "兩面都上色後撒鹽與黑胡椒。"
+    }
+  ]
+}

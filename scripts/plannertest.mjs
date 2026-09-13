@@ -205,9 +205,7 @@ section('放寬的限制要少：主食不算時間上限、只有炸與湯互�
   const dinnerSoups = cookSlots(rp).filter((s) => s.meal === 'dinner').map((s) => s.items.filter((it) => byId.get(it.recipeId).method === 'soup').length);
   everyOf(dinnerSoups, (n) => n === 1, '每個晚餐剛好一道湯類烹法的菜（湯互斥）');
   const staples = cookSlots(rp).flatMap((s) => s.items.filter((it) => it.role === 'staple').map((it) => byId.get(it.recipeId).name));
-  // 有糖尿病成員 → 全穀主食加分，所以輪的是糙米飯、五穀飯這類；重點是不會因為電鍋時間被擋到只剩白麵條
-  ok(new Set(staples).size >= 2 && staples.every((n) => n !== '白麵條'), `主食有輪替（${[...new Set(staples)].join('、')}），電鍋時間不被算進上限`);
-  everyOf(staples, (n) => byId.get(recipes.find((r) => r.name === n).id).tags.includes('wholegrain'), '（家中有留意醣的成員）主食都是全穀雜糧');
+  ok(new Set(staples).size >= 2, `主食有輪替（${[...new Set(staples)].join('、')}），電鍋時間（白飯 45 分、糙米 70 分）不被算進晚餐時間上限`);
   const { hardBlock: hb, buildContext: bc } = await import('../js/planner.js');
   const ctx = bc({ recipes, members: [], idx, units, shoppingDays: [] });
   const stirfryMain = recipes.find((r) => r.role === 'main' && r.method === 'stirfry');
@@ -283,6 +281,35 @@ section('購物清單勾了「家裡有」→ 用到那個食材的菜加分');
   ok(sHave.score > sNone.score, `家裡有高麗菜：清炒高麗菜 ${sHave.score.toFixed(1)} > 沒勾時 ${sNone.score.toFixed(1)}`);
   ok(sHave.reasons.some((t) => t.includes('你勾了家裡有')), `理由：${sHave.reasons.find((t) => t.includes('家裡有'))}`);
   eq(scoreSoft(otherSide, slot, withHave, state, () => 0).score, scoreSoft(otherSide, slot, without, state, () => 0).score, '（對照）沒用到高麗菜的菜分數不變');
+}
+
+section('家裡有人留意醣 → 主食「優先」排全穀雜糧（是加分，不是規定）');
+{
+  // 舊版斷言是「主食全部都是全穀」。那在只有 5 道主食的池子裡是巧合：食譜補到 172 道之後，
+  // 當季的芋頭飯、麵條也會被排進來，斷言就紅了 —— 但規劃器並沒有壞。
+  // PLAN §4.1 寫的是「優先排糙米／雜糧飯」，優先＝加分。加分做得到什麼，要用**比例**量，
+  // 而且要有對照組：沒有人留意醣的同一個家庭，比例應該明顯低很多。
+  const share = (members) => {
+    let whole = 0; let total = 0; const names = new Set();
+    for (const seed of ['test', 's2', 's3', 's4']) {
+      const { plan } = gen({ members, seed });
+      for (const s of cookSlots(plan)) {
+        for (const it of s.items.filter((x) => x.role === 'staple')) {
+          const r = byId.get(it.recipeId);
+          total += 1; names.add(r.name);
+          if (r.tags.includes('wholegrain')) whole += 1;
+        }
+      }
+    }
+    return { whole, total, pct: whole / total, names: [...names] };
+  };
+  const watch = share([{ ...newMember(), name: '爸' }, { ...newMember(), name: '阿嬤', diet: 'lactoOvo', conditions: ['diabetes'] }]);
+  const plain = share([{ ...newMember(), name: '爸' }, { ...newMember(), name: '媽' }]);
+  ok(watch.total >= 40 && plain.total >= 40, `（母體）四週各排了 ${watch.total}／${plain.total} 個主食格`);
+  ok(watch.pct >= 0.7, `有人留意醣：全穀主食 ${watch.whole}/${watch.total}（${Math.round(watch.pct * 100)}%）`);
+  ok(plain.pct <= 0.5, `（對照）沒有人留意醣的同一個家庭只有 ${plain.whole}/${plain.total}（${Math.round(plain.pct * 100)}%）—— 差別是那個加分做出來的`);
+  ok(watch.pct - plain.pct >= 0.3, `兩者差 ${Math.round((watch.pct - plain.pct) * 100)} 個百分點`);
+  ok(watch.names.length >= 2, `而且不是只排同一種：${watch.names.join('、')}`);
 }
 
 section('每日估計：素食成員吃素版');

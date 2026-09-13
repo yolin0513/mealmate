@@ -1,0 +1,63 @@
+{
+  "id": "r-pan-seabass",
+  "name": "香煎鱸魚",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "pan",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "鱸魚",
+      "label": "鱸魚（切片或整條）",
+      "grams": 500,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "黑胡椒粉",
+      "label": "黑胡椒粉",
+      "grams": 1,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "魚肉擦乾，兩面抹薄鹽靜置十分鐘，再把水分擦掉一次（這樣煎起來皮才會脆）。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "平底鍋熱油，薑片先煎香再撥開，魚皮朝下入鍋，用鍋鏟輕壓十秒避免捲起。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "中火煎四分鐘到魚皮金黃，翻面再煎三分鐘，撒黑胡椒。"
+    }
+  ]
+}

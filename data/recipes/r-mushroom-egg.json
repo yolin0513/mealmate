@@ -1,0 +1,74 @@
+{
+  "id": "r-mushroom-egg",
+  "name": "洋菇炒蛋",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "洋菇",
+      "label": "洋菇（切片）",
+      "grams": 250,
+      "track": "base"
+    },
+    {
+      "food": "雞蛋",
+      "label": "雞蛋",
+      "grams": 250,
+      "track": "base"
+    },
+    {
+      "food": "洋蔥",
+      "label": "洋蔥（切絲）",
+      "grams": 80,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 18,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "黑胡椒粉",
+      "label": "黑胡椒粉",
+      "grams": 1,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "洋菇切片；洋蔥切絲；蛋打散加一小撮鹽。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下一半的油，蛋液炒到半熟先盛起。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "補油炒洋蔥到透明，下洋菇炒到出水又收乾、邊緣上色。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "倒回蛋拌勻，加鹽與黑胡椒。"
+    }
+  ]
+}

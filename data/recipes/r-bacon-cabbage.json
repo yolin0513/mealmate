@@ -1,0 +1,62 @@
+{
+  "id": "r-bacon-cabbage",
+  "name": "培根炒高麗菜",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [
+    11,
+    12,
+    1,
+    2,
+    3,
+    4
+  ],
+  "ingredients": [
+    {
+      "food": "高麗菜",
+      "label": "高麗菜（手撕大片）",
+      "grams": 450,
+      "track": "base"
+    },
+    {
+      "food": "培根",
+      "label": "培根（切段）",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "大蒜",
+      "label": "蒜片",
+      "grams": 12,
+      "track": "base"
+    },
+    {
+      "food": "黑胡椒粉",
+      "label": "黑胡椒粉",
+      "grams": 1,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "高麗菜手撕大片；培根切三公分段；蒜切片。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "冷鍋放培根，中小火慢慢煸到出油、邊緣微焦，不用另外加油。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下蒜片爆香，轉大火下高麗菜快炒到軟，撒黑胡椒。培根本身很鹹，不用再加鹽。"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "id": "r-onion-tomato-soup",
+  "name": "洋蔥番茄湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 30,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "洋蔥",
+      "label": "洋蔥（切絲）",
+      "grams": 250,
+      "track": "base"
+    },
+    {
+      "food": "牛番茄",
+      "label": "牛番茄（切塊）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔（切塊）",
+      "grams": 100,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "橄欖油",
+      "label": "橄欖油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "洋蔥切絲；番茄底部劃十字，滾水燙三十秒去皮切塊；胡蘿蔔切小塊。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中下油，洋蔥中小火炒五分鐘到轉褐色，這是湯甜味的來源。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下番茄與胡蘿蔔炒兩分鐘，加 1200 毫升水煮滾，小火煮十五分鐘，加鹽。"
+    }
+  ]
+}

@@ -259,6 +259,8 @@ a.row { color: inherit; text-decoration: none; }
   border-top: 1px solid var(--line);
 }
 .pref-row:first-child { border-top: 0; }
+.pref-row .chip-row { flex: 0 1 auto; justify-content: flex-end; }
+.sub-title { margin: 8px 0 0; font-size: 0.95em; font-weight: 700; }
 .pref-main { flex: 1; min-width: 0; }
 .pref-label { margin: 0; font-weight: 600; }
 .switch {
@@ -296,6 +298,9 @@ a.row { color: inherit; text-decoration: none; }
   display: flex;
   background: var(--bg-card);
   border-top: 1px solid var(--line);
+  /* 高度要**含邊框**（box-sizing: border-box），--tabbar-h 才真的等於這條列的外高；
+     不然分頁列 63px、#app 只留 62px，最後一張卡片會被蓋掉 1px（pwatest 量出來的）。 */
+  height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .tab {
@@ -305,7 +310,7 @@ a.row { color: inherit; text-decoration: none; }
   align-items: center;
   justify-content: center;
   gap: 2px;
-  min-height: var(--tabbar-h);
+  min-height: 44px;   /* 觸控下限；實際高度由 #tabbar 撐滿（align-items 預設 stretch） */
   text-decoration: none;
   color: var(--fg-muted);
   font-size: 0.78em;

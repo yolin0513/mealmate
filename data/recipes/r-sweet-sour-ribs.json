@@ -1,0 +1,88 @@
+{
+  "id": "r-sweet-sour-ribs",
+  "name": "糖醋排骨",
+  "role": "main",
+  "servings": 4,
+  "time": 40,
+  "method": "braise",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "豬小排",
+      "label": "豬小排",
+      "grams": 600,
+      "track": "base"
+    },
+    {
+      "food": "洋蔥",
+      "label": "洋蔥（切塊）",
+      "grams": 100,
+      "track": "base"
+    },
+    {
+      "food": "甜椒",
+      "label": "甜椒（切塊）",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "糖",
+      "label": "糖",
+      "grams": 35,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "烏醋",
+      "label": "烏醋",
+      "grams": 30,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 25,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "番茄醬",
+      "label": "番茄醬",
+      "grams": 30,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "排骨剁小塊，用滾水汆燙兩分鐘洗淨；洋蔥、甜椒切塊。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，排骨煎到表面上色。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加醬油、糖、番茄醬與 400 毫升水，煮滾後小火燉二十五分鐘到排骨軟。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下洋蔥與甜椒煮三分鐘，轉大火收汁，起鍋前淋烏醋拌勻。"
+    }
+  ]
+}

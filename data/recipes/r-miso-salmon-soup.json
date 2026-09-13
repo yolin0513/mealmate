@@ -1,0 +1,72 @@
+{
+  "id": "r-miso-salmon-soup",
+  "name": "味噌鮭魚湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 25,
+  "method": "soup",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "鮭魚",
+      "label": "鮭魚（切塊）",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "白蘿蔔",
+      "label": "白蘿蔔（切薄片）",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "嫩豆腐",
+      "label": "嫩豆腐（切丁）",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "味噌",
+      "label": "味噌",
+      "grams": 50,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "青蔥",
+      "label": "青蔥（切蔥花）",
+      "grams": 10,
+      "track": "base"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "鮭魚切塊，用滾水快速淋一次去腥；白蘿蔔切薄片；豆腐切丁。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中放 1200 毫升水、白蘿蔔與薑絲，煮滾後小火煮八分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下鮭魚與豆腐煮五分鐘；味噌先用一勺熱湯化開再倒回鍋，關火不要再煮滾。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "撒蔥花上桌。"
+    }
+  ]
+}

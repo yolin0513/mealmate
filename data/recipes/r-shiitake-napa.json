@@ -1,0 +1,68 @@
+{
+  "id": "r-shiitake-napa",
+  "name": "香菇炒白菜",
+  "role": "side",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    11,
+    12,
+    1,
+    2,
+    3
+  ],
+  "ingredients": [
+    {
+      "food": "大白菜",
+      "label": "大白菜（切片）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "乾香菇",
+      "label": "乾香菇（泡軟切絲）",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔絲",
+      "grams": 50,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "乾香菇溫水泡軟切絲，泡菇水留著；大白菜切片，梗葉分開；胡蘿蔔切絲。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油炒香菇絲，香味出來後下白菜梗與胡蘿蔔。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加泡菇水約 100 毫升，蓋鍋煮三分鐘，再下白菜葉煮到全軟，加鹽。"
+    }
+  ]
+}

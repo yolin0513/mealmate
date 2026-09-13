@@ -1,0 +1,61 @@
+{
+  "id": "r-clam-winter-melon-soup",
+  "name": "蛤蜊冬瓜湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 25,
+  "method": "soup",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "ingredients": [
+    {
+      "food": "冬瓜",
+      "label": "冬瓜（切塊）",
+      "grams": 500,
+      "track": "base"
+    },
+    {
+      "food": "文蛤",
+      "label": "蛤蜊（吐過沙）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 2,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "蛤蜊泡淡鹽水吐沙至少一小時；冬瓜削皮去籽切塊；薑切絲。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中放 1200 毫升水、冬瓜與薑絲，煮滾後小火煮十二分鐘到冬瓜透明。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "轉大火，下蛤蜊，殼一開就關火。蛤蜊本身有鹹味，先試味道再決定要不要加鹽。"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "id": "r-sprout-dried-tofu",
+  "name": "銀芽炒豆干",
+  "role": "main",
+  "servings": 4,
+  "time": 12,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "綠豆芽",
+      "label": "綠豆芽",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "五香豆干",
+      "label": "五香豆干（切絲）",
+      "grams": 250,
+      "track": "base"
+    },
+    {
+      "food": "韭菜",
+      "label": "韭菜（切段）",
+      "grams": 80,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "豆芽菜洗淨瀝乾；豆干切細絲；韭菜切段。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，豆干絲炒到微焦。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "轉大火下豆芽菜快炒一分鐘，下韭菜再炒三十秒，加鹽起鍋。豆芽菜炒久會出水軟爛，動作要快。"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "id": "r-celery-dried-tofu",
+  "name": "芹菜炒豆干",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "芹菜",
+      "label": "芹菜（切段）",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "五香豆干",
+      "label": "五香豆干（切片）",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔片",
+      "grams": 50,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "芹菜去葉切段；豆干切薄片；胡蘿蔔切片。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，先炒豆干與胡蘿蔔兩分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下芹菜大火炒一分半，加鹽起鍋，芹菜要保持脆。"
+    }
+  ]
+}

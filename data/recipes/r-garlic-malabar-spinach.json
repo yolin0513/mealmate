@@ -1,0 +1,64 @@
+{
+  "id": "r-garlic-malabar-spinach",
+  "name": "蒜炒皇宮菜",
+  "role": "side",
+  "servings": 4,
+  "time": 10,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "alliumOptional": true,
+  "ingredients": [
+    {
+      "food": "皇宮菜",
+      "label": "皇宮菜",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "大蒜",
+      "label": "蒜末（可省略）",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "皇宮菜摘取嫩葉與嫩梗，老梗不要；蒜切末，不吃蒜改薑絲。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香蒜末。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下皇宮菜大火快炒到軟，加鹽。這道菜會出黏液，那是正常的。"
+    }
+  ]
+}

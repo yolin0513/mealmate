@@ -35,6 +35,7 @@
     "todaytest": "node scripts/todaytest.mjs",
     "layouttest": "node scripts/layouttest.mjs",
     "uikittest": "node scripts/uikittest.mjs",
+    "pwatest": "node scripts/pwatest.mjs",
     "racetest": "node scripts/racetest.mjs",
     "versionmixtest": "node scripts/versionmixtest.mjs",
     "shelltest": "node scripts/shelltest.mjs",
@@ -43,7 +44,7 @@
     "backuptest": "node scripts/backuptest.mjs",
     "weekviewtest": "node scripts/weekviewtest.mjs",
     "mutationtest": "node scripts/mutationtest.mjs",
-    "test": "node scripts/datatest.mjs && node scripts/aliastest.mjs && node scripts/unittest.mjs && node scripts/edutest.mjs && node scripts/recipetest.mjs && node scripts/copytest.mjs && node scripts/membertest.mjs && node scripts/nutritiontest.mjs && node scripts/plannertest.mjs && node scripts/shoppingtest.mjs && node scripts/timelinetest.mjs && node scripts/shelltest.mjs && node scripts/familytest.mjs && node scripts/recipeviewtest.mjs && node scripts/backuptest.mjs && node scripts/weekviewtest.mjs && node scripts/shoppingviewtest.mjs && node scripts/todaytest.mjs && node scripts/racetest.mjs && node scripts/versionmixtest.mjs && node scripts/layouttest.mjs && node scripts/uikittest.mjs && node scripts/mutationtest.mjs"
+    "test": "node scripts/datatest.mjs && node scripts/aliastest.mjs && node scripts/unittest.mjs && node scripts/edutest.mjs && node scripts/recipetest.mjs && node scripts/copytest.mjs && node scripts/membertest.mjs && node scripts/nutritiontest.mjs && node scripts/plannertest.mjs && node scripts/shoppingtest.mjs && node scripts/timelinetest.mjs && node scripts/shelltest.mjs && node scripts/familytest.mjs && node scripts/recipeviewtest.mjs && node scripts/backuptest.mjs && node scripts/weekviewtest.mjs && node scripts/shoppingviewtest.mjs && node scripts/todaytest.mjs && node scripts/racetest.mjs && node scripts/versionmixtest.mjs && node scripts/layouttest.mjs && node scripts/uikittest.mjs && node scripts/pwatest.mjs && node scripts/mutationtest.mjs"
   },
   "devDependencies": {
     "puppeteer": "23.11.1"

@@ -1,0 +1,83 @@
+{
+  "id": "r-salt-crispy-chicken",
+  "name": "鹽酥雞",
+  "role": "main",
+  "servings": 4,
+  "time": 35,
+  "method": "deepfry",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "notes": "油炸的吸油量因鍋溫與裹粉厚度而異，這裡的油只是估計；營養標示本來就沒有計入烹調變化。",
+  "ingredients": [
+    {
+      "food": "去骨雞腿",
+      "label": "去骨雞腿（切塊）",
+      "grams": 500,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "五香粉",
+      "label": "五香粉",
+      "grams": 2,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "太白粉",
+      "label": "太白粉",
+      "grams": 80,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油（吸附量估計）",
+      "grams": 35,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "九層塔",
+      "label": "九層塔",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "白胡椒粉",
+      "label": "白胡椒粉",
+      "grams": 2,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "雞腿切三公分塊，用醬油與五香粉抓醃二十分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "每塊沾上太白粉，靜置三分鐘讓粉返潮（才不會一炸就掉粉）。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "油溫 170 度分批下鍋炸四分鐘撈起。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "油溫升到 190 度回炸四十秒逼油，最後放九層塔炸五秒，一起撈起撒白胡椒粉。"
+    }
+  ]
+}

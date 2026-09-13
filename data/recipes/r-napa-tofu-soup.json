@@ -1,0 +1,67 @@
+{
+  "id": "r-napa-tofu-soup",
+  "name": "白菜豆腐湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 20,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    11,
+    12,
+    1,
+    2,
+    3
+  ],
+  "ingredients": [
+    {
+      "food": "大白菜",
+      "label": "大白菜（切片）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "嫩豆腐",
+      "label": "嫩豆腐（切丁）",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "乾香菇",
+      "label": "乾香菇（泡軟切絲）",
+      "grams": 12,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 8,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "大白菜切片，梗葉分開；豆腐切丁；乾香菇泡軟切絲，泡菇水留著。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中放 1200 毫升水、泡菇水、香菇絲與薑片煮滾，下白菜梗煮五分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下白菜葉與豆腐再煮五分鐘到白菜全軟，加鹽。"
+    }
+  ]
+}

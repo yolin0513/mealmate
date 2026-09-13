@@ -1,0 +1,100 @@
+{
+  "id": "r-bokchoy-shiitake-split",
+  "name": "青江菜炒香菇肉絲／青江菜炒香菇",
+  "role": "main",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 18,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "青江菜",
+      "label": "青江菜（切段）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "鮮香菇",
+      "label": "鮮香菇（切片）",
+      "grams": 150,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 12,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 18,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "乾香菇",
+      "label": "乾香菇（泡軟切絲）",
+      "grams": 10,
+      "track": "veg"
+    },
+    {
+      "food": "豬肉片",
+      "label": "豬里肌肉絲",
+      "grams": 200,
+      "track": "meat"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 12,
+      "track": "meat",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "青江菜切段，梗葉分開；鮮香菇切片；乾香菇泡軟切絲；肉切絲用醬油抓醃五分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香薑絲，下鮮香菇炒香，再下青江菜梗炒兩分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下青江菜葉炒到全部變軟，加鹽拌勻。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "先盛出素食成員要吃的份量到另一個鍋子（依吃素的人數分）。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：加入泡軟的乾香菇絲與兩大匙泡菇水，再炒一分鐘。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：加入醃過的肉絲，炒到肉全部變白就起鍋。"
+    }
+  ]
+}

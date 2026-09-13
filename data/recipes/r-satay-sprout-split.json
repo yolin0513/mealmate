@@ -1,0 +1,102 @@
+{
+  "id": "r-satay-sprout-split",
+  "name": "沙茶炒豆芽牛肉／沙茶炒豆芽豆干",
+  "role": "main",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "綠豆芽",
+      "label": "綠豆芽",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "韭菜",
+      "label": "韭菜（切段）",
+      "grams": 100,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 18,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "五香豆干",
+      "label": "五香豆干（切條）",
+      "grams": 150,
+      "track": "veg"
+    },
+    {
+      "food": "醬油膏",
+      "label": "醬油膏",
+      "grams": 15,
+      "track": "veg",
+      "pantry": true
+    },
+    {
+      "food": "牛肉片",
+      "label": "牛肉片",
+      "grams": 250,
+      "track": "meat"
+    },
+    {
+      "food": "沙茶醬",
+      "label": "沙茶醬",
+      "grams": 25,
+      "track": "meat",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "豆芽菜洗淨瀝乾；韭菜切段；豆干切條；牛肉片用一點沙茶醬抓過。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香薑絲，下豆芽菜大火快炒一分鐘，加鹽。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "先盛出素食成員要吃的份量（依吃素的人數分）。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：下豆干條與醬油膏炒香，最後下一半韭菜炒三十秒。沙茶醬含海鮮成分，素食這鍋不放。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：下牛肉片與沙茶醬大火快炒到變色，加剩下的韭菜拌勻。"
+    }
+  ]
+}

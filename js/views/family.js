@@ -78,6 +78,13 @@ export default async function familyView() {
     { key: 'fried', label: '避開油炸', hint: '烹法是油炸的菜不排' },
   ];
   const avoidNow = () => prefs.get('avoid') ?? { sweet: false, processed: false, fried: false };
+  // 不重複天數：早餐與主食刻意不給（PLAN §2 —— 白飯、稀飯本來就天天吃，納入計分只會逼出怪菜單）
+  const NO_REPEAT = [
+    { key: 'main', label: '主菜', options: [7, 14, 21] },
+    { key: 'side', label: '配菜', options: [3, 7, 14] },
+    { key: 'soup', label: '湯', options: [3, 7, 14] },
+  ];
+  const noRepeatNow = () => prefs.get('noRepeatDays') ?? {};
   const rulesCard = h('section', { class: 'card', dataset: { card: 'rules' } },
     h('h2', { class: 'card-title' }, '排菜規則'),
     h('p', { class: 'muted sm' }, '家人的慢性病留意項目只會讓某些菜往後排、不會排除。下面這幾個開關才會把菜整個拿掉——由你決定，預設全關。'),
@@ -85,6 +92,17 @@ export default async function familyView() {
       label: a.label, hint: a.hint, checked: avoidNow()[a.key] === true, key: `avoid-${a.key}`,
       onChange: async (on) => { await prefs.set('avoid', { ...avoidNow(), [a.key]: on }); refresh(); },
     })),
+    h('h3', { class: 'sub-title' }, '幾天內不重複'),
+    h('p', { class: 'muted sm' }, '排菜時會盡量隔這麼多天才再排同一道。符合條件的菜不夠時還是會重複，本週頁會寫出來是哪幾道。'),
+    ...NO_REPEAT.map((n) => h('div', { class: 'pref-row' },
+      h('div', { class: 'pref-main' }, h('p', { class: 'pref-label' }, n.label)),
+      chips({
+        options: n.options.map((d) => ({ value: d, label: `${d} 天` })),
+        value: noRepeatNow()[n.key] ?? n.options[0], name: `noRepeat-${n.key}`,
+        onChange: async (v) => { await prefs.set('noRepeatDays', { ...noRepeatNow(), [n.key]: v }); refresh(); },
+      }),
+    )),
+    h('p', { class: 'muted xs' }, '早餐與主食不算不重複——白飯、稀飯本來就會天天出現。'),
     h('p', { class: 'muted xs' }, '改了之後下次「產生」或「重新產生」才會生效。'),
   );
 

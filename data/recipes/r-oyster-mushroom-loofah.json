@@ -1,0 +1,68 @@
+{
+  "id": "r-oyster-mushroom-loofah",
+  "name": "秀珍菇炒絲瓜",
+  "role": "side",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "ingredients": [
+    {
+      "food": "絲瓜",
+      "label": "絲瓜（切塊）",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "秀珍菇",
+      "label": "秀珍菇",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "絲瓜削皮切塊；秀珍菇撕成小朵；薑切絲。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香薑絲，下秀珍菇炒到出水。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下絲瓜炒勻，蓋鍋中小火悶五分鐘到透軟，加鹽。絲瓜本身會出水，不必再加水。"
+    }
+  ]
+}

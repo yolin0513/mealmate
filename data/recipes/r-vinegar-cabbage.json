@@ -1,0 +1,70 @@
+{
+  "id": "r-vinegar-cabbage",
+  "name": "醋溜高麗菜",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    11,
+    12,
+    1,
+    2,
+    3,
+    4
+  ],
+  "ingredients": [
+    {
+      "food": "高麗菜",
+      "label": "高麗菜（手撕大片）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔片",
+      "grams": 40,
+      "track": "base"
+    },
+    {
+      "food": "烏醋",
+      "label": "烏醋",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "高麗菜用手撕成大片，比刀切更容易入味；胡蘿蔔切薄片。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，胡蘿蔔先炒半分鐘，下高麗菜大火快炒。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "菜葉邊緣變軟時沿鍋邊淋烏醋，加鹽拌勻馬上起鍋。醋要最後放，香氣才留得住。"
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "id": "r-dried-tofu-pork-split",
+  "name": "豆干炒肉絲／豆干炒芹菜",
+  "role": "main",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 18,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "五香豆干",
+      "label": "五香豆干（切絲）",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔絲",
+      "grams": 80,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑末",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 18,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "芹菜",
+      "label": "芹菜（切段）",
+      "grams": 120,
+      "track": "veg"
+    },
+    {
+      "food": "豬肉片",
+      "label": "豬里肌肉絲",
+      "grams": 200,
+      "track": "meat"
+    },
+    {
+      "food": "太白粉",
+      "label": "太白粉",
+      "grams": 5,
+      "track": "meat",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "豆干切細絲；胡蘿蔔切絲；芹菜切段；肉絲用太白粉抓一下比較嫩。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香薑末，下豆干絲與胡蘿蔔絲炒三分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加醬油炒勻上色。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "先盛出素食成員要吃的份量（依吃素的人數分）。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：下芹菜段大火炒一分半就好，保持脆度。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：下肉絲炒到全熟，需要的話再補一點醬油。"
+    }
+  ]
+}

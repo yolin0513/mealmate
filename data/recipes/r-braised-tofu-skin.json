@@ -1,0 +1,74 @@
+{
+  "id": "r-braised-tofu-skin",
+  "name": "滷豆皮",
+  "role": "main",
+  "servings": 4,
+  "time": 30,
+  "method": "braise",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "豆皮",
+      "label": "豆腐皮",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "乾香菇",
+      "label": "乾香菇（泡軟）",
+      "grams": 20,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔（切塊）",
+      "grams": 100,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 35,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "冰糖",
+      "label": "冰糖",
+      "grams": 8,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "八角",
+      "label": "八角",
+      "grams": 1,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "豆皮切成適口大小；乾香菇泡軟，泡菇水留著；胡蘿蔔切塊。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中放醬油、冰糖、八角、泡菇水與清水共約 400 毫升，煮滾。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "放入豆皮、香菇與胡蘿蔔，小火滷二十分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "關火後泡在滷汁裡十分鐘更入味。"
+    }
+  ]
+}

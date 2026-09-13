@@ -1,0 +1,68 @@
+{
+  "id": "r-daikon-shiitake",
+  "name": "白蘿蔔燉香菇",
+  "role": "side",
+  "servings": 4,
+  "time": 30,
+  "method": "braise",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    11,
+    12,
+    1,
+    2,
+    3
+  ],
+  "ingredients": [
+    {
+      "food": "白蘿蔔",
+      "label": "白蘿蔔（切塊）",
+      "grams": 500,
+      "track": "base"
+    },
+    {
+      "food": "乾香菇",
+      "label": "乾香菇（泡軟）",
+      "grams": 20,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 2,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "白蘿蔔削皮切滾刀塊；乾香菇泡軟，泡菇水留著。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中放蘿蔔、香菇、薑片、醬油、泡菇水與清水淹過食材。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "煮滾後轉小火燉二十分鐘到蘿蔔透明軟透，試味道再決定要不要加鹽。"
+    }
+  ]
+}

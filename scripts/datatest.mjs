@@ -8,7 +8,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, noneOf, everyOf, detects } from './tap.mjs';
-import { transform, num, parseUnitWeight, splitAliases, sampleState, NUTRIENT_KEYS } from './build-foods.mjs';
+import { transform, num, parseUnitWeight, splitAliases, sampleState, NUTRIENT_KEYS, nutrientOrder } from './build-foods.mjs';
+import { indexFoods, NUTRIENT_ORDER } from '../js/foods.js';
 import { fmtEst, fmtNum, NOT_ESTIMATED, NO_VALUE } from '../js/ui.js';
 import { DEFAULTS } from '../js/prefs.js';
 
@@ -48,16 +49,20 @@ const rice = sampleFoods[0];
 eq(rice.id, 'A0550601', 'id');
 eq(rice.name, '白飯', '名稱');
 eq(rice.state, '熟', '樣品狀態');
-eq(rice.n.kcal, 183, '熱量 183');
-eq(rice.n.protein, 3.1, '粗蛋白 3.1');
-eq(rice.n.carb, 41, '總碳水化合物 41');
-eq(rice.n.sodium, 2, '鈉 2');
-eq(rice.n.potassium, 40, '鉀 40');
-eq(rice.n.phosphorus, 39, '磷 39');
-eq(rice.n.sugar, null, '糖質總量原始值為空 → null');
-ok(rice.n.sugar !== 0, '（對照）而且不是 0 —— 「不知道」不可以變成「沒有」');
-eq(rice.n.cholesterol, null, '膽固醇原始值為空 → null');
-eq(Object.keys(rice.n).sort(), Object.values(NUTRIENT_KEYS).sort(), '剛好 12 個營養素 key，維生素那一列沒有混進來');
+// n 是陣列，順序＝nutrientOrder()（也會寫進 foods.json 的 nutrients 欄位）
+const nObj = (f) => Object.fromEntries(nutrientOrder().map((k, i) => [k, f.n[i] ?? null]));
+const riceN = nObj(rice);
+eq(riceN.kcal, 183, '熱量 183');
+eq(riceN.protein, 3.1, '粗蛋白 3.1');
+eq(riceN.carb, 41, '總碳水化合物 41');
+eq(riceN.sodium, 2, '鈉 2');
+eq(riceN.potassium, 40, '鉀 40');
+eq(riceN.phosphorus, 39, '磷 39');
+eq(riceN.sugar, null, '糖質總量原始值為空 → null');
+ok(riceN.sugar !== 0, '（對照）而且不是 0 —— 「不知道」不可以變成「沒有」');
+eq(riceN.cholesterol, null, '膽固醇原始值為空 → null');
+eq(rice.n.length, 12, '剛好 12 個營養值，維生素那一列沒有混進來');
+eq(Object.keys(riceN).sort(), Object.values(NUTRIENT_KEYS).sort(), '還原成物件後就是那 12 個 key');
 eq(rice.unitWeight, null, '每單位重 0.0克 → null');
 eq(sampleUnits.kcal, 'kcal', '單位表記到 kcal');
 eq(sampleUnits.sodium, 'mg', '鈉的單位是 mg');
@@ -92,17 +97,31 @@ ok(real.source?.license === '政府資料開放授權條款－第1版', '記了�
 ok(real.foods.length >= 2000, `食材 ${real.foods.length} 筆（≥ 2000）`);
 const realNames = real.foods.map((f) => f.name);
 eq(new Set(realNames).size, realNames.length, '沒有兩筆同顯示名');
-everyOf(real.foods, (f) => Object.keys(f.n).length === 12 && Object.values(NUTRIENT_KEYS).every((k) => k in f.n), '每一筆都有 12 個營養素 key（值可以是 null）');
-everyOf(real.foods, (f) => Object.values(f.n).every((v) => v === null || (typeof v === 'number' && Number.isFinite(v))), '每個值不是 null 就是有限數字');
+// 檔案裡每筆的 n 是**陣列**（12 個鍵名重複 2,151 次會佔掉整個檔案三分之一：686KB → 415KB）。
+// 順序由檔案自己的 nutrients 欄位宣告，讀檔端照它還原 —— 建檔端與讀檔端各自寫死一份順序的話，
+// 每個營養值都會錯位，而且畫面上看起來還是一個合理的數字。下面三條就是在守這個契約。
+eq(real.nutrients, nutrientOrder(), 'foods.json 宣告的營養值順序＝build-foods 產生時用的順序');
+eq(real.nutrients, NUTRIENT_ORDER, '也跟畫面顯示用的 NUTRIENT_ORDER 一致');
+everyOf(real.foods, (f) => Array.isArray(f.n) && f.n.length === 12, '每一筆都是 12 個營養值的陣列（值可以是 null）');
+everyOf(real.foods, (f) => f.n.every((v) => v === null || (typeof v === 'number' && Number.isFinite(v))), '每個值不是 null 就是有限數字');
 everyOf(real.foods, (f) => Array.isArray(f.aliases) && typeof f.cat === 'string' && f.cat.length > 0, '每一筆都有 aliases 陣列與分類');
-const nullSugar = real.foods.filter((f) => f.n.sugar === null).length;
+noneOf(real.foods, (f) => 'wasteRate' in f, '沒有 App 用不到的欄位（廢棄率）');
+// 以下用 indexFoods 還原成 App 看到的樣子再驗值
+const realIdx = indexFoods(real, { aliases: {} });
+const sugarIdx = real.nutrients.indexOf('sugar');
+const nullSugar = realIdx.list.filter((f) => f.n.sugar === null).length;
 ok(nullSugar > 100, `（母體）真的有 ${nullSugar} 筆糖質總量是 null —— 空值沒有被轉成 0 這件事在真資料上有意義`);
-noneOf(real.foods.filter((f) => f.n.sugar === null), (f) => f.n.sugar === 0, '（同一批）沒有任何一筆把 null 寫成 0');
+noneOf(realIdx.list.filter((f) => f.n.sugar === null), (f) => f.n.sugar === 0, '（同一批）沒有任何一筆把 null 寫成 0');
+eq(real.foods.filter((f) => f.n[sugarIdx] === null).length, nullSugar, '檔案裡的 null 個數跟還原後一樣（還原沒有把 null 變成別的東西）');
 const sortedEntries = (o) => Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 eq(sortedEntries(real.units), sortedEntries({ kcal: 'kcal', protein: 'g', fat: 'g', satFat: 'g', carb: 'g', sugar: 'g', fiber: 'g', sodium: 'mg', potassium: 'mg', phosphorus: 'mg', calcium: 'mg', cholesterol: 'mg' }), '單位表跟畫面假設一致（熱量 kcal、三大營養素與纖維糖 g、礦物質與膽固醇 mg）');
-const realRice = real.foods.find((f) => f.id === 'A0550601');
+const realRice = realIdx.byId.get('A0550601');
 ok(realRice && realRice.name === '白飯', '真資料裡有白飯 A0550601');
 eq([realRice.n.kcal, realRice.n.protein, realRice.n.carb, realRice.n.sodium, realRice.n.potassium, realRice.n.phosphorus], [183, 3.1, 41, 2, 40, 39], '白飯的六個值跟 FEASIBILITY §1.4 實測一致');
+// 錯位的話這一條會紅：拿另一筆手動查過的資料當第二個對照點
+const realEgg = realIdx.byId.get('K01001');
+ok(realEgg, `（對照）雞蛋平均值 K01001 也在：${realEgg?.name}`);
+everyOf(['kcal', 'protein', 'fat'], (k) => typeof realEgg.n[k] === 'number' && realEgg.n[k] > 0, '雞蛋的熱量、蛋白質、脂肪都是正數（不是被錯位成 0 或 null）');
 everyOf(real.foods.filter((f) => f.unitWeight != null), (f) => f.unitWeight > 0, '有每單位重的都是正數（0 已經變 null）');
 ok(real.foods.filter((f) => f.unitWeight != null).length > 1000, '（母體）有每單位重的超過 1000 筆');
 

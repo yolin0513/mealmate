@@ -1,0 +1,107 @@
+{
+  "id": "r-kale-beef-split",
+  "name": "芥藍炒牛肉／芥藍炒杏鮑菇",
+  "role": "main",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 18,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "normal",
+  "season": [
+    11,
+    12,
+    1,
+    2,
+    3
+  ],
+  "ingredients": [
+    {
+      "food": "芥藍菜",
+      "label": "芥藍菜（切段）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 12,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 18,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "杏鮑菇",
+      "label": "杏鮑菇（切片）",
+      "grams": 200,
+      "track": "veg"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 12,
+      "track": "veg",
+      "pantry": true
+    },
+    {
+      "food": "牛肉片",
+      "label": "牛肉片",
+      "grams": 250,
+      "track": "meat"
+    },
+    {
+      "food": "蠔油",
+      "label": "蠔油",
+      "grams": 20,
+      "track": "meat",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "芥藍菜切段，梗葉分開，梗較粗的斜切；杏鮑菇切片；牛肉片備好。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "滾水加一小匙鹽，芥藍梗燙一分鐘、葉子燙三十秒，撈起瀝乾（先燙過顏色比較綠、也去掉一點苦味）。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香薑片，下芥藍炒勻，加鹽。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "先盛出素食成員要吃的份量（依吃素的人數分）。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：下杏鮑菇片與醬油炒到菇軟。蠔油含蠔汁，素食這鍋不放。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：下牛肉片大火炒到變色，加蠔油拌勻起鍋。"
+    }
+  ]
+}

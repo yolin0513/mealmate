@@ -1,0 +1,73 @@
+{
+  "id": "r-corn-chowder",
+  "name": "玉米濃湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 30,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "玉米粒",
+      "label": "玉米粒",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "馬鈴薯",
+      "label": "馬鈴薯（切丁）",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "洋蔥",
+      "label": "洋蔥（切丁）",
+      "grams": 100,
+      "track": "base"
+    },
+    {
+      "food": "鮮乳",
+      "label": "鮮乳",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "馬鈴薯削皮切小丁；洋蔥切丁；玉米粒瀝乾，留三分之一最後放。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中下油炒洋蔥到透明，加馬鈴薯與 700 毫升水，煮滾後小火煮十五分鐘到馬鈴薯鬆軟。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加三分之二的玉米粒，用湯匙壓碎馬鈴薯讓湯變濃（不用打成泥也可以）。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "倒入鮮乳與剩下的玉米粒，小火加熱到冒小泡就關火，加鹽。牛奶不要煮滾才不會結塊。"
+    }
+  ]
+}

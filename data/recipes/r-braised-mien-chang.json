@@ -1,0 +1,74 @@
+{
+  "id": "r-braised-mien-chang",
+  "name": "紅燒麵腸",
+  "role": "main",
+  "servings": 4,
+  "time": 25,
+  "method": "braise",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "麵腸",
+      "label": "麵腸（切段）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔（切塊）",
+      "grams": 100,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 30,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "糖",
+      "label": "糖",
+      "grams": 6,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "麵腸斜切成段；胡蘿蔔切滾刀塊；薑切片。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，麵腸煎到表面微焦，這樣燒的時候比較不會散。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下薑片、胡蘿蔔炒香，加醬油、糖與 250 毫升水。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "煮滾後轉小火燒十五分鐘，中間翻面一次，收汁到湯汁濃稠。"
+    }
+  ]
+}

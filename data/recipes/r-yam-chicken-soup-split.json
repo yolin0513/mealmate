@@ -1,0 +1,82 @@
+{
+  "id": "r-yam-chicken-soup-split",
+  "name": "山藥雞湯／山藥豆腐湯",
+  "role": "soup",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 45,
+  "method": "soup",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "山藥",
+      "label": "山藥（切塊）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 12,
+      "track": "base"
+    },
+    {
+      "food": "枸杞",
+      "label": "枸杞",
+      "grams": 8,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "板豆腐",
+      "label": "板豆腐（切塊）",
+      "grams": 200,
+      "track": "veg"
+    },
+    {
+      "food": "去骨雞腿",
+      "label": "去骨雞腿（切塊）",
+      "grams": 400,
+      "track": "meat"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "山藥削皮切塊（削皮時手容易癢，可戴手套）；薑切片；枸杞沖一下水。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "大鍋放 1400 毫升水與薑片煮滾，下山藥煮五分鐘。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "把湯底分成兩鍋，素食那鍋依吃素的人數分。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：加入豆腐塊與一半枸杞，小火煮十五分鐘，加鹽。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：雞腿塊先用滾水汆燙，加入湯裡與剩下的枸杞小火煮三十分鐘，加鹽。"
+    }
+  ]
+}

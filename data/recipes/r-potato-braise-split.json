@@ -1,0 +1,100 @@
+{
+  "id": "r-potato-braise-split",
+  "name": "馬鈴薯燉肉／馬鈴薯燉香菇",
+  "role": "main",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 40,
+  "method": "braise",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "馬鈴薯",
+      "label": "馬鈴薯（切塊）",
+      "grams": 500,
+      "track": "base"
+    },
+    {
+      "food": "洋蔥",
+      "label": "洋蔥（切絲）",
+      "grams": 150,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔（切塊）",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 35,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "味醂",
+      "label": "味醂",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鴻喜菇",
+      "label": "鴻喜菇",
+      "grams": 120,
+      "track": "veg"
+    },
+    {
+      "food": "豬肉片",
+      "label": "豬五花肉片",
+      "grams": 300,
+      "track": "meat"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "馬鈴薯、胡蘿蔔削皮切塊；洋蔥切絲；鴻喜菇撥散。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中下油炒洋蔥到透明，加馬鈴薯與胡蘿蔔炒兩分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加醬油、味醂與 500 毫升水，煮滾後小火煮十分鐘。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "分成兩鍋，素食那鍋依吃素的人數分。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：加鴻喜菇再煮十分鐘到馬鈴薯鬆軟。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：加豬肉片撥散，煮十五分鐘到肉軟、湯汁收濃。"
+    }
+  ]
+}

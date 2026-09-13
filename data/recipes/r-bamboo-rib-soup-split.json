@@ -1,0 +1,82 @@
+{
+  "id": "r-bamboo-rib-soup-split",
+  "name": "竹筍排骨湯／竹筍昆布湯",
+  "role": "soup",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 50,
+  "method": "soup",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "ingredients": [
+    {
+      "food": "綠竹筍",
+      "label": "綠竹筍（切滾刀塊）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "昆布",
+      "label": "昆布（切段）",
+      "grams": 20,
+      "track": "veg"
+    },
+    {
+      "food": "豬小排",
+      "label": "豬小排",
+      "grams": 400,
+      "track": "meat"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "綠竹筍剝殼削皮、切滾刀塊；昆布用濕布擦過、剪成段；排骨滾水汆燙兩分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "大鍋放 1500 毫升水與竹筍、薑片，煮滾後小火煮十分鐘。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "把湯底分成兩鍋，素食那鍋依吃素的人數分。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：放昆布小火煮二十分鐘（昆布不要煮滾太久會出黏液），加鹽。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：放排骨小火煮三十五分鐘，加鹽。"
+    }
+  ]
+}

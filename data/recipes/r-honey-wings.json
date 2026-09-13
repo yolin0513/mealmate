@@ -1,0 +1,75 @@
+{
+  "id": "r-honey-wings",
+  "name": "蜜汁雞翅",
+  "role": "main",
+  "servings": 4,
+  "time": 35,
+  "method": "braise",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "雞翅",
+      "label": "二節翅",
+      "grams": 600,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 35,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "糖",
+      "label": "糖",
+      "grams": 30,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "白芝麻",
+      "label": "熟白芝麻",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "雞翅洗淨擦乾，在兩面各劃一刀比較入味。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "平底鍋熱油，雞翅皮面朝下煎到金黃，翻面再煎兩分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加薑片、醬油、糖與 250 毫升水，蓋鍋小火燒十五分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "開蓋轉中大火，一邊翻動一邊收汁到醬汁裹在雞翅上，撒白芝麻。收汁時要顧著，糖多容易焦。"
+    }
+  ]
+}

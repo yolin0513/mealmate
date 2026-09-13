@@ -1,0 +1,68 @@
+{
+  "id": "r-whitebait-amaranth-soup",
+  "name": "魩仔魚莧菜湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 15,
+  "method": "soup",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "ingredients": [
+    {
+      "food": "白莧菜",
+      "label": "白莧菜（切段）",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "魩仔魚",
+      "label": "魩仔魚",
+      "grams": 80,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "香油",
+      "label": "香油",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "莧菜洗淨切段；魩仔魚用清水沖過瀝乾。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中放 1200 毫升水與薑絲煮滾，下魩仔魚煮兩分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下莧菜煮三分鐘到軟，加鹽與香油。"
+    }
+  ]
+}

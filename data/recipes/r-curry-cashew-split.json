@@ -1,0 +1,106 @@
+{
+  "id": "r-curry-cashew-split",
+  "name": "咖哩腰果雞丁／咖哩腰果豆腐",
+  "role": "main",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 35,
+  "method": "braise",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "洋蔥",
+      "label": "洋蔥（切丁）",
+      "grams": 150,
+      "track": "base"
+    },
+    {
+      "food": "馬鈴薯",
+      "label": "馬鈴薯（切塊）",
+      "grams": 250,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔（切塊）",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "咖哩粉",
+      "label": "咖哩粉",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 18,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "腰果",
+      "label": "腰果",
+      "grams": 60,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "板豆腐",
+      "label": "板豆腐（切塊）",
+      "grams": 250,
+      "track": "veg"
+    },
+    {
+      "food": "去骨雞腿",
+      "label": "去骨雞腿（切塊）",
+      "grams": 350,
+      "track": "meat"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "洋蔥切丁；馬鈴薯、胡蘿蔔切塊；腰果乾鍋小火烘香備用；豆腐與雞腿分別切塊。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中下油炒洋蔥到金黃，加咖哩粉炒三十秒出香味。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下馬鈴薯與胡蘿蔔炒勻，加 500 毫升水煮滾後小火煮十分鐘。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "分成兩鍋，素食那鍋依吃素的人數分。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：加豆腐塊煮十分鐘，加鹽，起鍋前撒一半腰果。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：加雞腿塊煮十五分鐘到雞肉熟透，加鹽，起鍋前撒剩下的腰果。"
+    }
+  ]
+}

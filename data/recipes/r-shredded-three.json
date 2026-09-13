@@ -1,0 +1,68 @@
+{
+  "id": "r-shredded-three",
+  "name": "素炒三絲",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "豆干絲",
+      "label": "豆干絲",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔絲",
+      "grams": 100,
+      "track": "base"
+    },
+    {
+      "food": "青椒",
+      "label": "青椒（切絲）",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "豆干絲用滾水燙一分鐘去豆味，瀝乾；胡蘿蔔、青椒切絲；薑切絲。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香薑絲，下胡蘿蔔絲炒兩分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下豆干絲與醬油炒勻，最後下青椒絲快炒一分鐘，保持脆度。"
+    }
+  ]
+}

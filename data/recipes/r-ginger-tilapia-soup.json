@@ -1,0 +1,62 @@
+{
+  "id": "r-ginger-tilapia-soup",
+  "name": "薑絲吳郭魚湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 25,
+  "method": "soup",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "吳郭魚",
+      "label": "吳郭魚（切塊）",
+      "grams": 500,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 20,
+      "track": "base"
+    },
+    {
+      "food": "白蘿蔔",
+      "label": "白蘿蔔（切絲）",
+      "grams": 150,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "白胡椒粉",
+      "label": "白胡椒粉",
+      "grams": 1,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "魚肉切塊沖洗乾淨；薑切細絲；白蘿蔔切絲。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中放 1200 毫升水、薑絲與蘿蔔絲，煮滾後小火煮八分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下魚塊中火煮六分鐘到魚肉轉白、可以用筷子分開，加鹽與白胡椒粉。煮魚湯不要一直翻動，魚肉才不會散。"
+    }
+  ]
+}

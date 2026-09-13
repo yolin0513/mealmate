@@ -1,0 +1,57 @@
+{
+  "id": "r-yam-salad",
+  "name": "涼拌山藥",
+  "role": "side",
+  "servings": 4,
+  "time": 15,
+  "method": "cold",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "山藥",
+      "label": "山藥（切條）",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "烏醋",
+      "label": "烏醋",
+      "grams": 8,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "白芝麻",
+      "label": "熟白芝麻",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "山藥削皮切成粗條。削皮時手容易癢，可以戴手套或先用水沖過。"
+    },
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "切好的山藥泡冷開水五分鐘，瀝乾。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "淋醬油與烏醋，撒白芝麻。生山藥口感脆，怕生的話滾水燙一分鐘再拌。"
+    }
+  ]
+}

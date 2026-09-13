@@ -1,0 +1,96 @@
+{
+  "id": "r-blackbean-oyster-split",
+  "name": "豆豉鮮蚵／豆豉豆腐",
+  "role": "main",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 20,
+  "method": "braise",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "豆豉",
+      "label": "豆豉",
+      "grams": 25,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "薑",
+      "label": "薑末",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "青蔥",
+      "label": "青蔥（切段）",
+      "grams": 20,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 18,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "板豆腐",
+      "label": "板豆腐（切塊）",
+      "grams": 300,
+      "track": "veg"
+    },
+    {
+      "food": "牡蠣",
+      "label": "鮮蚵",
+      "grams": 350,
+      "track": "meat"
+    },
+    {
+      "food": "太白粉",
+      "label": "太白粉",
+      "grams": 10,
+      "track": "meat",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "鮮蚵用薄鹽水輕輕洗過、瀝乾，裹上薄薄一層太白粉；豆腐切塊；豆豉稍微沖水；薑切末、蔥切段。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，薑末與豆豉小火炒香，加醬油與 150 毫升水煮滾。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "把豆豉湯汁分成兩鍋，素食那鍋依吃素的人數分。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：放豆腐塊小火燒五分鐘，撒一半蔥段。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：湯汁滾了再下鮮蚵，煮到邊緣捲起就關火（約兩分鐘，久煮會縮），撒剩下的蔥段。"
+    }
+  ]
+}

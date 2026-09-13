@@ -1,0 +1,62 @@
+{
+  "id": "r-enoki-egg-drop-soup",
+  "name": "金針菇蛋花湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 15,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "金針菇",
+      "label": "金針菇（切段）",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "雞蛋",
+      "label": "雞蛋",
+      "grams": 100,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔絲",
+      "grams": 50,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "香油",
+      "label": "香油",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "金針菇切掉根部撥散、對半切；胡蘿蔔切絲；蛋打散。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中放 1200 毫升水煮滾，下金針菇與胡蘿蔔絲煮五分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "轉小火，蛋液繞圈慢慢倒入，等十秒再輕輕推開就會是漂亮的蛋花，加鹽與香油。"
+    }
+  ]
+}

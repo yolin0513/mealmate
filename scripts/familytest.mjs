@@ -103,6 +103,24 @@ try {
   await clickEl(page, '[data-pref="avoid-sweet"]');
   await sleep(300);
 
+  section('不重複天數');
+  await page.waitForSelector('[data-chips="noRepeat-main"] .chip');
+  const groups = await page.$$eval('[data-card="rules"] [data-chips^="noRepeat-"]', (els) => els.map((e) => e.dataset.chips));
+  eq(groups, ['noRepeat-main', 'noRepeat-side', 'noRepeat-soup'], '主菜、配菜、湯各一組（早餐與主食刻意沒有：白飯稀飯本來就天天吃）');
+  eq(await page.$$eval('[data-chips="noRepeat-main"] .chip', (els) => els.map((e) => e.dataset.value)), ['7', '14', '21'], '主菜可以選 7／14／21 天');
+  eq(await page.$eval('[data-chips="noRepeat-main"] .chip.on', (el) => el.dataset.value), '14', '預設是 14 天（跟 prefs 的預設一致）');
+  const rulesText2 = await textOf(page, '[data-card="rules"]');
+  ok(rulesText2.includes('還是會重複'), '文案講明菜不夠時還是會重複，不是保證');
+  await clickEl(page, chipSel('noRepeat-main', '21'));
+  await sleep(300);
+  eq(await page.evaluate(async () => (await import('./js/prefs.js')).get('noRepeatDays')), { main: 21, side: 7, soup: 7, breakfast: 0, staple: 0 }, '只有主菜那一項變成 21，早餐與主食仍然是 0');
+  await page.reload({ waitUntil: 'networkidle0' });
+  await titleIs(page, '家人');
+  await page.waitForSelector('[data-chips="noRepeat-main"] .chip.on');
+  eq(await page.$eval('[data-chips="noRepeat-main"] .chip.on', (el) => el.dataset.value), '21', '重新載入後還是 21 天');
+  await clickEl(page, chipSel('noRepeat-main', '14'));
+  await sleep(300);
+
   section('字級：標準／大字／特大');
   await page.waitForSelector('[data-chips="fontScale"] .chip');
   const scaleOptions = await page.$$eval('[data-chips="fontScale"] .chip', (els) => els.map((e) => e.dataset.value));

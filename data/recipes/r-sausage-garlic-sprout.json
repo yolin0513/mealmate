@@ -1,0 +1,67 @@
+{
+  "id": "r-sausage-garlic-sprout",
+  "name": "香腸炒蒜苗",
+  "role": "main",
+  "servings": 4,
+  "time": 18,
+  "method": "stirfry",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [
+    11,
+    12,
+    1,
+    2
+  ],
+  "ingredients": [
+    {
+      "food": "香腸",
+      "label": "香腸",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "青蒜",
+      "label": "蒜苗（斜切片）",
+      "grams": 150,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "香腸先用電鍋蒸十分鐘或水煮八分鐘再切斜片，這樣不會外焦內生；蒜苗斜切，白綠分開。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下少許油，香腸片煎到兩面出油微焦，多餘的油倒掉一些。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下薑片與蒜苗白炒香，再下蒜苗綠與醬油，大火快炒三十秒起鍋。"
+    }
+  ]
+}

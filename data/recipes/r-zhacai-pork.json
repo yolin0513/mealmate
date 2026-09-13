@@ -1,0 +1,80 @@
+{
+  "id": "r-zhacai-pork",
+  "name": "榨菜炒肉絲",
+  "role": "main",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "榨菜",
+      "label": "榨菜（切絲）",
+      "grams": 150,
+      "track": "base"
+    },
+    {
+      "food": "豬肉片",
+      "label": "豬里肌肉絲",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "青椒",
+      "label": "青椒（切絲）",
+      "grams": 100,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "太白粉",
+      "label": "太白粉",
+      "grams": 6,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 18,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "糖",
+      "label": "糖",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "榨菜切絲，用清水泡十分鐘後擠乾（不泡會太鹹）；肉絲用太白粉抓過；青椒切絲。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，肉絲炒到變白先盛起。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "同鍋炒薑絲與榨菜絲兩分鐘，加糖拌勻。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "倒回肉絲，下青椒絲大火快炒一分鐘起鍋。這道本身鹹，不用加鹽。"
+    }
+  ]
+}

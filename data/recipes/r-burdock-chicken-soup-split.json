@@ -1,0 +1,81 @@
+{
+  "id": "r-burdock-chicken-soup-split",
+  "name": "牛蒡雞湯／牛蒡蘿蔔湯",
+  "role": "soup",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 50,
+  "method": "soup",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "牛蒡",
+      "label": "牛蒡（切斜片）",
+      "grams": 250,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔（切塊）",
+      "grams": 100,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "白蘿蔔",
+      "label": "白蘿蔔（切塊）",
+      "grams": 250,
+      "track": "veg"
+    },
+    {
+      "food": "去骨雞腿",
+      "label": "去骨雞腿（切塊）",
+      "grams": 400,
+      "track": "meat"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "牛蒡用刀背刮皮、切斜片泡水去澀；胡蘿蔔、白蘿蔔切塊；雞腿切塊。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "大鍋放 1500 毫升水、牛蒡、胡蘿蔔與薑片，煮滾後小火煮十分鐘。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "把湯底分成兩鍋，素食那鍋依吃素的人數分。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：加白蘿蔔小火煮二十分鐘到透明，加鹽。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：雞腿塊汆燙後放入，小火煮三十分鐘，加鹽。"
+    }
+  ]
+}

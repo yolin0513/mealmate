@@ -10,7 +10,14 @@
 // 搜「豬」會撈到「馬齒莧（俗名豬母乳）」、搜「雞」會撈到「鷹嘴豆」——那是搜尋，不是解析。
 
 export function indexFoods(foodsJson, aliasesJson) {
-  const list = foodsJson.foods;
+  // foods.json 裡每筆的 n 是**陣列**（12 個鍵名重複 2,151 次會佔掉整個檔案三分之一），
+  // 順序由檔案自己的 nutrients 欄位宣告 —— 讀檔時照那個順序還原成物件，
+  // 建檔端與讀檔端就不會各自寫死一份順序而悄悄對不上（那會讓每個營養值都錯位）。
+  const order = foodsJson.nutrients;
+  if (!Array.isArray(order) || order.length === 0) throw new Error('foods.json 缺 nutrients（營養值的欄位順序）');
+  const list = foodsJson.foods.map((f) => (Array.isArray(f.n)
+    ? { ...f, n: Object.fromEntries(order.map((k, i) => [k, f.n[i] ?? null])) }
+    : f));
   const byId = new Map(list.map((f) => [f.id, f]));
   const byName = new Map();
   const byAlias = new Map();

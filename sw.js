@@ -5,7 +5,7 @@
  *
  * 每次改動任何 SHELL 檔案都要 bump VERSION，否則使用者拿到的還是舊程式。
  */
-const VERSION = 'mealmate-v0.5.0';
+const VERSION = 'mealmate-v0.6.0';
 const SHELL = `${VERSION}-shell`;
 
 const SHELL_ASSETS = [
@@ -49,6 +49,7 @@ const SHELL_ASSETS = [
   './data/edu.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
 ];
 
 const SHELL_SET = new Set(SHELL_ASSETS.map((u) => new URL(u, self.location.href).pathname));

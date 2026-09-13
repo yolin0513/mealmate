@@ -1,0 +1,63 @@
+{
+  "id": "r-bitter-melon-salad",
+  "name": "涼拌苦瓜",
+  "role": "side",
+  "servings": 4,
+  "time": 20,
+  "method": "cold",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "ingredients": [
+    {
+      "food": "苦瓜",
+      "label": "白苦瓜（切薄片）",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "醬油膏",
+      "label": "醬油膏",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "香油",
+      "label": "香油",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "白芝麻",
+      "label": "熟白芝麻",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "苦瓜對半剖開，用湯匙把裡面的白膜刮乾淨（苦味主要在白膜），切薄片。"
+    },
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "薄片泡冰水十五分鐘，中間換一次水。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "瀝乾後淋醬油膏與香油，撒白芝麻。"
+    }
+  ]
+}

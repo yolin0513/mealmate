@@ -1,0 +1,88 @@
+{
+  "id": "r-daikon-braise-split",
+  "name": "白蘿蔔燉肉／白蘿蔔燉香菇",
+  "role": "main",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 50,
+  "method": "braise",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [
+    11,
+    12,
+    1,
+    2,
+    3
+  ],
+  "ingredients": [
+    {
+      "food": "白蘿蔔",
+      "label": "白蘿蔔（切塊）",
+      "grams": 600,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 40,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "冰糖",
+      "label": "冰糖",
+      "grams": 8,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "乾香菇",
+      "label": "乾香菇（泡軟）",
+      "grams": 25,
+      "track": "veg"
+    },
+    {
+      "food": "梅花肉",
+      "label": "豬梅花肉（切塊）",
+      "grams": 400,
+      "track": "meat"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "白蘿蔔削皮切滾刀塊；乾香菇泡軟，泡菇水留著；豬肉切塊用滾水汆燙。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "鍋中放白蘿蔔、薑片、醬油、冰糖與 600 毫升水（含泡菇水），煮滾。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "把湯汁與蘿蔔分成兩鍋，素食那鍋依吃素的人數分。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：加入香菇，小火燉二十五分鐘到蘿蔔透明。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：加入汆燙好的豬肉，小火燉四十分鐘到肉軟蘿蔔入味。"
+    }
+  ]
+}

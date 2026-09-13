@@ -51,6 +51,10 @@ export const NUTRIENT_KEYS = {
   '膽固醇': 'cholesterol',
 };
 
+/** 營養值在 foods.json 的 n 陣列裡的順序。**這個順序會寫進檔案的 nutrients 欄位**，
+ *  App 讀檔時照著檔案裡宣告的順序還原成物件 —— 兩邊不會各自寫死一份而悄悄對不上。 */
+export function nutrientOrder() { return Object.values(NUTRIENT_KEYS); }
+
 /** 空字串、null、非數字 → null（不是 0）。 */
 export function num(v) {
   if (v == null) return null;
@@ -114,14 +118,15 @@ export function transform(rows) {
         state: sampleState(r['內容物描述']),
         aliases: splitAliases(r['俗名'], name),
         unitWeight: parseUnitWeight(r['每單位重']),
-        wasteRate: num(r['廢棄率']),
-        n: Object.fromEntries(Object.values(NUTRIENT_KEYS).map((k) => [k, null])),
+        // n 是**陣列**，順序就是 nutrientOrder()（也會寫進 foods.json 的 nutrients 欄位）。
+        // 用陣列是為了不要把 12 個鍵名重複 2,151 次 —— 那佔了整個檔案的三分之一。
+        n: nutrientOrder().map(() => null),
       };
       byId.set(id, f);
     }
     const key = NUTRIENT_KEYS[String(r['分析項'] ?? '').trim()];
     if (!key) continue;
-    f.n[key] = num(r['每100克含量']);
+    f.n[nutrientOrder().indexOf(key)] = num(r['每100克含量']);
     const unit = String(r['含量單位'] ?? '').trim();
     if (unit) {
       if (units[key] && units[key] !== unit) {
@@ -240,7 +245,8 @@ async function main() {
     version,
     source: SOURCE,
     generatedAt: today(),
-    note: '每 100 克可食部位的含量；估計值，未計烹調變化。null 表示資料庫沒有該值（不是 0）。',
+    note: '每 100 克可食部位的含量；估計值，未計烹調變化。null 表示資料庫沒有該值（不是 0）。每筆的 n 是陣列，順序見 nutrients。',
+    nutrients: nutrientOrder(),
     units,
     foods,
   };

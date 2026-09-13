@@ -1,0 +1,62 @@
+{
+  "id": "r-woodear-egg",
+  "name": "木耳炒蛋",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "乾木耳",
+      "label": "乾木耳（泡發切絲）",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "雞蛋",
+      "label": "雞蛋",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔絲",
+      "grams": 40,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "乾木耳用冷水泡三十分鐘泡發，切絲；蛋打散加一小撮鹽。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，蛋液炒到半熟先盛起。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "同鍋炒木耳與胡蘿蔔絲兩分鐘，倒回蛋拌勻，加鹽起鍋。"
+    }
+  ]
+}

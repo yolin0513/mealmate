@@ -1,0 +1,63 @@
+{
+  "id": "r-snow-pea-stirfry",
+  "name": "蒜炒豌豆莢",
+  "role": "side",
+  "servings": 4,
+  "time": 10,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [
+    12,
+    1,
+    2,
+    3,
+    4
+  ],
+  "alliumOptional": true,
+  "ingredients": [
+    {
+      "food": "豌豆莢",
+      "label": "豌豆莢（荷蘭豆）",
+      "grams": 250,
+      "track": "base"
+    },
+    {
+      "food": "大蒜",
+      "label": "蒜片（可省略）",
+      "grams": 8,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "豌豆莢撕掉頭尾的筋；蒜切片，不吃蒜就省略。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香蒜片。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下豌豆莢大火炒一分半，加兩大匙水悶三十秒，加鹽起鍋，保持翠綠。"
+    }
+  ]
+}

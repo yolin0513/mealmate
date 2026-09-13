@@ -1,0 +1,62 @@
+{
+  "id": "r-pickled-mustard-tofu",
+  "name": "酸菜炒豆干",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "酸菜",
+      "label": "酸菜（切碎）",
+      "grams": 120,
+      "track": "base"
+    },
+    {
+      "food": "五香豆干",
+      "label": "五香豆干（切丁）",
+      "grams": 250,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑末",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "糖",
+      "label": "糖",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "酸菜切碎，先用清水泡十分鐘再擠乾，可以少一點鹹味；豆干切小丁。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香薑末，下酸菜炒兩分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下豆干丁炒勻，加糖平衡酸鹹，炒到豆干上色。這道本身鹹，不用再加鹽。"
+    }
+  ]
+}

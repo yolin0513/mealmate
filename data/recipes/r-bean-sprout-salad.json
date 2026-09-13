@@ -1,0 +1,63 @@
+{
+  "id": "r-bean-sprout-salad",
+  "name": "涼拌豆芽菜",
+  "role": "side",
+  "servings": 4,
+  "time": 10,
+  "method": "boil",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "綠豆芽",
+      "label": "綠豆芽",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔絲",
+      "grams": 50,
+      "track": "base"
+    },
+    {
+      "food": "香油",
+      "label": "香油",
+      "grams": 8,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "白芝麻",
+      "label": "熟白芝麻",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "豆芽菜洗淨、摘掉爛的；胡蘿蔔切細絲。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "滾水放胡蘿蔔絲燙三十秒，再放豆芽菜燙一分鐘，一起撈起沖冷水瀝乾。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "加鹽、香油拌勻，撒白芝麻。"
+    }
+  ]
+}

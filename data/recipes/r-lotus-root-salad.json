@@ -1,0 +1,62 @@
+{
+  "id": "r-lotus-root-salad",
+  "name": "涼拌蓮藕",
+  "role": "side",
+  "servings": 4,
+  "time": 20,
+  "method": "boil",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [
+    7,
+    8,
+    9,
+    10
+  ],
+  "ingredients": [
+    {
+      "food": "蓮藕",
+      "label": "蓮藕（切薄片）",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "白醋",
+      "label": "白醋",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "糖",
+      "label": "糖",
+      "grams": 8,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 2,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "蓮藕削皮切薄片，泡在加了幾滴白醋的水裡，才不會變黑。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "滾水燙三分鐘撈起，沖冷水瀝乾。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "用白醋、糖、鹽調成糖醋汁拌勻，冰半小時更脆。"
+    }
+  ]
+}

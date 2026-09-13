@@ -1,0 +1,57 @@
+{
+  "id": "r-chayote-stirfry",
+  "name": "蒜炒佛手瓜",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "alliumOptional": true,
+  "ingredients": [
+    {
+      "food": "佛手瓜",
+      "label": "佛手瓜（切片）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "大蒜",
+      "label": "蒜片（可省略）",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "佛手瓜削皮去籽，切成薄片；蒜切片，不吃蒜就改薑片。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香蒜片，下佛手瓜中大火炒兩分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加三大匙水蓋鍋悶兩分鐘到透明轉軟，加鹽拌勻。"
+    }
+  ]
+}

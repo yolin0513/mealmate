@@ -1,0 +1,74 @@
+{
+  "id": "r-taro-rice",
+  "name": "芋頭飯",
+  "role": "staple",
+  "servings": 4,
+  "time": 50,
+  "method": "rice",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    9,
+    10,
+    11,
+    12,
+    1
+  ],
+  "ingredients": [
+    {
+      "food": "白米",
+      "label": "白米",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "芋頭",
+      "label": "芋頭（切丁）",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "油蔥酥",
+      "label": "油蔥酥",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "白米洗淨；芋頭削皮切一點五公分丁。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "炒鍋下油，芋頭丁中火煎兩分鐘讓表面定型，這樣煮出來才不會整個化掉。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "米、芋頭、油蔥酥與鹽一起放進電子鍋，水量照平常煮飯的量，煮到跳起。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "燜十分鐘再拌開。"
+    }
+  ]
+}

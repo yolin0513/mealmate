@@ -1,0 +1,62 @@
+{
+  "id": "r-ginger-mustard-greens",
+  "name": "薑絲炒芥菜",
+  "role": "side",
+  "servings": 4,
+  "time": 10,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    11,
+    12,
+    1,
+    2,
+    3
+  ],
+  "ingredients": [
+    {
+      "food": "芥菜",
+      "label": "芥菜（切段）",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "芥菜洗淨切成好入口的段；薑切絲。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，薑絲爆香。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下芥菜大火炒到轉深綠、梗變軟，加鹽拌勻。芥菜本身有點苦味，炒久一點會回甘。"
+    }
+  ]
+}

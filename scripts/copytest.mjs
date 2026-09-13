@@ -69,7 +69,7 @@ for (const f of fs.readdirSync(recipeDir).filter((x) => x.endsWith('.json'))) {
 }
 
 section('母體');
-ok(corpus.length >= 500, `掃了 ${corpus.length} 個字串（≥ 500）`);
+ok(corpus.length >= 1500, `掃了 ${corpus.length} 個字串（≥ 1,500）`);
 const files = new Set(corpus.map((c) => c.file));
 ok(files.size >= 40, `來自 ${files.size} 個檔案`);
 ok(corpus.some((c) => c.file.startsWith('js/views/')), '有掃到畫面文案');

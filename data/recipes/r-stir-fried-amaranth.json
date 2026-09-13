@@ -1,0 +1,62 @@
+{
+  "id": "r-stir-fried-amaranth",
+  "name": "清炒莧菜",
+  "role": "side",
+  "servings": 4,
+  "time": 10,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "ingredients": [
+    {
+      "food": "白莧菜",
+      "label": "白莧菜",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "莧菜洗淨切段，粗梗和嫩葉分開放；薑切細絲。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香薑絲，先下粗梗炒半分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下嫩葉大火快炒到全部變軟，加鹽拌勻起鍋。莧菜出水多，起鍋時湯汁可以留著拌飯。"
+    }
+  ]
+}

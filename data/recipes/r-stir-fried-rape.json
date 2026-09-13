@@ -1,0 +1,63 @@
+{
+  "id": "r-stir-fried-rape",
+  "name": "清炒油菜",
+  "role": "side",
+  "servings": 4,
+  "time": 8,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    10,
+    11,
+    12,
+    1,
+    2,
+    3
+  ],
+  "ingredients": [
+    {
+      "food": "油菜",
+      "label": "油菜",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 8,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "油菜洗淨，根部切掉一小段，太長的對半切。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，薑片爆香後下油菜。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "大火翻炒到葉子塌下來、梗還帶脆度，加鹽起鍋。"
+    }
+  ]
+}

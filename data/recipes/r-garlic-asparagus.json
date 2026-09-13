@@ -1,0 +1,62 @@
+{
+  "id": "r-garlic-asparagus",
+  "name": "蒜香蘆筍",
+  "role": "side",
+  "servings": 4,
+  "time": 10,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [
+    3,
+    4,
+    5,
+    6
+  ],
+  "alliumOptional": true,
+  "ingredients": [
+    {
+      "food": "蘆筍",
+      "label": "綠蘆筍",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "大蒜",
+      "label": "蒜末（可省略）",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "橄欖油",
+      "label": "橄欖油",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "蘆筍削掉根部粗皮、切段；蒜切末。不吃蒜的話這一步跳過，改用薑片。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，蒜末小火爆香不要焦。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下蘆筍中大火炒兩分鐘，加一大匙水蓋鍋悶半分鐘，加鹽起鍋。"
+    }
+  ]
+}

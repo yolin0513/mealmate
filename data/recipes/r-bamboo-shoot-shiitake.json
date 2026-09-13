@@ -1,0 +1,70 @@
+{
+  "id": "r-bamboo-shoot-shiitake",
+  "name": "香菇筍絲",
+  "role": "side",
+  "servings": 4,
+  "time": 25,
+  "method": "braise",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "ingredients": [
+    {
+      "food": "綠竹筍",
+      "label": "綠竹筍（切絲）",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "乾香菇",
+      "label": "乾香菇（泡軟切絲）",
+      "grams": 15,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 18,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "糖",
+      "label": "糖",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "綠竹筍剝殼、削掉粗纖維切絲；乾香菇泡軟切絲，泡菇水留著。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油炒香菇絲，香味出來後下筍絲炒勻。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加醬油、糖與泡菇水 150 毫升，蓋鍋小火燒十五分鐘到入味收汁。"
+    }
+  ]
+}

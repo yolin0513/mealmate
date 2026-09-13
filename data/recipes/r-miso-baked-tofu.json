@@ -1,0 +1,62 @@
+{
+  "id": "r-miso-baked-tofu",
+  "name": "味噌烤豆腐",
+  "role": "main",
+  "servings": 4,
+  "time": 30,
+  "method": "bake",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "板豆腐",
+      "label": "板豆腐（切厚片）",
+      "grams": 450,
+      "track": "base"
+    },
+    {
+      "food": "味噌",
+      "label": "味噌",
+      "grams": 45,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "味醂",
+      "label": "味醂",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "白芝麻",
+      "label": "熟白芝麻",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "豆腐切一點五公分厚片，用重物壓十分鐘壓掉多餘水分。"
+    },
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "味噌與味醂調成醬，抹在豆腐兩面。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "烤箱 200 度烤十五分鐘，翻面再烤五分鐘到表面微焦。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "撒白芝麻。沒有烤箱就用平底鍋小火乾煎，一樣好吃。"
+    }
+  ]
+}

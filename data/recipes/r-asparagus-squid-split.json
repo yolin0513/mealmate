@@ -1,0 +1,100 @@
+{
+  "id": "r-asparagus-squid-split",
+  "name": "蘆筍炒小卷／蘆筍炒杏鮑菇",
+  "role": "main",
+  "servings": 4,
+  "splitServings": {
+    "veg": 1,
+    "meat": 3
+  },
+  "time": 20,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "normal",
+  "season": [
+    3,
+    4,
+    5,
+    6
+  ],
+  "ingredients": [
+    {
+      "food": "蘆筍",
+      "label": "綠蘆筍（切段）",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔片",
+      "grams": 60,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 12,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 18,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "杏鮑菇",
+      "label": "杏鮑菇（切滾刀）",
+      "grams": 200,
+      "track": "veg"
+    },
+    {
+      "food": "小卷",
+      "label": "小卷（切圈）",
+      "grams": 300,
+      "track": "meat"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 12,
+      "track": "meat",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "蘆筍削去根部粗皮切段；小卷去除內臟切圈；杏鮑菇切滾刀塊。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香薑片，下胡蘿蔔與蘆筍炒兩分鐘，加鹽。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "先盛出素食成員要吃的份量（依吃素的人數分）。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那鍋：下杏鮑菇炒到出水收乾、邊緣上色。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那鍋：大火下小卷快炒一分半，加醬油拌勻馬上起鍋，炒久會變硬。"
+    }
+  ]
+}

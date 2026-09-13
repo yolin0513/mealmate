@@ -1,0 +1,57 @@
+{
+  "id": "r-water-bamboo-salad",
+  "name": "涼拌茭白筍",
+  "role": "side",
+  "servings": 4,
+  "time": 15,
+  "method": "boil",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "ingredients": [
+    {
+      "food": "茭白筍",
+      "label": "茭白筍",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "醬油膏",
+      "label": "醬油膏",
+      "grams": 25,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "香油",
+      "label": "香油",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "茭白筍剝掉外殼、削去粗皮。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "整支放進滾水煮八分鐘，撈起放涼後斜切厚片。"
+    },
+    {
+      "stage": "base",
+      "type": "serve",
+      "text": "淋醬油膏與香油。冰過再吃口感更好。"
+    }
+  ]
+}

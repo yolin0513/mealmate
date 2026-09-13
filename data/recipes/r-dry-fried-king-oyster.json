@@ -1,0 +1,57 @@
+{
+  "id": "r-dry-fried-king-oyster",
+  "name": "乾煸杏鮑菇",
+  "role": "side",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "杏鮑菇",
+      "label": "杏鮑菇（撕條）",
+      "grams": 350,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "白胡椒粉",
+      "label": "白胡椒粉",
+      "grams": 1,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "杏鮑菇順著紋路撕成粗條，撕的比切的更容易入味。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "平底鍋不放油先中火乾煸杏鮑菇三分鐘，把水分逼出來。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "水收乾後淋油繼續煸到邊緣金黃，加醬油與白胡椒粉炒勻。"
+    }
+  ]
+}

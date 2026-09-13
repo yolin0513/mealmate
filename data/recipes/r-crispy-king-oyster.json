@@ -1,0 +1,77 @@
+{
+  "id": "r-crispy-king-oyster",
+  "name": "酥炸杏鮑菇",
+  "role": "main",
+  "servings": 4,
+  "time": 25,
+  "method": "deepfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "notes": "油炸的吸油量因鍋溫而異，這裡的油只是估計；營養標示本來就沒有計入烹調變化。",
+  "ingredients": [
+    {
+      "food": "杏鮑菇",
+      "label": "杏鮑菇（切條）",
+      "grams": 400,
+      "track": "base"
+    },
+    {
+      "food": "中筋麵粉",
+      "label": "中筋麵粉",
+      "grams": 60,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "太白粉",
+      "label": "太白粉",
+      "grams": 40,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油（吸附量估計）",
+      "grams": 30,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "白胡椒粉",
+      "label": "白胡椒粉",
+      "grams": 2,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "杏鮑菇順紋撕成粗條，撒鹽與白胡椒粉抓一下靜置五分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "麵粉與太白粉混合，杏鮑菇條沾勻粉，抖掉多餘的。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "油溫 170 度（丟一點麵糊會馬上浮起來），分批下鍋炸兩分鐘撈起。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "油溫升高到 180 度回炸三十秒逼油，瀝乾後撒一點白胡椒粉。"
+    }
+  ]
+}

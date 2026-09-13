@@ -1,0 +1,74 @@
+{
+  "id": "r-soy-braised-tilapia",
+  "name": "醬燒吳郭魚",
+  "role": "main",
+  "servings": 4,
+  "time": 25,
+  "method": "braise",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "吳郭魚",
+      "label": "吳郭魚（整條或切塊）",
+      "grams": 600,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 20,
+      "track": "base"
+    },
+    {
+      "food": "青蔥",
+      "label": "青蔥（切段）",
+      "grams": 25,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 35,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "糖",
+      "label": "糖",
+      "grams": 8,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "魚洗淨擦乾，兩面各劃兩刀比較好入味；薑切片、蔥切段。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，魚下鍋後先不要動，煎到底面定型再翻面，兩面各煎三分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "推到一邊下薑片爆香，加醬油、糖與 200 毫升水。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "蓋鍋中小火燒八分鐘，中間舀湯汁淋在魚身上，起鍋前撒蔥段。"
+    }
+  ]
+}
