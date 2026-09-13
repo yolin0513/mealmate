@@ -20,7 +20,7 @@ import { newMember } from '../js/members.js';
 import {
   generateWeek, swapItem, buildContext, scoreSoft, hardBlock, makeRng, hashSeed, weekKeyOf, mondayOf, addDays,
   lastShoppingDayOnOrBefore, historyRowsOf, dailyEstimates, medianOf, MEALS, isMeaty, VEG_MIN_DISHES, withPositions,
-  actualRelaxations, shelfBlocker, RELAXABLE, FREEZABLE_CATS,
+  actualRelaxations, shelfBlocker, RELAXABLE, FREEZABLE_CATS, daysBetween,
 } from '../js/planner.js';
 import { shelfDaysFor } from '../js/units.js';
 import { versionFor } from '../js/members.js';
@@ -647,6 +647,38 @@ section('「家裡有」要一路傳到排菜器（少接一個參數就靜默�
   const r2 = byId.get(swapped.recipeId);
   const actuallyUses = r2.ingredients.some((ing) => !ing.pantry && have.has(ing.food));
   eq(usedHave, actuallyUses, `換一道也考慮「家裡有」：${r2.name} ${actuallyUses ? '用到了、理由有講' : '沒用到、理由也沒講'}`);
+}
+
+section('保存天數要蓋得過買菜日之間的間隔（不然離買菜日最遠那天沒葷菜可挑）');
+// 為什麼不是用「每餐都有葷」來守這件事：那條現在守不住了。
+// M5 把食譜從 90 道加到 180 道之後，就算把肉類保存天數砍到 2 天、
+// 週二有 43/57 道葷主菜被擋掉，剩下的 14 道還是夠填滿 56 個午晚餐 ——
+// 「每餐都有葷」照樣全綠，突變不紅。當初那個 bug 是「池子小到只剩兩道」才浮出來的。
+//
+// 真正要守的是 units.json 的 note 講的那件事：**保存天數要蓋得過買菜日之間的最大間隔**，
+// 不然那一天能挑的葷菜會塌掉（就算還排得出來，也會每週重複同幾道）。
+// 所以量的是「那一天挑得到幾道」，不是「有沒有排到」。
+{
+  const SHOP = [3, 6];          // 週三、週六：離買菜日最遠是 3 天
+  const ctxS = buildContext({ recipes, members: [], idx, units, shoppingDays: SHOP });
+  const stub = { slotItems: [], dayRecipes: () => new Set(), lastServed: () => null };
+  const meatMains = recipes.filter((r) => r.role === 'main' && isMeaty(r));
+  ok(meatMains.length >= 40, `（母體）${meatMains.length} 道葷主菜`);
+
+  const availableOn = (date) => meatMains.filter((r) => shelfBlocker(r, date, ctxS) === null).length;
+  const TUE = '2026-09-15';     // 離上一個買菜日（上週六）3 天 —— 最遠
+  const WED = '2026-09-16';     // 買菜日當天 —— 最近
+  const gap = daysBetween(lastShoppingDayOnOrBefore(TUE, SHOP), TUE);
+  eq(gap, 3, '（前提）買菜日設週三＋週六時，週二離上一次買菜 3 天，是最遠的一天');
+
+  const far = availableOn(TUE);
+  const near = availableOn(WED);
+  ok(near >= meatMains.length - 2, `（對照）買菜日當天幾乎每道葷主菜都挑得到（${near}/${meatMains.length}）`);
+  ok(far >= meatMains.length / 2,
+    `離買菜日最遠那天仍然挑得到一半以上的葷主菜（${far}/${meatMains.length}）——` +
+    `肉類保存天數（${units.shelfDays.byCategory['肉類']} 天）蓋得過 ${gap} 天的間隔`);
+  ok(units.shelfDays.byCategory['肉類'] > gap,
+    `肉類 ${units.shelfDays.byCategory['肉類']} 天 > 最大間隔 ${gap} 天（等於的話當天就卡在邊界上）`);
 }
 
 done('plannertest');

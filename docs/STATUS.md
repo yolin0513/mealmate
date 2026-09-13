@@ -28,7 +28,7 @@
 | 實測回報 3：「家裡有」降為次選項＋自己解釋自己 | ✅ 完成（2026-09-13） | `mealmate-v0.12.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 65、membertest 47、nutritiontest 131、plannertest 175、shoppingtest 115、timelinetest 71、doctest 82；
+Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 65、membertest 47、nutritiontest 131、plannertest 180、shoppingtest 115、timelinetest 71、doctest 82；
 瀏覽器端（puppeteer）：shelltest 106、familytest 45、recipeviewtest 55、backuptest 30、weekviewtest 98、shoppingviewtest 67、todaytest 41、racetest 16、versionmixtest 40、layouttest 45（108 組版面掃描 ＋ 桌機七欄）、uikittest 28、pwatest 35、redlinetest 28、scenariotest 39。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
 `mutationtest` 共 **140 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
@@ -358,7 +358,19 @@ Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、
       而不是只驗它裡面那顆純函式。內層測試照樣要有（好定位），但不能只有它。
     · 怎麼快速檢查：一個參數如果在**呼叫端出現、在被呼叫端的參數列裡卻找不到**，就是這個坑。
       `grep -n "haveFoods" js/**` 看得出「有人傳、沒人收」。
-22. **資料庫換季（食藥署每季更新）**：`npm run build-foods -- --download` 會印出差異；消失的編號若被別名表或食譜用到，`aliastest`／`recipetest` 會紅；`aliases.json` 的 `foodsVersion` 要同步改。
+22. **資料長大會讓舊斷言失效 —— 斷言要量「餘裕」，不要只量「有沒有成功」。**
+    2026-09-13 的例子：突變「肉類保存天數回到 2 天」不再讓 `plannertest` 紅。
+    · 這條當初是為了守一個真的 bug：肉類只放 2 天時，離買菜日最遠那天排不出葷菜，
+      「每餐有葷」就逼出每週重複同兩道加工肉。守它的斷言是「56 個午晚餐都有葷菜」。
+    · 為什麼失效：M5 把食譜從 90 道加到 **180 道**。量出來 —— 肉類設 2 天時，
+      週二仍有 **43/57** 道葷主菜被保存期限擋掉（設 4 天時只擋 9 道），約束完全還在咬；
+      但剩下的 14 道還是夠填滿 56 個午晚餐，所以「每餐都有葷」照樣全綠。
+      **約束變嚴了，斷言卻看不到**，因為它量的是「有沒有成功」，而成功的門檻很低。
+    · 改法：量**餘裕**而不是量成敗 —— 改成「離買菜日最遠那天，挑得到的葷主菜要 ≥ 一半」
+      （4 天：48/57 過；2 天：14/57 紅），並加一條「肉類天數 > 買菜日最大間隔」直接寫出 note 講的那個關係。
+    · 通則：**斷言挑的量測值，要在約束變嚴時就開始變壞，而不是等到完全失敗才變壞。**
+      「有沒有排出來」這種二元結果，池子一大就永遠是「有」。
+23. **資料庫換季（食藥署每季更新）**：`npm run build-foods -- --download` 會印出差異；消失的編號若被別名表或食譜用到，`aliastest`／`recipetest` 會紅；`aliases.json` 的 `foodsVersion` 要同步改。
 
 ## 開發順序與驗收條件
 
