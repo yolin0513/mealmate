@@ -161,8 +161,13 @@ try {
   await clickEl(page, '[data-ingredient="0"] .picker-item');
   await sleep(100);
   ok((await textOf(page, '[data-ingredient="0"] [data-field="pickedFood"]')).includes('青江菜'), '選到青江菜的條目');
+  // 預設只給 1 步：現成的菜可能就「盛盤上桌」一步，不該逼使用者湊滿 3 步（使用者實測回報）。
+  eq((await page.$$('[data-list="steps"] textarea')).length, 1, '預設 1 步（要幾步自己加）');
+  await clickEl(page, '[data-action="addStep"]');
+  await clickEl(page, '[data-action="addStep"]');
+  await sleep(120);
   const stepAreas = await page.$$('[data-list="steps"] textarea');
-  eq(stepAreas.length, 3, '預設三步');
+  eq(stepAreas.length, 3, '按兩下「加一步」變成三步');
   for (const [i, ta] of stepAreas.entries()) await ta.type(`第${i + 1}步：洗、燙、盛盤。`);
   await waitToastGone(page);
   await clickEl(page, '[data-action="saveRecipe"]');

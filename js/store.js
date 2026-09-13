@@ -83,7 +83,7 @@ export function allRecipes() { return [...(state.recipes ?? []), ...state.userRe
 export function recipeById(id) { return allRecipes().find((r) => r.id === id) ?? null; }
 
 /** 驗證器用的上下文（解析口語詞、標籤）。使用者食譜允許不填克數。 */
-export function recipeCtx({ allowMissingGrams = false } = {}) {
+export function recipeCtx({ allowMissingGrams = false, relaxRequired = false } = {}) {
   const idx = state.foods;
   return {
     resolve: (t) => {
@@ -93,12 +93,14 @@ export function recipeCtx({ allowMissingGrams = false } = {}) {
     },
     foodTags: state.foodTags ?? {},
     allowMissingGrams,
+    // 使用者自己加的菜：步驟 1 步就好、時間可以填 0（現成的）。硬底線（食材要解析得到編號、素葷分軌）不放。
+    relaxRequired,
   };
 }
 
 /** 存一道使用者食譜（新增或修改）。回 { errors, recipe }；有錯就不存。 */
 export async function saveUserRecipe(raw) {
-  const { errors, recipe } = validateRecipe({ ...raw, source: 'user' }, recipeCtx({ allowMissingGrams: true }));
+  const { errors, recipe } = validateRecipe({ ...raw, source: 'user' }, recipeCtx({ allowMissingGrams: true, relaxRequired: true }));
   if ((state.recipes ?? []).some((r) => r.id === raw?.id)) errors.push('這個 id 跟內建食譜撞到了');
   if (errors.length) return { errors, recipe: null };
   const now = new Date().toISOString();

@@ -5,7 +5,7 @@ import { setTop, render } from '../shell.js';
 import { navigate } from '../router.js';
 import * as store from '../store.js';
 import { eduNode } from '../edu.js';
-import { ROLE_LABELS, VEG_MODE_LABELS, METHOD_LABELS, TEXTURE_LABELS, STAGE_LABELS, TRACK_LABELS, TAG_LABELS } from '../recipeschema.js';
+import { ROLE_LABELS, VEG_MODE_LABELS, METHOD_LABELS, TEXTURE_LABELS, STAGE_LABELS, TRACK_LABELS, TAG_LABELS, timeText } from '../recipeschema.js';
 import { NUTRIENT_ORDER, NUTRIENT_LABELS } from '../foods.js';
 import { estimate, servingsFor } from '../nutrition.js';
 import { familyWatchFields, displayFields, versionFor, allergenHits, DIET_LABELS, ALLERGEN_LABELS } from '../members.js';
@@ -38,7 +38,7 @@ export default async function recipeView(id) {
       pill(`質地：${TEXTURE_LABELS[r.texture]}`), ...r.tags.map((t) => pill(TAG_LABELS[t] ?? t)),
       r.source === 'user' ? pill('我的食譜', 'accent') : null,
     ),
-    h('p', {}, `${r.servings} 人份${isSplit ? `（素 ${r.splitServings.veg}、葷 ${r.splitServings.meat}）` : ''} · 約 ${r.time} 分鐘 · 當季：${seasonText(r.season)}`),
+    h('p', {}, `${r.servings} 人份${isSplit ? `（素 ${r.splitServings.veg}、葷 ${r.splitServings.meat}）` : ''} · ${timeText(r.time)} · 當季：${seasonText(r.season)}`),
     r.alliumOptional ? h('p', { class: 'muted sm' }, '蔥蒜可以省略，全素不含五辛的家人也能吃。') : null,
     isSplit ? h('p', { class: 'muted sm' }, '先一起煮共同的部分，盛出素食份之後兩鍋各自收尾；素版與葷版的營養分開估算，不會相加。') : null,
     ...members.map((m) => {

@@ -28,7 +28,7 @@ function newDraft() {
   return {
     id: store.newUserRecipeId(), name: '', role: 'main', servings: 4, splitServings: { veg: 1, meat: 3 }, time: 20, method: 'stirfry',
     vegMode: 'nativeVeg', texture: 'normal', season: [], alliumOptional: false,
-    ingredients: [blankIngredient()], steps: [blankStep(), blankStep(), blankStep()],
+    ingredients: [blankIngredient()], steps: [blankStep()],
   };
 }
 
@@ -72,7 +72,7 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
 
   const nameInput = h('input', { class: 'field', type: 'text', value: d.name, placeholder: '菜名', 'aria-label': '菜名', dataset: { field: 'recipeName' } });
   nameInput.addEventListener('input', () => { d.name = nameInput.value; });
-  const timeInput = h('input', { class: 'field field-inline', type: 'number', inputMode: 'numeric', min: '1', value: String(d.time), 'aria-label': '分鐘', dataset: { field: 'time' } });
+  const timeInput = h('input', { class: 'field field-inline', type: 'number', inputMode: 'numeric', min: '0', value: String(d.time), 'aria-label': '分鐘（現成的填 0）', dataset: { field: 'time' } });
   timeInput.addEventListener('input', () => { d.time = Number(timeInput.value); });
   const methodSel = h('select', { class: 'field', 'aria-label': '烹法' }, ...METHODS.map((m) => h('option', { value: m, selected: m === d.method ? 'selected' : null }, METHOD_LABELS[m])));
   methodSel.addEventListener('change', () => { d.method = methodSel.value; });
@@ -167,7 +167,7 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
       chips({ options: TEXTURES.map((v) => ({ value: v, label: TEXTURE_LABELS[v] })), value: d.texture, name: 'texture', onChange: (v) => { d.texture = v; } }),
       h('div', { class: 'row-actions' }, servingsStep.node),
       h('div', { class: 'row-actions' }, h('span', { class: 'muted sm' }, '烹法'), methodSel),
-      h('div', { class: 'row-actions' }, h('span', { class: 'muted sm' }, '約幾分鐘'), timeInput),
+      h('div', { class: 'row-actions' }, h('span', { class: 'muted sm' }, '約幾分鐘'), timeInput, h('span', { class: 'muted xs' }, '現成的填 0')),
       h('p', { class: 'field-label' }, '當季月份（都不選＝全年）'),
       chips({ options: MONTHS.map((m, i) => ({ value: i + 1, label: `${m}月` })), value: d.season, multi: true, name: 'season', onChange: (v) => { d.season = [...v].sort((a, b) => a - b); } }),
     ),
@@ -177,7 +177,7 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
       h('button', { class: 'btn', type: 'button', dataset: { action: 'addIngredient' }, onclick: () => { d.ingredients.push(blankIngredient()); drawIngredients(); } }, '＋ 加一個食材'),
     ),
     h('section', { class: 'card', dataset: { card: 'editSteps' } },
-      h('h2', { class: 'card-title' }, '步驟（至少 3 步）'),
+      h('h2', { class: 'card-title' }, '步驟'),
       stepList,
       h('button', { class: 'btn', type: 'button', dataset: { action: 'addStep' }, onclick: () => { d.steps.push(blankStep()); drawSteps(); } }, '＋ 加一步'),
     ),
@@ -188,5 +188,5 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
 
 // 給 recipetest 之外的檢查用：草稿驗證（不存）
 export function validateDraft(d) {
-  return validateRecipe(toRecipe(d), store.recipeCtx({ allowMissingGrams: true })).errors;
+  return validateRecipe(toRecipe(d), store.recipeCtx({ allowMissingGrams: true, relaxRequired: true })).errors;
 }

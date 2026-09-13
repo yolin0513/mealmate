@@ -209,6 +209,100 @@ try {
     ok(backToSame, '每一項的數量都回到原本（0 ＝ 照家裡人數，不是「回不去了」）');
   }
 
+
+  section('逐項手改數量：點數字就能改、看得出「已改」、改得回去');
+  {
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    await goto(page, '#/shopping');
+    await page.waitForSelector('[data-card="shopRange"] .shop-row');
+
+    const first = await page.evaluate(() => {
+      const r = document.querySelector('[data-card="shopRange"] .shop-row');
+      const btn = r.querySelector('[data-action="editQty"]');
+      return { food: r.dataset.buy, qty: btn.textContent.trim(), manual: r.dataset.manual, h: Math.round(btn.getBoundingClientRect().height) };
+    });
+    eq(first.manual, 'false', '一開始沒有任何一項是手改的');
+    ok(!first.qty.includes('已改'), `數量旁邊沒有「已改」：${first.qty}`);
+    eq(await page.$$eval('.qty-manual', (e) => e.length), 0, '整頁一個「已改」都沒有');
+    ok(first.h >= 44, `數量本身就是按鈕，按得到（${first.h}px ≥ 44）`);
+    const sel = `.shop-row[data-buy="${first.food}"]`;
+
+    // 點開來改
+    await clickEl(page, `${sel} [data-action="editQty"]`);
+    await page.waitForSelector('.modal-card [data-field="qtyInput"]');
+    const dialog = await page.evaluate(() => ({
+      title: document.querySelector('.modal-title')?.textContent?.trim(),
+      hint: document.querySelector('.modal-card .muted')?.textContent?.trim(),
+      value: document.querySelector('[data-field="qtyInput"]')?.value,
+      buttons: [...document.querySelectorAll('.modal-actions .btn')].map((b) => b.textContent.trim()),
+    }));
+    ok(/要買多少/.test(dialog.title), `對話框標題講的是這一項：「${dialog.title}」`);
+    ok(/原本建議/.test(dialog.hint), `而且講得出原本建議多少：「${dialog.hint}」`);
+    ok(dialog.buttons.includes('改回建議值'), `有「改回建議值」可以按（${dialog.buttons.join('／')}）`);
+
+    await page.evaluate(() => {
+      const box = document.querySelector('[data-field="qtyInput"]');
+      box.value = String(Number(box.value) + 2);
+    });
+    const typed = await page.$eval('[data-field="qtyInput"]', (e) => e.value);
+    await page.evaluate(() => [...document.querySelectorAll('.modal-actions .btn')].find((b) => b.textContent.trim() === '存起來').click());
+    await sleep(900);
+    await page.waitForSelector(`${sel}[data-manual="true"]`, { timeout: 10000 });
+
+    const after = await page.evaluate((s) => {
+      const r = document.querySelector(s);
+      const btn = r.querySelector('[data-action="editQty"]');
+      return { manual: r.dataset.manual, qty: btn.textContent.trim(), aria: btn.getAttribute('aria-label'), mark: r.querySelector('.qty-manual')?.textContent?.trim() ?? '' };
+    }, sel);
+    eq(after.manual, 'true', '這一項標成手改過');
+    eq(after.mark, '已改', '第二行出現「已改」（原本建議多少留在點開的對話框裡，不然特大字級下會蓋到「家裡有」）');
+    ok(!after.qty.includes('已改'), `第一行只留名稱＋數量（站在菜攤前要一眼看到買幾顆）：${after.qty}`);
+    ok(after.qty.includes(typed.replace(/\.0$/, '')), `顯示的就是我打的數字 ${typed}：${after.qty}`);
+    ok(/點一下可以改/.test(after.aria), '讀螢幕的人也知道這個數字可以改');
+
+    // 別項沒被波及
+    const otherManual = await page.$$eval('.shop-row[data-manual="true"]', (els) => els.length);
+    eq(otherManual, 1, '只有這一項被標成手改，其他都沒有');
+
+    // 重新載入後還在
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector(`${sel}`);
+    await sleep(400);
+    const reloaded = await page.$eval(sel, (r) => ({ manual: r.dataset.manual, qty: r.querySelector('[data-action="editQty"]').textContent.trim(), mark: r.querySelector('.qty-manual')?.textContent?.trim() ?? '' }));
+    eq(reloaded.manual, 'true', '重新載入後還記得改過');
+    eq(reloaded.qty, after.qty, '數量也一樣');
+    ok(/已改/.test(reloaded.mark), '「已改」的標記也還在');
+
+    // 複製出去的文字帶「已改」
+    const copied = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const prefs = await import('./js/prefs.js');
+      const { buildShoppingList, listAsText, rangesOfPlan } = await import('./js/shopping.js');
+      const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const days = prefs.get('shoppingDays') ?? [];
+      const extraByRange = {}; const manualByRange = {};
+      for (const r of rangesOfPlan(plan, days)) {
+        const row = await store.getShopping(r.key);
+        extraByRange[r.key] = { meat: row.extra?.meat ?? 0, veg: row.extra?.veg ?? 0 };
+        manualByRange[r.key] = row.manual ?? {};
+      }
+      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days, extraByRange, manualByRange });
+      return ranges.map((r) => listAsText(r, {})).join('\n');
+    });
+    ok(/（已改）/.test(copied), '複製出去的文字帶著「（已改）」');
+
+    // 改回建議值
+    await clickEl(page, `${sel} [data-action="editQty"]`);
+    await page.waitForSelector('.modal-card [data-field="qtyInput"]');
+    await page.evaluate(() => [...document.querySelectorAll('.modal-actions .btn')].find((b) => b.textContent.trim() === '改回建議值').click());
+    await sleep(900);
+    const reset = await page.$eval(sel, (r) => ({ manual: r.dataset.manual, qty: r.querySelector('[data-action="editQty"]').textContent.trim() }));
+    eq(reset.manual, 'false', '改回建議值 → 不再標成手改');
+    eq(reset.qty, first.qty, '數量也回到原本的建議值');
+  }
+
   eq(pageErrors, [], '沒有未攔截的例外');
 } finally {
   await close();

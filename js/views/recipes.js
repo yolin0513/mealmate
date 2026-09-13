@@ -3,7 +3,7 @@
 import { h, pill, fmtNutrient } from '../ui.js';
 import { setTop, render } from '../shell.js';
 import * as store from '../store.js';
-import { ROLE_LABELS, VEG_MODE_LABELS, VEG_MODE_SHORT, TEXTURE_LABELS } from '../recipeschema.js';
+import { ROLE_LABELS, VEG_MODE_LABELS, VEG_MODE_SHORT, TEXTURE_LABELS, timeText } from '../recipeschema.js';
 import { NUTRIENT_LABELS } from '../foods.js';
 import { estimate } from '../nutrition.js';
 import { versionFor, familyWatchFields, DIETS, DIET_LABELS } from '../members.js';
@@ -150,6 +150,6 @@ function rowFor(r, watch, perServing, idx) {
       ),
       watchLine,
     ),
-    h('div', { class: 'row-side' }, `約 ${r.time} 分`),
+    h('div', { class: 'row-side' }, timeText(r.time, { short: true })),
   );
 }

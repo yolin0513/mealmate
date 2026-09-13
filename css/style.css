@@ -518,6 +518,19 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 .shop-section { border-top: 1px solid var(--line); padding-top: 6px; }
 /* 「這張清單多幾個人吃」：兩個小數字框。輸入框本身守 44px（uikittest 盯著）。 */
 .extra-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* 數量本身就是按鈕（站在菜攤前要點得到，所以整塊 44px）。改過的用底線標出來，
+   不是只換顏色 —— 色弱的人分不出來。 */
+.qty-btn {
+  /* 左右不可以有 padding：.shop-qty 靠 margin-left:auto 右對齊，多出來的內距會讓
+     特大字級下某幾列的右緣差幾 px，數量欄就對不齊了（layouttest 量到的）。
+     觸控區靠 min-height 撐，不靠內距。 */
+  background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit;
+  min-height: 44px; cursor: pointer; text-align: right; text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.qty-btn.manual { text-decoration: underline solid; font-weight: 600; }
+.qty-manual { font-size: 0.8em; color: var(--accent); white-space: nowrap; }
+.qty-edit { display: flex; flex-direction: column; gap: 10px; }
 .extra-field { display: flex; align-items: center; gap: 6px; }
 .field-num { width: 4.5em; min-height: 44px; text-align: center; }
 .shop-section-title { margin: 0 0 4px; font-size: 0.95em; color: var(--fg-muted); }

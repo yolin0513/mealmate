@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, near, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { indexFoods } from '../js/foods.js';
 import { newMember } from '../js/members.js';
-import { rangesOfPlan, buildShoppingList, scaleFor, scaleWithGuests, guestScaleFor, extraText, sectionOf, quantityText, listAsText, SECTIONS } from '../js/shopping.js';
+import { rangesOfPlan, buildShoppingList, scaleFor, scaleWithGuests, guestScaleFor, extraText, suggestedText, manualUnitOf, sectionOf, quantityText, listAsText, SECTIONS } from '../js/shopping.js';
 import { generateWeek } from '../js/planner.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -222,6 +222,80 @@ section('複製出去的文字要帶到「已加 N 人」');
   eq(extraText({ meat: 0, veg: 0 }), '', '沒加人 → 空字串');
   eq(extraText({ meat: 2, veg: 0 }), '多加 2 位吃葷', '只加葷的');
   eq(extraText({ meat: 0, veg: 3 }), '多加 3 位吃素', '只加素的');
+}
+
+section('逐項手改數量：建議 2 條、我要買 3 條');
+// 使用者澄清「份數可調」的原意就是這個 —— 站在菜攤前對照清單，想多買就自己改。
+{
+  const p = plan([slot(0, 'dinner', [cabbagePork.id])]);
+  const base = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [] });
+  const key = base.ranges[0].key;
+  const item0 = base.ranges[0].items.find((it) => it.foodId === CABBAGE);
+  ok(item0, '（前提）清單裡有高麗菜');
+  eq(item0.buy.qty, 0.5, '（手算）建議 0.5 顆（375 g，一顆 1000 g，無條件進位到 0.5）');
+  eq(item0.manual, undefined, '沒改過就沒有 manual 記號');
+  eq(item0.suggested.buy.qty, 0.5, '建議值一併留著（才回得去、也才講得出「原本建議多少」）');
+
+  const edited = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [], manualByRange: { [key]: { [CABBAGE]: 3 } } });
+  const item1 = edited.ranges[0].items.find((it) => it.foodId === CABBAGE);
+  eq(item1.buy.qty, 3, '手改成 3 顆 → 就是 3 顆（不會再被進位規則改掉）');
+  eq(item1.buy.grams, 3000, '（手算）3 顆 × 1000 g ＝ 3000 g');
+  eq(item1.manual, true, '標成手改過');
+  eq(item1.suggested.buy.qty, 0.5, '建議值還在（原本 0.5 顆）');
+  eq(suggestedText(item1), '約 0.5 顆（375 g）', '「原本建議」的文字講得出來');
+  eq(quantityText(item1), '約 3 顆', '畫面上顯示的是改過的值，而且不再附「（375 g）」—— 那是食譜需要的量，不是她要買的量');
+  ok(quantityText(item0).includes('（375 g）'), `（對照）沒改過的仍然附需要的克數：${quantityText(item0)}`);
+
+  // 別的項目不受影響
+  const others = edited.ranges[0].items.filter((it) => it.foodId !== CABBAGE);
+  ok(others.length >= 3, `（母體）另外 ${others.length} 項`);
+  everyOf(others, (it) => it.manual === undefined, '只改高麗菜，其他項目沒有被標成手改');
+  everyOf(others, (it) => it.grams === base.ranges[0].items.find((b) => b.foodId === it.foodId).grams, '其他項目的克數也一個都沒變');
+
+  // 改回建議值
+  const reset = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [], manualByRange: { [key]: {} } });
+  eq(reset.ranges[0].items.find((it) => it.foodId === CABBAGE).buy.qty, 0.5, '拿掉手改的值 → 回到建議的 0.5 顆');
+
+  // 沒有採買單位的食材：改的是克數。單一道菜的清單裡每一項都有換算，要用大一點的清單才找得到。
+  eq(manualUnitOf({ grams: 300 }).unit, 'g', '沒有「幾顆幾把」換算的食材 → 用克數改');
+  eq(manualUnitOf(item0).unit, '顆', '（對照）有換算的就用它自己的單位');
+  // 用固定 seed 排一整週：手挑的三道菜每一項都剛好有換算，整週才找得到沒有的（櫛瓜、茭白筍這種）。
+  const wide = generateWeek({ recipes, members: fam, idx, units, rules: {}, favorites: [], history: [], mondayIso: MONDAY, seed: 'nounit', shoppingDays: [] }).plan;
+  const wideList = buildShoppingList({ plan: wide, recipesById: byId, members: fam, idx, units, shoppingDays: [] });
+  const wideKey = wideList.ranges[0].key;
+  const noUnit = wideList.ranges[0].items.find((it) => !it.buy);
+  ok(noUnit, `（前提）整週的清單裡有 ${wideList.ranges[0].items.filter((x) => !x.buy).length} 項沒有換算，例如 ${noUnit?.labels[0]}`);
+  const g2 = buildShoppingList({ plan: wide, recipesById: byId, members: fam, idx, units, shoppingDays: [], manualByRange: { [wideKey]: { [noUnit.foodId]: 250 } } });
+  const after = g2.ranges[0].items.find((it) => it.foodId === noUnit.foodId);
+  eq(after.grams, 250, '沒有換算的食材，手改的就是克數');
+  eq(after.manual, true, '也標成手改過');
+  eq(after.suggested.grams, noUnit.grams, `建議值仍然留著（原本 ${noUnit.grams} g）`);
+
+  // 亂填的值不可以把清單弄壞
+  everyOf([0, -3, NaN, 'abc', null], (bad) => {
+    const r = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [], manualByRange: { [key]: { [CABBAGE]: bad } } });
+    const x = r.ranges[0].items.find((it) => it.foodId === CABBAGE);
+    return x.buy.qty === 0.5 && !x.manual;
+  }, '0、負數、NaN、字串、null 都當作沒改（不會出現 0 顆或負的克數）');
+
+  // 複製出去的文字要帶「已改」
+  const text = listAsText(edited.ranges[0], {});
+  ok(/高麗菜.*約 3 顆（已改）/.test(text), `複製的文字帶著改過的量與「已改」：${text.split('\n').find((l) => l.includes('高麗菜'))}`);
+  noneOf([listAsText(base.ranges[0], {})], (t) => /已改/.test(t), '（對照）沒改過的清單不會出現「已改」');
+}
+
+section('手改與「多幾個人吃」並存時，手改優先');
+{
+  const p = plan([slot(0, 'dinner', [cabbagePork.id])]);
+  const key = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [] }).ranges[0].key;
+  const both = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [],
+    extraByRange: { [key]: { meat: 2, veg: 0 } }, manualByRange: { [key]: { [CABBAGE]: 3 } } });
+  const it = both.ranges[0].items.find((x) => x.foodId === CABBAGE);
+  eq(it.buy.qty, 3, '手改的 3 顆蓋過「多 2 人」算出來的建議值');
+  eq(it.suggested.buy.qty, 1, '（手算）而「原本建議」是含 2 位客人的 625 g → 1 顆，不是沒加人的 0.5 顆');
+  const otherItem = both.ranges[0].items.find((x) => x.foodId !== CABBAGE && !x.manual);
+  ok(otherItem, '（前提）還有沒被手改的項目');
+  eq(otherItem.manual, undefined, '沒手改的項目仍然照「多幾個人」算');
 }
 
 done('shoppingtest');

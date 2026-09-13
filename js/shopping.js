@@ -115,7 +115,7 @@ export function rangesOfPlan(plan, shoppingDays) {
  * @returns {{ ranges: [{ key, label, dates, items: [...], pantry: [...] }] }}
  *   item：{ foodId, name, labels: string[], grams, buy: {qty, unit, grams}|null, section, uses: [{date, meal, recipe}] }
  */
-export function buildShoppingList({ plan, recipesById, members = [], idx, units, shoppingDays = [], extraByRange = {} }) {
+export function buildShoppingList({ plan, recipesById, members = [], idx, units, shoppingDays = [], extraByRange = {}, manualByRange = {} }) {
   const terms = aliasTermsOf(idx);
   const buyUnitFor = (foodId) => {
     for (const t of terms.get(foodId) ?? []) { const u = units?.buyUnits?.[t]; if (u && typeof u === 'object' && u.grams > 0) return u; }
@@ -154,10 +154,23 @@ export function buildShoppingList({ plan, recipesById, members = [], idx, units,
         }
       }
     }
+    const manual = manualByRange[range.key] ?? {};
     for (const item of agg.values()) {
       item.grams = Math.round(item.grams);
       const u = buyUnitFor(item.foodId);
       item.buy = u ? toBuyQty(item.grams, u) : null;
+      // 使用者自己改的數量。**建議值留著**（suggested），才回得去，畫面上也才講得出「原本建議 2 條」。
+      // 手改的單位跟建議值同一個：有 buyUnit 的就改「幾條」，沒有的就改克數。
+      item.suggested = { grams: item.grams, buy: item.buy ? { ...item.buy } : null };
+      const m = manual[item.foodId];
+      if (m != null) {
+        const q = Number(m);
+        if (Number.isFinite(q) && q > 0) {
+          item.manual = true;
+          if (u && item.buy) item.buy = { qty: q, unit: u.unit, grams: Math.round(q * u.grams) };
+          else item.grams = Math.round(q);
+        }
+      }
     }
     range.items = [...agg.values()].sort((a, b) => SECTIONS.indexOf(a.section) - SECTIONS.indexOf(b.section) || b.grams - a.grams);
     range.pantry = [...pantry.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
@@ -176,8 +189,23 @@ export function extraText(extra) {
   return `多加 ${parts.join('、')}`;
 }
 
+/** 建議值（還沒被手改）的文字，用來告訴使用者「原本建議多少」。 */
+export function suggestedText(item) {
+  const s = item?.suggested;
+  if (!s) return '';
+  return s.buy ? `約 ${fmtQty(s.buy.qty)} ${s.buy.unit}（${s.grams} g）` : `約 ${s.grams} g`;
+}
+
+/** 手改時輸入框裡的數字與單位：有採買單位就改「幾條」，沒有的就改克數。 */
+export function manualUnitOf(item) {
+  return item?.buy ? { value: item.buy.qty, unit: item.buy.unit, step: 0.5 } : { value: item?.grams ?? 0, unit: 'g', step: 10 };
+}
+
 /** 一個項目要買多少的文字：「約 1 顆（713 g）」或「約 320 g」。 */
 export function quantityText(item) {
+  // 括號裡是「食譜需要幾克」，跟「要買幾顆」是兩件事（713 g 的高麗菜買 1 顆）。
+  // 使用者自己改成 3 顆之後，需要幾克已經不是重點，再附上去只會讓人以為 3 顆＝375 克。
+  if (item.manual && item.buy) return `約 ${fmtQty(item.buy.qty)} ${item.buy.unit}`;
   if (item.buy) return `約 ${fmtQty(item.buy.qty)} ${item.buy.unit}（${item.grams} g）`;
   return `約 ${item.grams} g`;
 }
@@ -194,7 +222,7 @@ export function listAsText(range, { checked = {}, have = {} } = {}) {
     lines.push(`— ${sec} —`);
     for (const it of items) {
       const mark = checked[it.foodId] ? '✓' : have[it.foodId] ? '（家裡有）' : '□';
-      lines.push(`${mark} ${it.labels[0] ?? it.name}　${quantityText(it)}`);
+      lines.push(`${mark} ${it.labels[0] ?? it.name}　${quantityText(it)}${it.manual ? '（已改）' : ''}`);
     }
   }
   if (range.pantry.length) lines.push(`— 常備品（用完再補）—`, range.pantry.map((p) => p.labels[0] ?? p.name).join('、'));

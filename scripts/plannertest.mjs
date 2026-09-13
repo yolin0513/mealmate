@@ -555,4 +555,65 @@ section('保存天數：一個食材的所有口語詞都要拿去對 overrides'
   eq(shelfDaysFor({ alias: '老薑', cat: '蔬菜類' }, units), units.shelfDays.byCategory['蔬菜類'], '（對照）只給「老薑」一個詞的話就是落回蔬菜類');
 }
 
+section('早餐不排連續兩天一樣');
+// 使用者實際用過之後回報的。早餐**不納入**「幾天內不重複」（池子小、隔幾天再吃一次沒關係），
+// 但連著兩天一模一樣是另一回事。
+{
+  const fams = {
+    '全葷 3 人': [{ ...newMember(), name: 'a' }, { ...newMember(), name: 'b' }, { ...newMember(), name: 'c' }],
+    '含全素不含五辛': [{ ...newMember(), name: 'a' }, { ...newMember(), name: 'b', diet: 'veganNoAllium' }],
+    '全家全素': [{ ...newMember(), name: 'a', diet: 'vegan' }],
+  };
+  const runs = [];
+  for (const [label, members] of Object.entries(fams)) {
+    const pool = recipes.filter((r) => r.role === 'breakfast' && members.every((m) => versionFor(r, m.diet) !== null));
+    for (const seed of ['a', 'b', 'c', 'd']) {
+      for (const monday of ['2026-09-14', '2026-10-05']) {
+        const { plan: p2, diagnostics } = gen({ members, seed, mondayIso: monday });
+        const seq = p2.slots.filter((x) => x.meal === 'breakfast' && x.kind === 'cook').sort((a, b) => a.day - b.day).map((x) => x.items[0]?.recipeId ?? null);
+        let rep2 = 0;
+        for (let i = 1; i < seq.length; i += 1) if (seq[i] && seq[i] === seq[i - 1]) rep2 += 1;
+        runs.push({ label, poolSize: pool.length, seq, repeats: rep2, relaxed: diagnostics.relaxed.filter((r) => r.constraints.includes('relaxBreakfast')).length });
+      }
+    }
+  }
+  ok(runs.length === 24, `（母體）三種家庭 × 4 個 seed × 2 個起始週 ＝ ${runs.length} 週`);
+  everyOf(runs, (r) => r.seq.filter(Boolean).length === 7, '每一週都排得出 7 天的早餐');
+  everyOf(runs, (r) => r.repeats === 0, `沒有任何一週出現連續兩天同一道早餐（最嚴格的全素家庭吃得到 ${runs.find((r) => r.label === '全家全素').poolSize} 道）`);
+  everyOf(runs, (r) => r.relaxed === 0, '而且都不需要放寬這條（池子夠）');
+  // 對照：這條約束真的有在擋 —— 沒有它的話，同一組 seed 會排出連續重複
+  const { hardBlock: hb2, buildContext: bc2 } = { hardBlock, buildContext };
+  const ctxB = bc2({ recipes, members: [], idx, units, shoppingDays: [] });
+  const bf = recipes.find((r) => r.role === 'breakfast');
+  const stateYesterday = { slotItems: [], dayRecipes: () => new Set(), lastServed: () => 1 };
+  const stateLongAgo = { slotItems: [], dayRecipes: () => new Set(), lastServed: () => 5 };
+  eq(hb2(bf, { role: 'breakfast', meal: 'breakfast', date: '2026-09-15' }, ctxB, stateYesterday), 'breakfastRepeat', '昨天排過的早餐今天被擋下來');
+  eq(hb2(bf, { role: 'breakfast', meal: 'breakfast', date: '2026-09-15' }, ctxB, stateLongAgo), null, '（對照）5 天前排過的早餐照樣可以排（早餐不吃「不重複」那一套）');
+  eq(hb2(bf, { role: 'breakfast', meal: 'breakfast', date: '2026-09-15' }, ctxB, stateYesterday, { relaxBreakfast: true }), null, '真的沒得選時放寬得掉');
+  const side = recipes.find((r) => r.role === 'side');
+  eq(hb2(side, { role: 'side', meal: 'dinner', date: '2026-09-15' }, ctxB, stateYesterday), null, '（對照）這條只管早餐，配菜昨天排過照樣可以排');
+}
+
+section('早餐池太小的時候：誠實放寬，不是硬排也不是報錯');
+{
+  const one = recipes.filter((r) => r.role === 'breakfast').slice(0, 1);
+  const two = recipes.filter((r) => r.role === 'breakfast').slice(0, 2);
+  const poolOf = (bs) => [...recipes.filter((r) => r.role !== 'breakfast'), ...bs];
+  const runTiny = (bs) => {
+    const { plan: p2, diagnostics } = generateWeek({ recipes: poolOf(bs), members: [{ ...newMember(), name: 'a' }], idx, units, favorites: [], history: [], mondayIso: MONDAY, seed: 'tiny', shoppingDays: [3, 6] });
+    const seq = p2.slots.filter((x) => x.meal === 'breakfast' && x.kind === 'cook').sort((a, b) => a.day - b.day).map((x) => x.items[0]?.recipeId ?? null);
+    let rep2 = 0;
+    for (let i = 1; i < seq.length; i += 1) if (seq[i] && seq[i] === seq[i - 1]) rep2 += 1;
+    return { seq, repeats: rep2, relaxed: diagnostics.relaxed.filter((r) => r.constraints.includes('relaxBreakfast')).length, empty: diagnostics.empty.filter((e) => e.role === 'breakfast').length };
+  };
+  const t2 = runTiny(two);
+  eq(t2.repeats, 0, '只有 2 道早餐時，一三五／二四六交替就好，不會連兩天一樣');
+  eq(t2.relaxed, 0, '也不需要放寬');
+  const t1 = runTiny(one);
+  eq(t1.seq.filter(Boolean).length, 7, '只有 1 道早餐時，7 天照樣排得滿（不會留空格）');
+  ok(t1.repeats >= 1, `只有 1 道就一定會重複（${t1.repeats} 次）—— 這是事實，不是 bug`);
+  eq(t1.relaxed, t1.repeats, `而且每一次都記進 diagnostics 明講（${t1.relaxed} 筆），不是靜默硬排`);
+  eq(t1.empty, 0, '也不是丟一個排不出來的空格給使用者');
+}
+
 done('plannertest');

@@ -17,6 +17,12 @@ export const VEG_MODES = ['nativeVeg', 'splittable', 'meatOnly'];
 export const VEG_MODE_LABELS = { nativeVeg: '素', splittable: '可分流（一鍋兩吃）', meatOnly: '葷' };
 /** 清單那種一列一道的地方用短的；詳情頁才寫全（窄螢幕＋特大字級下長標籤會比整欄還寬）。 */
 export const VEG_MODE_SHORT = { nativeVeg: '素', splittable: '可分流', meatOnly: '葷' };
+
+/** 烹調時間的文字。0 分鐘＝買回來就能吃的現成菜，不要顯示「約 0 分鐘」。 */
+export function timeText(min, { short = false } = {}) {
+  if (!(min > 0)) return '現成的';
+  return short ? `約 ${min} 分` : `約 ${min} 分鐘`;
+}
 export const TRACKS = ['base', 'veg', 'meat'];
 export const TRACK_LABELS = { base: '共用', veg: '素食那鍋', meat: '葷食那鍋' };
 export const STAGES = ['base', 'split', 'veg', 'meat'];
@@ -95,25 +101,29 @@ export function validateRecipe(recipe, ctx) {
   if (!ID_RX.test(String(r.id ?? ''))) err(`id 格式錯：${r.id}`);
   if (typeof r.name !== 'string' || !r.name.trim()) err('缺 name');
   if (!ROLES.includes(r.role)) err(`role 不在 ${ROLES.join('/')}：${r.role}`);
-  if (!isInt(r.servings) || r.servings < 1) err(`servings 要是 ≥1 的整數：${r.servings}`);
+  if (!isInt(r.servings) || r.servings < 1) err(`「幾人份」要填 1 以上的整數：${r.servings}`);
   // 可分流的菜要說清楚 veg／meat 兩軌各是為幾人份備的料 —— 素版、葷版的「每人一份」才算得出來
   if (r.vegMode === 'splittable') {
     const ss = r.splitServings;
-    if (!ss || !isInt(ss.veg) || !isInt(ss.meat) || ss.veg < 1 || ss.meat < 1) err('splittable 的菜要有 splitServings {veg ≥ 1, meat ≥ 1}');
-    else if (ss.veg + ss.meat !== r.servings) err(`splitServings 加起來（${ss.veg + ss.meat}）要等於 servings（${r.servings}）`);
+    if (!ss || !isInt(ss.veg) || !isInt(ss.meat) || ss.veg < 1 || ss.meat < 1) err('「可分流」的菜要填素的幾人份、葷的幾人份（各至少 1）');
+    else if (ss.veg + ss.meat !== r.servings) err(`素 ${ss.veg} 人份 ＋ 葷 ${ss.meat} 人份 ＝ ${ss.veg + ss.meat}，跟總共 ${r.servings} 人份對不起來`);
   } else if (r.splitServings != null) {
-    err('只有 splittable 的菜可以有 splitServings');
+    err('只有「可分流（一鍋兩吃）」的菜才需要分素幾人份、葷幾人份');
   }
-  if (!isInt(r.time) || r.time < 1) err(`time（分鐘）要是 ≥1 的整數：${r.time}`);
+  // 現成的菜（買回來的滷雞腳、滷味）真的就是 0 分鐘。內建食譜仍然要求 ≥ 1。
+  const minTime = ctx.relaxRequired ? 0 : 1;
+  if (!isInt(r.time) || r.time < minTime) err(ctx.relaxRequired ? `烹調時間要填 0 或正整數（現成的菜填 0）：${r.time}` : `time（分鐘）要是 ≥1 的整數：${r.time}`);
   if (!METHODS.includes(r.method)) err(`method 不在 ${METHODS.join('/')}：${r.method}`);
-  if (!VEG_MODES.includes(r.vegMode)) err(`vegMode 不在 ${VEG_MODES.join('/')}：${r.vegMode}`);
+  if (!VEG_MODES.includes(r.vegMode)) err(`「誰能吃」要選 ${VEG_MODES.map((v) => VEG_MODE_LABELS[v]).join('、')} 其中一個`);
   if (!TEXTURES.includes(r.texture)) err(`texture 不在 ${TEXTURES.join('/')}：${r.texture}`);
   if (!Array.isArray(r.season) || r.season.some((m) => !isInt(m) || m < 1 || m > 12)) err('season 要是 1–12 的月份陣列（空陣列＝全年）');
 
   const ingredients = Array.isArray(r.ingredients) ? r.ingredients : [];
   if (ingredients.length === 0) err('沒有食材');
   const steps = Array.isArray(r.steps) ? r.steps : [];
-  if (steps.length < 3) err(`步驟至少 3 步，只有 ${steps.length}`);
+  // 現成的菜可能就「盛盤上桌」一步。內建食譜仍然要求 3 步（那是我自己寫的，寫滿才有參考價值）。
+  const minSteps = ctx.relaxRequired ? 1 : 3;
+  if (steps.length < minSteps) err(ctx.relaxRequired ? '至少要寫 1 個步驟' : `步驟至少 3 步，只有 ${steps.length}`);
 
   const tags = new Set();
   const vegTags = new Set();   // base ＋ veg 軌的標籤：素食成員實際吃到的
@@ -132,11 +142,13 @@ export function validateRecipe(recipe, ctx) {
       if (!(ctx.allowMissingGrams && ing?.grams == null)) err(`${where} grams 要 > 0：${ing?.grams}`);
     }
     const track = ing?.track ?? 'base';
-    if (!TRACKS.includes(track)) err(`${where} track 不在 ${TRACKS.join('/')}：${track}`);
-    if (r.vegMode !== 'splittable' && track !== 'base') err(`${where} 只有 splittable 的菜可以有 ${track} 軌`);
+    if (!TRACKS.includes(track)) err(`${where} 要選 ${TRACKS.map((t) => TRACK_LABELS[t]).join('、')} 其中一欄`);
+    if (r.vegMode !== 'splittable' && track !== 'base') err(`${where} 分到了「${TRACK_LABELS[track]}」，但這道菜不是「可分流（一鍋兩吃）」`);
     tracksSeen.add(track);
     const food = ctx.resolve(ing?.food);
-    if (!food) err(`${where} 的 food「${ing?.food}」解析不到食藥署編號`);
+    // 這是**硬底線**，不能為了少一個必填就放掉：查不到編號就算不出營養，
+    // 畫面上那些「估」的數字會整片變成「未估算」。
+    if (!food) err(`${where} 在食材資料庫裡找不到「${ing?.food}」，換個常見的叫法試試（例如「雞腿」「高麗菜」）`);
     let fTags = new Set();
     if (food) {
       fTags = tagsOfFood(food, ctx.foodTags);
@@ -151,8 +163,8 @@ export function validateRecipe(recipe, ctx) {
       if (isProcessedFood(food, fTags)) processed = true;
       if (fTags.has('wholegrain')) wholegrain = true;
       const nonVeg = fTags.has('meat') || fTags.has('seafood');
-      if (nonVeg && r.vegMode === 'nativeVeg') err(`${where} 是葷的（${food.name}），但這道菜標成 nativeVeg`);
-      if (nonVeg && r.vegMode === 'splittable' && track !== 'meat') err(`${where} 是葷的（${food.name}），在 splittable 的菜裡只能放 meat 軌，現在在 ${track}`);
+      if (nonVeg && r.vegMode === 'nativeVeg') err(`${where} 是葷的（${food.name}），但這道菜標成「素」`);
+      if (nonVeg && r.vegMode === 'splittable' && track !== 'meat') err(`${where} 是葷的（${food.name}），要放在「${TRACK_LABELS.meat}」那一欄，現在在「${TRACK_LABELS[track]}」`);
     }
     if (ing?.buy != null) {
       if (!isPosNum(ing.buy.qty) || typeof ing.buy.unit !== 'string' || !ing.buy.unit) err(`${where} buy 要是 {qty>0, unit}`);
@@ -169,28 +181,32 @@ export function validateRecipe(recipe, ctx) {
   });
 
   if (r.vegMode === 'splittable') {
-    for (const t of TRACKS) if (!tracksSeen.has(t)) err(`splittable 的菜缺 ${t} 軌的食材`);
-    if (!tags.has('meat') && !tags.has('seafood')) err('splittable 的菜 meat 軌裡沒有任何葷食材，那它其實是素的');
+    for (const t of TRACKS) if (!tracksSeen.has(t)) err(`「可分流（一鍋兩吃）」的菜，「${TRACK_LABELS[t]}」那一欄還沒有食材`);
+    if (!tags.has('meat') && !tags.has('seafood')) err('這道菜標成「可分流（一鍋兩吃）」，但整道都沒有肉或海鮮 —— 那它其實是素的，請把「誰能吃」改成「素」。');
   }
-  if (r.vegMode === 'meatOnly' && !tags.has('meat') && !tags.has('seafood')) err('meatOnly 的菜裡沒有任何葷食材');
+  // 原本寫「meatOnly 的菜裡沒有任何葷食材」—— 使用者回報看不懂。這是給人看的訊息，不是給程式看的。
+  if (r.vegMode === 'meatOnly' && !tags.has('meat') && !tags.has('seafood')) {
+    err('這道菜標成「葷」，但食材裡沒有肉或海鮮。如果它其實吃素的人也能吃，請把「誰能吃」改成「素」。');
+  }
 
   // 步驟
   const stageIdx = (s) => STAGES.indexOf(s);
   let splitAt = -1;
   steps.forEach((st, i) => {
     const where = `步驟 #${i + 1}`;
-    if (typeof st?.text !== 'string' || st.text.trim().length < 4) err(`${where} 文字太短或缺`);
+    const minLen = ctx.relaxRequired ? 2 : 4;   // 「上桌」兩個字也算一步
+    if (typeof st?.text !== 'string' || st.text.trim().length < minLen) err(`${where} 還沒寫字`);
     const stage = st?.stage ?? 'base';
-    if (!STAGES.includes(stage)) err(`${where} stage 不在 ${STAGES.join('/')}：${stage}`);
+    if (!STAGES.includes(stage)) err(`${where} 要選 ${STAGES.map((x) => STAGE_LABELS[x]).join('、')} 其中一個`);
     if (!STEP_TYPES.includes(st?.type ?? 'cook')) err(`${where} type 不在 ${STEP_TYPES.join('/')}：${st?.type}`);
-    if (r.vegMode !== 'splittable' && stage !== 'base') err(`${where} 只有 splittable 的菜可以有 ${stage} 階段`);
+    if (r.vegMode !== 'splittable' && stage !== 'base') err(`${where} 標成「${STAGE_LABELS[stage]}」，但這道菜不是「可分流（一鍋兩吃）」`);
     if (stage === 'split') splitAt = splitAt < 0 ? i : splitAt;
   });
   if (r.vegMode === 'splittable') {
     const stages = steps.map((s) => s?.stage ?? 'base');
-    if (splitAt < 0) err('splittable 的菜缺 split 步驟（「先盛出素食份」那一步）');
-    if (!stages.includes('veg')) err('splittable 的菜缺 veg 階段的步驟');
-    if (!stages.includes('meat')) err('splittable 的菜缺 meat 階段的步驟');
+    if (splitAt < 0) err('「可分流（一鍋兩吃）」的菜要有一個「分流」步驟（就是「先盛出素食份」那一步）');
+    if (!stages.includes('veg')) err('分流之後，素的那鍋還沒有任何步驟');
+    if (!stages.includes('meat')) err('分流之後，葷的那鍋還沒有任何步驟');
     if (splitAt >= 0) {
       stages.forEach((s, i) => {
         if (s === 'base' && i > splitAt) err(`步驟 #${i + 1} 是 base 卻排在 split 之後`);

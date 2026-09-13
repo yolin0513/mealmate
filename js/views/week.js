@@ -159,6 +159,7 @@ export default async function weekView(query = {}) {
 }
 
 const RELAX_LABELS = {
+  relaxBreakfast: '早餐跟前一天一樣',
   relaxShelf: '食材放不到那一天',
   relaxTime: '超過這一餐的時間上限',
   relaxMethod: '同一餐有兩道同樣烹法',

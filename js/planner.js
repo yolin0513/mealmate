@@ -192,7 +192,7 @@ export function shelfBlocker(recipe, date, ctx) {
 
 // ---------- 硬約束 ----------
 /** 這道菜在這一格能不能選。回 null 表示可以，否則回不能的原因（給 diagnostics）。 */
-export function hardBlock(recipe, { role, meal, date }, ctx, state, { relaxTime = false, relaxMethod = false, relaxDay = false, relaxShelf = false, requireMeaty = false, meatOnlyExtra = false } = {}) {
+export function hardBlock(recipe, { role, meal, date }, ctx, state, { relaxTime = false, relaxMethod = false, relaxDay = false, relaxShelf = false, relaxBreakfast = false, requireMeaty = false, meatOnlyExtra = false } = {}) {
   if (recipe.role !== role) return 'role';
   // 同一天不排同一道菜（午餐晚餐都是番茄炒蛋這種）；真的沒得選才放寬
   if (!relaxDay && state.dayRecipes && state.dayRecipes(date).has(recipe.id)) return 'sameDay';
@@ -210,6 +210,10 @@ export function hardBlock(recipe, { role, meal, date }, ctx, state, { relaxTime 
   }
   // 家裡有吃葷的人時，午晚餐的主菜要排到葷的（可分流的算 —— 素食成員吃素版）
   if (requireMeaty && !isMeaty(recipe)) return 'needMeat';
+  // 早餐不跟前一天一樣。早餐**不納入**「幾天內不重複」（池子小、長輩不介意隔幾天再吃一次），
+  // 但連著兩天一模一樣是另一回事 —— 使用者實際用了之後回報的第一件事就是這個。
+  // 真的排不出來時（例如全素家庭吃得到的早餐只剩一兩道）才放寬，而且會記進 diagnostics 明講。
+  if (!relaxBreakfast && role === 'breakfast' && state.lastServed && state.lastServed(recipe.id, date) === 1) return 'breakfastRepeat';
   // 保存期限：距上次買菜日太久的葉菜、海鮮不排
   if (!relaxShelf) {
     const b = shelfBlocker(recipe, date, ctx);
@@ -366,8 +370,8 @@ function makeState(history, ctx, monday) {
  * 可以被放寬的四條限制，**由輕到重**（越後面越不想動）。
  * 這個順序同時決定 pickForSlot 的嘗試順序與畫面上列理由的順序。
  */
-export const RELAXABLE = ['relaxMethod', 'relaxTime', 'relaxShelf', 'relaxDay'];
-const BLOCK_PREFIX = { relaxMethod: 'method', relaxTime: 'time', relaxShelf: 'shelf', relaxDay: 'sameDay' };
+export const RELAXABLE = ['relaxMethod', 'relaxTime', 'relaxShelf', 'relaxBreakfast', 'relaxDay'];
+const BLOCK_PREFIX = { relaxMethod: 'method', relaxTime: 'time', relaxShelf: 'shelf', relaxBreakfast: 'breakfastRepeat', relaxDay: 'sameDay' };
 
 /**
  * 這道菜在這一格，**實際**踩到哪幾條可放寬的限制。
@@ -405,6 +409,7 @@ export function relaxReason(key, recipe, { meal, date }, ctx) {
       ? `離上次買菜 ${b.since} 天，${b.label}冷藏大約放 ${b.days} 天，這道的肉要先冷凍`
       : `離上次買菜 ${b.since} 天，${b.label}大約只放 ${b.days} 天，不耐放`;
   }
+  if (key === 'relaxBreakfast') return '昨天早餐也是這道，因為家裡吃得到的早餐不夠多';
   if (key === 'relaxMethod') return `同一餐已經有一道${METHOD_LABELS[recipe.method]}的菜，因為符合條件的菜不夠`;
   if (key === 'relaxDay') return '今天另一餐也排了這道，因為符合條件的菜不夠';
   return null;

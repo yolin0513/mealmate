@@ -5,7 +5,7 @@ import { setTop, render } from '../shell.js';
 import * as store from '../store.js';
 import * as prefs from '../prefs.js';
 import { mondayOf, weekKeyOf, addDays, isoDate, parseDate, DAY_LABELS } from '../planner.js';
-import { buildShoppingList, quantityText, listAsText, extraText, SECTIONS, rangesOfPlan } from '../shopping.js';
+import { buildShoppingList, quantityText, listAsText, extraText, suggestedText, manualUnitOf, SECTIONS, rangesOfPlan } from '../shopping.js';
 import { refresh } from '../router.js';
 
 function fmtMD(iso) { const d = parseDate(iso); return `${d.getMonth() + 1}/${d.getDate()}`; }
@@ -48,11 +48,13 @@ export default async function shoppingView(query = {}) {
   // 份數是每張採買卡各自調的（客人通常只來週末，不該把整週都加倍），
   // 所以要先讀出每張卡存著的人數，再算數量。
   const extraByRange = {};
+  const manualByRange = {};
   for (const r of rangesOfPlan(plan, shoppingDays)) {
     const saved = await store.getShopping(r.key);
     extraByRange[r.key] = { meat: saved.extra?.meat ?? 0, veg: saved.extra?.veg ?? 0 };
+    manualByRange[r.key] = saved.manual ?? {};
   }
-  const { ranges } = buildShoppingList({ plan, recipesById, members, idx, units: store.units(), shoppingDays, extraByRange });
+  const { ranges } = buildShoppingList({ plan, recipesById, members, idx, units: store.units(), shoppingDays, extraByRange, manualByRange });
   if (!ranges.length) {
     render(h('section', { class: 'card', dataset: { card: 'shoppingEmpty' } }, h('div', { class: 'row-actions' }, weekChips), h('h2', { class: 'card-title' }, '這週沒有自己煮的餐'), h('p', { class: 'muted' }, '菜單裡每一餐都是外食或不煮，所以沒有東西要買。')));
     return;
@@ -86,15 +88,47 @@ export default async function shoppingView(query = {}) {
         ...items.map((it) => {
           const cb = h('input', { type: 'checkbox', checked: !!row.checked?.[it.foodId], 'aria-label': `買了 ${it.labels[0] ?? it.name}` });
           const haveBtn = h('button', { class: 'chip chip-sm' + (row.have?.[it.foodId] ? ' on' : ''), type: 'button', 'aria-pressed': row.have?.[it.foodId] ? 'true' : 'false', dataset: { action: 'have', food: it.foodId } }, '家裡有');
-          const line = h('div', { class: 'shop-row' + (row.checked?.[it.foodId] ? ' done' : '') + (row.have?.[it.foodId] ? ' have' : ''), dataset: { buy: it.foodId } },
+          // 數量本身就是按鈕：站在菜攤前看到「建議 2 條」但想買 3 條，點一下就改。
+          // 改過的用「已改」標出來，並且講得出原本建議多少 —— 不然她下次看不懂這個數字哪來的。
+          const unit = manualUnitOf(it);
+          const qtyBtn = h('button', {
+            class: 'shop-qty num qty-btn' + (it.manual ? ' manual' : ''), type: 'button',
+            'aria-label': `${it.labels[0] ?? it.name} 要買多少，現在是 ${quantityText(it)}，點一下可以改`,
+            dataset: { action: 'editQty', food: it.foodId },
+          }, quantityText(it));
+          qtyBtn.addEventListener('click', async () => {
+            const cur = manualUnitOf(it);
+            const box = h('input', { type: 'number', class: 'field field-num', min: '0', step: String(cur.step),
+              value: String(cur.value), inputMode: 'decimal', 'aria-label': '數量', dataset: { field: 'qtyInput' } });
+            const res = await modal({
+              title: `${it.labels[0] ?? it.name} 要買多少`,
+              body: h('div', { class: 'qty-edit' },
+                h('p', { class: 'muted sm' }, `原本建議 ${suggestedText(it)}。你可以自己改，改過的會標「已改」。`),
+                h('label', { class: 'extra-field' }, box, h('span', { class: 'muted sm' }, cur.unit))),
+              actions: [{ value: null, label: '取消' }, { value: 'reset', label: '改回建議值' }, { value: 'ok', label: '存起來', primary: true }],
+            });
+            if (res == null) return;
+            row.manual = { ...(row.manual ?? {}) };
+            if (res === 'reset') delete row.manual[it.foodId];
+            else {
+              const q = Number(box?.value);
+              if (!Number.isFinite(q) || q <= 0) { toast('請填大於 0 的數字'); return; }
+              row.manual[it.foodId] = q;
+            }
+            await save();
+            refresh();
+          });
+          const line = h('div', { class: 'shop-row' + (row.checked?.[it.foodId] ? ' done' : '') + (row.have?.[it.foodId] ? ' have' : '') + (it.manual ? ' manual' : ''), dataset: { buy: it.foodId, manual: it.manual ? 'true' : 'false' } },
             h('label', { class: 'check shop-check' }, cb,
               h('span', { class: 'shop-main' },
                 // 第一行只留「名稱＋數量」：別名（薑絲／老薑／薑片）擠在名稱後面會把數量推到下一行，
                 // 而站在菜攤前要一眼看到買幾顆。別名移到下面那行（layouttest 量出來的）。
                 h('span', { class: 'shop-line1' },
                   h('span', { class: 'shop-name' }, it.labels[0] ?? it.name),
-                  h('span', { class: 'shop-qty num' }, quantityText(it))),
+                  qtyBtn),
                 h('span', { class: 'muted xs shop-uses' },
+                  it.manual ? h('span', { class: 'qty-manual' }, '已改') : null,
+                  it.manual ? '；' : '',
                   it.labels.length > 1 ? `也叫${it.labels.slice(1, 3).join('、')}；` : '',
                   `用在：${it.uses.slice(0, 2).map((u) => `${fmtMD(u.date)} ${u.recipe}`).join('、')}${it.uses.length > 2 ? ` 等 ${it.uses.length} 餐` : ''}`))),
             haveBtn,

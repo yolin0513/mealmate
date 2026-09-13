@@ -4,7 +4,7 @@ import { h, modal } from '../ui.js';
 import * as store from '../store.js';
 import * as prefs from '../prefs.js';
 import { swapItem, assignItem, daysBetween, MEAL_ROLES } from '../planner.js';
-import { ROLE_LABELS } from '../recipeschema.js';
+import { ROLE_LABELS, timeText } from '../recipeschema.js';
 import { versionFor, DIET_LABELS } from '../members.js';
 import { matchesQuery } from './recipes.js';
 
@@ -54,7 +54,7 @@ export async function assignSlotItem({ plan, slotIndex, pos, recipesById, member
       return h('button', {
         class: 'picker-item', type: 'button', dataset: { pick: r.id },
         onclick: () => close?.(r.id),
-      }, r.name, h('span', { class: 'muted xs' }, ` 約 ${r.time} 分`),
+      }, r.name, h('span', { class: 'muted xs' }, ` ${timeText(r.time, { short: true })}`),
       cannot.length ? h('span', { class: 'warn xs' }, ` ${cannot.map((m) => `${m.name}（${DIET_LABELS[m.diet]}）`).join('、')}吃不了`) : null);
     }));
   };

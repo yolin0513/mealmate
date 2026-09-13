@@ -9,7 +9,7 @@ import { refresh } from '../router.js';
 import * as store from '../store.js';
 import { eduNode } from '../edu.js';
 import { DIET_LABELS, displayFields, familyWatchFields } from '../members.js';
-import { ROLE_LABELS, VEG_MODE_LABELS } from '../recipeschema.js';
+import { ROLE_LABELS, VEG_MODE_LABELS, timeText } from '../recipeschema.js';
 import { NUTRIENT_LABELS } from '../foods.js';
 import { dailyEstimates, mondayOf, weekKeyOf, addDays, isoDate, parseDate, MEALS, MEAL_LABELS, DAY_LABELS } from '../planner.js';
 import { buildTimeline, mealNutrition, cookableSlot } from '../timeline.js';
@@ -118,7 +118,7 @@ export default async function todayView(query = {}) {
   const timelineCard = h('section', { class: 'card', dataset: { card: 'timeline' } },
     h('h2', { class: 'card-title' }, `${MEAL_LABELS[meal]}的順序`),
     h('p', { class: 'muted sm' }, `${tl.dishes.length} 道菜、${tl.stepCount} 步；同時要顧 ${tl.potsAtOnce} 個鍋，最久的一道約 ${tl.longestMinutes} 分鐘（三道一起煮不會是各自時間相加）。`),
-    h('div', { class: 'pill-row' }, ...tl.dishes.map((d) => pill(`${d.name}（${ROLE_LABELS[d.role] ?? ''}約 ${d.time} 分）`))),
+    h('div', { class: 'pill-row' }, ...tl.dishes.map((d) => pill(`${d.name}（${ROLE_LABELS[d.role] ?? ''}${timeText(d.time, { short: true })}）`))),
     h('div', { class: 'row-actions' }, progress, resetBtn),
     ...groupNodes,
     tl.hasSplit ? h('p', { class: 'muted xs' }, '「盛出素食份」之後兩鍋分開，素食成員吃的那鍋不會再加肉；分幾份依家裡吃素的人數。') : null,

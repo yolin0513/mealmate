@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ok, eq, section, done, everyOf, detects } from './tap.mjs';
+import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadContext, buildRecipes, summarize, outputFor } from './build-recipes.mjs';
 import { validateRecipe } from '../js/recipeschema.js';
 
@@ -108,6 +108,94 @@ detects(invalid, {
 for (const [name, r] of Object.entries(broken)) {
   const errs = validateRecipe(r, ctx).errors;
   ok(errs.length > 0, `${name} → ${errs[0] ?? '（沒有錯誤訊息）'}`);
+}
+
+// 用真的 ctx（食材解析、食材標籤），只覆蓋要放寬的旗標
+const validate = (r, over = {}) => validateRecipe(r, { ...ctx, ...over });
+
+section('使用者自己加的菜：越少必填越好，但硬底線不放');
+// 使用者回報：長輩想加「現成的滷雞腳」，步驟不到 3 步、時間是 0 分鐘，卻被擋下來。
+{
+  const readyMade = {
+    id: 'r-user-feet', name: '滷雞腳（現成）', role: 'side', servings: 4, time: 0, method: 'cold',
+    vegMode: 'meatOnly', texture: 'normal', season: [], source: 'user',
+    ingredients: [{ food: '雞腳', label: '滷雞腳', grams: 300 }],
+    steps: [{ text: '盛盤上桌' }],
+  };
+  const relaxed = validate(readyMade, { relaxRequired: true, allowMissingGrams: true });
+  eq(relaxed.errors, [], `現成的菜過得了（1 步、0 分鐘）：${JSON.stringify(relaxed.errors)}`);
+  eq(relaxed.recipe.time, 0, '時間就是 0，不會被改成 1');
+  eq(relaxed.recipe.steps.length, 1, '步驟就是 1 步');
+
+  // 對照：內建食譜仍然要求 3 步、時間 ≥ 1
+  const strict = validate(readyMade, {});
+  ok(strict.errors.length >= 2, `（對照）同一道菜用內建食譜的標準會被擋（${strict.errors.length} 個問題）`);
+  ok(strict.errors.some((e) => /3 步/.test(e)), '內建仍要求 3 步');
+  ok(strict.errors.some((e) => /time/.test(e)), '內建仍要求 time ≥ 1');
+
+  // 兩步、短句子也可以
+  const twoStep = validate({ ...readyMade, steps: [{ text: '退冰' }, { text: '上桌' }] }, { relaxRequired: true, allowMissingGrams: true });
+  eq(twoStep.errors, [], '兩個字的步驟（「上桌」）也收');
+  // 完全沒步驟還是要擋
+  const noStep = validate({ ...readyMade, steps: [] }, { relaxRequired: true, allowMissingGrams: true });
+  ok(noStep.errors.some((e) => /至少要寫 1 個步驟/.test(e)), '一步都沒有還是會擋，而且講人話');
+  // 負的時間要擋
+  ok(validate({ ...readyMade, time: -5 }, { relaxRequired: true, allowMissingGrams: true }).errors.some((e) => /0 或正整數/.test(e)), '負的時間會擋，訊息講「現成的菜填 0」');
+}
+
+section('驗證訊息要講人話，不可以丟術語給使用者');
+{
+  // 使用者原話：「meatOnly 的菜裡沒有任何葷食材」這段文字不知道是什麼意思
+  const vegAsMeat = {
+    id: 'r-user-x', name: '燙青菜', role: 'side', servings: 2, time: 5, method: 'boil',
+    vegMode: 'meatOnly', texture: 'normal', season: [], source: 'user',
+    ingredients: [{ food: '高麗菜', label: '高麗菜', grams: 200 }],
+    steps: [{ text: '燙熟盛盤' }],
+  };
+  const e = validate(vegAsMeat, { relaxRequired: true, allowMissingGrams: true }).errors;
+  ok(e.length >= 1, `（前提）這道會被擋：${e.join('｜')}`);
+  const msg = e.find((x) => /誰能吃|葷/.test(x)) ?? '';
+  ok(/沒有肉或海鮮/.test(msg), `訊息講的是「沒有肉或海鮮」而不是欄位名：「${msg}」`);
+
+  // 所有會給使用者看到的訊息都不可以出現這些程式術語
+  const JARGON = ['meatOnly', 'nativeVeg', 'splittable', 'splitServings', 'vegMode', 'servings', '軌', 'track'];
+  const cases = [
+    vegAsMeat,
+    { ...vegAsMeat, vegMode: 'splittable', splitServings: { veg: 1, meat: 9 } },
+    { ...vegAsMeat, vegMode: 'nativeVeg', ingredients: [{ food: '雞腿', label: '雞腿', grams: 200 }] },
+    { ...vegAsMeat, ingredients: [{ food: '不存在的東西', label: '？', grams: 10 }] },
+    { ...vegAsMeat, vegMode: 'splittable', splitServings: { veg: 1, meat: 1 } },
+  ];
+  const allMsgs = cases.flatMap((c) => validate(c, { relaxRequired: true, allowMissingGrams: true }).errors);
+  ok(allMsgs.length >= 5, `（母體）${allMsgs.length} 則訊息`);
+  noneOf(allMsgs, (m) => JARGON.some((j) => m.includes(j)), `沒有一則訊息出現程式術語（${JARGON.join('、')}）`);
+  everyOf(allMsgs, (m) => m.length >= 6, '每一則都寫成句子，不是欄位名加代碼');
+}
+
+section('放寬的是必填，不是資料完整性');
+{
+  // 硬底線 1：食材一定要解析到食藥署編號，否則營養算不出來
+  const badFood = {
+    id: 'r-user-y', name: '神祕料理', role: 'side', servings: 2, time: 0, method: 'cold',
+    vegMode: 'nativeVeg', texture: 'normal', season: [], source: 'user',
+    ingredients: [{ food: 'zzz不存在zzz', label: '？', grams: 10 }],
+    steps: [{ text: '上桌' }],
+  };
+  const e1 = validate(badFood, { relaxRequired: true, allowMissingGrams: true }).errors;
+  ok(e1.some((m) => /找不到/.test(m)), `查不到的食材仍然擋下來：「${e1.find((m) => /找不到/.test(m))}」`);
+
+  // 硬底線 2：素葷分軌仍然正確 —— 素的菜裡不可以有肉
+  const meatInVeg = { ...badFood, ingredients: [{ food: '雞腿', label: '雞腿', grams: 200 }] };
+  ok(validate(meatInVeg, { relaxRequired: true, allowMissingGrams: true }).errors.some((m) => /是葷的/.test(m)),
+    '標成「素」卻放雞腿 → 仍然擋下來（素食成員吃到肉是紅線）');
+
+  // 硬底線 3：可分流的菜，葷食材只能放葷那鍋
+  const wrongTrack = {
+    ...badFood, vegMode: 'splittable', servings: 2, splitServings: { veg: 1, meat: 1 },
+    ingredients: [{ food: '高麗菜', label: '高麗菜', grams: 100, track: 'base' }, { food: '雞腿', label: '雞腿', grams: 100, track: 'veg' }],
+  };
+  ok(validate(wrongTrack, { relaxRequired: true, allowMissingGrams: true }).errors.some((m) => /葷的/.test(m)),
+    '把雞腿放到素食那鍋 → 仍然擋下來');
 }
 
 done('recipetest');

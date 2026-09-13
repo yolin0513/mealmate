@@ -121,6 +121,7 @@ try {
     { name: '本週（收起三天）', hash: '#/', collapse: [0, 3, 6] },
     { name: '今日煮', hash: `#/today?d=${seeded.today.d}&meal=${seeded.today.meal}` },
     { name: '買菜', hash: '#/shopping' },
+    { name: '買菜（改過數量）', hash: '#/shopping', manualQty: true },
     { name: '食譜清單', hash: '#/recipes' },
     { name: '食譜（最長名）', hash: `#/recipes/${LONG_RECIPE}` },
     { name: '我的食譜', hash: `#/recipes/${seeded.myRecipeId}` },
@@ -230,6 +231,11 @@ try {
     }
     return { overflow, overlaps, columns, docW, scrollW: document.documentElement.scrollWidth, leafCount: boxes.length,
       dayBodies, dayToggleMinH: Number.isFinite(dayToggleMinH) ? Math.round(dayToggleMinH) : 999,
+      manualMarks: root.querySelectorAll('.qty-manual').length,
+      qtyBtnMinH: (() => {
+        const hs = [...root.querySelectorAll('[data-action="editQty"]')].map((e) => e.getBoundingClientRect().height);
+        return hs.length ? Math.round(Math.min(...hs)) : 999;
+      })(),
       maxPillChars: pillChars.length ? Math.max(...pillChars) : 0,
       watchCount: watch.length,
       maxWatchChars: watch.length ? Math.max(...watch.map((w) => w.chars)) : 0,
@@ -252,6 +258,27 @@ try {
           const wk = weekKeyOf(mondayOf(isoDate(new Date())));
           await prefs.set('collapsedDays', days.length ? { [wk]: days } : {});
         }, route.collapse ?? []);
+        // 每一個 route 前面都把「手改過的數量」設成它要的樣子，否則狀態會互相污染
+        await page.evaluate(async (on) => {
+          const store = await import('./js/store.js');
+          const prefs = await import('./js/prefs.js');
+          const { rangesOfPlan } = await import('./js/shopping.js');
+          const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+          const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+          if (!plan) return;
+          for (const r of rangesOfPlan(plan, prefs.get('shoppingDays') ?? [])) {
+            const row = await store.getShopping(r.key);
+            // 改一半的項目，另一半維持建議值 —— 兩種樣式會並排出現，才看得出會不會互相擠
+            row.manual = {};
+            if (on) {
+              const { buildShoppingList } = await import('./js/shopping.js');
+              const built = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: prefs.get('shoppingDays') ?? [] });
+              const items = built.ranges.find((x) => x.key === r.key)?.items ?? [];
+              items.forEach((it, i) => { if (i % 2 === 0) row.manual[it.foodId] = (it.buy ? it.buy.qty : it.grams) + (it.buy ? 2 : 100); });
+            }
+            await store.saveShopping(row);
+          }
+        }, !!route.manualQty);
         await page.evaluate(() => { location.hash = '#/family/new'; });
         await new Promise((r) => setTimeout(r, 180));
         await page.evaluate((h) => { location.hash = h; }, route.hash);
@@ -308,6 +335,14 @@ try {
     all.filter((p) => p.overlaps.length).slice(0, 3).map((p) => `${where(p)}：${JSON.stringify(p.overlaps.slice(0, 2))}`).join(' ／ '));
   noneOf(all, (p) => p.scrollW > p.docW + 1, '畫面不會橫向捲動',
     all.filter((p) => p.scrollW > p.docW + 1).slice(0, 3).map((p) => `${where(p)}：scrollWidth ${p.scrollW} > ${p.docW}`).join(' ／ '));
+
+  section('手改過數量的買菜頁：標記看得到，數量欄照樣對齊');
+  const manualPages = all.filter((p) => p.route === '買菜（改過數量）');
+  ok(manualPages.length === SCALES.length * WIDTHS.length, `（母體）改過數量的買菜頁掃了 ${manualPages.length} 組`);
+  everyOf(manualPages, (p) => p.manualMarks >= 3, `每一組都看得到「已改」標記（最少 ${Math.min(...manualPages.map((p) => p.manualMarks))} 個）`);
+  const plainPages = all.filter((p) => p.route === '買菜');
+  everyOf(plainPages, (p) => p.manualMarks === 0, '（對照）沒改過的買菜頁一個「已改」都沒有 —— 上面那條不是因為到處都印這兩個字');
+  everyOf(manualPages, (p) => p.qtyBtnMinH >= 44, `改過之後數量還是按得到（最小 ${Math.min(...manualPages.map((p) => p.qtyBtnMinH))}px）`);
 
   section('買菜清單：數量欄要對齊，不會被擠到下一行');
   const withList = all.filter((p) => p.columns.length > 0);
