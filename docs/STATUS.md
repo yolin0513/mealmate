@@ -19,12 +19,15 @@
 | 追加優化：營養標示精簡 | ✅ 完成（2026-09-13） | `mealmate-v0.7.0` |
 | 全面檢測 | ✅ 完成（2026-09-13） | 未動程式碼 |
 | 檢測後修正六項 | ✅ 完成（2026-09-13） | `mealmate-v0.8.0` |
+| iPhone 四項實機檢查 | ✅ 使用者回報全部正常（2026-09-13） | — |
+| 新功能 2：本週每天可摺疊 | ✅ 完成（2026-09-13） | 待發布 |
+| 新功能 1：購物清單份數可調 | ⏳ 方案待使用者確認 | — |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
 Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 48、membertest 47、nutritiontest 131、plannertest 154、shoppingtest 49、timelinetest 71、doctest 82；
-瀏覽器端（puppeteer）：shelltest 106、familytest 45、recipeviewtest 54、backuptest 30、weekviewtest 67、shoppingviewtest 25、todaytest 41、racetest 16、versionmixtest 40、layouttest 18（81 組版面掃描）、uikittest 28、pwatest 35、redlinetest 28、scenariotest 39。
+瀏覽器端（puppeteer）：shelltest 106、familytest 45、recipeviewtest 54、backuptest 30、weekviewtest 91、shoppingviewtest 25、todaytest 41、racetest 16、versionmixtest 40、layouttest 41（90 組版面掃描 ＋ 桌機七欄）、uikittest 28、pwatest 35、redlinetest 28、scenariotest 39。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **115 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
+`mutationtest` 共 **121 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
 
 食譜現況：**180 道**（主菜 80、配菜 50、湯 25、早餐 19、主食 6）。
 
@@ -51,6 +54,21 @@ Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、
 5. **完整突變套件**：105 條全跑一次**全綠**（24 個基準先過，再逐條改壞、確認會紅、還原）。
 
 檢測期間**沒有動任何產品程式碼**（js／css／data 零改動），改的都是測試與工具。
+
+### 新功能：本週頁每一天可以摺疊（2026-09-13）
+
+整條日期列就是開關（不是角落一個小箭頭）—— 站在廚房拿手機的人要能隨便點到，所以 `.day-toggle` 撐滿整列、高度守住 44px。
+
+· **用 `hidden` 真的移出版面**，不是把高度壓成 0 或改透明度。CSS 有 `[hidden]{display:none!important}`，
+  所以收起來之後版面不佔位、螢幕閱讀器也讀不到。只改外觀的話，讀螢幕的人還是會被念完整天的菜。
+  `aria-expanded` 跟著切換，`aria-controls` 指到它控制的那一塊。
+· **摺疊狀態依週存**（`prefs.collapsedDays` 是 `{ '2026-W38': [0, 3] }`），只留最近 4 週。
+  存成全域「每個星期三都收起來」也做得到，但實際用法多半是「這幾天已經煮過了」——
+  那是這一週的事，下一週不該還是收的。有一條突變盯著這個分界。
+· **收起來時標題旁補一行摘要**（「3 餐自己煮、10 道」）。桌機是七欄，七個只剩日期的欄位分不出差別。
+· **兩種版型都驗過**：手機一天一卡（`layouttest` 多掃一組「收起三天」的本週頁 × 三種字級 × 三種寬度），
+  桌機七欄另外量（**1100px 才是七欄的斷點，不是 720px** —— 720 那一段只加寬內容區，我一開始量錯過）。
+· 6 條突變：只改外觀不用 hidden、重新載入不套用、不更新 aria-expanded、不存起來、不分週、觸控高度縮回 30px。
 
 ### 檢測後的修正（2026-09-13，使用者指定順序）
 

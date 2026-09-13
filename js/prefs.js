@@ -17,7 +17,29 @@ export const DEFAULTS = {
   avoid: { sweet: false, processed: false, fried: false },
   // 這週用的亂數種子；「重新產生」會換一個
   planSeed: null,
+  // 本週頁把哪幾天收起來了。**依週存**：{ '2026-W38': [5, 6] }。
+  // 存成全域的「星期六日一律收起來」也行，但實際用法多半是「這幾天已經煮過了，收起來」——
+  // 那是這一週的事，下一週不該還是收的。只留最近幾週，免得無限長大。
+  collapsedDays: {},
 };
+
+/** 這一週有哪幾天是收起來的（0 = 週一）。 */
+export function collapsedDaysFor(weekKey) {
+  const all = get('collapsedDays') ?? {};
+  return Array.isArray(all[weekKey]) ? all[weekKey] : [];
+}
+
+/** 只保留最近幾週的摺疊狀態（weekKey 是 '2026-W38' 這種，字串排序＝時間排序）。 */
+const KEEP_WEEKS = 4;
+export async function setCollapsedDay(weekKey, day, on) {
+  const all = { ...(get('collapsedDays') ?? {}) };
+  const cur = new Set(collapsedDaysFor(weekKey));
+  if (on) cur.add(day); else cur.delete(day);
+  if (cur.size) all[weekKey] = [...cur].sort((a, b) => a - b);
+  else delete all[weekKey];
+  for (const k of Object.keys(all).sort().slice(0, -KEEP_WEEKS)) delete all[k];
+  await set('collapsedDays', all);
+}
 
 const cache = new Map();
 let loaded = false;

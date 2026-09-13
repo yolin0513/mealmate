@@ -5,7 +5,7 @@
  *
  * 每次改動任何 SHELL 檔案都要 bump VERSION，否則使用者拿到的還是舊程式。
  */
-const VERSION = 'mealmate-v0.8.0';
+const VERSION = 'mealmate-v0.9.0';
 const SHELL = `${VERSION}-shell`;
 
 const SHELL_ASSETS = [

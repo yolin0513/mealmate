@@ -117,6 +117,8 @@ try {
 
   const ROUTES = [
     { name: '本週', hash: '#/' },
+    // 摺疊之後版面會變（桌機七欄少了內容、手機卡片只剩一行），要一起掃過三種字級
+    { name: '本週（收起三天）', hash: '#/', collapse: [0, 3, 6] },
     { name: '今日煮', hash: `#/today?d=${seeded.today.d}&meal=${seeded.today.meal}` },
     { name: '買菜', hash: '#/shopping' },
     { name: '食譜清單', hash: '#/recipes' },
@@ -216,7 +218,18 @@ try {
       if (!pr || r.width === 0) continue;
       watch.push({ chars: el.textContent.trim().length, over: r.width > pr.width + 0.5, text: el.textContent.trim().slice(0, 24) });
     }
+    // 摺疊：分別數「收起來的日子」與「展開的日子」各有多少餐格真的看得見
+    const dayBodies = { collapsedVisible: 0, openVisible: 0 };
+    let dayToggleMinH = Infinity;
+    for (const card of root.querySelectorAll('[data-card="day"]')) {
+      const isOpen = card.dataset.open !== 'false';
+      const meals = [...card.querySelectorAll('.meal-block')].filter((e) => e.getBoundingClientRect().height > 0).length;
+      if (isOpen) { if (meals > 0) dayBodies.openVisible += 1; } else { dayBodies.collapsedVisible += meals; }
+      const btn = card.querySelector('[data-action="toggleDay"]');
+      if (btn) dayToggleMinH = Math.min(dayToggleMinH, btn.getBoundingClientRect().height);
+    }
     return { overflow, overlaps, columns, docW, scrollW: document.documentElement.scrollWidth, leafCount: boxes.length,
+      dayBodies, dayToggleMinH: Number.isFinite(dayToggleMinH) ? Math.round(dayToggleMinH) : 999,
       maxPillChars: pillChars.length ? Math.max(...pillChars) : 0,
       watchCount: watch.length,
       maxWatchChars: watch.length ? Math.max(...watch.map((w) => w.chars)) : 0,
@@ -233,6 +246,12 @@ try {
         prefs.applyFontScale(s);
       }, scale);
       for (const route of ROUTES) {
+        await page.evaluate(async (days) => {
+          const prefs = await import('./js/prefs.js');
+          const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+          const wk = weekKeyOf(mondayOf(isoDate(new Date())));
+          await prefs.set('collapsedDays', days.length ? { [wk]: days } : {});
+        }, route.collapse ?? []);
         await page.evaluate(() => { location.hash = '#/family/new'; });
         await new Promise((r) => setTimeout(r, 180));
         await page.evaluate((h) => { location.hash = h; }, route.hash);
@@ -269,6 +288,20 @@ try {
   noneOf(watchPages, (p) => p.watchOver.length > 0, '留意欄位沒有一項撐破它所在的那一欄（撐破的話右半邊會蓋掉旁邊的烹調時間）',
     watchPages.filter((p) => p.watchOver.length).slice(0, 3).map((p) => `${where(p)}：${p.watchOver.join('、')}`).join(' ／ '));
 
+  // 摺疊：收起來的那幾天不可以還佔著版面（不然「收起來」只是視覺上的謊）
+  const folded = all.filter((p) => p.route === '本週（收起三天）');
+  ok(folded.length === SCALES.length * WIDTHS.length, `（母體）收起三天的本週頁掃了 ${folded.length} 組（三種字級 × 三種寬度）`);
+  everyOf(folded, (p) => p.dayBodies.collapsedVisible === 0,
+    '收起來的三天，餐格一個都量不到（hidden 真的把它們移出版面）');
+  everyOf(folded, (p) => p.dayBodies.openVisible >= 4,
+    `沒收的那幾天照常顯示（最少一組還看得到 ${Math.min(...folded.map((p) => p.dayBodies.openVisible))} 天的內容）`);
+  const open = all.filter((p) => p.route === '本週');
+  ok(open.length === SCALES.length * WIDTHS.length, `（對照母體）沒收起來的本週頁也掃了 ${open.length} 組`);
+  everyOf(open, (p) => p.dayBodies.collapsedVisible === 0 && p.dayBodies.openVisible === 7,
+    '（對照）同一頁不收的時候，七天的內容都看得到 —— 上面那條不是因為本來就量不到');
+  everyOf(folded, (p) => p.dayToggleMinH >= 44,
+    `收起來之後，日期列仍然按得到（最小 ${Math.min(...folded.map((p) => p.dayToggleMinH))}px）`);
+
   noneOf(all, (p) => p.overflow.length > 0, '沒有任何元素超出畫面寬度',
     all.filter((p) => p.overflow.length).slice(0, 3).map((p) => `${where(p)}：${JSON.stringify(p.overflow.slice(0, 2))}`).join(' ／ '));
   noneOf(all, (p) => p.overlaps.length > 0, '沒有任何兩段文字疊在一起',
@@ -293,6 +326,56 @@ try {
   noneOf(withList, (p) => p.columns.some((c) => c.maxDrop > 60), '放不下的列最多換一行，不會散成兩行以上',
     withList.filter((p) => p.columns.some((c) => c.maxDrop > 60)).slice(0, 3).map((p) => `${where(p)}：掉了 ${Math.max(...p.columns.map((c) => c.maxDrop))}px`).join(' ／ '));
   note(`換行的列：${SCALES.map((s) => `${s} ${WIDTHS.map((w) => `${w}px:${withList.filter((p) => p.scale === s && p.width === w).reduce((n, p) => n + p.columns.reduce((m, c) => m + c.wrapped, 0), 0)}`).join('／')}`).join('、')}`);
+
+
+  section('桌機七欄：摺疊在 grid 版型下也要合理');
+  {
+    // 手機那些組合都是 ≤ 430px（一天一卡）。七欄是 **≥ 1100px** 才生效（不是 720px，那一段只加寬內容區），所以要另外量。
+    for (const scale of ['md', 'xl']) {
+      await page.setViewport({ width: 1280, height: 900 });
+      await page.evaluate(async (s2) => {
+        const prefs = await import('./js/prefs.js');
+        await prefs.set('fontScale', s2); prefs.applyFontScale(s2);
+        const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+        await prefs.set('collapsedDays', { [weekKeyOf(mondayOf(isoDate(new Date())))]: [0, 3, 6] });
+      }, scale);
+      await page.evaluate(() => { location.hash = '#/family/new'; });
+      await new Promise((r) => setTimeout(r, 200));
+      await page.evaluate(() => { location.hash = '#/'; });
+      await page.waitForFunction(() => document.querySelectorAll('[data-card="day"]').length === 7, { timeout: 60000 });
+      await new Promise((r) => setTimeout(r, 350));
+      const g = await page.evaluate(() => {
+        const cards = [...document.querySelectorAll('[data-card="day"]')];
+        const rects = cards.map((c) => c.getBoundingClientRect());
+        const tops = [...new Set(rects.map((r) => Math.round(r.top)))];
+        const collapsed = cards.filter((c) => c.dataset.open === 'false');
+        const openCards = cards.filter((c) => c.dataset.open !== 'false');
+        return {
+          cards: cards.length,
+          rows: tops.length,
+          collapsedMeals: collapsed.reduce((n, c) => n + [...c.querySelectorAll('.meal-block')].filter((e) => e.getBoundingClientRect().height > 0).length, 0),
+          openMeals: openCards.reduce((n, c) => n + [...c.querySelectorAll('.meal-block')].filter((e) => e.getBoundingClientRect().height > 0).length, 0),
+          collapsedTitlesVisible: collapsed.filter((c) => c.querySelector('.card-title')?.getBoundingClientRect().height > 0).length,
+          summariesVisible: collapsed.filter((c) => c.querySelector('[data-field="daySummary"]')?.getBoundingClientRect().height > 0).length,
+          docScrollW: document.documentElement.scrollWidth,
+          docW: document.documentElement.clientWidth,
+        };
+      });
+      eq(g.cards, 7, `桌機 1280px／${scale}：七天都在`);
+      eq(g.rows, 1, '七欄排成一列（grid 生效，收起來的欄不會被擠到第二行）');
+      eq(g.collapsedMeals, 0, '收起來的三欄，餐格一個都量不到');
+      ok(g.openMeals >= 10, `沒收的四欄照常有內容（${g.openMeals} 個餐格）`);
+      eq(g.collapsedTitlesVisible, 3, '收起來的欄仍然看得到日期（不然點不回去）');
+      eq(g.summariesVisible, 3, '而且每一欄都有那一行摘要');
+      ok(g.docScrollW <= g.docW + 1, `桌機也沒有橫向捲動（scrollW ${g.docScrollW} ≤ ${g.docW}）`);
+    }
+    await page.evaluate(async () => {
+      const prefs = await import('./js/prefs.js');
+      await prefs.set('collapsedDays', {});
+      await prefs.set('fontScale', 'md'); prefs.applyFontScale('md');
+    });
+  }
+
 
   eq(pageErrors, [], '整段沒有未攔截的例外');
 } finally {

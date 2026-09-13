@@ -305,6 +305,90 @@ try {
   }
 
 
+
+  section('每一天可以摺疊：真的移出版面，而且記得住');
+  {
+    // 先回到一個有計畫的狀態
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    await goto(page, '#/');
+    await page.waitForSelector('[data-card="day"][data-day="0"]');
+
+    const dayState = (d) => page.evaluate((day) => {
+      const card = document.querySelector(`[data-card="day"][data-day="${day}"]`);
+      const body = card?.querySelector('[data-field="dayBody"]');
+      const btn = card?.querySelector('[data-action="toggleDay"]');
+      const sum = card?.querySelector('[data-field="daySummary"]');
+      const r = body?.getBoundingClientRect();
+      return {
+        open: card?.dataset.open,
+        aria: btn?.getAttribute('aria-expanded'),
+        ariaControls: btn?.getAttribute('aria-controls'),
+        bodyId: body?.id,
+        bodyHidden: body?.hidden,
+        // hidden 要真的不佔版面：CSS 有 [hidden]{display:none!important}
+        bodyH: r ? Math.round(r.height) : null,
+        mealsVisible: [...(body?.querySelectorAll('.meal-block') ?? [])].filter((e) => e.getBoundingClientRect().height > 0).length,
+        summaryHidden: sum?.hidden,
+        summaryText: sum?.textContent?.trim() ?? '',
+        btnH: btn ? Math.round(btn.getBoundingClientRect().height) : null,
+      };
+    }, d);
+
+    const before = await dayState(0);
+    eq(before.open, 'true', '一開始週一是展開的');
+    eq(before.aria, 'true', 'aria-expanded 也是 true');
+    ok(before.mealsVisible === 3, `展開時三餐都看得到（${before.mealsVisible} 個餐格）`);
+    eq(before.summaryHidden, true, '展開時不顯示摘要（內容自己就看得到了）');
+    eq(before.ariaControls, before.bodyId, 'aria-controls 指到它控制的那一塊（id 對得上）');
+    ok(before.btnH >= 44, `整條日期列就是開關，高度 ${before.btnH}px（≥ 44）`);
+
+    await clickEl(page, '[data-card="day"][data-day="0"] [data-action="toggleDay"]');
+    await sleep(150);
+    const after = await dayState(0);
+    eq(after.open, 'false', '點一下收起來');
+    eq(after.aria, 'false', 'aria-expanded 跟著變 false（螢幕閱讀器知道它收起來了）');
+    eq(after.bodyHidden, true, '內容設成 hidden —— 不是只改外觀，讀螢幕的人也讀不到');
+    eq(after.bodyH, 0, '而且真的不佔版面（高度 0）');
+    eq(after.mealsVisible, 0, '三餐一個都量不到');
+    eq(after.summaryHidden, false, '改成顯示一行摘要，收起來的日子還看得出有沒有事');
+    ok(/自己煮|外食|不煮|還沒排/.test(after.summaryText), `摘要講得出這天的狀況：「${after.summaryText}」`);
+
+    // 別的日子不受影響
+    const other = await dayState(1);
+    eq(other.open, 'true', '只收起被點的那一天，週二還是開的');
+
+    // 記得住：重新載入之後還是收的
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('[data-card="day"][data-day="0"]');
+    const reloaded = await dayState(0);
+    eq(reloaded.open, 'false', '重新載入後週一還是收起來的');
+    eq(reloaded.bodyHidden, true, '而且內容仍然是 hidden');
+    eq((await dayState(1)).open, 'true', '（對照）週二仍然是開的 —— 不是把整週都收了');
+
+    // 再點一次打開
+    await clickEl(page, '[data-card="day"][data-day="0"] [data-action="toggleDay"]');
+    await sleep(150);
+    const reopened = await dayState(0);
+    eq(reopened.open, 'true', '再點一次打開');
+    eq(reopened.bodyHidden, false, '內容回來了');
+    ok(reopened.mealsVisible === 3, '三餐又看得到');
+
+    // 存進 prefs 的是「這一週」的狀態，不是全域
+    await clickEl(page, '[data-card="day"][data-day="2"] [data-action="toggleDay"]');
+    await sleep(200);
+    const stored = await page.evaluate(async () => {
+      const prefs = await import('./js/prefs.js');
+      const { weekKeyOf, mondayOf, isoDate, addDays } = await import('./js/planner.js');
+      const thisWeek = weekKeyOf(mondayOf(isoDate(new Date())));
+      const nextWeek = weekKeyOf(addDays(mondayOf(isoDate(new Date())), 7));
+      return { all: prefs.get('collapsedDays'), thisWeek: prefs.collapsedDaysFor(thisWeek), nextWeek: prefs.collapsedDaysFor(nextWeek) };
+    });
+    eq(stored.thisWeek, [2], '這一週記著第 2 天是收的');
+    eq(stored.nextWeek, [], '下一週不受影響（摺疊是這一週的事，不是「每個星期三都收起來」）');
+    ok(Object.keys(stored.all).length <= 4, `只留最近幾週（現在存了 ${Object.keys(stored.all).length} 週）`);
+  }
+
   eq(pageErrors, [], '沒有未攔截的例外');
 } finally {
   await close();

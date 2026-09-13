@@ -486,6 +486,19 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 
 /* 今日一起煮 */
 .day-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+/* 整條日期列就是開關。按鈕不是圖示小箭頭 —— 站在廚房拿手機的人要能隨便點到，
+   所以整條可點、而且高度守住 44px（uikittest 盯著）。 */
+.day-toggle {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  flex: 1 1 auto; min-width: 0; min-height: 44px;
+  background: none; border: 0; padding: 0; margin: 0;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.day-toggle .card-title { margin: 0; }
+.day-caret { flex: none; width: 1em; color: var(--fg-muted); }
+.day-summary { flex: 1 1 100%; }
+.day-card.collapsed { gap: 0; }
+.day-body { display: flex; flex-direction: column; gap: 10px; }
 .tl-group { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 4px; }
 .tl-phase { margin: 0; font-size: 1.02em; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tl-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; counter-reset: none; }

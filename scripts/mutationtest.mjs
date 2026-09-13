@@ -19,6 +19,55 @@ import { ok, eq, section, done, note } from './tap.mjs';
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const MUTATIONS = [
+  // ---- 本週頁：每一天可以摺疊 ----
+  {
+    name: "摺疊只改外觀，不用 hidden 移出版面",
+    why: "看起來收起來了，但螢幕閱讀器仍然會把整天的菜念一遍，版面也還被它佔著。「收起來」變成一句視覺上的謊。",
+    file: "js/views/week.js",
+    find: "      body.hidden = !open;\n      summary.hidden = open;",
+    replace: "      body.style.opacity = open ? '1' : '0.35';\n      summary.hidden = open;",
+    test: "weekviewtest",
+  },
+  {
+    name: "重新載入後不套用收起來的狀態",
+    why: "每次進本週頁都是全部展開，使用者收起來的那幾天又冒回來。",
+    file: "js/views/week.js",
+    find: "    body.hidden = !isOpen;",
+    replace: "    body.hidden = false;",
+    test: "weekviewtest",
+  },
+  {
+    name: "摺疊不更新 aria-expanded",
+    why: "用讀螢幕的人不知道那一天是開還是收，按了也不曉得發生什麼事。",
+    file: "js/views/week.js",
+    find: "      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');",
+    replace: "      toggle.setAttribute('aria-expanded', 'true');",
+    test: "weekviewtest",
+  },
+  {
+    name: "摺疊狀態不存起來",
+    why: "收起來的日子重新整理就跑掉了 —— 一天要看好幾次菜單的人每次都要重收一遍。",
+    file: "js/views/week.js",
+    find: "      await prefs.setCollapsedDay(weekKey, day, !open);",
+    replace: "      void weekKey;",
+    test: "weekviewtest",
+  },
+  {
+    name: "摺疊狀態不分週（變成全域）",
+    why: "這一週收起週三，下一週的週三也是收的。摺疊多半是「這幾天已經煮過了」，那是這一週的事。",
+    file: "js/prefs.js",
+    find: "  return Array.isArray(all[weekKey]) ? all[weekKey] : [];",
+    replace: "  return Object.values(all)[0] ?? [];",
+    test: "weekviewtest",
+  },
+  {
+    name: "日期列的觸控高度縮回 30px",
+    why: "整條日期列就是開關；站在廚房拿手機的人點不到 30px 的東西。",
+    file: "css/style.css",
+    find: "  flex: 1 1 auto; min-width: 0; min-height: 44px;",
+    replace: "  flex: 1 1 auto; min-width: 0; min-height: 30px;",
+    test: "weekviewtest",
+  },
   // ---- 檢測後修的六項：理由與診斷照實際原因、措辭分肉菜、欄位順序、文件對齊 ----
   {
     name: "理由回去照「開了哪些旗標」寫",

@@ -44,6 +44,7 @@ export default async function weekView(query = {}) {
   const plan = await store.getPlan(weekKey);
   const wants = store.wantThisWeekIds();
   const shoppingDays = prefs.get('shoppingDays') ?? [];
+  const collapsed = new Set(prefs.collapsedDaysFor(weekKey));
 
   const weekChips = chips({
     options: [{ value: 'this', label: '本週' }, { value: 'next', label: '下週' }], value: offset ? 'next' : 'this', name: 'week',
@@ -118,13 +119,40 @@ export default async function weekView(query = {}) {
       return mealBlock({ slot, slotIndex, plan, mondayIso, recipesById, members });
     });
     const anyCook = daySlots.some((s) => s.kind === 'cook' && s.items.length);
-    return h('section', { class: 'card day-card', dataset: { card: 'day', day: String(day) } },
-      h('div', { class: 'day-head' },
-        h('h2', { class: 'card-title' }, `週${DAY_LABELS[day]} ${fmtMD(date)}`, isShop ? ' ' : '', isShop ? pill('買菜日', 'green') : null),
-        anyCook ? h('a', { class: 'btn btn-sm no-print', href: `#/today?d=${date}`, dataset: { action: 'cookToday', day: String(day) } }, '一起煮 ›') : null),
+    const isOpen = !collapsed.has(day);
+    // 收起來的內容用 hidden：它會真的從版面消失（CSS 有 [hidden]{display:none!important}），
+    // 螢幕閱讀器也讀不到。只把高度壓成 0 或改個顏色的話，讀螢幕的人還是會念到整天的菜。
+    const body = h('div', { class: 'day-body', dataset: { field: 'dayBody', day: String(day) } },
       ...mealBlocks,
       estimateBlock({ daySlots, members, idx, recipesById, fields, units }),
     );
+    body.hidden = !isOpen;
+    const caret = h('span', { class: 'day-caret', 'aria-hidden': 'true' }, isOpen ? '▾' : '▸');
+    // 收起來時標題旁邊留一行摘要，不然桌機七欄會變成七個看不出差別的日期。
+    const summary = h('span', { class: 'muted xs day-summary', dataset: { field: 'daySummary' } }, daySummaryText(daySlots));
+    summary.hidden = isOpen;
+    const toggle = h('button', {
+      class: 'day-toggle', type: 'button', 'aria-expanded': isOpen ? 'true' : 'false',
+      'aria-controls': `dayBody-${day}`, dataset: { action: 'toggleDay', day: String(day) },
+    }, caret, h('span', { class: 'card-title' }, `週${DAY_LABELS[day]} ${fmtMD(date)}`),
+    isShop ? pill('買菜日', 'green') : null, summary);
+    body.id = `dayBody-${day}`;
+    const card = h('section', { class: 'card day-card' + (isOpen ? '' : ' collapsed'), dataset: { card: 'day', day: String(day), open: isOpen ? 'true' : 'false' } },
+      h('div', { class: 'day-head' }, toggle,
+        anyCook ? h('a', { class: 'btn btn-sm no-print', href: `#/today?d=${date}`, dataset: { action: 'cookToday', day: String(day) } }, '一起煮 ›') : null),
+      body,
+    );
+    toggle.addEventListener('click', async () => {
+      const open = toggle.getAttribute('aria-expanded') !== 'true';
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      body.hidden = !open;
+      summary.hidden = open;
+      caret.textContent = open ? '▾' : '▸';
+      card.classList.toggle('collapsed', !open);
+      card.dataset.open = open ? 'true' : 'false';
+      await prefs.setCollapsedDay(weekKey, day, !open);
+    });
+    return card;
   });
 
   render(head, diagCard, h('div', { class: 'week-grid' }, ...dayCards), noticeFooter());
@@ -162,6 +190,19 @@ function shelfHint(list, shoppingDays) {
     `其中 ${n} 道是食材放不到那一天：你一週只買一次菜（星期${day}），離買菜日最遠有 6 天。`,
     h('a', { href: '#/family' }, '到「家人」分頁多勾一個買菜日'),
     '，這幾道就排得開了。');
+}
+
+/** 收起來時顯示的一行摘要：講得出「這天有沒有事」就夠了。 */
+function daySummaryText(daySlots) {
+  const cook = daySlots.filter((s) => s.kind === 'cook' && s.items.length);
+  const dishes = cook.reduce((n, s) => n + s.items.length, 0);
+  const out = daySlots.filter((s) => s.kind === 'eatOut').length;
+  const skip = daySlots.filter((s) => s.kind === 'skip').length;
+  const parts = [];
+  if (cook.length) parts.push(`${cook.length} 餐自己煮、${dishes} 道`);
+  if (out) parts.push(`${out} 餐外食`);
+  if (skip) parts.push(`${skip} 餐不煮`);
+  return parts.length ? parts.join('，') : '還沒排';
 }
 
 function summarizeRoles(list) {
