@@ -6,7 +6,7 @@
 import * as db from './db.js';
 import { withPositions } from './planner.js';
 import * as prefs from './prefs.js';
-import { indexFoods } from './foods.js';
+import { indexFoods, searchFoods } from './foods.js';
 import { validateRecipe } from './recipeschema.js';
 import { validateMember } from './members.js';
 
@@ -83,7 +83,8 @@ export function allRecipes() { return [...(state.recipes ?? []), ...state.userRe
 export function recipeById(id) { return allRecipes().find((r) => r.id === id) ?? null; }
 
 /** 驗證器用的上下文（解析口語詞、標籤）。使用者食譜允許不填克數。 */
-export function recipeCtx({ allowMissingGrams = false, relaxRequired = false } = {}) {
+// relaxRequired 不給預設值：沒指定時由食譜自己的 source 決定（使用者的菜放寬），見 recipeschema.validateRecipe。
+export function recipeCtx({ allowMissingGrams = false, relaxRequired } = {}) {
   const idx = state.foods;
   return {
     resolve: (t) => {
@@ -92,6 +93,8 @@ export function recipeCtx({ allowMissingGrams = false, relaxRequired = false } =
       return idx.byId.get(s) ?? (idx.aliasMap.get(s) ? idx.byId.get(idx.aliasMap.get(s)) : null) ?? idx.byName.get(s) ?? idx.byAlias.get(s) ?? null;
     },
     foodTags: state.foodTags ?? {},
+    // 查不到的食材：訊息裡列幾個資料庫裡相近的名稱，讓使用者知道該怎麼改
+    suggest: (t) => (idx ? searchFoods(String(t ?? '').trim(), idx, 3).map((x) => x.food.name) : []),
     allowMissingGrams,
     // 使用者自己加的菜：步驟 1 步就好、時間可以填 0（現成的）。硬底線（食材要解析得到編號、素葷分軌）不放。
     relaxRequired,

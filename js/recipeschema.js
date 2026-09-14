@@ -97,6 +97,11 @@ export function validateRecipe(recipe, ctx) {
   const errors = [];
   const err = (m) => errors.push(m);
   const r = recipe ?? {};
+  // 使用者自己加的菜放寬必填（1 步、0 分鐘、2 個字的步驟）。**由這道菜自己的 source 決定**，不靠呼叫端記得帶旗標。
+  // 2026-09-14 使用者回報「滷雞腳」又被「≥1 分鐘」「至少 3 步」擋下：錯誤訊息逐字對得上「新版驗證器 ＋ 沒帶旗標的呼叫端」，
+  // 而 v0.11.0 以後每一版的 store.js 都有帶 —— 手機上是新版的 recipeschema.js 配到舊版（v0.10.0）的 store.js。
+  // 放寬只寫在呼叫端的話，只要有一支檔案舊了就整個失效。ctx.relaxRequired 仍然可以明確指定 true／false（測試用）。
+  const relax = typeof ctx.relaxRequired === 'boolean' ? ctx.relaxRequired : r.source === 'user';
 
   if (!ID_RX.test(String(r.id ?? ''))) err(`id 格式錯：${r.id}`);
   if (typeof r.name !== 'string' || !r.name.trim()) err('缺 name');
@@ -111,8 +116,8 @@ export function validateRecipe(recipe, ctx) {
     err('只有「可分流（一鍋兩吃）」的菜才需要分素幾人份、葷幾人份');
   }
   // 現成的菜（買回來的滷雞腳、滷味）真的就是 0 分鐘。內建食譜仍然要求 ≥ 1。
-  const minTime = ctx.relaxRequired ? 0 : 1;
-  if (!isInt(r.time) || r.time < minTime) err(ctx.relaxRequired ? `烹調時間要填 0 或正整數（現成的菜填 0）：${r.time}` : `time（分鐘）要是 ≥1 的整數：${r.time}`);
+  const minTime = relax ? 0 : 1;
+  if (!isInt(r.time) || r.time < minTime) err(relax ? `烹調時間要填 0 或正整數（現成的菜填 0）：${r.time}` : `time（分鐘）要是 ≥1 的整數：${r.time}`);
   if (!METHODS.includes(r.method)) err(`method 不在 ${METHODS.join('/')}：${r.method}`);
   if (!VEG_MODES.includes(r.vegMode)) err(`「誰能吃」要選 ${VEG_MODES.map((v) => VEG_MODE_LABELS[v]).join('、')} 其中一個`);
   if (!TEXTURES.includes(r.texture)) err(`texture 不在 ${TEXTURES.join('/')}：${r.texture}`);
@@ -122,8 +127,8 @@ export function validateRecipe(recipe, ctx) {
   if (ingredients.length === 0) err('沒有食材');
   const steps = Array.isArray(r.steps) ? r.steps : [];
   // 現成的菜可能就「盛盤上桌」一步。內建食譜仍然要求 3 步（那是我自己寫的，寫滿才有參考價值）。
-  const minSteps = ctx.relaxRequired ? 1 : 3;
-  if (steps.length < minSteps) err(ctx.relaxRequired ? '至少要寫 1 個步驟' : `步驟至少 3 步，只有 ${steps.length}`);
+  const minSteps = relax ? 1 : 3;
+  if (steps.length < minSteps) err(relax ? '至少要寫 1 個步驟' : `步驟至少 3 步，只有 ${steps.length}`);
 
   const tags = new Set();
   const vegTags = new Set();   // base ＋ veg 軌的標籤：素食成員實際吃到的
@@ -134,8 +139,10 @@ export function validateRecipe(recipe, ctx) {
   let processed = false;
   let wholegrain = false;
   const normIngredients = ingredients.map((ing, i) => {
-    const where = `食材 #${i + 1}（${ing?.label ?? '?'}）`;
-    if (typeof ing?.label !== 'string' || !ing.label.trim()) err(`${where} 缺 label`);
+    const typedLabel = String(ing?.label ?? '').trim();
+    const where = `食材 #${i + 1}（${typedLabel || '?'}）`;
+    // 名稱與食材都沒填 → 下面「還沒選是哪一種食材」那一句就夠了；只缺名稱才另外講（用人話，不講 label）
+    if (!typedLabel && String(ing?.food ?? '').trim()) err(`${where} 還沒寫這個食材要顯示的名稱`);
     // 使用者手動新增的食譜可以不填克數（ctx.allowMissingGrams）：那個食材的營養就是「未估算」，不是 0。
     // 內建食譜一律要填。
     if (!isPosNum(ing?.grams)) {
@@ -145,10 +152,20 @@ export function validateRecipe(recipe, ctx) {
     if (!TRACKS.includes(track)) err(`${where} 要選 ${TRACKS.map((t) => TRACK_LABELS[t]).join('、')} 其中一欄`);
     if (r.vegMode !== 'splittable' && track !== 'base') err(`${where} 分到了「${TRACK_LABELS[track]}」，但這道菜不是「可分流（一鍋兩吃）」`);
     tracksSeen.add(track);
-    const food = ctx.resolve(ing?.food);
+    // 沒點清單、直接打名稱（例如在「顯示名稱」打「雞腳」）：food 是空的，就用打的名稱解析。
+    // 使用者回報的「找不到「」」就是這條：food 空字串被原封不動塞進訊息裡。
+    const typedFood = String(ing?.food ?? '').trim();
+    const food = typedFood ? ctx.resolve(typedFood) : (typedLabel ? ctx.resolve(typedLabel) : null);
     // 這是**硬底線**，不能為了少一個必填就放掉：查不到編號就算不出營養，
     // 畫面上那些「估」的數字會整片變成「未估算」。
-    if (!food) err(`${where} 在食材資料庫裡找不到「${ing?.food}」，換個常見的叫法試試（例如「雞腿」「高麗菜」）`);
+    if (!food) {
+      const term = typedFood || typedLabel;
+      if (!term) err(`${where} 還沒選是哪一種食材：在「找食材」打字，從清單點一筆`);
+      else {
+        const near = typeof ctx.suggest === 'function' ? ctx.suggest(term).filter((x) => x && x !== term).slice(0, 3) : [];
+        err(`${where} 在食材資料庫裡找不到「${term}」，換個常見的叫法試試（例如「雞腿」「高麗菜」）${near.length ? `；資料庫裡相近的有：${near.join('、')}` : ''}`);
+      }
+    }
     let fTags = new Set();
     if (food) {
       fTags = tagsOfFood(food, ctx.foodTags);
@@ -194,7 +211,7 @@ export function validateRecipe(recipe, ctx) {
   let splitAt = -1;
   steps.forEach((st, i) => {
     const where = `步驟 #${i + 1}`;
-    const minLen = ctx.relaxRequired ? 2 : 4;   // 「上桌」兩個字也算一步
+    const minLen = relax ? 2 : 4;   // 「上桌」兩個字也算一步
     if (typeof st?.text !== 'string' || st.text.trim().length < minLen) err(`${where} 還沒寫字`);
     const stage = st?.stage ?? 'base';
     if (!STAGES.includes(stage)) err(`${where} 要選 ${STAGES.map((x) => STAGE_LABELS[x]).join('、')} 其中一個`);

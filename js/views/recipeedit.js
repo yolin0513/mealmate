@@ -41,7 +41,7 @@ export function toRecipe(d) {
     ...(split ? { splitServings: { veg: d.splitServings.veg, meat: d.servings - d.splitServings.veg } } : {}),
     ...(d.alliumOptional ? { alliumOptional: true } : {}),
     ingredients: d.ingredients.map((ing) => ({
-      food: ing.food, label: ing.label.trim() || ing.foodName, grams: ing.grams == null || ing.grams === '' ? null : Number(ing.grams),
+      food: ing.food, label: ing.label.trim() || ing.foodName || String(ing.query ?? '').trim(), grams: ing.grams == null || ing.grams === '' ? null : Number(ing.grams),
       track: split ? ing.track : 'base', ...(ing.pantry ? { pantry: true } : {}),
     })),
     steps: d.steps.map((st) => ({ stage: split ? st.stage : 'base', type: st.type ?? 'cook', text: st.text.trim() })),
@@ -97,12 +97,13 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
     const results = h('div', { class: 'picker-results', hidden: true });
     search.addEventListener('input', () => {
       const q = search.value.trim();
+      ing.query = q;   // 打在搜尋框、沒點清單也算數（存的時候用這個名稱解析）
       const hits = q && idx ? searchFoods(q, idx, 8) : [];
       results.hidden = hits.length === 0;
       results.replaceChildren(...hits.map(({ food }) => h('button', {
         class: 'picker-item', type: 'button', dataset: { food: food.id },
         onclick: () => {
-          ing.food = food.id; ing.foodName = food.name;
+          ing.food = food.id; ing.foodName = food.name; ing.query = '';
           if (!ing.label.trim()) { ing.label = q; labelInput.value = q; }
           picked.textContent = `→ ${food.name}（${food.cat}）`;
           results.hidden = true; search.value = '';
@@ -110,7 +111,14 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
       }, `${food.name}${food.state ? `〔${food.state}〕` : ''}`, h('span', { class: 'muted xs' }, ` ${food.cat}`))));
     });
     const labelInput = h('input', { class: 'field', type: 'text', value: ing.label, placeholder: '顯示名稱（例如：豆腐切塊）', 'aria-label': `食材 ${i + 1} 名稱`, dataset: { field: 'ingLabel' } });
-    labelInput.addEventListener('input', () => { ing.label = labelInput.value; });
+    labelInput.addEventListener('input', () => {
+      ing.label = labelInput.value;
+      // 沒點清單、直接打名稱也可以：名稱剛好是資料庫認得的叫法（雞腳、高麗菜…）就自動對到，這裡先講出來
+      if (!ing.food) {
+        const hit = labelInput.value.trim() ? store.recipeCtx().resolve(labelInput.value) : null;
+        picked.textContent = hit ? `→ 依名稱對到 ${hit.name}（${hit.cat}）` : '尚未選食材';
+      }
+    });
     const gramsInput = h('input', { class: 'field field-inline', type: 'number', inputMode: 'decimal', min: '0', step: 'any', value: ing.grams == null ? '' : String(ing.grams), placeholder: '克數，可不填', 'aria-label': `食材 ${i + 1} 克數`, dataset: { field: 'ingGrams' } });
     gramsInput.addEventListener('input', () => { ing.grams = gramsInput.value.trim() === '' ? null : Number(gramsInput.value); });
     const pantry = h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: ing.pantry, onchange: (e) => { ing.pantry = e.target.checked; } }), ' 常備品（油鹽醬油這類）');

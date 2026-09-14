@@ -172,8 +172,8 @@ section('使用者自己加的菜：越少必填越好，但硬底線不放');
   eq(relaxed.recipe.time, 0, '時間就是 0，不會被改成 1');
   eq(relaxed.recipe.steps.length, 1, '步驟就是 1 步');
 
-  // 對照：內建食譜仍然要求 3 步、時間 ≥ 1
-  const strict = validate(readyMade, {});
+  // 對照：內建食譜仍然要求 3 步、時間 ≥ 1（放寬現在跟著 source 走，所以對照組要是「不是使用者的菜」）
+  const strict = validate({ ...readyMade, source: 'builtin' }, {});
   ok(strict.errors.length >= 2, `（對照）同一道菜用內建食譜的標準會被擋（${strict.errors.length} 個問題）`);
   ok(strict.errors.some((e) => /3 步/.test(e)), '內建仍要求 3 步');
   ok(strict.errors.some((e) => /time/.test(e)), '內建仍要求 time ≥ 1');
@@ -186,6 +186,40 @@ section('使用者自己加的菜：越少必填越好，但硬底線不放');
   ok(noStep.errors.some((e) => /至少要寫 1 個步驟/.test(e)), '一步都沒有還是會擋，而且講人話');
   // 負的時間要擋
   ok(validate({ ...readyMade, time: -5 }, { relaxRequired: true, allowMissingGrams: true }).errors.some((e) => /0 或正整數/.test(e)), '負的時間會擋，訊息講「現成的菜填 0」');
+}
+
+section('使用者自己加的菜：放寬跟著這道菜走，不靠呼叫端記得帶旗標（滷雞腳回歸）');
+{
+  // 2026-09-14 使用者回報：「滷雞腳」被「time（分鐘）要是 ≥1」「步驟至少 3 步」「找不到「」」「標成葷卻沒有肉」「步驟 #1 還沒寫字」擋下。
+  // 那五句逐字就是「新版驗證器 ＋ 沒帶 relaxRequired 的呼叫端 ＋ 食材沒點清單」的輸出。v0.11.0 以後每一版的 store.js 都有帶旗標，
+  // 所以手機上是新版的 recipeschema.js 配到舊版（v0.10.0）的 store.js。這裡照 v0.10.0 store.recipeCtx 的形狀重現。
+  // 以前這條只驗「測試自己把 relaxRequired 帶進去」—— 呼叫端沒帶到的情況從來沒被測過（慣例 21）。
+  const oldStoreCtx = { resolve: ctx.resolve, foodTags: ctx.foodTags, allowMissingGrams: true };
+  const userDraft = {
+    id: 'r-user-feet2', name: '滷雞腳', role: 'main', servings: 4, time: 0, method: 'stirfry', vegMode: 'meatOnly', texture: 'normal', season: [], source: 'user',
+    ingredients: [{ food: '', label: '雞腳', grams: null, track: 'base' }], steps: [{ stage: 'base', type: 'cook', text: '加熱' }],
+  };
+  const viaOldStore = validateRecipe(userDraft, oldStoreCtx);
+  eq(viaOldStore.errors, [], `舊版 store.js 的上下文（沒帶旗標）也存得進去：${JSON.stringify(viaOldStore.errors)}`);
+  eq(viaOldStore.recipe.ingredients[0].food, 'I0420801', '沒點清單、只打「雞腳」→ 解析到雞腳(肉雞) I0420801');
+  ok(viaOldStore.recipe.tags.includes('meat'), '雞腳被認成肉 →「標成葷卻沒有肉」不會再出現');
+  eq(viaOldStore.recipe.time, 0, '時間就是 0');
+  const explicitStrict = validateRecipe(userDraft, { ...oldStoreCtx, relaxRequired: false });
+  ok(explicitStrict.errors.some((e) => /3 步/.test(e)) && explicitStrict.errors.some((e) => /≥1/.test(e)), '（對照）明確指定不放寬時照樣擋 —— 上面那條不是因為驗證器什麼都不檢查');
+  const builtinStrict = validateRecipe({ ...userDraft, source: undefined }, oldStoreCtx);
+  ok(builtinStrict.errors.some((e) => /3 步/.test(e)), '（對照）不是使用者的菜（內建食譜）沒指定就照內建標準');
+
+  const unknownTyped = validateRecipe({ ...userDraft, ingredients: [{ food: '', label: '豬耳朵絲', grams: null, track: 'base' }] }, { ...oldStoreCtx, suggest: () => ['豬耳', '豬肚'] }).errors;
+  ok(unknownTyped.some((e) => e.includes('找不到「豬耳朵絲」')), `查不到的食材，訊息帶入打的名稱：${unknownTyped.join('｜')}`);
+  ok(unknownTyped.some((e) => e.includes('相近的有：豬耳、豬肚')), '而且列出資料庫裡相近的名稱');
+  const nothing = validateRecipe({ ...userDraft, ingredients: [{ food: '', label: '', grams: null, track: 'base' }] }, oldStoreCtx).errors;
+  ok(nothing.some((e) => e.includes('還沒選是哪一種食材')), `什麼都沒打：講「還沒選是哪一種食材」：${nothing.join('｜')}`);
+  noneOf(nothing, (e) => /label|缺/.test(e), '什麼都沒打時不會多一句「缺 label」（程式用語，而且跟「還沒選」講同一件事）');
+  const noName = validateRecipe({ ...userDraft, ingredients: [{ food: '雞腳', label: '', grams: null, track: 'base' }] }, { ...oldStoreCtx, relaxRequired: false }).errors;
+  ok(noName.some((e) => e.includes('還沒寫這個食材要顯示的名稱')), `（對照）有食材但沒名稱：用人話講缺名稱：${noName.join('｜')}`);
+  const everyMsg = [...unknownTyped, ...nothing, ...explicitStrict.errors, ...builtinStrict.errors];
+  ok(everyMsg.length >= 5, `（母體）${everyMsg.length} 則訊息`);
+  noneOf(everyMsg, (e) => e.includes('「」'), '沒有任何一則訊息是空的引號「」', everyMsg.filter((e) => e.includes('「」')).join('｜'));
 }
 
 section('驗證訊息要講人話，不可以丟術語給使用者');

@@ -231,6 +231,57 @@ try {
   await titleIs(page, '食譜');
   eq(await page.evaluate(async () => (await import('./js/store.js')).userRecipes().length), 1, '刪掉一道後剩一道');
 
+  section('現成的滷雞腳：1 步、0 分鐘、直接打食材名稱（沒點清單）也存得進去');
+  {
+    // 2026-09-14 使用者回報（v0.12.0 承諾過、後來又壞掉）：「滷雞腳」被「≥1 分鐘」「至少 3 步」「找不到「」」擋下。
+    // 以前這條只在 recipetest 用「測試自己帶放寬旗標」驗過；真實的表單路徑（表單 → store.saveUserRecipe）
+    // 從沒用 1 步、0 分鐘、沒點清單的食材走過 —— 把 store 的旗標拿掉，這支測試照樣綠（實測過）。
+    await goto(page, '#/recipes/new');
+    await titleIs(page, '新增食譜');
+    await page.waitForSelector('[data-field="recipeName"]');
+    await page.type('[data-field="recipeName"]', '滷雞腳');
+    await clickEl(page, chipSel('vegMode', 'meatOnly'));
+    await sleep(150);
+    await page.$eval('[data-field="time"]', (el) => { el.value = '0'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.type('[data-ingredient="0"] [data-field="ingLabel"]', '雞腳');
+    await sleep(150);
+    const hint = await textOf(page, '[data-ingredient="0"] [data-field="pickedFood"]');
+    ok(hint.includes('雞腳(肉雞)'), `沒點清單、直接打「雞腳」→ 表單就講出會對到哪一筆：「${hint}」`);
+    await clickEl(page, '[data-action="addIngredient"]');
+    await sleep(150);
+    await page.type('[data-ingredient="1"] [data-field="foodSearch"]', '青蔥');   // 打在搜尋框，但沒點清單
+    await page.type('[data-list="steps"] textarea', '加熱');
+    await waitToastGone(page);
+    await clickEl(page, '[data-action="saveRecipe"]');
+    await titleIs(page, '滷雞腳');
+    const saved = await page.evaluate(async () => {
+      const s = await import('./js/store.js');
+      const r = s.userRecipes().find((x) => x.name === '滷雞腳');
+      return r ? { time: r.time, steps: r.steps.length, foods: r.ingredients.map((i) => i.food), labels: r.ingredients.map((i) => i.label), tags: r.tags } : null;
+    });
+    ok(saved, '存進去了，而且跳到這道菜的頁面');
+    eq(saved.time, 0, '時間就是 0（現成的）');
+    eq(saved.steps, 1, '步驟就是 1 步');
+    eq(saved.foods, ['I0420801', 'E23001'], `直接打的「雞腳」、打在搜尋框沒點的「青蔥」都解析到編號（${saved.labels.join('、')}）`);
+    ok(saved.tags.includes('meat'), '雞腳被認成肉 → 標成「葷」不會被擋');
+    ok((await textOf(page, '#view')).includes('現成的'), '0 分鐘顯示成「現成的」');
+
+    // 真的查不到的食材：訊息要把使用者打的字帶進去，不可以是「找不到「」」
+    await goto(page, '#/recipes/new');
+    await titleIs(page, '新增食譜');
+    await page.waitForSelector('[data-field="recipeName"]');
+    await page.type('[data-field="recipeName"]', '神祕小菜');
+    await page.type('[data-ingredient="0"] [data-field="ingLabel"]', '豬耳朵絲');
+    await page.type('[data-list="steps"] textarea', '上桌');
+    await waitToastGone(page);
+    await clickEl(page, '[data-action="saveRecipe"]');
+    await page.waitForSelector('[data-field="errors"]:not([hidden]) li');
+    const errs = await page.$$eval('[data-field="errors"] li', (els) => els.map((e) => e.textContent));
+    ok(errs.some((e) => e.includes('找不到「豬耳朵絲」')), `訊息帶入使用者打的名稱：「${errs.find((e) => e.includes('找不到')) ?? errs.join('｜')}」`);
+    noneOf(errs, (e) => e.includes('「」'), '沒有任何一則是空的引號');
+    noneOf(errs, (e) => /3 步|≥1|還沒寫字/.test(e), '使用者自己加的菜不會出現「至少 3 步」「≥1 分鐘」「還沒寫字」');
+  }
+
   eq(pageErrors, [], '整個流程沒有未攔截的例外');
 } finally {
   await close();
