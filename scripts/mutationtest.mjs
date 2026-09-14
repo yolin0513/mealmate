@@ -21,6 +21,14 @@ const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const MUTATIONS = [
   // ---- 2026-09-14 使用者自訂食譜：查不到的食材也能存（葷素使用者明講、部分估算看得出來） ----
   {
+    name: "食材列重畫後，打了名稱的提示變回「尚未選食材」",
+    why: "線上實測抓到：加一個食材之後，「查不到「豬耳朵」：可以照樣存」的提示不見了。",
+    file: "js/views/recipeedit.js",
+    find: "    const picked = h('p', { class: 'sm picked', dataset: { field: 'pickedFood' } }, pickedText());",
+    replace: "    const picked = h('p', { class: 'sm picked', dataset: { field: 'pickedFood' } }, ing.food ? `→ ${ing.foodName || ing.food}` : '尚未選食材');",
+    test: "recipeviewtest",
+  },
+  {
     name: "查不到的食材：沒自己選葷素也存得進去",
     why: "紅線：表單預設是「素」，沒明講的話素食家人會被排到豬耳朵。",
     file: "js/recipeschema.js",

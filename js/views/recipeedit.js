@@ -95,7 +95,16 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
   const ingList = h('div', { class: 'edit-list', dataset: { list: 'ingredients' } });
   function ingRow(ing, i) {
     const split = d.vegMode === 'splittable';
-    const picked = h('p', { class: 'sm picked', dataset: { field: 'pickedFood' } }, ing.food ? `→ ${ing.foodName || ing.food}` : '尚未選食材');
+    // 這一列重畫時（加一個食材、改素葷都會整排重畫）照現在的內容把提示算回來 ——
+    // 只看 food 的話，打了名稱、沒點清單的那一列會從「查不到「豬耳朵」」變回「尚未選食材」（線上實測抓到）。
+    const pickedText = () => {
+      if (ing.food) return `→ ${ing.foodName || ing.food}`;
+      const typed = String(ing.label ?? '').trim();
+      if (!typed) return '尚未選食材';
+      const hit = store.recipeCtx().resolve(typed);
+      return hit ? `→ 依名稱對到 ${hit.name}（${hit.cat}）` : `→ 資料庫裡查不到「${typed}」：可以照樣存，這個食材的營養會寫「未估算」`;
+    };
+    const picked = h('p', { class: 'sm picked', dataset: { field: 'pickedFood' } }, pickedText());
     const search = h('input', { class: 'field', type: 'search', placeholder: '找食材，例如：板豆腐', 'aria-label': `食材 ${i + 1} 搜尋`, dataset: { field: 'foodSearch' } });
     const results = h('div', { class: 'picker-results', hidden: true });
     search.addEventListener('input', () => {

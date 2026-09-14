@@ -32,12 +32,13 @@
 | 一週平衡：豐盛的菜用其他天中和回來（家人頁「一週豐盛程度」） | ✅ 完成（2026-09-14） | `mealmate-v0.16.0` |
 | 回歸：新增「滷雞腳」又被 3 步／≥1 分鐘／「找不到「」」擋下 | ✅ 修好（2026-09-14） | `mealmate-v0.17.0` |
 | 使用者自訂食譜：食藥署查不到的食材也能存（葷素使用者明講、部分估算看得出來） | ✅ 完成（2026-09-14） | `mealmate-v0.18.0` |
+| 小修：新增食譜時加一個食材，前一列「查不到／依名稱對到」的提示不見（線上實測抓到） | ✅ 修好（2026-09-14） | `mealmate-v0.18.1` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
 Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 115、membertest 47、nutritiontest 131、plannertest 249、shoppingtest 141、timelinetest 71、doctest 82；
-瀏覽器端（puppeteer）：shelltest 106、familytest 53、recipeviewtest 77、backuptest 30、weekviewtest 103、shoppingviewtest 166、todaytest 41、racetest 16、versionmixtest 40、layouttest 68（117 組版面掃描 ＋ 桌機七欄）、uikittest 28、pwatest 35、redlinetest 28、scenariotest 39。
+瀏覽器端（puppeteer）：shelltest 106、familytest 53、recipeviewtest 78、backuptest 30、weekviewtest 103、shoppingviewtest 166、todaytest 41、racetest 16、versionmixtest 40、layouttest 68（117 組版面掃描 ＋ 桌機七欄）、uikittest 28、pwatest 35、redlinetest 28、scenariotest 39。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **204 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
+`mutationtest` 共 **205 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
 
 食譜現況：**217 道**（主菜 102、配菜 56、湯 34、早餐 19、主食 6）。
 
@@ -85,6 +86,9 @@ Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、
 6. **表單**：打了查不到的名稱，當場講「→ 資料庫裡查不到「豬耳朵」：可以照樣存，這個食材的營養會寫「未估算」」；
    還沒自己選過葷素時出現提醒與**三顆明確的按鈕**（素／可分流／葷）。只靠上面那排 chip 不夠：點「已經選著的那一顆」不會觸發，預設的「素」沒辦法用點 chip 確認。
    複製內建食譜不算「自己選過」；修改自己的菜沿用上次的選擇。
+   · **v0.18.1 小修（v0.18.0 上線後實測抓到）**：按「＋ 加一個食材」會整排重畫，重畫時提示只看 food，打了名稱、沒點清單的那一列
+     從「→ 資料庫裡查不到「豬耳朵」…」變回「尚未選食材」（存檔不受影響、三顆按鈕的提醒也還在，但那一列的說明不見了）。
+     測試當初是在「加第二個食材之前」讀提示，所以沒抓到；現在重畫時照名稱把提示算回來，`recipeviewtest` 改成加完第二個食材再讀一次，突變驗證會紅。
 
 **過敏原**：查不到的食材判斷不了過敏原。目前只在食譜頁明講「沒辦法自動檢查」，沒有自動把它當成含過敏原（`allergenHits` 本來就只是顯示提醒、不影響排菜）。
 

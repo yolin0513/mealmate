@@ -305,6 +305,9 @@ try {
     await sleep(150);
     await page.type('[data-ingredient="1"] [data-field="ingLabel"]', '青蔥');
     await page.type('[data-ingredient="1"] [data-field="ingGrams"]', '20');
+    // 加一個食材會整排重畫：第一列的提示不可以變回「尚未選食材」（線上實測抓到過）
+    const hintAfterAdd = await textOf(page, '[data-ingredient="0"] [data-field="pickedFood"]');
+    ok(hintAfterAdd.includes('查不到「豬耳朵」'), `加了第二個食材（整排重畫）之後，第一列的提示還在：「${hintAfterAdd}」`);
     await page.type('[data-list="steps"] textarea', '切片上桌');
     await waitToastGone(page);
     await clickEl(page, '[data-action="saveRecipe"]');
