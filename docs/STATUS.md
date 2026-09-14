@@ -524,6 +524,18 @@ v0.11.0 明確放寬過前兩條，這是回歸。**實測查到的根因**（�
 | 原始資料 | `data/raw/tfnd-2026-08-26.{zip,json}` 在本機（`.gitignore`），不進 repo |
 | 本機預覽 | `npm run dev`（5190）；Claude 桌面版用 `.claude/launch.json` 的 `mealmate-dev` |
 
+## 開發流程慣例（常設，Yolin 2026-09-14 指定）
+
+1. **規劃階段**：由共用的 **Fable 5.1（effort high）統籌 Session** 負責理解 Yolin 的需求、拆解並寫成規格；
+   規格檔放進本 App 的 `docs/`，檔名 `SPEC_<主題>.md`。
+2. **開發階段**：本 Session 使用 **Opus 5**，平常 **effort high**；只有 Yolin 明講「是大工程」時才切 **Max**。
+   Opus 負責實作，也負責查找／蒐集資料。
+3. **流程**：Fable 寫 spec → Opus 實作＋查資料 → 回報並與需求（spec）逐項對照 → 與 Yolin 確認。
+4. **較大改動或值得討論的議題**：由 Fable 開 **3 個代理投票**，各代理當統籌、把查資料的工作交給 Opus；
+   Fable 彙整投票結果後再回報。（下方「工作慣例」第 2、3 條的多代理投票與額度用盡改用 Opus，照舊適用。）
+5. **測試紀律不變**：照下方「工作慣例」與既有 STATUS 的規矩——每條新斷言都要用突變證明會紅、不寫假斷言、
+   含 regex 的測試碼用 Write、平常只跑受影響的測試、push 後驗線上並回報版號。
+
 ## 工作慣例（常設規則，給每一個接手的工作階段）
 
 1. **使用者已授權自行執行**查詢、新增檔案、搬移檔案、git 操作（建 repo、commit、push、部署），**不必逐項請示**。只有「刪除使用者資料」「花錢」「動到其他專案（JLPT_App、TripQuest、StockDiary）」才要問。
