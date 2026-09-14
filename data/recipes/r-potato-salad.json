@@ -1,0 +1,30 @@
+{
+  "id": "r-potato-salad",
+  "name": "馬鈴薯蛋沙拉",
+  "role": "side",
+  "servings": 4,
+  "time": 30,
+  "method": "cold",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "notes": "不用美乃滋，用橄欖油和醋調味，吃起來比較清爽。",
+  "ingredients": [
+    { "food": "馬鈴薯", "label": "馬鈴薯（切丁）", "grams": 400, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋（2 顆）", "grams": 100, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切小丁）", "grams": 80, "track": "base" },
+    { "food": "小黃瓜", "label": "小黃瓜（切小丁）", "grams": 100, "track": "base" },
+    { "food": "玉米粒", "label": "玉米粒", "grams": 80, "track": "base" },
+    { "food": "橄欖油", "label": "橄欖油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "白醋", "label": "白醋", "grams": 10, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 4, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "黑胡椒粉", "label": "黑胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "馬鈴薯、胡蘿蔔切丁，小黃瓜切小丁用少許鹽抓一下擠掉水分。" },
+    { "stage": "base", "type": "cook", "text": "馬鈴薯、胡蘿蔔、玉米粒與雞蛋一起放電鍋，外鍋 1 杯水蒸到跳起；雞蛋剝殼切碎。" },
+    { "stage": "base", "type": "cook", "text": "馬鈴薯趁熱壓成粗泥，加橄欖油、白醋、糖、鹽、黑胡椒拌勻。" },
+    { "stage": "base", "type": "serve", "text": "拌入胡蘿蔔、玉米粒、小黃瓜與雞蛋，放涼或冰一下再吃。" }
+  ]
+}

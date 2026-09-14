@@ -1,0 +1,29 @@
+{
+  "id": "r-lion-head-meatballs",
+  "name": "紅燒獅子頭",
+  "role": "main",
+  "servings": 4,
+  "time": 50,
+  "method": "braise",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "豬絞肉", "label": "豬絞肉（帶點肥的）", "grams": 600, "track": "base" },
+    { "food": "大白菜", "label": "大白菜（切大片）", "grams": 500, "track": "base" },
+    { "food": "乾香菇", "label": "乾香菇（泡軟切絲）", "grams": 15, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋（1 顆）", "grams": 50, "track": "base" },
+    { "food": "青蔥", "label": "蔥末", "grams": 20, "track": "base" },
+    { "food": "薑", "label": "薑末", "grams": 10, "track": "base" },
+    { "food": "太白粉", "label": "太白粉", "grams": 20, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 45, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "乾香菇泡軟切絲（泡菇水留著）；絞肉加蔥末、薑末、雞蛋、一半的醬油與太白粉，朝同一方向攪到有黏性，捏成 8 顆大肉丸。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，肉丸中小火兩面煎到定型金黃。" },
+    { "stage": "base", "type": "cook", "text": "砂鍋底鋪大白菜與香菇絲，放上肉丸，加剩下的醬油、糖、泡菇水與 400 毫升水。" },
+    { "stage": "base", "type": "cook", "text": "煮滾後轉小火蓋鍋燉 30 分鐘，到白菜軟爛、肉丸入味。" }
+  ]
+}

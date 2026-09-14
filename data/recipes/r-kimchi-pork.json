@@ -1,0 +1,28 @@
+{
+  "id": "r-kimchi-pork",
+  "name": "泡菜炒豬肉",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "stirfry",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "notes": "市售韓式泡菜多半加了魚露或蝦醬，所以不做素版。",
+  "ingredients": [
+    { "food": "梅花肉", "label": "梅花豬肉片", "grams": 400, "track": "base" },
+    { "food": "韓式泡菜", "label": "韓式泡菜（切段）", "grams": 250, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切絲）", "grams": 150, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切段）", "grams": 20, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 4, "track": "base", "pantry": true },
+    { "food": "麻油", "label": "麻油", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 10, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "泡菜切段、保留湯汁；洋蔥切絲、青蔥切段。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，梅花肉片大火炒到出油、邊緣微焦。" },
+    { "stage": "base", "type": "cook", "text": "加洋蔥炒軟，下泡菜連湯汁、醬油與糖，翻炒 3 分鐘到湯汁收乾。" },
+    { "stage": "base", "type": "cook", "text": "放蔥段，淋麻油拌勻就起鍋。" }
+  ]
+}

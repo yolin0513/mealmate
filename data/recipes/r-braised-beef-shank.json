@@ -1,0 +1,29 @@
+{
+  "id": "r-braised-beef-shank",
+  "name": "紅燒牛腱",
+  "role": "main",
+  "servings": 4,
+  "time": 60,
+  "method": "braise",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "牛腱", "label": "牛腱（切 4 公分塊）", "grams": 800, "track": "base" },
+    { "food": "白蘿蔔", "label": "白蘿蔔（切滾刀塊）", "grams": 300, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切滾刀塊）", "grams": 150, "track": "base" },
+    { "food": "薑", "label": "薑片", "grams": 15, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切段）", "grams": 20, "track": "base" },
+    { "food": "辣豆瓣醬", "label": "辣豆瓣醬", "grams": 15, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 55, "track": "base", "pantry": true },
+    { "food": "冰糖", "label": "冰糖", "grams": 12, "track": "base", "pantry": true },
+    { "food": "八角", "label": "八角", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "牛腱切 4 公分塊，冷水下鍋煮滾汆燙 3 分鐘撈起洗淨；白蘿蔔、胡蘿蔔切滾刀塊，薑切片、青蔥切段。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，薑片、蔥段爆香，加辣豆瓣醬炒出紅油，放入牛腱翻炒 2 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "加醬油、冰糖、八角與 900 毫升水煮滾，連同紅白蘿蔔移到電鍋內鍋，外鍋 2 杯水燉到跳起。" },
+    { "stage": "base", "type": "serve", "text": "跳起後再燜 10 分鐘，筷子能輕鬆穿過牛腱就好；喜歡更軟可以外鍋再加半杯水燉一次。" }
+  ]
+}

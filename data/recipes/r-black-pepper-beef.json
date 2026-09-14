@@ -1,0 +1,28 @@
+{
+  "id": "r-black-pepper-beef",
+  "name": "黑胡椒牛肉片",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "stirfry",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "牛肉片", "label": "牛肉片", "grams": 400, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切絲）", "grams": 200, "track": "base" },
+    { "food": "青椒", "label": "青椒（切條）", "grams": 150, "track": "base" },
+    { "food": "大蒜", "label": "蒜末", "grams": 10, "track": "base" },
+    { "food": "黑胡椒粉", "label": "粗粒黑胡椒", "grams": 3, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "蠔油", "label": "蠔油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "太白粉", "label": "太白粉（醃肉）", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "牛肉片用一半的醬油與太白粉抓醃 10 分鐘；洋蔥切絲、青椒切條、蒜切末。" },
+    { "stage": "base", "type": "cook", "text": "鍋下一半的油，洋蔥與青椒大火炒到邊緣微焦、還帶脆度，先盛起。" },
+    { "stage": "base", "type": "cook", "text": "同鍋下剩下的油，蒜末爆香，牛肉片攤平大火快炒到八分熟。" },
+    { "stage": "base", "type": "cook", "text": "蔬菜回鍋，加蠔油、剩下的醬油與黑胡椒，翻炒半分鐘就起鍋。" }
+  ]
+}

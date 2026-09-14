@@ -12,7 +12,7 @@
 //
 // 改版本號用 `npm run bump -- mealmate-v0.1.1`；shelltest 會斷言三者一致。
 
-export const APP_VERSION = 'mealmate-v0.14.0';
+export const APP_VERSION = 'mealmate-v0.15.0';
 
 /** 給動態 import 與資源網址用的版本參數。 */
 export const V = `?v=${APP_VERSION}`;

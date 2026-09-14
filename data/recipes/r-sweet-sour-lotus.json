@@ -1,0 +1,26 @@
+{
+  "id": "r-sweet-sour-lotus",
+  "name": "糖醋蓮藕片",
+  "role": "side",
+  "servings": 4,
+  "time": 20,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [9, 10, 11],
+  "ingredients": [
+    { "food": "蓮藕", "label": "蓮藕（切薄片）", "grams": 400, "track": "base" },
+    { "food": "辣椒", "label": "辣椒（切圈，可不放）", "grams": 5, "track": "base" },
+    { "food": "白醋", "label": "白醋", "grams": 25, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 20, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "白芝麻", "label": "白芝麻", "grams": 3, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "蓮藕去皮切薄片，泡在加了一點醋的水裡防止變黑；白醋、糖、醬油與 3 大匙水調成糖醋汁。" },
+    { "stage": "base", "type": "cook", "text": "蓮藕片放進滾水燙 2 分鐘撈起瀝乾。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，蓮藕片中火炒 1 分鐘，倒入糖醋汁與辣椒，翻炒到醬汁收稠、每片都亮亮的。" },
+    { "stage": "base", "type": "serve", "text": "盛盤撒白芝麻，放涼吃也好吃。" }
+  ]
+}

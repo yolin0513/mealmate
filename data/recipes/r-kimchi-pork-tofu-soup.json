@@ -1,0 +1,28 @@
+{
+  "id": "r-kimchi-pork-tofu-soup",
+  "name": "泡菜豬肉豆腐湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 25,
+  "method": "soup",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "notes": "市售韓式泡菜多半加了魚露或蝦醬，所以不做素版。",
+  "ingredients": [
+    { "food": "韓式泡菜", "label": "韓式泡菜（切段）", "grams": 250, "track": "base" },
+    { "food": "梅花肉", "label": "梅花豬肉片", "grams": 250, "track": "base" },
+    { "food": "嫩豆腐", "label": "嫩豆腐（切塊）", "grams": 300, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切絲）", "grams": 100, "track": "base" },
+    { "food": "金針菇", "label": "金針菇（切段）", "grams": 100, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切段）", "grams": 20, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "麻油", "label": "麻油", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "泡菜切段、保留湯汁；洋蔥切絲、金針菇切段、豆腐切塊、青蔥切段。" },
+    { "stage": "base", "type": "cook", "text": "鍋下麻油，豬肉片炒到變色，加洋蔥與泡菜炒 2 分鐘炒出香氣。" },
+    { "stage": "base", "type": "cook", "text": "加 800 毫升水、泡菜湯汁與醬油煮滾，放豆腐與金針菇，小火煮 8 分鐘。" },
+    { "stage": "base", "type": "serve", "text": "放蔥段煮半分鐘就關火。" }
+  ]
+}

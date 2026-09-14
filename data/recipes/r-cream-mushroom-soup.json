@@ -1,0 +1,27 @@
+{
+  "id": "r-cream-mushroom-soup",
+  "name": "奶油洋菇濃湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 30,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "洋菇", "label": "洋菇（切片）", "grams": 300, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切丁）", "grams": 150, "track": "base" },
+    { "food": "馬鈴薯", "label": "馬鈴薯（切小塊）", "grams": 200, "track": "base" },
+    { "food": "鮮奶", "label": "鮮奶", "grams": 300, "track": "base" },
+    { "food": "奶油", "label": "奶油", "grams": 25, "track": "base", "pantry": true },
+    { "food": "麵粉", "label": "麵粉", "grams": 20, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 5, "track": "base", "pantry": true },
+    { "food": "黑胡椒粉", "label": "黑胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "洋菇切片（留幾片最後裝飾），洋蔥切丁，馬鈴薯切小塊。" },
+    { "stage": "base", "type": "cook", "text": "鍋放奶油融化，洋蔥炒軟，加洋菇炒到出水收乾，撒麵粉炒 1 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "加 600 毫升水與馬鈴薯，煮滾後小火煮 15 分鐘到馬鈴薯軟爛。" },
+    { "stage": "base", "type": "cook", "text": "用果汁機打成泥（或用湯匙壓碎），倒回鍋中加鮮奶小火加熱，不要煮滾，加鹽與黑胡椒調味。" }
+  ]
+}

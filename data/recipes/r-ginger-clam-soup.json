@@ -1,0 +1,23 @@
+{
+  "id": "r-ginger-clam-soup",
+  "name": "薑絲蛤蜊湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 15,
+  "method": "soup",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "蛤蜊", "label": "蛤蜊（吐過沙）", "grams": 600, "track": "base" },
+    { "food": "薑", "label": "薑絲", "grams": 30, "track": "base" },
+    { "food": "青蔥", "label": "蔥花", "grams": 10, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "麻油", "label": "麻油（起鍋前滴幾滴）", "grams": 3, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "蛤蜊先泡鹽水吐沙、搓洗外殼；薑切細絲、青蔥切花。" },
+    { "stage": "base", "type": "cook", "text": "鍋放 1000 毫升水與薑絲煮滾，放入蛤蜊，中火煮到蛤蜊一開口就關火（煮太久肉會縮）。" },
+    { "stage": "base", "type": "serve", "text": "嚐過味道再決定要不要加鹽（蛤蜊本身帶鹹味），滴幾滴麻油、撒蔥花。" }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "id": "r-sweet-sour-fish",
+  "name": "糖醋鯛魚片",
+  "role": "main",
+  "servings": 4,
+  "time": 25,
+  "method": "pan",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "鯛魚片", "label": "鯛魚片（切 4 公分塊）", "grams": 500, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切片）", "grams": 100, "track": "base" },
+    { "food": "青椒", "label": "青椒（切片）", "grams": 80, "track": "base" },
+    { "food": "甜椒", "label": "紅甜椒（切片）", "grams": 80, "track": "base" },
+    { "food": "番茄醬", "label": "番茄醬", "grams": 45, "track": "base", "pantry": true },
+    { "food": "白醋", "label": "白醋", "grams": 20, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 20, "track": "base", "pantry": true },
+    { "food": "太白粉", "label": "太白粉（沾魚片＋勾芡）", "grams": 20, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 2, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 30, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "魚片切塊、擦乾，抹一點鹽，薄薄拍上太白粉；洋蔥、青椒、紅甜椒切片；番茄醬、糖、白醋與 100 毫升水調成醬汁。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋下油，魚塊中火兩面煎到金黃，先盛起。" },
+    { "stage": "base", "type": "cook", "text": "同鍋炒洋蔥與青紅椒 1 分鐘，倒入醬汁煮滾，用剩下的太白粉加水勾薄芡。" },
+    { "stage": "base", "type": "serve", "text": "魚塊回鍋，輕輕翻動讓每塊裹上醬汁就關火，避免魚肉碎掉。" }
+  ]
+}

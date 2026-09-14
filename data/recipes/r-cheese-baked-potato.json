@@ -1,0 +1,28 @@
+{
+  "id": "r-cheese-baked-potato",
+  "name": "起司焗烤馬鈴薯蛋",
+  "role": "main",
+  "servings": 4,
+  "time": 40,
+  "method": "bake",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "馬鈴薯", "label": "馬鈴薯（切薄片）", "grams": 600, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切絲）", "grams": 150, "track": "base" },
+    { "food": "洋菇", "label": "洋菇（切片）", "grams": 150, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋（2 顆）", "grams": 100, "track": "base" },
+    { "food": "鮮奶", "label": "鮮奶", "grams": 200, "track": "base" },
+    { "food": "起司", "label": "起司片（6 片，撕小片）", "grams": 120, "track": "base" },
+    { "food": "奶油", "label": "奶油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 4, "track": "base", "pantry": true },
+    { "food": "黑胡椒粉", "label": "黑胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "馬鈴薯切薄片，放進電鍋外鍋半杯水蒸到筷子穿得過；洋蔥切絲、洋菇切片；雞蛋打散加鮮奶、鹽、黑胡椒拌勻。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋放奶油，洋蔥與洋菇炒到軟、洋菇出水收乾。" },
+    { "stage": "base", "type": "cook", "text": "烤盤裡一層馬鈴薯、一層洋蔥洋菇疊好，倒入蛋奶液，鋪滿起司。" },
+    { "stage": "base", "type": "cook", "text": "烤箱預熱 200 度，烤 20 分鐘到蛋液凝固、起司表面金黃冒泡。" }
+  ]
+}

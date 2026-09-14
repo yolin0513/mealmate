@@ -1,0 +1,26 @@
+{
+  "id": "r-teriyaki-chicken",
+  "name": "照燒雞腿排",
+  "role": "main",
+  "servings": 4,
+  "time": 25,
+  "method": "pan",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "去骨雞腿", "label": "去骨雞腿排（4 片）", "grams": 600, "track": "base" },
+    { "food": "薑", "label": "薑泥", "grams": 10, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 30, "track": "base", "pantry": true },
+    { "food": "味醂", "label": "味醂", "grams": 30, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 10, "track": "base", "pantry": true },
+    { "food": "白芝麻", "label": "白芝麻", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "雞腿排厚的地方劃幾刀讓厚度平均；醬油、味醂、糖、薑泥與 50 毫升水調成照燒醬。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋抹一點油，雞腿皮朝下冷鍋開小火煎 8 分鐘，逼出油、皮變脆，翻面再煎 4 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "用紙巾吸掉鍋裡多餘的油，倒入照燒醬，中火一邊煮一邊把醬舀起淋在雞肉上，煮到醬汁濃稠發亮。" },
+    { "stage": "base", "type": "serve", "text": "雞腿切塊，淋上鍋裡的醬，撒白芝麻。" }
+  ]
+}

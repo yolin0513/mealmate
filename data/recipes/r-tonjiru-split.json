@@ -1,0 +1,29 @@
+{
+  "id": "r-tonjiru-split",
+  "name": "豚汁（豬肉味噌湯）／根菜油豆腐味噌湯",
+  "role": "soup",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 35,
+  "method": "soup",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "白蘿蔔", "label": "白蘿蔔（切扇形薄片）", "grams": 250, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切扇形薄片）", "grams": 100, "track": "base" },
+    { "food": "牛蒡", "label": "牛蒡（削薄片）", "grams": 80, "track": "base" },
+    { "food": "青蔥", "label": "蔥花", "grams": 20, "track": "base" },
+    { "food": "味噌", "label": "味噌", "grams": 60, "track": "base", "pantry": true },
+    { "food": "麻油", "label": "麻油", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油豆腐", "label": "油豆腐（切片）", "grams": 120, "track": "veg" },
+    { "food": "五花肉", "label": "豬五花薄片（切段）", "grams": 250, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "白蘿蔔、胡蘿蔔切扇形薄片，牛蒡削薄片泡水；油豆腐切片；豬五花切段。" },
+    { "stage": "base", "type": "cook", "text": "鍋放 1200 毫升水與根菜煮滾，轉小火煮 10 分鐘到蘿蔔變透明。" },
+    { "stage": "split", "type": "split", "text": "把根菜湯分成兩鍋，素食那鍋依吃素的人數分，味噌也照同樣比例分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：放油豆腐煮 3 分鐘，味噌用一勺熱湯化開倒回，關火撒蔥花，不要再煮滾。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：五花肉片先用麻油炒到變色再加進湯裡煮 5 分鐘，撈掉浮沫，味噌化開倒回，關火撒蔥花。" }
+  ]
+}

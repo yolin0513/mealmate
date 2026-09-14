@@ -1,0 +1,28 @@
+{
+  "id": "r-potato-chicken-stew",
+  "name": "韓式醬燒馬鈴薯燉雞",
+  "role": "main",
+  "servings": 4,
+  "time": 45,
+  "method": "braise",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "雞腿", "label": "帶骨雞腿（剁塊）", "grams": 800, "track": "base" },
+    { "food": "馬鈴薯", "label": "馬鈴薯（切大塊）", "grams": 400, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切塊）", "grams": 150, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切塊）", "grams": 150, "track": "base" },
+    { "food": "大蒜", "label": "蒜頭（拍碎）", "grams": 15, "track": "base" },
+    { "food": "辣椒", "label": "辣椒（切段，可不放）", "grams": 5, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 50, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 15, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "雞腿剁塊汆燙洗淨；馬鈴薯、胡蘿蔔、洋蔥切塊，蒜頭拍碎，辣椒切段。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，蒜頭與雞塊中火炒到表面變色，加醬油與糖翻炒上色。" },
+    { "stage": "base", "type": "cook", "text": "加入馬鈴薯、胡蘿蔔、洋蔥與 500 毫升水，煮滾後轉小火蓋鍋燉 25 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "開蓋放辣椒，中火收汁到醬汁略稠、馬鈴薯邊緣微微化開。" }
+  ]
+}

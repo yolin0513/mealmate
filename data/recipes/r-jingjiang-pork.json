@@ -1,0 +1,27 @@
+{
+  "id": "r-jingjiang-pork",
+  "name": "京醬肉絲",
+  "role": "main",
+  "servings": 4,
+  "time": 25,
+  "method": "stirfry",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "豬里肌", "label": "豬里肌（切絲）", "grams": 400, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切絲，鋪盤底）", "grams": 120, "track": "base" },
+    { "food": "小黃瓜", "label": "小黃瓜（切絲，鋪盤底）", "grams": 100, "track": "base" },
+    { "food": "甜麵醬", "label": "甜麵醬", "grams": 40, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 8, "track": "base", "pantry": true },
+    { "food": "太白粉", "label": "太白粉（醃肉）", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "豬里肌切絲，用醬油與太白粉抓醃 10 分鐘；青蔥、小黃瓜切細絲鋪在盤底。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，肉絲中火滑炒到變白，先盛起。" },
+    { "stage": "base", "type": "cook", "text": "鍋裡留少許油，小火炒甜麵醬與糖到冒泡出香，加 2 大匙水調開。" },
+    { "stage": "base", "type": "serve", "text": "肉絲回鍋翻炒到每條都裹上醬，鋪在蔥絲與小黃瓜絲上，吃的時候拌在一起。" }
+  ]
+}

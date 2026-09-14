@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadContext, buildRecipes, summarize, outputFor } from './build-recipes.mjs';
 import { validateRecipe } from '../js/recipeschema.js';
+import { fitsDiet } from '../js/members.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const { ctx, idx, foodsVersion } = loadContext();
@@ -22,18 +23,62 @@ const { recipes, errors } = buildRecipes(path.join(ROOT, 'data/recipes'), ctx);
 section('內建食譜全部通過驗證');
 eq(errors, [], '沒有任何一道食譜有驗證錯誤');
 const s = summarize(recipes);
-// M5 的數量門檻（PLAN §8「上線前要有的量」）：主菜 80、配菜 50、湯 25、早餐 10、主食 6，
-// 而且主菜裡素食成員吃得到的（nativeVeg ＋ splittable）要 ≥ 45 —— 家裡有吃素的人才排得滿一週。
-ok(s.count >= 170, `${s.count} 道（≥ 170）`);
-ok((s.roles.main ?? 0) >= 80, `主菜 ${s.roles.main} 道（≥ 80）`);
-ok((s.roles.side ?? 0) >= 50, `配菜 ${s.roles.side} 道（≥ 50）`);
-ok((s.roles.soup ?? 0) >= 25, `湯 ${s.roles.soup} 道（≥ 25）`);
+// 數量門檻。M5 是 PLAN §8 的 170 道（主菜 80、配菜 50、湯 25）；2026-09-14 使用者要求「多加一些有份量的菜」
+// 補到 217 道（主菜 102、配菜 56、湯 34），門檻跟著墊高，退化會紅。
+// 主菜裡素食成員吃得到的（nativeVeg ＋ splittable）要 ≥ 55 —— 補的多半是葷菜，素食保障不能被稀釋。
+ok(s.count >= 210, `${s.count} 道（≥ 210）`);
+ok((s.roles.main ?? 0) >= 100, `主菜 ${s.roles.main} 道（≥ 100）`);
+ok((s.roles.side ?? 0) >= 55, `配菜 ${s.roles.side} 道（≥ 55）`);
+ok((s.roles.soup ?? 0) >= 33, `湯 ${s.roles.soup} 道（≥ 33）`);
 ok((s.roles.breakfast ?? 0) >= 10, `早餐 ${s.roles.breakfast} 道（≥ 10）`);
 ok((s.roles.staple ?? 0) >= 6, `主食 ${s.roles.staple} 道（≥ 6）`);
 ok((s.vegModes.nativeVeg ?? 0) >= 8, `素的 ${s.vegModes.nativeVeg} 道（≥ 8）`);
 ok((s.vegModes.splittable ?? 0) >= 8, `可分流的 ${s.vegModes.splittable} 道（≥ 8）`);
 const vegFriendlyMains = recipes.filter((r) => r.role === 'main' && r.vegMode !== 'meatOnly');
-ok(vegFriendlyMains.length >= 45, `素食成員吃得到的主菜 ${vegFriendlyMains.length} 道（≥ 45）`);
+ok(vegFriendlyMains.length >= 55, `素食成員吃得到的主菜 ${vegFriendlyMains.length} 道（≥ 55）`);
+
+section('主菜有份量、有變化（使用者回報：不要都只是豆腐或炒青菜）');
+{
+  // 2026-09-14 使用者原話：「多加一些稍微沒那麼健康的料理…像是燉牛肉或味噌湯之類，不要都只是豆腐或炒青菜」。
+  // 守的是「池子裡真的有」—— 蛋白質來源與烹法都要夠多樣，排出來的一週才不會每天都是同一種口感。
+  const mains = recipes.filter((r) => r.role === 'main');
+  const withProtein = (p) => mains.filter((r) => r.proteins.includes(p)).length;
+  const byMethod = (m) => mains.filter((r) => r.method === m).length;
+  ok(withProtein('beef') >= 12, `含牛肉的主菜 ${withProtein('beef')} 道（≥ 12；補之前只有 7 道）`);
+  ok(withProtein('chicken') >= 14, `含雞肉的主菜 ${withProtein('chicken')} 道（≥ 14）`);
+  ok(withProtein('pork') >= 25, `含豬肉的主菜 ${withProtein('pork')} 道（≥ 25）`);
+  ok(mains.filter((r) => r.proteins.includes('fish') || r.proteins.includes('shellfish')).length >= 25, `含魚貝的主菜 ${mains.filter((r) => r.proteins.includes('fish') || r.proteins.includes('shellfish')).length} 道（≥ 25）`);
+  ok(byMethod('braise') >= 35, `燉／滷的主菜 ${byMethod('braise')} 道（≥ 35）`);
+  ok(byMethod('pan') >= 10, `煎的主菜 ${byMethod('pan')} 道（≥ 10）`);
+  ok(byMethod('bake') >= 5, `烤的主菜 ${byMethod('bake')} 道（≥ 5）`);
+  ok(byMethod('steam') >= 5, `蒸的主菜 ${byMethod('steam')} 道（≥ 5）`);
+  const plainMains = mains.filter((r) => r.proteins.every((p) => p === 'soy'));
+  ok(plainMains.length / mains.length <= 0.2, `（量餘裕）只靠豆製品或完全沒有蛋白質來源的主菜佔 ${Math.round(plainMains.length / mains.length * 100)}%（${plainMains.length}/${mains.length}，≤ 20%）`);
+
+  const MISO = idx.byId.get('P1200101');
+  ok(MISO && MISO.name === '味噌', '（前提）味噌的編號是 P1200101');
+  const misoSoups = recipes.filter((r) => r.role === 'soup' && r.ingredients.some((i) => i.food === 'P1200101'));
+  ok(misoSoups.length >= 6, `味噌湯 ${misoSoups.length} 道（≥ 6）：${misoSoups.map((r) => r.name).join('、')}`);
+
+  // 使用者 2026-09-13 定的規則：不為了收錄食譜放寬「每個食材都要解析得到編號」，而米酒查不到 —— 所以內建食譜不用酒。
+  // 但「啤酒」其實查得到（飲料類 R9900102），光靠解析不到擋不住；三杯、紅燒這種菜又最容易順手寫進去。
+  const texts = recipes.map((r) => ({ name: r.name, text: [r.name, r.notes ?? '', ...r.ingredients.map((i) => i.label), ...r.steps.map((st) => st.text)].join('｜') }));
+  ok(texts.length === recipes.length && texts.every((t) => t.text.length > 20), `（母體）${texts.length} 道的名稱、食材、步驟文字`);
+  // 「這道不用米酒」這種否定句要先拿掉（麻油薑燒雞就是這樣寫的），剩下的才算用到酒。
+  const usesAlcohol = (t) => /酒/.test(t.replace(/不(用|加|放)[^，。；｜]{0,6}酒/g, ''));
+  ok(!usesAlcohol('這道不用米酒，靠麻油與薑的香氣。') && usesAlcohol('加醬油、糖與一大匙米酒'), '（判準對照）「不用米酒」不算、「加一大匙米酒」算');
+  ok(texts.some((t) => /不用米酒/.test(t.text)), '（前提）池子裡真的有寫「不用米酒」的菜，上面那條否定句的排除有樣本');
+  noneOf(texts, (t) => usesAlcohol(t.text), '內建食譜的名稱、食材、步驟、備註都沒有用到酒（「不用米酒」這種否定句不算）',
+    texts.filter((t) => usesAlcohol(t.text)).map((t) => t.name).join('、'));
+
+  // 奶油在食藥署分類是「油脂類」，分類推不出是奶製品；foodtags 要明列，不然全素的家人會被排到奶油燉雞的素版。
+  const butterIds = ['M0900101', 'M0900201', 'M0900301'];
+  const withButter = recipes.filter((r) => r.ingredients.some((i) => butterIds.includes(i.food)));
+  ok(withButter.length >= 3, `（母體）${withButter.length} 道用到奶油`);
+  everyOf(withButter, (r) => !fitsDiet(r, 'vegan') && !fitsDiet(r, 'veganNoAllium'), '用到奶油的菜，全素的家人都吃不到（素版也不行）',
+    withButter.filter((r) => fitsDiet(r, 'vegan')).map((r) => r.name).join('、'));
+  everyOf(withButter.filter((r) => r.vegMode !== 'meatOnly'), (r) => fitsDiet(r, 'lactoOvo'), '（對照）蛋奶素的家人照樣吃得到 —— 上面那條不是因為這些菜本來就沒人能吃');
+}
 
 section('每個食材都對到食藥署編號');
 const allIngredients = recipes.flatMap((r) => r.ingredients.map((ing) => ({ recipe: r.id, ...ing })));

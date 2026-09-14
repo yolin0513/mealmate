@@ -1,0 +1,30 @@
+{
+  "id": "r-sukiyaki-split",
+  "name": "壽喜燒牛肉／壽喜燒豆腐",
+  "role": "main",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 25,
+  "method": "braise",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "大白菜", "label": "大白菜（切大片）", "grams": 300, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切絲）", "grams": 200, "track": "base" },
+    { "food": "金針菇", "label": "金針菇（切去根部）", "grams": 150, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切段）", "grams": 30, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 45, "track": "base", "pantry": true },
+    { "food": "味醂", "label": "味醂", "grams": 40, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 8, "track": "base", "pantry": true },
+    { "food": "板豆腐", "label": "板豆腐（切厚片）", "grams": 300, "track": "veg" },
+    { "food": "牛肉片", "label": "牛肉火鍋片", "grams": 400, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "大白菜切大片、洋蔥切絲、金針菇切去根部、青蔥切段；豆腐切厚片。" },
+    { "stage": "base", "type": "cook", "text": "淺鍋放醬油、味醂、糖與 300 毫升水煮滾成醬汁，放洋蔥、大白菜、金針菇與蔥段煮 5 分鐘到軟。" },
+    { "stage": "split", "type": "split", "text": "把蔬菜連醬汁分成兩鍋，素食那鍋依吃素的人數分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：放入豆腐片，小火煮 5 分鐘讓豆腐吸飽醬汁。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：牛肉片一片片攤開放在蔬菜上，涮到變色就關火，不要煮老。" }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "r-cheese-baked-pumpkin",
+  "name": "起司焗南瓜",
+  "role": "side",
+  "servings": 4,
+  "time": 30,
+  "method": "bake",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [7, 8, 9, 10, 11],
+  "ingredients": [
+    { "food": "南瓜", "label": "南瓜（連皮切塊）", "grams": 500, "track": "base" },
+    { "food": "起司", "label": "起司片（3 片，撕小片）", "grams": 60, "track": "base" },
+    { "food": "奶油", "label": "奶油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 2, "track": "base", "pantry": true },
+    { "food": "黑胡椒粉", "label": "黑胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "南瓜洗淨去籽、連皮切 3 公分塊，放電鍋外鍋半杯水蒸到筷子穿得過。" },
+    { "stage": "base", "type": "cook", "text": "蒸好的南瓜排進烤盤，放上小塊奶油，撒鹽與黑胡椒，鋪滿起司。" },
+    { "stage": "base", "type": "cook", "text": "烤箱預熱 200 度，烤 10 分鐘到起司融化、表面金黃。" }
+  ]
+}

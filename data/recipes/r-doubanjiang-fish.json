@@ -1,0 +1,29 @@
+{
+  "id": "r-doubanjiang-fish",
+  "name": "豆瓣鯛魚",
+  "role": "main",
+  "servings": 4,
+  "time": 25,
+  "method": "braise",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "鯛魚片", "label": "鯛魚片（切大塊）", "grams": 500, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（蔥白切末、蔥綠切花）", "grams": 40, "track": "base" },
+    { "food": "薑", "label": "薑末", "grams": 15, "track": "base" },
+    { "food": "大蒜", "label": "蒜末", "grams": 15, "track": "base" },
+    { "food": "辣豆瓣醬", "label": "辣豆瓣醬", "grams": 30, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "白醋", "label": "白醋", "grams": 5, "track": "base", "pantry": true },
+    { "food": "太白粉", "label": "太白粉（勾芡）", "grams": 10, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 20, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "鯛魚片切大塊、擦乾；青蔥的蔥白切末、蔥綠切花，薑與蒜切末。" },
+    { "stage": "base", "type": "cook", "text": "鍋下油，小火炒蔥白、薑末、蒜末與辣豆瓣醬到冒出紅油。" },
+    { "stage": "base", "type": "cook", "text": "加醬油、糖與 250 毫升水煮滾，輕輕放入魚塊，小火煮 5 分鐘，中途用湯匙把醬汁淋在魚上。" },
+    { "stage": "base", "type": "serve", "text": "太白粉加水勾薄芡，沿鍋邊淋白醋，撒蔥花關火。" }
+  ]
+}

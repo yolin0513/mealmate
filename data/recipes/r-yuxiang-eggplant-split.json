@@ -1,0 +1,34 @@
+{
+  "id": "r-yuxiang-eggplant-split",
+  "name": "魚香茄子（可分素葷）",
+  "role": "main",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 25,
+  "method": "stirfry",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [5, 6, 7, 8, 9, 10],
+  "ingredients": [
+    { "food": "茄子", "label": "長茄子（切段）", "grams": 500, "track": "base" },
+    { "food": "大蒜", "label": "蒜末", "grams": 15, "track": "base" },
+    { "food": "薑", "label": "薑末", "grams": 10, "track": "base" },
+    { "food": "青蔥", "label": "蔥花", "grams": 20, "track": "base" },
+    { "food": "辣豆瓣醬", "label": "辣豆瓣醬", "grams": 20, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 8, "track": "base", "pantry": true },
+    { "food": "白醋", "label": "白醋", "grams": 10, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 30, "track": "base", "pantry": true },
+    { "food": "杏鮑菇", "label": "杏鮑菇（切小丁）", "grams": 100, "track": "veg" },
+    { "food": "板豆腐", "label": "板豆腐（切小丁）", "grams": 150, "track": "veg" },
+    { "food": "豬絞肉", "label": "豬絞肉", "grams": 250, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "茄子切段；蒜、薑切末，青蔥切花；杏鮑菇與豆腐切小丁；醬油、糖、白醋與 100 毫升水調成醬汁。" },
+    { "stage": "base", "type": "cook", "text": "鍋下大部分的油，茄子中火煎到表面軟、皮顏色變深，先盛起。" },
+    { "stage": "base", "type": "cook", "text": "鍋裡留少許油，小火炒蒜末、薑末與辣豆瓣醬到冒紅油，倒入醬汁煮滾成魚香醬。" },
+    { "stage": "split", "type": "split", "text": "把茄子與魚香醬分成兩鍋，素食那鍋依吃素的人數分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：另起小鍋把豆腐丁煎到表面金黃、杏鮑菇丁炒香，加入茄子與醬汁拌炒到收汁，撒蔥花。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：豬絞肉炒散到變白出油，加入茄子與醬汁拌炒到收汁，撒蔥花。" }
+  ]
+}

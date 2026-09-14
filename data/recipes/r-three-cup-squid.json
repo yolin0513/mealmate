@@ -1,0 +1,27 @@
+{
+  "id": "r-three-cup-squid",
+  "name": "三杯小卷",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "braise",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "小卷", "label": "小卷（去內臟、切圈）", "grams": 500, "track": "base" },
+    { "food": "薑", "label": "老薑（切片）", "grams": 30, "track": "base" },
+    { "food": "大蒜", "label": "蒜頭（整顆）", "grams": 30, "track": "base" },
+    { "food": "九層塔", "label": "九層塔", "grams": 30, "track": "base" },
+    { "food": "辣椒", "label": "辣椒（切段）", "grams": 5, "track": "base" },
+    { "food": "麻油", "label": "麻油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 25, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 6, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "小卷去內臟、洗淨切圈，擦乾水分；老薑切片、辣椒切段，九層塔摘葉。" },
+    { "stage": "base", "type": "cook", "text": "鍋下麻油，小火煸薑片到邊緣捲曲，放蒜頭煎到表面金黃。" },
+    { "stage": "base", "type": "cook", "text": "轉大火下小卷翻炒 1 分鐘，加醬油與糖，翻炒 2 分鐘到醬汁收乾、小卷剛熟。" },
+    { "stage": "base", "type": "serve", "text": "關火放九層塔與辣椒，用鍋子餘熱拌到九層塔變軟就上桌。" }
+  ]
+}

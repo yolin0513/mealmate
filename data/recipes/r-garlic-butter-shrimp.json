@@ -1,0 +1,25 @@
+{
+  "id": "r-garlic-butter-shrimp",
+  "name": "奶油蒜香蝦",
+  "role": "main",
+  "servings": 4,
+  "time": 20,
+  "method": "pan",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "白蝦", "label": "白蝦（剪鬚、開背去腸泥）", "grams": 600, "track": "base" },
+    { "food": "大蒜", "label": "蒜末", "grams": 30, "track": "base" },
+    { "food": "檸檬", "label": "檸檬（擠汁，約半顆）", "grams": 30, "track": "base" },
+    { "food": "奶油", "label": "奶油", "grams": 30, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "黑胡椒粉", "label": "黑胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "白蝦剪鬚、從背部剪開挑掉腸泥，用紙巾吸乾水分；蒜切末。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋放一半的奶油，中火融化後把蝦排開，兩面各煎 1 分半到變紅。" },
+    { "stage": "base", "type": "cook", "text": "轉小火放剩下的奶油與蒜末，炒到蒜香出來、不要炒焦。" },
+    { "stage": "base", "type": "serve", "text": "撒鹽與黑胡椒，關火擠上檸檬汁拌勻就上桌。" }
+  ]
+}

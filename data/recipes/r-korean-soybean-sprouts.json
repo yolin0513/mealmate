@@ -1,0 +1,24 @@
+{
+  "id": "r-korean-soybean-sprouts",
+  "name": "韓式涼拌黃豆芽",
+  "role": "side",
+  "servings": 4,
+  "time": 15,
+  "method": "boil",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "黃豆芽", "label": "黃豆芽（摘掉鬚根）", "grams": 400, "track": "base" },
+    { "food": "大蒜", "label": "蒜泥", "grams": 10, "track": "base" },
+    { "food": "青蔥", "label": "蔥花", "grams": 15, "track": "base" },
+    { "food": "麻油", "label": "麻油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "白芝麻", "label": "白芝麻", "grams": 5, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "黃豆芽洗淨、摘掉鬚根；蒜磨成泥、青蔥切花。" },
+    { "stage": "base", "type": "cook", "text": "水滾加一點鹽，放黃豆芽蓋鍋煮 5 分鐘（中途不要開蓋，才不會有豆腥味），撈起瀝乾。" },
+    { "stage": "base", "type": "serve", "text": "趁熱拌入蒜泥、蔥花、麻油、剩下的鹽與白芝麻，冷熱吃都可以。" }
+  ]
+}

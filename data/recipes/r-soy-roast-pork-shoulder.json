@@ -1,0 +1,25 @@
+{
+  "id": "r-soy-roast-pork-shoulder",
+  "name": "醬烤梅花豬（叉燒風味）",
+  "role": "main",
+  "servings": 4,
+  "time": 45,
+  "method": "bake",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "梅花肉", "label": "梅花豬肉（切 1.5 公分厚片）", "grams": 600, "track": "base" },
+    { "food": "大蒜", "label": "蒜泥", "grams": 15, "track": "base" },
+    { "food": "醬油膏", "label": "醬油膏", "grams": 40, "track": "base", "pantry": true },
+    { "food": "糖", "label": "糖", "grams": 20, "track": "base", "pantry": true },
+    { "food": "五香粉", "label": "五香粉", "grams": 1, "track": "base", "pantry": true },
+    { "food": "白芝麻", "label": "白芝麻", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "梅花肉用蒜泥、醬油膏、糖、五香粉抓勻，醃 15 分鐘（前一晚醃更入味）。" },
+    { "stage": "base", "type": "cook", "text": "烤箱預熱 200 度，肉片攤在鋪了烘焙紙的烤盤上烤 12 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "翻面刷上剩下的醃醬，再烤 10 分鐘到邊緣微焦、醬汁黏稠。" },
+    { "stage": "base", "type": "serve", "text": "取出靜置 3 分鐘再斜切成片，撒白芝麻。" }
+  ]
+}

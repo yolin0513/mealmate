@@ -1,0 +1,23 @@
+{
+  "id": "r-butter-corn",
+  "name": "奶油玉米粒",
+  "role": "side",
+  "servings": 4,
+  "time": 10,
+  "method": "pan",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "玉米粒", "label": "冷凍玉米粒", "grams": 400, "track": "base" },
+    { "food": "甜椒", "label": "紅甜椒（切小丁）", "grams": 60, "track": "base" },
+    { "food": "奶油", "label": "奶油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 2, "track": "base", "pantry": true },
+    { "food": "黑胡椒粉", "label": "黑胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "冷凍玉米粒不用退冰，紅甜椒切小丁。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋放奶油小火融化，下玉米粒轉中火炒 4 分鐘到水分收乾、邊緣微微焦香。" },
+    { "stage": "base", "type": "cook", "text": "加入甜椒丁再炒 1 分鐘，撒鹽與黑胡椒拌勻。" }
+  ]
+}

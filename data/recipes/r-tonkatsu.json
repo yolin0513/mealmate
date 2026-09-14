@@ -1,0 +1,27 @@
+{
+  "id": "r-tonkatsu",
+  "name": "日式炸豬排",
+  "role": "main",
+  "servings": 4,
+  "time": 30,
+  "method": "deepfry",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "豬里肌", "label": "豬里肌排（4 片，約 1.5 公分厚）", "grams": 500, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋（2 顆，打散）", "grams": 100, "track": "base" },
+    { "food": "麵包粉", "label": "麵包粉", "grams": 80, "track": "base", "pantry": true },
+    { "food": "高麗菜", "label": "高麗菜（切細絲）", "grams": 200, "track": "base" },
+    { "food": "麵粉", "label": "麵粉", "grams": 30, "track": "base", "pantry": true },
+    { "food": "油", "label": "炸油（估實際吸附的量）", "grams": 50, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "黑胡椒粉", "label": "黑胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "豬排在肥瘦交界處切幾刀斷筋，用刀背拍鬆，兩面撒鹽與黑胡椒；高麗菜切細絲泡冰水。" },
+    { "stage": "base", "type": "prep", "text": "豬排依序沾麵粉、蛋液、麵包粉，壓緊讓麵包粉黏牢。" },
+    { "stage": "base", "type": "cook", "text": "油燒到約 170 度（筷子插入冒細泡），放入豬排炸 4 分鐘，翻面再炸 2 分鐘到金黃。" },
+    { "stage": "base", "type": "serve", "text": "撈起立在網架上瀝油靜置 2 分鐘再切條；高麗菜絲瀝乾鋪在旁邊一起上桌。" }
+  ]
+}

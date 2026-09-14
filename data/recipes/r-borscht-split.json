@@ -1,0 +1,32 @@
+{
+  "id": "r-borscht-split",
+  "name": "羅宋湯（可分素葷）",
+  "role": "soup",
+  "servings": 4,
+  "splitServings": { "veg": 1, "meat": 3 },
+  "time": 60,
+  "method": "soup",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "番茄", "label": "牛番茄（切塊）", "grams": 400, "track": "base" },
+    { "food": "高麗菜", "label": "高麗菜（切片）", "grams": 300, "track": "base" },
+    { "food": "洋蔥", "label": "洋蔥（切丁）", "grams": 150, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切丁）", "grams": 120, "track": "base" },
+    { "food": "馬鈴薯", "label": "馬鈴薯（切丁）", "grams": 250, "track": "base" },
+    { "food": "芹菜", "label": "芹菜（切段）", "grams": 80, "track": "base" },
+    { "food": "番茄醬", "label": "番茄醬", "grams": 40, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 6, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "杏鮑菇", "label": "杏鮑菇（切丁）", "grams": 150, "track": "veg" },
+    { "food": "牛腩", "label": "牛腩（切丁）", "grams": 250, "track": "meat" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "番茄切塊，洋蔥、胡蘿蔔、馬鈴薯切丁，高麗菜切片、芹菜切段；杏鮑菇切丁；牛腩切丁，冷水下鍋汆燙後洗淨。" },
+    { "stage": "base", "type": "cook", "text": "大鍋下油，洋蔥炒軟，加番茄與番茄醬炒到番茄化開，放胡蘿蔔、馬鈴薯、高麗菜、芹菜與 1500 毫升水煮滾，小火煮 15 分鐘。" },
+    { "stage": "split", "type": "split", "text": "把蔬菜湯分成兩鍋，素食那鍋依吃素的人數分。" },
+    { "stage": "veg", "type": "cook", "text": "素食那鍋：放杏鮑菇丁，小火煮 10 分鐘，加鹽調味。" },
+    { "stage": "meat", "type": "cook", "text": "葷食那鍋：放汆燙好的牛腩丁，小火燉 35 分鐘到牛腩軟，加鹽調味。" }
+  ]
+}

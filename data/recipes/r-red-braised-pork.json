@@ -1,0 +1,27 @@
+{
+  "id": "r-red-braised-pork",
+  "name": "紅燒肉燉蛋",
+  "role": "main",
+  "servings": 4,
+  "time": 60,
+  "method": "braise",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "五花肉", "label": "五花肉（切 3 公分塊）", "grams": 600, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋（4 顆，煮熟剝殼）", "grams": 200, "track": "base" },
+    { "food": "薑", "label": "薑片", "grams": 15, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切段）", "grams": 20, "track": "base" },
+    { "food": "冰糖", "label": "冰糖", "grams": 20, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 60, "track": "base", "pantry": true },
+    { "food": "八角", "label": "八角", "grams": 3, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "五花肉切 3 公分塊，冷水下鍋汆燙後洗淨；雞蛋煮熟剝殼；薑切片、青蔥切段。" },
+    { "stage": "base", "type": "cook", "text": "鍋下少許油，小火放冰糖炒到融化變琥珀色，下五花肉翻炒到每塊都裹上糖色。" },
+    { "stage": "base", "type": "cook", "text": "加薑片、蔥段、八角、醬油，倒熱水到剛好蓋過肉，煮滾後轉小火蓋鍋燉 40 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "放入水煮蛋再燉 10 分鐘，開大火收汁到湯汁油亮、能掛在肉上。" }
+  ]
+}

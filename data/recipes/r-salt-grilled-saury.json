@@ -1,0 +1,23 @@
+{
+  "id": "r-salt-grilled-saury",
+  "name": "鹽烤秋刀魚",
+  "role": "main",
+  "servings": 4,
+  "time": 25,
+  "method": "bake",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "秋刀魚", "label": "秋刀魚（4 尾，去內臟）", "grams": 600, "track": "base" },
+    { "food": "白蘿蔔", "label": "白蘿蔔（磨泥）", "grams": 150, "track": "base" },
+    { "food": "檸檬", "label": "檸檬（切角）", "grams": 30, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油（刷烤盤）", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "秋刀魚洗淨、用紙巾擦乾，兩面均勻抹鹽靜置 10 分鐘；白蘿蔔磨泥擠掉多餘水分。" },
+    { "stage": "base", "type": "cook", "text": "烤箱預熱 220 度，烤盤刷一層油，魚排開烤 12 分鐘，翻面再烤 5 分鐘到皮焦香（也可以用平底鍋乾煎）。" },
+    { "stage": "base", "type": "serve", "text": "盛盤，旁邊放蘿蔔泥與檸檬角，吃的時候擠一點檸檬汁。" }
+  ]
+}

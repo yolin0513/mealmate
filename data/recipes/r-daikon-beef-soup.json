@@ -1,0 +1,25 @@
+{
+  "id": "r-daikon-beef-soup",
+  "name": "蘿蔔牛肉片湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 30,
+  "method": "soup",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [10, 11, 12, 1, 2, 3],
+  "ingredients": [
+    { "food": "牛肉片", "label": "牛肉火鍋片", "grams": 300, "track": "base" },
+    { "food": "白蘿蔔", "label": "白蘿蔔（切薄片）", "grams": 400, "track": "base" },
+    { "food": "薑", "label": "薑絲", "grams": 15, "track": "base" },
+    { "food": "青蔥", "label": "蔥花", "grams": 15, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 5, "track": "base", "pantry": true },
+    { "food": "黑胡椒粉", "label": "黑胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "白蘿蔔去皮切薄片、薑切絲、青蔥切花。" },
+    { "stage": "base", "type": "cook", "text": "鍋放 1200 毫升水、蘿蔔片與薑絲，煮滾後轉小火煮 15 分鐘到蘿蔔透明軟爛。" },
+    { "stage": "base", "type": "cook", "text": "轉中火，牛肉片一片片放進湯裡，變色就撈掉浮沫、關火，肉才不會老。" },
+    { "stage": "base", "type": "serve", "text": "加鹽與黑胡椒調味，撒蔥花。" }
+  ]
+}

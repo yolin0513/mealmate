@@ -1,0 +1,24 @@
+{
+  "id": "r-clam-miso-soup",
+  "name": "蛤蜊味噌湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 20,
+  "method": "soup",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    { "food": "蛤蜊", "label": "蛤蜊（吐過沙）", "grams": 500, "track": "base" },
+    { "food": "嫩豆腐", "label": "嫩豆腐（切小丁）", "grams": 200, "track": "base" },
+    { "food": "柴魚片", "label": "柴魚片（煮高湯）", "grams": 10, "track": "base" },
+    { "food": "青蔥", "label": "蔥花", "grams": 15, "track": "base" },
+    { "food": "味噌", "label": "味噌", "grams": 45, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "蛤蜊買回來先泡鹽水吐沙（可以前一晚放冰箱泡）；嫩豆腐切小丁、青蔥切花。" },
+    { "stage": "base", "type": "cook", "text": "鍋放 1000 毫升水煮滾後關火，放柴魚片泡 3 分鐘再濾掉，就是柴魚高湯。" },
+    { "stage": "base", "type": "cook", "text": "高湯重新煮滾，放入豆腐丁與蛤蜊，蛤蜊一開口就轉小火。" },
+    { "stage": "base", "type": "serve", "text": "味噌用一勺熱湯在碗裡化開倒回鍋中，關火撒蔥花，不要再煮滾。" }
+  ]
+}

@@ -19,6 +19,55 @@ import { ok, eq, section, done, note } from './tap.mjs';
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const MUTATIONS = [
+  // ---- 2026-09-14 食譜擴充：有份量、有變化的家常菜 ----
+  {
+    name: "一道牛肉主菜被改成配菜（牛肉主菜少於門檻）",
+    why: "使用者點名要燉牛肉這類有份量的菜；池子裡的牛肉主菜一少，一週就排不太到。",
+    file: "data/recipes/r-braised-beef-shank.json",
+    find: "\"role\": \"main\",",
+    replace: "\"role\": \"side\",",
+    test: "recipetest",
+  },
+  {
+    name: "一道雞肉主菜被改成配菜（雞肉主菜少於門檻）",
+    why: "蛋白質來源要輪得動，雞肉主菜太少就會一直回到豬肉與豆腐。",
+    file: "data/recipes/r-teriyaki-chicken.json",
+    find: "\"role\": \"main\",",
+    replace: "\"role\": \"side\",",
+    test: "recipetest",
+  },
+  {
+    name: "烤的主菜少一道（烹法變化少於門檻）",
+    why: "使用者要「有變化」，烹法不能只剩炒和滷。",
+    file: "data/recipes/r-salt-grilled-saury.json",
+    find: "\"method\": \"bake\",",
+    replace: "\"method\": \"pan\",",
+    test: "recipetest",
+  },
+  {
+    name: "味噌湯少一道（被換成鹽）",
+    why: "使用者點名味噌湯；池子裡的味噌湯一少就排不出來。",
+    file: "data/recipes/r-clam-miso-soup.json",
+    find: "{ \"food\": \"味噌\", \"label\": \"味噌\", \"grams\": 45, \"track\": \"base\", \"pantry\": true }",
+    replace: "{ \"food\": \"鹽\", \"label\": \"鹽\", \"grams\": 3, \"track\": \"base\", \"pantry\": true }",
+    test: "recipetest",
+  },
+  {
+    name: "三杯小卷順手寫進米酒",
+    why: "米酒查不到食藥署編號，使用者定過不為了收錄放寬；三杯類的菜最容易順手寫進去。",
+    file: "data/recipes/r-three-cup-squid.json",
+    find: "加醬油與糖，翻炒 2 分鐘到醬汁收乾、小卷剛熟。",
+    replace: "加醬油、糖與一大匙米酒，翻炒 2 分鐘到醬汁收乾、小卷剛熟。",
+    test: "recipetest",
+  },
+  {
+    name: "奶油沒有標成奶製品",
+    why: "奶油在食藥署是油脂類，分類推不出奶；不明列的話全素的家人會被排到奶油燉雞的素版。",
+    file: "data/foodtags.json",
+    find: "    \"dairy\": [\n      \"M0900101\",\n      \"M0900201\",\n      \"M0900301\"\n    ],",
+    replace: "    \"dairy\": [],",
+    test: "recipetest",
+  },
   // ---- 使用者回報第五輪：買菜頁超連結樣式改按鈕、摺疊箭頭與常備品、底下三顆按鈕對齊 ----
   {
     name: "底下按鈕左右內距太大（複製清單被拆成兩行）",

@@ -1,0 +1,25 @@
+{
+  "id": "r-scallion-oil-chicken",
+  "name": "蔥油淋雞",
+  "role": "main",
+  "servings": 4,
+  "time": 35,
+  "method": "steam",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    { "food": "雞腿", "label": "帶骨雞腿（2 隻）", "grams": 800, "track": "base" },
+    { "food": "青蔥", "label": "青蔥（切細絲）", "grams": 80, "track": "base" },
+    { "food": "薑", "label": "薑（一半切片、一半切絲）", "grams": 20, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 5, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "油", "label": "沙拉油（燒熱淋）", "grams": 30, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "雞腿洗淨擦乾，全身抹鹽醃 10 分鐘；青蔥切細絲，薑一半切片、一半切絲。" },
+    { "stage": "base", "type": "cook", "text": "雞腿放盤子上、鋪薑片，放進電鍋外鍋 1.5 杯水蒸到跳起，再燜 5 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "雞腿取出稍涼後切塊排盤；盤底蒸出來的雞汁留 3 大匙，跟醬油混合。" },
+    { "stage": "base", "type": "serve", "text": "雞肉上鋪滿蔥絲與薑絲，油燒到冒煙直接淋上去，再淋雞汁醬油。" }
+  ]
+}
