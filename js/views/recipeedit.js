@@ -21,13 +21,15 @@ function draftFrom(recipe, { copy = false } = {}) {
   d.steps = d.steps.map((st) => ({ stage: st.stage ?? 'base', type: st.type ?? 'cook', text: st.text }));
   d.splitServings = d.splitServings ?? { veg: 1, meat: Math.max(1, (d.servings ?? 4) - 1) };
   d.season = d.season ?? [];
+  // 複製內建食譜不算「使用者自己選過葷素」；修改自己的菜才沿用
+  d.vegModeConfirmed = !copy && !!recipe.vegModeConfirmed;
   return d;
 }
 
 function newDraft() {
   return {
     id: store.newUserRecipeId(), name: '', role: 'main', servings: 4, splitServings: { veg: 1, meat: 3 }, time: 20, method: 'stirfry',
-    vegMode: 'nativeVeg', texture: 'normal', season: [], alliumOptional: false,
+    vegMode: 'nativeVeg', vegModeConfirmed: false, texture: 'normal', season: [], alliumOptional: false,
     ingredients: [blankIngredient()], steps: [blankStep()],
   };
 }
@@ -38,6 +40,7 @@ export function toRecipe(d) {
   return {
     id: d.id, name: d.name.trim(), role: d.role, servings: d.servings, time: d.time, method: d.method, vegMode: d.vegMode, texture: d.texture,
     season: d.season, source: 'user',
+    ...(d.vegModeConfirmed ? { vegModeConfirmed: true } : {}),
     ...(split ? { splitServings: { veg: d.splitServings.veg, meat: d.servings - d.splitServings.veg } } : {}),
     ...(d.alliumOptional ? { alliumOptional: true } : {}),
     ingredients: d.ingredients.map((ing) => ({
@@ -98,12 +101,14 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
     search.addEventListener('input', () => {
       const q = search.value.trim();
       ing.query = q;   // 打在搜尋框、沒點清單也算數（存的時候用這個名稱解析）
+      updateVegConfirm();
       const hits = q && idx ? searchFoods(q, idx, 8) : [];
       results.hidden = hits.length === 0;
       results.replaceChildren(...hits.map(({ food }) => h('button', {
         class: 'picker-item', type: 'button', dataset: { food: food.id },
         onclick: () => {
           ing.food = food.id; ing.foodName = food.name; ing.query = '';
+          updateVegConfirm();
           if (!ing.label.trim()) { ing.label = q; labelInput.value = q; }
           picked.textContent = `→ ${food.name}（${food.cat}）`;
           results.hidden = true; search.value = '';
@@ -117,7 +122,9 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
       if (!ing.food) {
         const hit = labelInput.value.trim() ? store.recipeCtx().resolve(labelInput.value) : null;
         picked.textContent = hit ? `→ 依名稱對到 ${hit.name}（${hit.cat}）` : '尚未選食材';
+        if (!hit && labelInput.value.trim()) picked.textContent = `→ 資料庫裡查不到「${labelInput.value.trim()}」：可以照樣存，這個食材的營養會寫「未估算」`;
       }
+      updateVegConfirm();
     });
     const gramsInput = h('input', { class: 'field field-inline', type: 'number', inputMode: 'decimal', min: '0', step: 'any', value: ing.grams == null ? '' : String(ing.grams), placeholder: '克數，可不填', 'aria-label': `食材 ${i + 1} 克數`, dataset: { field: 'ingGrams' } });
     gramsInput.addEventListener('input', () => { ing.grams = gramsInput.value.trim() === '' ? null : Number(gramsInput.value); });
@@ -148,10 +155,34 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
   function drawSteps() { stepList.replaceChildren(...d.steps.map(stepRow)); }
   drawSteps();
 
-  const vegChips = chips({
-    options: VEG_MODES.map((v) => ({ value: v, label: VEG_MODE_LABELS[v] })), value: d.vegMode, name: 'vegMode',
-    onChange: (v) => { d.vegMode = v; splitBox.hidden = v !== 'splittable'; drawIngredients(); drawSteps(); },
-  });
+  // 素葷：使用者點過就算「自己選過」。有查不到的食材時這件事是紅線（素食家人不能被系統猜的結果排到）。
+  const vegChipsBox = h('div', { dataset: { field: 'vegChipsBox' } });
+  const setVegMode = (v) => {
+    d.vegMode = v; d.vegModeConfirmed = true;
+    splitBox.hidden = v !== 'splittable';
+    drawIngredients(); drawSteps(); drawVegChips(); updateVegConfirm();
+  };
+  function drawVegChips() {
+    vegChipsBox.replaceChildren(chips({ options: VEG_MODES.map((v) => ({ value: v, label: VEG_MODE_LABELS[v] })), value: d.vegMode, name: 'vegMode', onChange: setVegMode }));
+  }
+  drawVegChips();
+  // 有查不到的食材、使用者還沒自己選過：講清楚為什麼要選，並給三顆明確的按鈕。
+  // 不能只靠上面那排 chip —— 點「已經選著的那一顆」不會觸發，預設的「素」沒辦法用點 chip 確認。
+  const vegConfirm = h('div', { class: 'notice', hidden: true, dataset: { field: 'vegConfirm' } });
+  function unresolvedNames() {
+    const resolve = store.recipeCtx().resolve;
+    return d.ingredients.map((ing) => (ing.food ? '' : (String(ing.label ?? '').trim() || String(ing.query ?? '').trim()))).filter((t) => t && !resolve(t));
+  }
+  function updateVegConfirm() {
+    const names = unresolvedNames();
+    vegConfirm.hidden = !(names.length && !d.vegModeConfirmed);
+    if (vegConfirm.hidden) return;
+    vegConfirm.replaceChildren(
+      h('p', { class: 'sm' }, `資料庫裡查不到「${names.join('、')}」，系統判斷不了這道菜是葷是素（素食家人可能會被排到）。請自己選一次這道菜誰能吃：`),
+      h('div', { class: 'row-actions' }, ...VEG_MODES.map((v) => h('button', { class: 'btn btn-sm', type: 'button', dataset: { action: 'confirmVeg', value: v }, onclick: () => setVegMode(v) }, VEG_MODE_LABELS[v]))),
+    );
+  }
+  updateVegConfirm();
 
   const saveBtn = h('button', { class: 'btn btn-primary', type: 'button', dataset: { action: 'saveRecipe' } }, id ? '儲存' : '新增');
   saveBtn.addEventListener('click', async () => {
@@ -170,7 +201,7 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
       h('label', { class: 'field-label' }, '菜名'), nameInput,
       h('p', { class: 'field-label' }, '角色'),
       chips({ options: ROLES.map((v) => ({ value: v, label: ROLE_LABELS[v] })), value: d.role, name: 'role', onChange: (v) => { d.role = v; } }),
-      h('p', { class: 'field-label' }, '素葷'), vegChips, splitBox,
+      h('p', { class: 'field-label' }, '素葷'), vegChipsBox, vegConfirm, splitBox,
       h('p', { class: 'field-label' }, '質地'),
       chips({ options: TEXTURES.map((v) => ({ value: v, label: TEXTURE_LABELS[v] })), value: d.texture, name: 'texture', onChange: (v) => { d.texture = v; } }),
       h('div', { class: 'row-actions' }, servingsStep.node),

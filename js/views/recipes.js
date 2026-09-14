@@ -147,6 +147,7 @@ function rowFor(r, watch, perServing, idx) {
         pill(VEG_MODE_SHORT[r.vegMode], vegTone(r.vegMode)),
         r.texture !== 'normal' ? pill(TEXTURE_LABELS[r.texture]) : null,
         r.source === 'user' ? pill('我的', 'accent') : null,
+        r.tags?.includes('unresolved') ? pill('部分估算', 'yellow') : null,
       ),
       watchLine,
     ),

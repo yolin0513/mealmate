@@ -446,6 +446,13 @@ section('每日估計：素食成員吃素版');
   const rows2 = dailyEstimates([{ ...slots[0], items: [{ recipeId: meatOnly.id, role: 'main' }] }], [{ ...newMember(), name: '姊', diet: 'vegan' }], idx, byId, ['kcal']);
   eq(rows2[0].missing, 1, '吃不了的菜記在 missing，不是把葷版算給素食成員');
   eq(rows2[0].fields.kcal, null, '而且那一天沒有東西可算 → null，不是 0');
+  // 使用者自己加的菜裡有查不到的食材：這一天的數字只是部分估算，要記下來讓本週頁、今日煮講出來
+  const fish = byId.get('r-steamed-fish');
+  const earDish = { ...fish, id: 'r-user-ear-est', ingredients: [{ food: null, label: '豬耳朵', grams: 300, track: 'base', unresolved: true }, ...fish.ingredients], tags: [...fish.tags, 'unresolved'] };
+  const withEar = new Map([...byId, [earDish.id, earDish]]);
+  const rows3 = dailyEstimates([{ ...slots[0], items: [{ recipeId: earDish.id, role: 'main' }, { recipeId: split.id, role: 'side' }] }], [{ ...newMember(), name: '爸', diet: 'omni' }], idx, withEar, ['kcal']);
+  eq(rows3[0].partialDishes, 1, '一天裡有一道菜含查不到的食材 → partialDishes 1（畫面講「部分估算」）');
+  ok(!('partialDishes' in rows2[0]), '（對照）沒有這種菜時不多出這個欄位');
 }
 
 section('每日估計');

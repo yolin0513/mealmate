@@ -140,6 +140,7 @@ export default async function recipeView(id) {
     nutriBox.replaceChildren(...[
       h('p', { class: 'muted sm' }, `每人一份的估計值${isSplit ? `（${version === 'veg' ? '素版' : '葷版'}）` : ''}；下方食材表是 ${servings} 人份的量。`),
       mainBlock,
+      est.unresolved.length ? h('p', { class: 'notice sm', dataset: { field: 'unresolvedNotice' } }, `這道菜有食材在食藥署資料庫查不到（${est.unresolved.join('、')}），沒算進營養：上面的數字只是部分估算（標了＊），過敏原也沒辦法自動檢查。`) : null,
       watchNote,
       h('details', { class: 'how', dataset: { field: 'allFields' } }, h('summary', {}, '看全部 12 項'), allRows),
       est.rows.length === 0 ? h('p', { class: 'muted' }, `所有食材都沒填克數，整道菜${NOT_ESTIMATED}。`) : null,

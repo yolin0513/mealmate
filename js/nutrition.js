@@ -83,6 +83,9 @@ export function estimate(recipe, idx, { version = 'all', servings = null } = {})
     rows.push({ label: ing.label, foodId: food.id, foodName: food.name, gramsPerServing, grams: gramsPerServing * n, per, missing, track: ing.track ?? 'base' });
   }
 
+  // 查不到編號的食材（只有使用者自己加的菜會有）：沒算進去的不是某一欄，是每一欄 ——
+  // 有數字的欄位全部標成部分估算（畫面上的＊），不讓人以為數字是完整的。
+  if (unresolved.length) for (const k of NUTRIENT_ORDER) partial[k].push(...unresolved);
   // 只有部分食材沒值才叫 partial；全部沒值就是 null（沒東西可以「部分」）
   for (const k of NUTRIENT_ORDER) {
     if (counted[k] === 0) { perServing[k] = null; partial[k] = []; }

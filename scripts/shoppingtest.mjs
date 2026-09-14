@@ -346,4 +346,20 @@ section('自己加的項目：純採買備忘，不解析編號、不進任何�
   noneOf([listAsText(base.ranges[0], {})], (t) => /自己加的/.test(t), '（對照）沒加的清單不會出現那一段');
 }
 
+section('使用者自己加的菜裡查不到的食材：照樣列進購物清單');
+{
+  const ear = {
+    id: 'r-user-ear', name: '滷豬耳朵', role: 'side', servings: 4, time: 0, method: 'cold', vegMode: 'meatOnly', texture: 'normal', season: [], source: 'user', vegModeConfirmed: true,
+    ingredients: [{ food: null, label: '豬耳朵（切片）', grams: 300, track: 'base', unresolved: true }, { food: 'E23001', label: '青蔥', grams: 20, track: 'base' }],
+    steps: [{ stage: 'base', type: 'cook', text: '切片上桌' }], tags: ['allium', 'unresolved'], vegTags: null, meatTags: ['allium', 'unresolved'], proteins: [],
+  };
+  const withEar = new Map([...byId, [ear.id, ear]]);
+  const l = buildShoppingList({ plan: plan([slot(0, 'dinner', ['r-user-ear'])]), recipesById: withEar, members: [], idx, units, shoppingDays: [] });
+  const item = l.ranges[0].items.find((it) => it.name === '豬耳朵');
+  ok(item, `查不到編號的「豬耳朵」照樣在清單上：${l.ranges[0].items.map((it) => it.name).join('、')}`);
+  eq([item?.grams, item?.section, item?.unresolved], [300, '調味與其他', true], '克數照食譜、放在「調味與其他」、標記是查不到的');
+  ok(l.ranges[0].items.some((it) => it.foodId === 'E23001'), '（對照）同一道菜查得到的青蔥照常列');
+  ok(/豬耳朵/.test(listAsText(l.ranges[0], {})), '複製出去的文字也有');
+}
+
 done('shoppingtest');

@@ -14,7 +14,8 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadContext, buildRecipes, summarize, outputFor } from './build-recipes.mjs';
 import { validateRecipe } from '../js/recipeschema.js';
-import { fitsDiet } from '../js/members.js';
+import { fitsDiet, versionFor } from '../js/members.js';
+import { estimate } from '../js/nutrition.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const { ctx, idx, foodsVersion } = loadContext();
@@ -209,15 +210,18 @@ section('使用者自己加的菜：放寬跟著這道菜走，不靠呼叫端�
   const builtinStrict = validateRecipe({ ...userDraft, source: undefined }, oldStoreCtx);
   ok(builtinStrict.errors.some((e) => /3 步/.test(e)), '（對照）不是使用者的菜（內建食譜）沒指定就照內建標準');
 
-  const unknownTyped = validateRecipe({ ...userDraft, ingredients: [{ food: '', label: '豬耳朵絲', grams: null, track: 'base' }] }, { ...oldStoreCtx, suggest: () => ['豬耳', '豬肚'] }).errors;
-  ok(unknownTyped.some((e) => e.includes('找不到「豬耳朵絲」')), `查不到的食材，訊息帶入打的名稱：${unknownTyped.join('｜')}`);
+  // 「找不到「名稱」＋相近名稱」現在只有內建食譜會看到（使用者的菜查不到可以存，見最後一段）
+  const unknownTyped = validateRecipe({ ...userDraft, source: 'builtin', ingredients: [{ food: '', label: '豬耳朵絲', grams: 10, track: 'base' }] }, { ...oldStoreCtx, suggest: () => ['豬耳', '豬肚'] }).errors;
+  ok(unknownTyped.some((e) => e.includes('找不到「豬耳朵絲」')), `（內建食譜）查不到的食材，訊息帶入打的名稱：${unknownTyped.join('｜')}`);
   ok(unknownTyped.some((e) => e.includes('相近的有：豬耳、豬肚')), '而且列出資料庫裡相近的名稱');
+  const unknownUser = validateRecipe({ ...userDraft, ingredients: [{ food: '', label: '豬耳朵絲', grams: null, track: 'base' }] }, oldStoreCtx).errors;
+  ok(unknownUser.some((e) => e.includes('（豬耳朵絲）') && e.includes('自己選一次')), `（使用者的菜）訊息一樣帶入名稱，改成請使用者自己選葷素：${unknownUser.join('｜')}`);
   const nothing = validateRecipe({ ...userDraft, ingredients: [{ food: '', label: '', grams: null, track: 'base' }] }, oldStoreCtx).errors;
   ok(nothing.some((e) => e.includes('還沒選是哪一種食材')), `什麼都沒打：講「還沒選是哪一種食材」：${nothing.join('｜')}`);
   noneOf(nothing, (e) => /label|缺/.test(e), '什麼都沒打時不會多一句「缺 label」（程式用語，而且跟「還沒選」講同一件事）');
   const noName = validateRecipe({ ...userDraft, ingredients: [{ food: '雞腳', label: '', grams: null, track: 'base' }] }, { ...oldStoreCtx, relaxRequired: false }).errors;
   ok(noName.some((e) => e.includes('還沒寫這個食材要顯示的名稱')), `（對照）有食材但沒名稱：用人話講缺名稱：${noName.join('｜')}`);
-  const everyMsg = [...unknownTyped, ...nothing, ...explicitStrict.errors, ...builtinStrict.errors];
+  const everyMsg = [...unknownTyped, ...unknownUser, ...nothing, ...explicitStrict.errors, ...builtinStrict.errors];
   ok(everyMsg.length >= 5, `（母體）${everyMsg.length} 則訊息`);
   noneOf(everyMsg, (e) => e.includes('「」'), '沒有任何一則訊息是空的引號「」', everyMsg.filter((e) => e.includes('「」')).join('｜'));
 }
@@ -260,7 +264,8 @@ section('放寬的是必填，不是資料完整性');
     ingredients: [{ food: 'zzz不存在zzz', label: '？', grams: 10 }],
     steps: [{ text: '上桌' }],
   };
-  const e1 = validate(badFood, { relaxRequired: true, allowMissingGrams: true }).errors;
+  // 使用者自己加的菜查不到可以存（見下一段）；**內建食譜**查不到仍然擋
+  const e1 = validate({ ...badFood, source: 'builtin' }, { relaxRequired: true, allowMissingGrams: true }).errors;
   ok(e1.some((m) => /找不到/.test(m)), `查不到的食材仍然擋下來：「${e1.find((m) => /找不到/.test(m))}」`);
 
   // 硬底線 2：素葷分軌仍然正確 —— 素的菜裡不可以有肉
@@ -275,6 +280,57 @@ section('放寬的是必填，不是資料完整性');
   };
   ok(validate(wrongTrack, { relaxRequired: true, allowMissingGrams: true }).errors.some((m) => /葷的/.test(m)),
     '把雞腿放到素食那鍋 → 仍然擋下來');
+}
+
+section('使用者自己加的菜：食藥署查不到的食材也可以存，但葷素要使用者明講（紅線）');
+{
+  // 2026-09-14 使用者確認：真的查不到的食材（豬耳朵）讓使用者存。營養寫「未估算」、畫面講明只是部分估算；
+  // **葷素一定要使用者自己選一次**（不能靠食材推斷，也不能沿用表單預設的「素」）。內建食譜照舊每個食材都要查得到。
+  const base = {
+    id: 'r-user-ear', name: '滷豬耳朵', role: 'side', servings: 4, time: 0, method: 'cold', vegMode: 'meatOnly', texture: 'normal', season: [], source: 'user',
+    ingredients: [{ food: '', label: '豬耳朵', grams: 300 }, { food: '', label: '青蔥', grams: 20 }], steps: [{ text: '切片上桌' }],
+  };
+  const userCtx = { resolve: ctx.resolve, foodTags: ctx.foodTags, allowMissingGrams: true };
+  eq(ctx.resolve('豬耳朵'), null, '（前提）食藥署資料庫真的查不到「豬耳朵」');
+  const notConfirmed = validateRecipe(base, userCtx).errors;
+  ok(notConfirmed.some((e) => e.includes('豬耳朵') && e.includes('自己選一次')), `沒自己選過葷素 → 擋下並講清楚：${notConfirmed.join('｜')}`);
+  noneOf(notConfirmed, (e) => e.includes('找不到'), '使用者的菜不再用「找不到」擋下');
+  const confirmed = validateRecipe({ ...base, vegModeConfirmed: true }, userCtx);
+  eq(confirmed.errors, [], `自己選了「葷」→ 存得進去（肉就是那個查不到的豬耳朵，由使用者決定）：${JSON.stringify(confirmed.errors)}`);
+  const ear = confirmed.recipe.ingredients[0];
+  ok(ear.food === null && ear.unresolved === true && ear.label === '豬耳朵', `查不到的食材存成 food:null＋unresolved（${JSON.stringify(ear)}）`);
+  eq(confirmed.recipe.ingredients[1].food, 'E23001', '（對照）同一道菜裡查得到的青蔥照樣解析');
+  ok(confirmed.recipe.tags.includes('unresolved') && confirmed.recipe.vegModeConfirmed === true, '標上 unresolved，並記住使用者自己選過葷素');
+
+  const builtin = validateRecipe({ ...base, source: 'builtin', vegModeConfirmed: true }, { ...userCtx, relaxRequired: true }).errors;
+  ok(builtin.some((e) => e.includes('找不到「豬耳朵」')), `（硬底線不變）內建食譜查不到的食材照樣擋下：${builtin.join('｜')}`);
+
+  // 素：使用者說是素的 → 蛋奶素照使用者的判斷；全素保守地不排（查不到就判斷不了蛋、奶、五辛）
+  const vegDish = validateRecipe({ ...base, name: '素排', vegMode: 'nativeVeg', vegModeConfirmed: true, ingredients: [{ food: '', label: '某牌素排', grams: 100 }] }, userCtx);
+  eq(vegDish.errors, [], `自己選了「素」→ 存得進去：${JSON.stringify(vegDish.errors)}`);
+  eq([versionFor(vegDish.recipe, 'omni'), versionFor(vegDish.recipe, 'lactoOvo'), versionFor(vegDish.recipe, 'vegan'), versionFor(vegDish.recipe, 'veganNoAllium')], ['all', 'all', null, null],
+    '查不到的「素」食材：葷、蛋奶素吃得到；全素與全素不含五辛保守地不排');
+
+  // 可分流：放葷那鍋 → 素食成員不受影響；放共用或素那鍋 → 全素保守地不排
+  const splitBase = {
+    ...base, name: '豬耳朵拌小黃瓜', vegMode: 'splittable', splitServings: { veg: 1, meat: 3 }, vegModeConfirmed: true,
+    steps: [{ stage: 'base', text: '小黃瓜拍碎' }, { stage: 'split', type: 'split', text: '分兩盤' }, { stage: 'veg', text: '素的那盤加豆干' }, { stage: 'meat', text: '葷的那盤加豬耳朵' }],
+  };
+  const meatPot = validateRecipe({ ...splitBase, ingredients: [{ food: '小黃瓜', label: '小黃瓜', grams: 300, track: 'base' }, { food: '豆干', label: '豆干', grams: 100, track: 'veg' }, { food: '', label: '豬耳朵', grams: 200, track: 'meat' }] }, userCtx);
+  eq(meatPot.errors, [], `可分流、查不到的食材放葷那鍋 → 整道只靠它有肉也收（使用者自己放的）：${JSON.stringify(meatPot.errors)}`);
+  eq(versionFor(meatPot.recipe, 'vegan'), 'veg', '放在葷那鍋 → 全素的家人照樣吃素版');
+  const vegPot = validateRecipe({ ...splitBase, ingredients: [{ food: '小黃瓜', label: '小黃瓜', grams: 300, track: 'base' }, { food: '', label: '某牌素肚', grams: 100, track: 'veg' }, { food: '豬肉片', label: '豬肉片', grams: 200, track: 'meat' }] }, userCtx);
+  eq(vegPot.errors, [], `可分流、查不到的食材放素那鍋也收：${JSON.stringify(vegPot.errors)}`);
+  eq([versionFor(vegPot.recipe, 'lactoOvo'), versionFor(vegPot.recipe, 'vegan')], ['veg', null], '放在素那鍋 → 蛋奶素吃素版、全素保守地不排');
+  const noMeatAtAll = validateRecipe({ ...splitBase, ingredients: [{ food: '小黃瓜', label: '小黃瓜', grams: 300, track: 'base' }, { food: '', label: '某牌素肚', grams: 100, track: 'veg' }, { food: '豆干', label: '豆干', grams: 100, track: 'meat' }] }, userCtx).errors;
+  ok(noMeatAtAll.some((e) => /整道都沒有肉或海鮮/.test(e)), '（對照）查不到的食材不在葷那鍋、整道也沒別的肉 → 照樣講「其實是素的」');
+
+  // 營養：沒算進去的食材讓每個有數字的欄位都標成部分估算；整道都查不到 → 未估算（null），不是 0
+  const est = estimate(confirmed.recipe, idx, { version: 'all' });
+  eq(est.unresolved, ['豬耳朵'], '估算時列出沒算進去的食材');
+  ok(est.perServing.kcal != null && est.partial.kcal.includes('豬耳朵') && est.partial.protein.includes('豬耳朵'), `查得到的青蔥照算，熱量、蛋白質都標成部分估算（${Math.round(est.perServing.kcal)} kcal，＊豬耳朵）`);
+  const onlyEar = validateRecipe({ ...base, vegModeConfirmed: true, ingredients: [{ food: '', label: '豬耳朵', grams: 300 }] }, userCtx).recipe;
+  ok(Object.values(estimate(onlyEar, idx, { version: 'all' }).perServing).every((v) => v === null), '整道都查不到 → 每一欄都是未估算（null），不是 0');
 }
 
 done('recipetest');

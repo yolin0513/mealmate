@@ -138,17 +138,21 @@ export function buildShoppingList({ plan, recipesById, members = [], idx, units,
         const scale = scaleWithGuests(r, members, extraByRange[range.key]);
         for (const ing of r.ingredients) {
           const food = idx.byId.get(ing.food);
-          if (!food) continue;
+          // 使用者自己加的菜裡、食藥署查不到的食材（例如豬耳朵）：沒有分類也沒有採買單位，但還是要買 ——
+          // 用名稱當鍵，照克數加總，放「調味與其他」。沒填克數的跟其他食材一樣不列（不知道要買多少）。
+          const key = food ? food.id : (ing.unresolved ? `unresolved:${String(ing.label ?? '').replace(/（.*?）/g, '').trim()}` : null);
+          if (!key) continue;
+          const name = food ? food.name : key.slice('unresolved:'.length);
           const k = scale[ing.track ?? 'base'] ?? 0;
           if (ing.pantry) {
-            if (!pantry.has(food.id)) pantry.set(food.id, { foodId: food.id, name: food.name, labels: [] });
-            if (!pantry.get(food.id).labels.includes(ing.label)) pantry.get(food.id).labels.push(ing.label);
+            if (!pantry.has(key)) pantry.set(key, { foodId: key, name, labels: [] });
+            if (!pantry.get(key).labels.includes(ing.label)) pantry.get(key).labels.push(ing.label);
             continue;
           }
           if (ing.grams == null || k <= 0) continue;
           const grams = ing.grams * k;
-          if (!agg.has(food.id)) agg.set(food.id, { foodId: food.id, name: food.name, labels: [], grams: 0, buy: null, section: sectionOf(food), uses: [] });
-          const item = agg.get(food.id);
+          if (!agg.has(key)) agg.set(key, { foodId: key, name, labels: [], grams: 0, buy: null, section: food ? sectionOf(food) : '調味與其他', uses: [], ...(food ? {} : { unresolved: true }) });
+          const item = agg.get(key);
           item.grams += grams;
           const shortLabel = ing.label.replace(/（.*?）/g, '').trim();
           if (!item.labels.includes(shortLabel)) item.labels.push(shortLabel);

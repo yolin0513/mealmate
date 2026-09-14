@@ -43,7 +43,7 @@ export const CAT_TAGS = {
   '蛋類': 'egg',
   '乳品類': 'dairy',
 };
-export const TAG_LABELS = { meat: '肉', seafood: '海鮮', egg: '蛋', dairy: '奶', allium: '五辛', peanut: '花生', gluten: '麩質', sweet: '含精緻糖', processed: '加工肉／醃漬', wholegrain: '全穀雜糧' };
+export const TAG_LABELS = { meat: '肉', seafood: '海鮮', egg: '蛋', dairy: '奶', allium: '五辛', peanut: '花生', gluten: '麩質', sweet: '含精緻糖', processed: '加工肉／醃漬', wholegrain: '全穀雜糧', unresolved: '有食材查不到營養資料' };
 
 /** 加工肉、醃漬品：加工調理食品類裡帶肉／海鮮的，或名稱看得出來的。給「避開加工肉與醃漬」開關用。 */
 const PROCESSED_NAME_RX = /培根|火腿|香腸|臘肉|臘腸|貢丸|魚丸|肉鬆|肉乾|醃|漬|榨菜|酸菜|泡菜|鹹菜|菜脯/;
@@ -156,11 +156,13 @@ export function validateRecipe(recipe, ctx) {
     // 使用者回報的「找不到「」」就是這條：food 空字串被原封不動塞進訊息裡。
     const typedFood = String(ing?.food ?? '').trim();
     const food = typedFood ? ctx.resolve(typedFood) : (typedLabel ? ctx.resolve(typedLabel) : null);
-    // 這是**硬底線**，不能為了少一個必填就放掉：查不到編號就算不出營養，
-    // 畫面上那些「估」的數字會整片變成「未估算」。
+    // 查不到編號：內建食譜是**硬底線**（算不出營養）。使用者自己加的菜可以照樣存（2026-09-14 使用者確認）——
+    // 那個食材的營養寫「未估算」、不當 0；而且**葷素由使用者自己選**（下面的 vegModeConfirmed），系統不猜。
+    const unresolvedHere = !food && !!(typedFood || typedLabel) && r.source === 'user';
     if (!food) {
       const term = typedFood || typedLabel;
       if (!term) err(`${where} 還沒選是哪一種食材：在「找食材」打字，從清單點一筆`);
+      else if (unresolvedHere) void term;   // 使用者的菜：先收下，葷素要使用者明講（見 unresolvedLabels）
       else {
         const near = typeof ctx.suggest === 'function' ? ctx.suggest(term).filter((x) => x && x !== term).slice(0, 3) : [];
         err(`${where} 在食材資料庫裡找不到「${term}」，換個常見的叫法試試（例如「雞腿」「高麗菜」）${near.length ? `；資料庫裡相近的有：${near.join('、')}` : ''}`);
@@ -183,26 +185,41 @@ export function validateRecipe(recipe, ctx) {
       if (nonVeg && r.vegMode === 'nativeVeg') err(`${where} 是葷的（${food.name}），但這道菜標成「素」`);
       if (nonVeg && r.vegMode === 'splittable' && track !== 'meat') err(`${where} 是葷的（${food.name}），要放在「${TRACK_LABELS.meat}」那一欄，現在在「${TRACK_LABELS[track]}」`);
     }
+    if (unresolvedHere) {
+      // 查不到就判斷不了蛋、奶、五辛：素食成員吃得到的那一邊標 unresolved，全素的家人保守地不排（members.versionFor）
+      tags.add('unresolved');
+      if (track !== 'meat') vegTags.add('unresolved');
+      if (track !== 'veg') meatTags.add('unresolved');
+    }
     if (ing?.buy != null) {
       if (!isPosNum(ing.buy.qty) || typeof ing.buy.unit !== 'string' || !ing.buy.unit) err(`${where} buy 要是 {qty>0, unit}`);
     }
     return {
-      food: food ? food.id : ing?.food,
+      food: food ? food.id : (unresolvedHere ? null : ing?.food),
       label: ing?.label,
       grams: isPosNum(ing?.grams) ? ing.grams : null,
       track,
+      ...(unresolvedHere ? { unresolved: true } : {}),
       ...(ing?.pantry ? { pantry: true } : {}),
       ...(ing?.buy ? { buy: { qty: ing.buy.qty, unit: ing.buy.unit } } : {}),
       ...(ing?.note ? { note: String(ing.note) } : {}),
     };
   });
 
+  // 紅線（使用者 2026-09-14 確認）：有查不到的食材時，系統判斷不了這道菜是葷是素 —— 一定要使用者自己選一次「誰能吃」，
+  // 不能靠食材推斷，也不能沿用表單的預設值（預設是「素」，素食家人會被排到）。
+  const unresolvedLabels = normIngredients.filter((x) => x.unresolved).map((x) => String(x.label ?? '').trim() || '?');
+  if (unresolvedLabels.length && r.vegModeConfirmed !== true) {
+    err(`這道菜有資料庫查不到的食材（${unresolvedLabels.join('、')}），系統判斷不了它是葷是素：請在「素葷」自己選一次（素、可分流或葷）`);
+  }
+
   if (r.vegMode === 'splittable') {
     for (const t of TRACKS) if (!tracksSeen.has(t)) err(`「可分流（一鍋兩吃）」的菜，「${TRACK_LABELS[t]}」那一欄還沒有食材`);
-    if (!tags.has('meat') && !tags.has('seafood')) err('這道菜標成「可分流（一鍋兩吃）」，但整道都沒有肉或海鮮 —— 那它其實是素的，請把「誰能吃」改成「素」。');
+    if (!tags.has('meat') && !tags.has('seafood') && !normIngredients.some((x) => x.unresolved && x.track === 'meat')) err('這道菜標成「可分流（一鍋兩吃）」，但整道都沒有肉或海鮮 —— 那它其實是素的，請把「誰能吃」改成「素」。');
   }
   // 原本寫「meatOnly 的菜裡沒有任何葷食材」—— 使用者回報看不懂。這是給人看的訊息，不是給程式看的。
-  if (r.vegMode === 'meatOnly' && !tags.has('meat') && !tags.has('seafood')) {
+  // 使用者自己選了「葷」、肉就是那個查不到的食材（滷豬耳朵）→ 由使用者決定，不擋
+  if (r.vegMode === 'meatOnly' && !tags.has('meat') && !tags.has('seafood') && !unresolvedLabels.length) {
     err('這道菜標成「葷」，但食材裡沒有肉或海鮮。如果它其實吃素的人也能吃，請把「誰能吃」改成「素」。');
   }
 
@@ -253,6 +270,7 @@ export function validateRecipe(recipe, ctx) {
     ...(r.alliumOptional ? { alliumOptional: true } : {}),
     ...(r.includesStaple ? { includesStaple: true } : {}),
     ...(r.notes ? { notes: String(r.notes) } : {}),
+    ...(r.vegModeConfirmed === true ? { vegModeConfirmed: true } : {}),
     ingredients: normIngredients,
     steps: steps.map((st) => ({ stage: st?.stage ?? 'base', type: st?.type ?? 'cook', text: st?.text })),
     tags: [...tags].sort(),

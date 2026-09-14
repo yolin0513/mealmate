@@ -277,9 +277,65 @@ try {
     await clickEl(page, '[data-action="saveRecipe"]');
     await page.waitForSelector('[data-field="errors"]:not([hidden]) li');
     const errs = await page.$$eval('[data-field="errors"] li', (els) => els.map((e) => e.textContent));
-    ok(errs.some((e) => e.includes('找不到「豬耳朵絲」')), `訊息帶入使用者打的名稱：「${errs.find((e) => e.includes('找不到')) ?? errs.join('｜')}」`);
+    // 查不到的食材現在可以存，但要自己選葷素 —— 訊息照樣要帶入使用者打的名稱
+    ok(errs.some((e) => e.includes('豬耳朵絲')), `訊息帶入使用者打的名稱：「${errs.find((e) => e.includes('豬耳朵絲')) ?? errs.join('｜')}」`);
     noneOf(errs, (e) => e.includes('「」'), '沒有任何一則是空的引號');
     noneOf(errs, (e) => /3 步|≥1|還沒寫字/.test(e), '使用者自己加的菜不會出現「至少 3 步」「≥1 分鐘」「還沒寫字」');
+  }
+
+  section('查不到的食材（豬耳朵）也存得進去，但葷素要自己選、畫面講明只是部分估算');
+  {
+    // 2026-09-14 使用者確認：查不到的食材讓使用者存；紅線是**葷素要使用者自己明講**（表單預設是「素」，不能沿用）。
+    // 上一段停在「新增食譜」而且沒存；網址一樣的話表單不會重畫，打的字會接在舊的後面 —— 先離開再回來。
+    await goto(page, '#/recipes');
+    await titleIs(page, '食譜');
+    await goto(page, '#/recipes/new');
+    await titleIs(page, '新增食譜');
+    await page.waitForSelector('[data-field="recipeName"]');
+    await page.type('[data-field="recipeName"]', '滷豬耳朵');
+    await page.$eval('[data-field="time"]', (el) => { el.value = '0'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.type('[data-ingredient="0"] [data-field="ingLabel"]', '豬耳朵');
+    await page.type('[data-ingredient="0"] [data-field="ingGrams"]', '300');
+    await sleep(150);
+    const earHint = await textOf(page, '[data-ingredient="0"] [data-field="pickedFood"]');
+    ok(earHint.includes('查不到「豬耳朵」') && earHint.includes('未估算'), `打了查不到的名稱 → 表單當場講可以存、營養會寫未估算：「${earHint}」`);
+    const box = await page.$eval('[data-field="vegConfirm"]', (el) => ({ hidden: el.hidden, text: el.textContent, buttons: el.querySelectorAll('[data-action="confirmVeg"]').length }));
+    ok(!box.hidden && box.text.includes('豬耳朵') && box.text.includes('自己選一次') && box.buttons === 3, `還沒自己選葷素 → 出現提醒與三顆按鈕：「${box.text.slice(0, 60)}」`);
+    await clickEl(page, '[data-action="addIngredient"]');
+    await sleep(150);
+    await page.type('[data-ingredient="1"] [data-field="ingLabel"]', '青蔥');
+    await page.type('[data-ingredient="1"] [data-field="ingGrams"]', '20');
+    await page.type('[data-list="steps"] textarea', '切片上桌');
+    await waitToastGone(page);
+    await clickEl(page, '[data-action="saveRecipe"]');
+    await page.waitForSelector('[data-field="errors"]:not([hidden]) li');
+    const errs1 = await page.$$eval('[data-field="errors"] li', (els) => els.map((e) => e.textContent));
+    ok(errs1.some((e) => e.includes('自己選一次')), `沒選葷素就按新增 → 擋下：${errs1.join('｜')}`);
+    eq(await page.evaluate(() => document.getElementById('topTitle')?.textContent), '新增食譜', '沒有存進去（還在新增食譜）');
+    await clickEl(page, '[data-action="confirmVeg"][data-value="meatOnly"]');
+    await sleep(150);
+    eq(await page.$eval('[data-field="vegConfirm"]', (el) => el.hidden), true, '自己選了之後，提醒收起來');
+    eq(await page.$eval('[data-chips="vegMode"] .chip.on', (el) => el.dataset.value), 'meatOnly', '「素葷」那排也跟著變成葷');
+    await waitToastGone(page);
+    await clickEl(page, '[data-action="saveRecipe"]');
+    await titleIs(page, '滷豬耳朵');
+    const saved = await page.evaluate(async () => {
+      const s = await import('./js/store.js');
+      const r = s.userRecipes().find((x) => x.name === '滷豬耳朵');
+      return r ? { id: r.id, ing: r.ingredients.map((i) => ({ food: i.food, unresolved: !!i.unresolved })), confirmed: r.vegModeConfirmed, tags: r.tags } : null;
+    });
+    ok(saved, '存進去了');
+    eq(saved.ing, [{ food: null, unresolved: true }, { food: 'E23001', unresolved: false }], '豬耳朵存成查不到、青蔥照常解析');
+    ok(saved.confirmed === true && saved.tags.includes('unresolved'), '記住使用者自己選過葷素，並標上 unresolved');
+    await page.waitForSelector('[data-field="unresolvedNotice"]');
+    const notice = await textOf(page, '[data-field="unresolvedNotice"]');
+    ok(notice.includes('豬耳朵') && notice.includes('部分估算'), `食譜頁講明查不到、只是部分估算：「${notice}」`);
+    const kcal = await page.$eval('[data-card="recipeNutrition"] .nutri-value[data-nutrient="kcal"]', (el) => ({ t: el.textContent, partial: el.dataset.partial }));
+    ok(kcal.partial === '1' && kcal.t.includes('＊'), `熱量標了＊（${kcal.t}）—— 不會讓人以為數字是完整的`);
+    await goto(page, '#/recipes');
+    await titleIs(page, '食譜');
+    await page.waitForSelector(`[data-recipe="${saved.id}"]`);
+    ok((await textOf(page, `[data-recipe="${saved.id}"]`)).includes('部分估算'), '食譜清單上這道標「部分估算」');
   }
 
   eq(pageErrors, [], '整個流程沒有未攔截的例外');

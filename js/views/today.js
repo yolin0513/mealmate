@@ -152,6 +152,7 @@ export default async function todayView(query = {}) {
         h('span', {}, NUTRIENT_LABELS[f]),
         h('span', { class: 'num nutri-value', dataset: { nutrient: f, member: row.label } }, fmtNutrient(row.fields[f], units[f]))))),
       row.missing ? h('p', { class: 'muted xs' }, `有 ${row.missing} 道這位吃不了，沒算進去`) : null,
+      row.partialDishes ? h('p', { class: 'muted xs', dataset: { field: 'partialDishes' } }, `其中 ${row.partialDishes} 道有食材查不到營養資料，這一餐的數字只是部分估算`) : null,
     )),
     h('p', { class: 'muted xs' }, '吃素的家人算素版、吃葷的算葷版；每個人只加自己吃的那些。'),
   ) : null;

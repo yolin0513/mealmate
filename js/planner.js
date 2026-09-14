@@ -512,7 +512,7 @@ function makeState(history, ctx, monday) {
       const lastShop = lastShoppingDayOnOrBefore(date, ctx.shoppingDays);
       if (lastShop) {
         if (!rangeFoods.has(lastShop)) rangeFoods.set(lastShop, new Set());
-        for (const ing of recipe.ingredients) if (!ing.pantry) rangeFoods.get(lastShop).add(ing.food);
+        for (const ing of recipe.ingredients) if (!ing.pantry && ing.food) rangeFoods.get(lastShop).add(ing.food);
       }
       if (ctx.wantSet.has(recipe.id)) placedWant.add(recipe.id);
     },
@@ -817,6 +817,7 @@ export function dailyEstimates(daySlots, members, idx, recipesById, fields) {
   for (const w of who) {
     const sums = Object.fromEntries(fields.map((f) => [f, null]));
     let missing = 0;
+    let partialDishes = 0;   // 含查不到營養資料的食材的菜（數字只是部分估算）
     for (const s of daySlots) {
       if (s.kind !== 'cook') continue;
       for (const it of s.items) {
@@ -824,11 +825,13 @@ export function dailyEstimates(daySlots, members, idx, recipesById, fields) {
         if (!r) continue;
         const v = versionFor(r, w.diet);
         if (v === null) { missing += 1; continue; }
-        const per = estimate(r, idx, { version: v }).perServing;
+        const est = estimate(r, idx, { version: v });
+        const per = est.perServing;
+        if (est.unresolved.length) partialDishes += 1;
         for (const f of fields) if (per[f] != null) sums[f] = (sums[f] ?? 0) + per[f];
       }
     }
-    rows.push({ ...w, fields: sums, missing });
+    rows.push({ ...w, fields: sums, missing, ...(partialDishes ? { partialDishes } : {}) });
   }
   return rows;
 }

@@ -122,6 +122,9 @@ export function versionFor(recipe, diet) {
   if (recipe.vegMode === 'meatOnly') return null;
   if (tags.includes('meat') || tags.includes('seafood')) return null;
   if (diet === 'lactoOvo') return split ? 'veg' : 'all';
+  // 使用者自己加的菜裡有查不到的食材（使用者自己說素食成員吃得到）：蛋、奶、五辛都判斷不了 ——
+  // 全素的家人**保守地不排**（寧可少排一道，不可排錯）；蛋奶素本來就吃蛋奶五辛，照使用者的判斷。
+  if (tags.includes('unresolved')) return null;
   if (tags.includes('egg') || tags.includes('dairy')) return null;
   if (diet === 'vegan') return split ? 'veg' : 'all';
   if (diet === 'veganNoAllium') {
