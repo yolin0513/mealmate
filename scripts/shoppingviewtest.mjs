@@ -367,6 +367,9 @@ try {
     const addOne = async (name, qty) => {
       await clickEl(page, `${card} [data-action="addCustom"]`);
       await page.waitForSelector('.modal-card [data-field="customName"]');
+      // modal() 30ms 後才把焦點放到名稱欄；機器忙時那個計時器會在打「買多少」途中把焦點搶回來，
+      // 數量就打進名稱欄了（突變基準緊接在 layouttest 後面跑時抓到：「名稱是空白」那條偶發失敗）。等焦點落定再打字。
+      await page.waitForFunction(() => document.activeElement?.dataset?.field === 'customName', { timeout: 10000 });
       await page.type('.modal-card [data-field="customName"]', name);
       if (qty) await page.type('.modal-card [data-field="customQty"]', qty);
       await page.evaluate(() => [...document.querySelectorAll('.modal-actions .btn')].find((b) => b.textContent.trim() === '加進清單').click());
@@ -472,7 +475,7 @@ try {
     }, card, sec);
     const click = (sel) => page.evaluate((s) => document.querySelector(s).click(), sel);
 
-    const sections = await page.$$eval(`${card} .shop-section:not(.custom-section)`, (els) => els.map((e) => ({ sec: e.dataset.section, n: e.querySelectorAll('.shop-row').length })));
+    const sections = await page.$$eval(`${card} .shop-section:not(.custom-section):not(.pantry-section)`, (els) => els.map((e) => ({ sec: e.dataset.section, n: e.querySelectorAll('.shop-row').length })));
     ok(sections.length >= 2, `（母體）這張卡有 ${sections.length} 個分區`);
     const initial = [];
     for (const s of sections) initial.push(await secState(s.sec));
@@ -549,6 +552,132 @@ try {
     ok(cs.addH >= 44, '收合之後「自己加一項」仍然按得到（隨時可以補買）');
 
     await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.have = {}; row.fold = {}; await store.saveShopping(row); }, cardKey);
+  }
+
+  section('買菜頁控制項：沒有超連結樣式、摺疊有明顯箭頭、常備品同一套摺疊、底下三顆按鈕對齊');
+  {
+    // 使用者回報三項：橘色帶底線的「家裡有」「刪除」看起來像超連結；摺疊的小三角形不明顯、
+    // 常備品只是一行標題跟其他分類不一致；底下「自己加一項」「複製清單」「印出」寬度排列不一致。
+    const vp0 = page.viewport();
+    const alphaOf = (col) => { const m = /rgba?\(([^)]+)\)/.exec(col ?? ''); if (!m) return 1; const p = m[1].split(',').map((x) => Number(x.trim())); return p.length === 4 ? p[3] : 1; };
+    const cardKey = await page.$eval('[data-card="shopRange"]', (el) => el.dataset.range);
+    const card = `[data-card="shopRange"][data-range="${cardKey}"]`;
+    const reloadCard = async () => { await page.reload({ waitUntil: 'domcontentloaded' }); await page.waitForSelector(`${card} .shop-section`); await sleep(300); };
+    // 放一項自己加的（才量得到「刪除」）；其他狀態清乾淨
+    await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.have = {}; row.fold = {}; row.custom = [{ id: 'c-look', name: '蘋果', qty: '3 顆' }]; await store.saveShopping(row); }, cardKey);
+    await reloadCard();
+
+    const looks = () => page.evaluate((c) => {
+      const look = (b) => {
+        const cs = getComputedStyle(b);
+        return { tag: b.tagName, btn: b.classList.contains('btn'), underline: cs.textDecorationLine.includes('underline'),
+          border: parseFloat(cs.borderTopWidth) >= 1 && cs.borderTopStyle !== 'none', bg: cs.backgroundColor, color: cs.color,
+          weight: Number(cs.fontWeight), h: Math.round(b.getBoundingClientRect().height), pressed: b.getAttribute('aria-pressed'), food: b.dataset.food };
+      };
+      const el = document.querySelector(c);
+      // 整頁掃：可點的東西沒有一個長得像超連結。「數量」那顆除外 —— 它是點數字改數量，刻意用虛線底線標出
+      // 「這個數字可以改」，而且改過的用實線底線（色弱的人分得出來），跟超連結是不同的東西。
+      const linkish = [...document.querySelectorAll('#view button, #view a, #view summary')]
+        .filter((b) => b.getBoundingClientRect().height > 0 && b.dataset.action !== 'editQty')
+        .filter((b) => getComputedStyle(b).textDecorationLine.includes('underline') || b.classList.contains('linklike'))
+        .map((b) => b.textContent.trim().slice(0, 12));
+      return { have: [...el.querySelectorAll('[data-action="have"]')].map(look), del: [...el.querySelectorAll('[data-action="deleteCustom"]')].map(look), linkish };
+    }, card);
+    const l1 = await looks();
+    ok(l1.have.length >= 5, `（母體）量了 ${l1.have.length} 顆「家裡有」`);
+    everyOf(l1.have, (b) => b.tag === 'BUTTON' && b.btn, '「家裡有」是按鈕（button＋.btn），不是超連結樣式');
+    everyOf(l1.have, (b) => !b.underline && b.border, '沒有底線、有外框 —— 看得出是一顆可以按的按鈕');
+    everyOf(l1.have, (b) => alphaOf(b.bg) === 0 && b.weight <= 500, '但仍然是次要的：透明底、字不加粗，不跟「買了」的勾選搶');
+    everyOf(l1.have, (b) => b.h >= 44, `「家裡有」按得到（最小 ${Math.min(...l1.have.map((b) => b.h))}px ≥ 44）`);
+    eq(l1.del.length, 1, '（前提）自己加的那一項有「刪除」可以量');
+    everyOf(l1.del, (b) => b.tag === 'BUTTON' && b.btn && !b.underline && b.border, '「刪除」也是有外框的小按鈕，不是超連結樣式');
+    everyOf(l1.del, (b) => alphaOf(b.bg) === 0 && b.color !== 'rgb(214, 69, 69)', `「刪除」是低調的危險色（透明底、字色 ${l1.del[0]?.color}，不是整顆大紅）`);
+    everyOf(l1.del, (b) => b.h >= 44, '「刪除」按得到（≥ 44px）');
+    eq(l1.linkish, [], '整頁沒有其他長得像超連結的控制項（「數量」那顆除外，見上面說明）');
+
+    // 按下「家裡有」之後要看得出按下了（不是只有 aria）
+    const food = l1.have[0].food;
+    await page.evaluate((c, f) => document.querySelector(`${c} [data-action="have"][data-food="${f}"]`).click(), card, food);
+    await sleep(300);
+    const on = (await looks()).have.find((b) => b.food === food);
+    eq(on.pressed, 'true', '（前提）按下之後 aria-pressed＝true');
+    ok(alphaOf(on.bg) > 0, `按下之後有底色（${on.bg}），一眼看得出「這項家裡有」`);
+    await page.evaluate((c, f) => document.querySelector(`${c} [data-action="have"][data-food="${f}"]`).click(), card, food);
+    await sleep(300);
+
+    // 摺疊標題：每一個都有箭頭圖示、跟狀態一致、夠大、有底色；分類標題整條有淺底
+    const folds = await page.evaluate((c) => [...document.querySelectorAll(`${c} [data-action="fold"]`)].map((t) => {
+      const caret = t.querySelector('.fold-caret');
+      const r = caret?.getBoundingClientRect();
+      return { key: t.dataset.fold, open: t.getAttribute('aria-expanded'), caret: caret?.textContent ?? null,
+        ratio: r ? r.width / parseFloat(getComputedStyle(t).fontSize) : 0, caretBg: caret ? getComputedStyle(caret).backgroundColor : '',
+        inSection: !!t.closest('.shop-section-title'), barBg: getComputedStyle(t).backgroundColor, h: Math.round(t.getBoundingClientRect().height) };
+    }), card);
+    ok(folds.length >= 4, `（母體）這張卡有 ${folds.length} 個摺疊標題（整張卡、各分類、自己加的、常備品）`);
+    ok(folds.some((f) => f.open === 'false') && folds.some((f) => f.open === 'true'), '（前提）收合與展開兩種狀態都量得到');
+    everyOf(folds, (f) => f.caret !== null, '每一個摺疊標題都有箭頭圖示');
+    everyOf(folds, (f) => f.caret === (f.open === 'true' ? '▾' : '▸'), '箭頭跟狀態一致：展開 ▾、收合 ▸',
+      folds.filter((f) => f.caret !== (f.open === 'true' ? '▾' : '▸')).map((f) => `${f.key}：${f.open} 卻是 ${f.caret}`).join('、'));
+    everyOf(folds, (f) => f.ratio >= 1.4, `箭頭圖示夠大（最小是字寬的 ${Math.min(...folds.map((f) => f.ratio)).toFixed(2)} 倍，≥ 1.4）`);
+    everyOf(folds, (f) => alphaOf(f.caretBg) > 0, '箭頭圖示有底色（不是一個小小的灰色三角形）');
+    const secFolds = folds.filter((f) => f.inSection);
+    ok(secFolds.length >= 3, `（母體）分類標題 ${secFolds.length} 個`);
+    everyOf(secFolds, (f) => alphaOf(f.barBg) > 0, '分類標題整條有淺底色，看得出是一列可以點的東西');
+    everyOf(folds, (f) => f.h >= 44, '摺疊標題都按得到（≥ 44px）');
+
+    // 常備品：同一套摺疊、預設收合、摘要講用完再補
+    const pantryOf = () => page.evaluate((c) => {
+      const box = document.querySelector(`${c} [data-field="pantry"]`);
+      if (!box) return null;
+      const t = box.querySelector('[data-action="fold"]');
+      const body = t ? document.getElementById(t.getAttribute('aria-controls')) : null;
+      return { details: box.tagName === 'DETAILS' || !!box.querySelector('details'), section: box.classList.contains('shop-section'), toggle: !!t,
+        open: t?.getAttribute('aria-expanded'), hidden: body?.hidden, h: Math.round(body?.getBoundingClientRect().height ?? -1),
+        caret: t?.querySelector('.fold-caret')?.textContent ?? null, summary: box.querySelector('[data-field="foldSummary"]')?.textContent ?? '', list: body?.textContent ?? '' };
+    }, card);
+    const p1 = await pantryOf();
+    ok(p1, '（前提）有常備品那一區');
+    eq(p1.details, false, '常備品不再是一行 <details> 標題');
+    ok(p1.section && p1.toggle, '跟其他分類同一套摺疊（.shop-section＋摺疊鈕）');
+    eq([p1.open, p1.hidden, p1.h], ['false', true, 0], '常備品預設收起來（用完再補，不用每次買）');
+    eq(p1.caret, '▸', '收起來的常備品箭頭是 ▸');
+    ok(/用完再補/.test(p1.summary), `摘要講用完再補，而不是「還差 N 項」：「${p1.summary}」`);
+    ok(/鹽|沙拉油|醬油/.test(p1.list), '內容還在（只是收起來）');
+    await page.evaluate((c) => document.querySelector(`${c} [data-field="pantry"] [data-action="fold"]`).click(), card);
+    await sleep(300);
+    const p2 = await pantryOf();
+    eq([p2.open, p2.hidden, p2.caret], ['true', false, '▾'], '點一下就展開，箭頭變 ▾');
+    await reloadCard();
+    eq((await pantryOf()).open, 'true', '重新整理後，手動展開的常備品還是開著');
+
+    // 底下三顆按鈕：手機上「自己加一項」佔滿第一列、下面兩顆等寬並排，左右緣對齊；桌機三顆等寬一列
+    const measureActions = () => page.evaluate((c) => {
+      const box = document.querySelector(`${c} [data-field="shopActions"]`);
+      const rect = (sel) => { const r = box.querySelector(sel).getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height }; };
+      const cr = document.querySelector(c).getBoundingClientRect();
+      return { a: rect('[data-action="addCustom"]'), c: rect('[data-action="copyList"]'), p: rect('[data-action="print"]'), cardL: cr.left, cardR: cr.right };
+    }, card);
+    for (const [w, scale] of [[390, 'md'], [320, 'xl']]) {
+      await page.setViewport({ width: w, height: 900 });
+      await page.evaluate(async (s) => { const prefs = await import('./js/prefs.js'); await prefs.set('fontScale', s); prefs.applyFontScale(s); }, scale);
+      await sleep(300);
+      const m = await measureActions();
+      ok(Math.min(m.a.h, m.c.h, m.p.h) >= 44, `${w}px／${scale}：三顆都按得到（最小 ${Math.round(Math.min(m.a.h, m.c.h, m.p.h))}px）`);
+      ok(Math.abs(m.c.t - m.p.t) <= 2 && m.p.l >= m.c.r - 1, `${w}px／${scale}：「複製清單」「印出」同一列並排`);
+      ok(Math.abs(m.c.w - m.p.w) <= 2, `${w}px／${scale}：兩顆一樣寬（${Math.round(m.c.w)}／${Math.round(m.p.w)}px）`);
+      ok(m.a.b <= m.c.t + 1, `${w}px／${scale}：「自己加一項」在上面自成一列`);
+      ok(Math.abs(m.a.l - m.c.l) <= 1 && Math.abs(m.a.r - m.p.r) <= 1, `${w}px／${scale}：「自己加一項」左右緣跟下面兩顆對齊（左差 ${Math.round(Math.abs(m.a.l - m.c.l))}、右差 ${Math.round(Math.abs(m.a.r - m.p.r))}px）`);
+      ok(m.a.l >= m.cardL - 1 && m.p.r <= m.cardR + 1, `${w}px／${scale}：都在卡片裡`);
+    }
+    await page.setViewport({ width: 1024, height: 900 });
+    await page.evaluate(async () => { const prefs = await import('./js/prefs.js'); await prefs.set('fontScale', 'md'); prefs.applyFontScale('md'); });
+    await sleep(300);
+    const d = await measureActions();
+    ok(Math.max(d.a.t, d.c.t, d.p.t) - Math.min(d.a.t, d.c.t, d.p.t) <= 2, '桌機 1024px：三顆排成一列');
+    ok(Math.max(d.a.w, d.c.w, d.p.w) - Math.min(d.a.w, d.c.w, d.p.w) <= 2, `桌機 1024px：三顆一樣寬（${[d.a.w, d.c.w, d.p.w].map(Math.round).join('／')}px）`);
+    await page.setViewport(vp0);
+
+    await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.have = {}; row.fold = {}; row.custom = []; await store.saveShopping(row); }, cardKey);
   }
 
   eq(pageErrors, [], '沒有未攔截的例外');

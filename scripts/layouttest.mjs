@@ -257,7 +257,36 @@ try {
         return { aligned: Math.abs(m.top - v.top) <= 2 && m.top >= desc.bottom - 1 && v.left >= m.right - 1 };
       })(),
       customRows: root.querySelectorAll('.custom-row').length,
-      foldedSections: [...root.querySelectorAll('.shop-section')].filter((x) => x.dataset.foldOpen === 'false').length,
+      // 常備品預設就是收合的（用完再補），不算「買齊收合」
+      foldedSections: [...root.querySelectorAll('.shop-section:not(.pantry-section)')].filter((x) => x.dataset.foldOpen === 'false').length,
+      // 買菜頁控制項（使用者回報第五輪）：長得像超連結的控制項、摺疊箭頭、底下三顆按鈕的排列
+      // 「數量」那顆刻意用虛線底線標「可以改」，不算超連結樣式
+      linkish: [...document.querySelectorAll('#view button, #view a, #view summary')]
+        .filter((b) => b.getBoundingClientRect().height > 0 && b.dataset.action !== 'editQty')
+        .filter((b) => getComputedStyle(b).textDecorationLine.includes('underline') || b.classList.contains('linklike'))
+        .map((b) => b.textContent.trim().slice(0, 12)),
+      carets: [...root.querySelectorAll('[data-action="fold"]')].filter((t) => t.getBoundingClientRect().height > 0).map((t) => {
+        const c = t.querySelector('.fold-caret');
+        const r = c?.getBoundingClientRect();
+        return { open: t.getAttribute('aria-expanded') === 'true', glyph: c?.textContent ?? null, ratio: r ? r.width / parseFloat(getComputedStyle(t).fontSize) : 0 };
+      }),
+      actions: [...root.querySelectorAll('[data-field="shopActions"]')].map((box) => {
+        const rect = (sel) => box.querySelector(sel)?.getBoundingClientRect();
+        const a = rect('[data-action="addCustom"]'); const c = rect('[data-action="copyList"]'); const p = rect('[data-action="print"]');
+        if (!a || !c || !p) return { missing: true };
+        // 字被拆成幾行：同一段文字的行框有幾種不同的上緣
+        const lines = (sel) => { const rg = document.createRange(); rg.selectNodeContents(box.querySelector(sel)); return new Set([...rg.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size; };
+        const card = box.closest('.card').getBoundingClientRect();
+        return {
+          minH: Math.round(Math.min(a.height, c.height, p.height)),
+          copyPrintRow: Math.abs(c.top - p.top) <= 2 && p.left >= c.right - 1,
+          copyPrintEqual: Math.abs(c.width - p.width) <= 2,
+          addAbove: a.bottom <= c.top + 1,
+          edges: Math.round(Math.max(Math.abs(a.left - c.left), Math.abs(a.right - p.right))),
+          inside: a.left >= card.left - 1 && p.right <= card.right + 1 && a.right <= card.right + 1,
+          maxLines: Math.max(lines('[data-action="addCustom"]'), lines('[data-action="copyList"]'), lines('[data-action="print"]')),
+        };
+      }),
       qtyBtnMinH: (() => {
         const hs = [...root.querySelectorAll('[data-action="editQty"]')].map((e) => e.getBoundingClientRect().height);
         return hs.length ? Math.round(Math.min(...hs)) : 999;
@@ -421,6 +450,31 @@ try {
   ok(foldPages.length === SCALES.length * WIDTHS.length, `（母體）買齊收合的買菜頁掃了 ${foldPages.length} 組`);
   everyOf(foldPages, (p) => p.foldedSections >= 1, '買齊的那一區收起來了（上面的溢出、重疊、橫向捲動斷言也涵蓋收合後的標題）');
   everyOf(all.filter((p) => p.route === '買菜'), (p) => p.foldedSections === 0 && p.customRows === 0, '（對照）什麼都沒勾、沒加的買菜頁：沒有收合的區塊、沒有自己加的');
+
+  section('買菜頁控制項：沒有超連結樣式、摺疊箭頭明顯、底下三顆按鈕對齊（三種字級 × 三種寬度）');
+  // 使用者回報第五輪。為什麼這裡也要量：shoppingviewtest 只量 390／標準與 320／特大兩組，
+  // 而三顆按鈕的排列、箭頭圖示的大小都跟字級與寬度一起變 —— 特大字級下「＋ 自己加一項」最寬，
+  // 對齊一旦只靠 flex 換行就會在某些寬度散掉。溢出／重疊／橫向捲動抓不到「排得不整齊」（慣例 20），
+  // 所以直接量：兩顆同列等寬、第一顆佔滿一列、左右緣對齊。四種買菜狀態都掃（有客人＋自己加的那組才有「刪除」）。
+  const shopPages = all.filter((p) => p.route.startsWith('買菜'));
+  ok(shopPages.length === 4 * SCALES.length * WIDTHS.length, `（母體）買菜頁四種狀態掃了 ${shopPages.length} 組`);
+  everyOf(shopPages, (p) => p.linkish.length === 0, '沒有任何控制項長得像超連結（家裡有、刪除都是按鈕）',
+    shopPages.filter((p) => p.linkish.length).slice(0, 3).map((p) => `${where(p)}：${p.linkish.slice(0, 3).join('、')}`).join(' ／ '));
+  const acts = shopPages.flatMap((p) => p.actions.map((a) => ({ ...a, where: where(p) })));
+  ok(acts.length >= shopPages.length * 2, `（前提）每一組的每張採買卡都量到底下三顆按鈕（共 ${acts.length} 張卡）`);
+  everyOf(acts, (a) => !a.missing && a.minH >= 44, `三顆都按得到（最小 ${Math.min(...acts.map((a) => a.minH ?? 0))}px）`);
+  everyOf(acts, (a) => a.copyPrintRow && a.copyPrintEqual, '「複製清單」「印出」同一列、一樣寬',
+    acts.filter((a) => !(a.copyPrintRow && a.copyPrintEqual)).slice(0, 3).map((a) => a.where).join(' ／ '));
+  everyOf(acts, (a) => a.addAbove && a.edges <= 1, `「自己加一項」自成一列、左右緣跟下面兩顆對齊（最大差 ${Math.max(...acts.map((a) => a.edges ?? 99))}px）`,
+    acts.filter((a) => !(a.addAbove && a.edges <= 1)).slice(0, 3).map((a) => `${a.where} 差 ${a.edges}px`).join(' ／ '));
+  everyOf(acts, (a) => a.inside, '三顆都在卡片裡，特大字級也不撐破');
+  // 對齊了但字被拆開一樣難看：320px 特大下半格只剩約 130px，「複製清單」曾經被拆成「複製清／單」（截圖走查抓到）
+  everyOf(acts, (a) => a.maxLines === 1, '按鈕上的字都在一行，不會被拆成「複製清／單」',
+    acts.filter((a) => a.maxLines !== 1).slice(0, 3).map((a) => `${a.where}：${a.maxLines} 行`).join(' ／ '));
+  const carets = shopPages.flatMap((p) => p.carets.map((c) => ({ ...c, where: where(p) })));
+  ok(carets.some((c) => c.open) && carets.some((c) => !c.open), `（前提）量到 ${carets.filter((c) => c.open).length} 個展開、${carets.filter((c) => !c.open).length} 個收合的摺疊標題`);
+  everyOf(carets, (c) => c.glyph === (c.open ? '▾' : '▸'), '每個摺疊標題都有箭頭，展開 ▾、收合 ▸');
+  everyOf(carets, (c) => c.ratio >= 1.4, `箭頭圖示夠大（最小是字寬的 ${Math.min(...carets.map((c) => c.ratio)).toFixed(2)} 倍）`);
 
   section('買菜清單：數量欄要對齊，不會被擠到下一行');
   const withList = all.filter((p) => p.columns.length > 0);

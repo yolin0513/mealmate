@@ -428,6 +428,11 @@ textarea.field { resize: vertical; line-height: 1.5; }
 
 .btn-on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
 .btn-sm { padding: 8px 12px; min-height: 44px; font-size: 0.9em; }
+/* 次要的小按鈕：外框、透明底、字不加粗 —— 看得出可以按，但不跟主動作搶（買菜頁的「家裡有」）。 */
+.btn-quiet { background: transparent; border-color: var(--line); color: var(--fg-muted); font-weight: 500; }
+.btn-quiet.on { background: var(--green-soft); border-color: var(--green); color: var(--green); font-weight: 600; }
+/* 低調的危險動作：淡紅字、淡紅框，不是整顆大紅（刪除前還會再問一次）。 */
+.btn-quiet-danger { background: transparent; border-color: #efc4c4; color: #b54a4a; font-weight: 500; }
 
 /* 檔案匯入：把 input 藏在 label 裡，label 長得像按鈕（觸控區 ≥ 44px） */
 .file-btn { position: relative; overflow: hidden; }
@@ -529,30 +534,38 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 .extra-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: end; max-width: 22em; }
 .extra-inputs .extra-field { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; }
 .extra-inputs .field-num { width: 100%; }
-/* 購物清單摺疊：整條標題就是開關、44px 高 */
+/* 購物清單摺疊：整條標題就是開關、44px 高。
+   使用者回報原本的小三角形不明顯、看不出是摺疊：箭頭改成一顆有底色的圓形圖示（收合 ▸、展開 ▾），
+   分類標題列加淺底色，整條看起來就是一列可以點的東西。 */
 .fold-toggle {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap; width: 100%; min-height: 44px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%; min-height: 44px;
   background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-align: left; cursor: pointer;
 }
-.fold-caret { flex: none; width: 1em; color: var(--fg-muted); }
+.fold-caret {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 1.6em; height: 1.6em; border-radius: 50%; line-height: 1;
+  background: var(--accent-soft); color: var(--accent-strong);
+}
 .fold-summary { font-weight: 400; }
+.shop-section-title .fold-toggle { background: var(--bg-card-2); border-radius: 10px; padding: 4px 10px 4px 6px; }
 .shop-section[data-fold-done="true"] .shop-section-title { color: var(--green); }
+.shop-section[data-fold-done="true"] .fold-caret { background: var(--green-soft); color: var(--green); }
 /* 自己加的項目 */
 .custom-field { display: flex; flex-direction: column; gap: 4px; }
-.custom-add { display: flex; }
+/* 底下三顆按鈕：手機上「自己加一項」佔滿第一列、複製／印出兩顆等寬在第二列，左右緣對齊；
+   桌機（≥ 720px）三顆等寬一列。字太大放不下就在按鈕裡換行，不撐破格子。 */
+.shop-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.shop-actions > .btn { width: 100%; min-width: 0; white-space: normal; }
+/* 左右內距收小：320px 特大字級下半格只剩約 130px，預設 18px 內距會把「複製清單」拆成「複製清／單」 */
+.shop-actions > .btn { padding-inline: 8px; }
+.shop-actions > [data-action="addCustom"] { grid-column: 1 / -1; }
 /* 自己加的項目名稱是自由文字，長起來會換兩行。原本數量接在名稱後面 flex-wrap，名稱一換行數量就掉到第三行
    （layouttest 量到 320～390px 落差 64～81px，散成兩行以上）。改成兩欄：名稱在左欄自己換行，
    數量固定在第一行右邊 —— 跟日期列「一起煮」同一個做法。只套在自己加的列，系統食材本來就放得下。 */
 .shop-row.custom-row .shop-line1 { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: baseline; }
 .shop-row.custom-row .shop-qty { white-space: normal; overflow-wrap: anywhere; max-width: 7em; text-align: right; }
-/* 「家裡有」降成第二行的小連結：打勾才是主動作。仍然是按鈕（鍵盤按得到），
-   而且靠 padding 撐到 44px 高 —— 看起來小不代表可以按不到。 */
-.linklike {
-  background: none; border: 0; font: inherit; color: var(--accent);
-  text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
-  padding: 12px 2px; min-height: 44px; margin: 0;
-}
-.linklike.on { color: var(--green); font-weight: 600; }
+/* 第二行裡的小按鈕（家裡有、刪除）：字級跟著那一行放大一點，垂直置中不把文字推歪 */
+.shop-uses .btn-sm { font-size: 1.1em; padding: 6px 12px; vertical-align: middle; margin: 2px 0; }
 /* 數量本身就是按鈕（站在菜攤前要點得到，所以整塊 44px）。改過的用底線標出來，
    不是只換顏色 —— 色弱的人分不出來。 */
 .qty-btn {
@@ -568,7 +581,7 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 .qty-edit { display: flex; flex-direction: column; gap: 10px; }
 .extra-field { display: flex; align-items: center; gap: 6px; }
 .field-num { width: 4.5em; min-height: 44px; text-align: center; }
-.shop-section-title { margin: 0 0 4px; font-size: 0.95em; color: var(--fg-muted); }
+.shop-section-title { margin: 0 0 4px; font-size: 1em; color: var(--fg); }
 .shop-row { display: grid; grid-template-columns: minmax(0, 1fr) max-content; column-gap: 8px; align-items: center; padding: 2px 0; }
 /* 名稱與數量同一行、「用在」整行放下面：手機上「用在」才不會被數量擠成一欄四行（截圖走查抓到的） */
 .shop-check { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 10px; align-items: start; min-height: 44px; padding: 4px 0; }
@@ -578,6 +591,10 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 .shop-name { font-weight: 600; overflow-wrap: anywhere; }
 .shop-qty { white-space: nowrap; font-weight: 600; margin-left: auto; }
 .shop-uses { overflow-wrap: anywhere; }
+/* 第二行：「家裡有」按鈕與說明文字各自一塊。放得下就並排（文字在自己那塊換行，不會繞到按鈕底下）；
+   320px 特大字級下旁邊只剩幾個字寬，硬並排會變成一欄七八行 —— 那時說明整行放到按鈕下面。 */
+.shop-row:not(.custom-row) .shop-uses { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; }
+.shop-uses-text { flex: 1 1 10em; min-width: 0; }
 .shop-row.done .shop-name, .shop-row.done .shop-qty { text-decoration: line-through; color: var(--fg-muted); font-weight: 400; }
 .shop-row.have .shop-qty { color: var(--fg-muted); }
 
@@ -590,6 +607,9 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
   .card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
   details.how { display: block; }
   details.how > summary { display: block; }
+  /* 摺疊在紙上沒有意義：收起來的分類（含常備品）照樣印出來，箭頭圖示藏掉 */
+  .fold-body[hidden] { display: block !important; }
+  .fold-caret { display: none !important; }
   .shop-row { break-inside: avoid; }
   /* 週菜單貼冰箱：一天一塊不要被切成兩頁；桌機的七欄在紙上會太窄，改回一欄 */
   .day-card, .meal-block, .tl-step, .dish-nutri { break-inside: avoid; }
@@ -602,6 +622,8 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 /* 桌機：內容區加寬、食譜清單兩欄、本週七欄 */
 @media (min-width: 720px) {
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .shop-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .shop-actions > [data-action="addCustom"] { grid-column: auto; }
   .nutri-grid { grid-template-columns: 1fr 1fr 1fr; }
   .track-grid { grid-template-columns: 1fr 1fr; }
 }
