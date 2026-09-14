@@ -21,7 +21,7 @@ const state = {
   dataErrors: {},     // 檔名 → 錯誤訊息
   members: [],
   userRecipes: [],
-  favorites: new Map(), // recipeId → { recipeId, addedAt, wantThisWeek }
+  favorites: new Map(), // recipeId → { recipeId, addedAt, favorite, wantThisWeek }（兩個開關各自獨立）
 };
 
 /** 「本週想吃」最多幾道（PLAN §4.4）。 */
@@ -148,36 +148,42 @@ export async function deleteMember(id) {
 }
 
 // ---------- 收藏 ----------
+// 一筆紀錄放「收藏」與「本週想吃」兩個**各自獨立**的開關。
+// 2026-09-14 使用者回報：按「本週想吃」，「收藏」會一起亮 —— 以前「有這筆紀錄」就等於已收藏，而本週想吃會順手建紀錄。
+// 舊資料沒有 favorite 欄位：那時有紀錄就是收藏，所以缺欄位當作已收藏（分辨不出哪幾筆是被連帶收藏的）。
+export function isFavoriteRow(f) { return !!f && f.favorite !== false; }
 export function favorite(recipeId) { return state.favorites.get(recipeId) ?? null; }
-export function isFavorite(recipeId) { return state.favorites.has(recipeId); }
-export function favoriteIds() { return [...state.favorites.keys()]; }
+export function isFavorite(recipeId) { return isFavoriteRow(state.favorites.get(recipeId)); }
+export function favoriteIds() { return [...state.favorites.values()].filter(isFavoriteRow).map((f) => f.recipeId); }
 export function wantThisWeekIds() { return [...state.favorites.values()].filter((f) => f.wantThisWeek).map((f) => f.recipeId); }
 
-export async function toggleFavorite(recipeId) {
-  if (state.favorites.has(recipeId)) {
-    await db.del('favorites', recipeId);
-    state.favorites.delete(recipeId);
+/** 兩個開關都關了就刪掉那筆紀錄（不留空紀錄）。 */
+async function putFavoriteRow(row) {
+  if (!isFavoriteRow(row) && !row.wantThisWeek) {
+    await db.del('favorites', row.recipeId);
+    state.favorites.delete(row.recipeId);
   } else {
-    const row = { recipeId, addedAt: new Date().toISOString(), wantThisWeek: false };
     await db.put('favorites', row);
-    state.favorites.set(recipeId, row);
+    state.favorites.set(row.recipeId, row);
   }
-  emit();
-  return state.favorites.has(recipeId);
 }
 
-/**
- * 切「本週想吃」。最多 MAX_WANT_THIS_WEEK 道 —— 超過回 { ok: false, reason }，不改任何東西。
- * 沒收藏的會順便收藏。
- */
+/** 只動「收藏」，本週想吃不變。 */
+export async function toggleFavorite(recipeId) {
+  const cur = state.favorites.get(recipeId);
+  await putFavoriteRow({ ...(cur ?? { recipeId, addedAt: new Date().toISOString(), wantThisWeek: false }), favorite: !isFavoriteRow(cur) });
+  emit();
+  return isFavorite(recipeId);
+}
+
+/** 勾／取消「本週想吃」。最多 MAX_WANT_THIS_WEEK 道。只動本週想吃，**不會**順便收藏。 */
 export async function setWantThisWeek(recipeId, on) {
   const current = wantThisWeekIds();
   if (on && !current.includes(recipeId) && current.length >= MAX_WANT_THIS_WEEK) {
     return { ok: false, reason: `「本週想吃」最多 ${MAX_WANT_THIS_WEEK} 道，先取消一道再勾` };
   }
-  const row = { ...(state.favorites.get(recipeId) ?? { recipeId, addedAt: new Date().toISOString() }), wantThisWeek: !!on };
-  await db.put('favorites', row);
-  state.favorites.set(recipeId, row);
+  const cur = state.favorites.get(recipeId);
+  await putFavoriteRow({ ...(cur ?? { recipeId, addedAt: new Date().toISOString(), favorite: false }), wantThisWeek: !!on });
   emit();
   return { ok: true };
 }

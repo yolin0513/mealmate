@@ -155,7 +155,7 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
   const stepList = h('div', { class: 'edit-list', dataset: { list: 'steps' } });
   function stepRow(st, i) {
     const split = d.vegMode === 'splittable';
-    const ta = h('textarea', { class: 'field', rows: 2, placeholder: `第 ${i + 1} 步`, 'aria-label': `步驟 ${i + 1}`, dataset: { field: 'stepText' } }, st.text);
+    const ta = h('textarea', { class: 'field', rows: 2, placeholder: i === 0 ? '第 1 步（現成的菜可以不寫）' : `第 ${i + 1} 步`, 'aria-label': `步驟 ${i + 1}`, dataset: { field: 'stepText' } }, st.text);
     ta.addEventListener('input', () => { st.text = ta.value; });
     const stageChips = split ? chips({ options: STAGES.map((s) => ({ value: s, label: STAGE_LABELS[s] })), value: st.stage, name: `stage-${i}`, onChange: (v) => { st.stage = v; st.type = v === 'split' ? 'split' : 'cook'; } }) : null;
     const remove = h('button', { class: 'btn btn-danger btn-sm', type: 'button', 'aria-label': `移除步驟 ${i + 1}`, onclick: () => { d.steps.splice(i, 1); drawSteps(); } }, '移除');

@@ -878,4 +878,62 @@ section('一週平衡：配額以外的扣分（油炸、加工醃漬、紅肉�
   ok(busy.reasons.includes('今天晚餐已經比較豐盛'), '理由講「今天晚餐已經比較豐盛」');
 }
 
+section('本週想吃：一定要排到（重新產生幾次都一樣），排不進去要講原因');
+{
+  // 2026-09-14 使用者回報：勾了「本週想吃」的滷雞腳，重新產生幾次都沒排進去。
+  // 實測根因：訊號有傳進排菜器（wantSet 有它），但家裡有素食成員時純葷的菜在一般位置一定被飲食型態擋下，
+  // 唯一的「給吃葷的人的加菜」只在主菜排不到葷時才開 —— 12 次產生 0 次排進去，而且沒有任何提示。
+  const M = (o) => ({ ...newMember(), ...o });
+  const mixedHome = [M({ name: '爸', diet: 'omni' }), M({ name: '媽', diet: 'lactoOvo' })];
+  const feet = { ...recipes.find((r) => r.role === 'main' && r.vegMode === 'meatOnly' && r.time <= 30), id: 'r-user-feet', name: '滷雞腳', time: 0, source: 'user' };
+  const pool = [...recipes, feet];
+  const wantFeet = [{ recipeId: feet.id, wantThisWeek: true, favorite: false }];
+  const runs = [];
+  for (let i = 0; i < 8; i += 1) {
+    const { plan, diagnostics } = generateWeek({ recipes: pool, members: mixedHome, idx, units, favorites: wantFeet, history: [], mondayIso: addDays(MONDAY, 7 * i), seed: `want${i}`, shoppingDays: [1, 4] });
+    const hits = cookSlots(plan).flatMap((s) => s.items.filter((it) => it.recipeId === feet.id).map((it) => ({ ...it, meal: s.meal, ids: s.items.map((x) => x.recipeId) })));
+    runs.push({ hits, missed: diagnostics.wantMissed });
+  }
+  everyOf(runs, (x) => x.hits.length === 1, `家裡有蛋奶素的媽，勾了純葷的滷雞腳：8 次產生每次都排進去剛好一次（${runs.map((x) => x.hits.length).join('、')}）`);
+  everyOf(runs.flatMap((x) => x.hits), (it) => it.extraMeat === true && it.reasons.includes('你勾了「本週想吃」'), '排在「給吃葷的人的加菜」，理由寫「你勾了「本週想吃」」');
+  everyOf(runs.flatMap((x) => x.hits), (it) => it.ids.filter((id) => { const r = id === feet.id ? feet : byId.get(id); return r && versionFor(r, 'lactoOvo') !== null; }).length >= VEG_MIN_DISHES,
+    `那一餐媽照樣吃得到至少 ${VEG_MIN_DISHES} 道（素食保障沒有被擠掉）`);
+  everyOf(runs, (x) => x.missed.length === 0, '排進去了就不會記在「沒排進去」');
+  const noWant = generateWeek({ recipes: pool, members: mixedHome, idx, units, favorites: [], history: [], mondayIso: MONDAY, seed: 'want0', shoppingDays: [1, 4] });
+  ok(!cookSlots(noWant.plan).some((s) => s.items.some((it) => it.recipeId === feet.id)), '（對照）沒勾本週想吃，這道純葷的菜不會出現在有素食成員的家');
+
+  // 蓋得過扣分：3 天前才吃過（14 天不重複 -100）
+  const again = recipes.find((r) => r.role === 'main' && r.vegMode === 'splittable' && r.time <= 30);
+  const againRuns = [0, 1, 2, 3].map((i) => generateWeek({ recipes, members: [], idx, units, favorites: [{ recipeId: again.id, wantThisWeek: true }],
+    history: [{ recipeId: again.id, date: addDays(MONDAY, -3) }], mondayIso: MONDAY, seed: `again${i}`, shoppingDays: [1, 4] }));
+  everyOf(againRuns, (run) => mainsOf(run.plan).some((m) => m.recipeId === again.id), `3 天前才吃過的「${again.name}」勾了本週想吃：照樣排進去（以前 +40 分蓋不過不重複的 -100）`);
+  const againItem = mainsOf(againRuns[0].plan).find((m) => m.recipeId === again.id);
+  ok((againItem?.reasons ?? []).some((t) => t.includes('你勾了「本週想吃」，照樣排')), `重複的理由講是你要排的：「${(againItem?.reasons ?? []).find((t) => t.startsWith('上次是'))}」`);
+  noneOf(againItem?.reasons ?? [], (t) => t.includes('因為符合條件的菜不夠'), '不是「因為符合條件的菜不夠」');
+  everyOf(againRuns, (run) => !run.diagnostics.forcedRepeats.some((x) => x.recipeId === again.id), '也不算進「勉強重複」的診斷');
+
+  // 全家吃葷，勾了素的主菜：以前「這一餐要有葷」會先把它擋掉
+  const vegMain = recipes.find((r) => r.role === 'main' && r.vegMode === 'nativeVeg' && r.time <= 30);
+  const vegRuns = [0, 1, 2].map((i) => gen({ favorites: [{ recipeId: vegMain.id, wantThisWeek: true }], seed: `vegwant${i}`, shoppingDays: [1, 4] }));
+  everyOf(vegRuns, (run) => mainsOf(run.plan).some((m) => m.recipeId === vegMain.id), `全家吃葷，勾了素的主菜「${vegMain.name}」也排得進來`);
+  everyOf(vegRuns.map((run) => cookSlots(run.plan).find((s) => s.items.some((it) => it.recipeId === vegMain.id))), (s) => !!s && s.items.some((it) => isMeaty(byId.get(it.recipeId))),
+    '那一餐還是有一道葷的（加菜補上）');
+
+  // 真的排不進去：照實講原因
+  const slow = { ...feet, id: 'r-user-slow', name: '慢燉牛腱', time: 300 };
+  const slowRun = generateWeek({ recipes: [...recipes, slow], members: [], idx, units, favorites: [{ recipeId: slow.id, wantThisWeek: true }], history: [], mondayIso: MONDAY, seed: 'slow', shoppingDays: [1, 4] });
+  ok(!mainsOf(slowRun.plan).some((m) => m.recipeId === slow.id), '（前提）要 300 分鐘的菜，每一餐都超過時間上限，排不進去');
+  eq(slowRun.diagnostics.wantMissed.map((x) => x.recipeId), [slow.id], '沒排進去 → 記在 diagnostics.wantMissed，不靜默');
+  ok(/300 分鐘.*時間上限/.test(slowRun.diagnostics.wantMissed[0]?.why ?? ''), `原因講實際擋住的那一條：「${slowRun.diagnostics.wantMissed[0]?.why}」`);
+  const vegHome = generateWeek({ recipes: pool, members: [M({ name: '媽', diet: 'lactoOvo' })], idx, units, favorites: wantFeet, history: [], mondayIso: MONDAY, seed: 'allveg', shoppingDays: [1, 4] });
+  const vegWhy = vegHome.diagnostics.wantMissed[0]?.why ?? '';
+  ok(vegWhy.includes('只有吃葷的人能吃') && vegWhy.includes('媽'), `全家吃素、勾了純葷的菜：原因講「${vegWhy}」`);
+  noneOf([slowRun.diagnostics.wantMissed[0]?.why ?? '', vegWhy], (t) => ['健康', '降', '控制', '療效', '治療'].some((w) => t.includes(w)), '原因裡沒有禁用詞');
+
+  // 只勾本週想吃不算收藏（兩個開關各自獨立）
+  const onlyWant = buildContext({ recipes, members: [], idx, units, favorites: [{ recipeId: again.id, wantThisWeek: true, favorite: false }, { recipeId: vegMain.id, wantThisWeek: false }] });
+  ok(!onlyWant.favSet.has(again.id) && onlyWant.wantSet.has(again.id), '只勾本週想吃、沒按收藏：排菜器不當成收藏');
+  ok(onlyWant.favSet.has(vegMain.id), '（對照）舊資料沒有 favorite 欄位 → 照舊算收藏');
+}
+
 done('plannertest');

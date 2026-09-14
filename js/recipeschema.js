@@ -84,6 +84,9 @@ export function proteinGroupOf(food, tags) {
   return null;
 }
 
+/** 使用者自己加的菜一步都沒寫時，存的那一句（今天頁的做菜順序才有東西可以列）。 */
+export const USER_DEFAULT_STEP = '現成的，加熱或直接盛盤即可';
+
 const isInt = (n) => Number.isInteger(n);
 const isPosNum = (n) => typeof n === 'number' && Number.isFinite(n) && n > 0;
 
@@ -125,10 +128,12 @@ export function validateRecipe(recipe, ctx) {
 
   const ingredients = Array.isArray(r.ingredients) ? r.ingredients : [];
   if (ingredients.length === 0) err('沒有食材');
-  const steps = Array.isArray(r.steps) ? r.steps : [];
-  // 現成的菜可能就「盛盤上桌」一步。內建食譜仍然要求 3 步（那是我自己寫的，寫滿才有參考價值）。
-  const minSteps = relax ? 1 : 3;
-  if (steps.length < minSteps) err(relax ? '至少要寫 1 個步驟' : `步驟至少 3 步，只有 ${steps.length}`);
+  const rawSteps = Array.isArray(r.steps) ? r.steps : [];
+  // 使用者自己加的菜，步驟可以一個字都不寫（2026-09-14 回報：現成的滷雞腳連「加熱」都不想打，表單卻卡「步驟 #1 還沒寫字」——
+  // v0.17.0 放寬到「1 步」，但表單預設的那一步還是要打字）。空白的步驟直接略過；一步都沒寫的，存成 USER_DEFAULT_STEP。
+  // 內建食譜仍然要求 3 步、每步寫滿（那是我自己寫的，寫滿才有參考價值）。
+  const steps = relax ? rawSteps.filter((st) => typeof st?.text === 'string' && st.text.trim()) : rawSteps;
+  if (!relax && steps.length < 3) err(`步驟至少 3 步，只有 ${steps.length}`);
 
   const tags = new Set();
   const vegTags = new Set();   // base ＋ veg 軌的標籤：素食成員實際吃到的
@@ -228,7 +233,7 @@ export function validateRecipe(recipe, ctx) {
   let splitAt = -1;
   steps.forEach((st, i) => {
     const where = `步驟 #${i + 1}`;
-    const minLen = relax ? 2 : 4;   // 「上桌」兩個字也算一步
+    const minLen = relax ? 1 : 4;   // 使用者的菜：寫了字就算一步（空白的上面已經略過）
     if (typeof st?.text !== 'string' || st.text.trim().length < minLen) err(`${where} 還沒寫字`);
     const stage = st?.stage ?? 'base';
     if (!STAGES.includes(stage)) err(`${where} 要選 ${STAGES.map((x) => STAGE_LABELS[x]).join('、')} 其中一個`);
@@ -272,7 +277,7 @@ export function validateRecipe(recipe, ctx) {
     ...(r.notes ? { notes: String(r.notes) } : {}),
     ...(r.vegModeConfirmed === true ? { vegModeConfirmed: true } : {}),
     ingredients: normIngredients,
-    steps: steps.map((st) => ({ stage: st?.stage ?? 'base', type: st?.type ?? 'cook', text: st?.text })),
+    steps: (relax && !steps.length ? [{ stage: 'base', type: 'cook', text: USER_DEFAULT_STEP }] : steps).map((st) => ({ stage: st?.stage ?? 'base', type: st?.type ?? 'cook', text: st?.text })),
     tags: [...tags].sort(),
     vegTags: r.vegMode === 'meatOnly' ? null : [...vegTags].sort(),
     meatTags: r.vegMode === 'nativeVeg' ? null : [...meatTags].sort(),

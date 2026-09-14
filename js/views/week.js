@@ -105,6 +105,16 @@ export default async function weekView(query = {}) {
       (diag.noMeat ?? []).length ? h('p', { dataset: { field: 'noMeat' } }, `${diag.noMeat.length} 餐沒有排到葷菜（${diag.noMeat[0].why}）。要吃葷的話可以在那一格手動指定。`) : null,
     ) : null;
 
+  // 勾了「本週想吃」卻沒排進去：一定要講，而且講實際原因（2026-09-14 使用者回報：重新產生幾次都沒排到，畫面上也沒說為什麼）。
+  // 只列現在還勾著、而且現在的菜單裡真的沒有的（換一道、指定之後排進去了就不再講）。
+  const inPlan = new Set(plan.slots.flatMap((s) => (s.items ?? []).map((it) => it.recipeId)));
+  const missedWants = (diag.wantMissed ?? []).filter((x) => wants.includes(x.recipeId) && !inPlan.has(x.recipeId) && recipesById.has(x.recipeId));
+  const wantCard = missedWants.length ? h('section', { class: 'card notice', dataset: { card: 'wantMissed' } },
+    h('strong', {}, '你勾的「本週想吃」有沒排進去的'),
+    ...missedWants.map((x) => h('p', { dataset: { field: 'wantMissedLine' } }, `你想吃的「${recipesById.get(x.recipeId).name}」這週沒排進去，因為${x.why}。`)),
+    h('p', { class: 'muted sm' }, '還是要吃的話，可以在想吃的那一餐點那道菜旁邊的選單，選「我來指定…」。'),
+  ) : null;
+
   // 一週平衡：這週排了幾道比較豐盛的主菜、有沒有超過設定。從**現在的菜單**重算（換過、鎖過的都算進去），
   // 讓使用者看得到排菜器做了什麼，不是偷偷調。
   const balance = weekBalance({ plan, recipes: store.allRecipes(), members, idx, units: store.units(), rules: { heartyLevel: prefs.get('heartyLevel') } });
@@ -172,7 +182,7 @@ export default async function weekView(query = {}) {
     return card;
   });
 
-  render(head, diagCard, balanceCard, haveCard, h('div', { class: 'week-grid' }, ...dayCards), noticeFooter());
+  render(head, wantCard, diagCard, balanceCard, haveCard, h('div', { class: 'week-grid' }, ...dayCards), noticeFooter());
 }
 
 /**

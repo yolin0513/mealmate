@@ -494,6 +494,60 @@ try {
     await page.evaluate(async () => { const prefs = await import('./js/prefs.js'); await prefs.set('heartyLevel', 'medium'); });
   }
 
+  section('本週想吃：真的按「本週想吃」、真的按「重新產生」，每次都排進去；排不進去的照實講');
+  {
+    // 2026-09-14 使用者回報：加了「滷雞腳」、按本週想吃，重新產生幾次都沒排進去。這個家有蛋奶素的阿嬤、全素不含五辛的姊。
+    // 走真實路徑（食譜頁的按鈕 → store → 本週頁的「重新產生」→ generateWeek），不是只測內層函式（「家裡有」那次的教訓）。
+    const regen = async () => {
+      await waitToastGone(page).catch(() => {});
+      await clickEl(page, '[data-action="regenerate"]');
+      await page.waitForFunction(() => { const t = document.getElementById('toast'); return t && !t.hidden && t.textContent.includes('已重新排好'); });
+      await sleep(500);
+    };
+    const feetId = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const { recipe, errors } = await store.saveUserRecipe({ id: store.newUserRecipeId(), name: '滷雞腳', role: 'main', servings: 4, time: 0, method: 'stirfry', vegMode: 'meatOnly', texture: 'normal', season: [], source: 'user',
+        ingredients: [{ food: '', label: '雞腳', grams: 300, track: 'base' }], steps: [{ stage: 'base', type: 'cook', text: '加熱' }] });
+      if (errors.length) throw new Error(errors.join('；'));
+      return recipe.id;
+    });
+    await goto(page, `#/recipes/${feetId}`);
+    await titleIs(page, '滷雞腳');
+    await sleep(200);
+    await clickEl(page, '[data-action="wantThisWeek"]');
+    await page.waitForFunction(() => document.querySelector('[data-action="wantThisWeek"]')?.textContent === '✓ 本週想吃');
+    await goto(page, '#/');
+    await titleIs(page, '本週菜單');
+    await page.waitForSelector('[data-action="regenerate"]');
+    const counts = [];
+    for (let i = 0; i < 3; i += 1) {
+      await regen();
+      counts.push(await page.$$eval('.meal-item[data-item]', (els, id) => els.filter((e) => e.dataset.item === id).length, feetId));
+    }
+    everyOf(counts, (n) => n === 1, `按了 3 次「重新產生」，滷雞腳每次都在菜單上剛好一次（${counts.join('、')}）`);
+    ok(!(await page.$('[data-card="wantMissed"]')), '排進去了就沒有「沒排進去」那張卡');
+
+    // 排不進去的：要 300 分鐘的菜，每一餐都超過時間上限
+    await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const { recipe, errors } = await store.saveUserRecipe({ id: store.newUserRecipeId(), name: '慢燉牛腱', role: 'main', servings: 4, time: 300, method: 'stirfry', vegMode: 'meatOnly', vegModeConfirmed: true, texture: 'normal', season: [], source: 'user',
+        ingredients: [{ food: '', label: '牛腱', grams: 600, track: 'base' }], steps: [] });
+      if (errors.length) throw new Error(errors.join('；'));
+      await store.setWantThisWeek(recipe.id, true);
+    });
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    await goto(page, '#/');
+    await page.waitForSelector('[data-action="regenerate"]');
+    await regen();
+    await page.waitForSelector('[data-card="wantMissed"]');
+    const missedText = await textOf(page, '[data-card="wantMissed"]');
+    ok(missedText.includes('你想吃的「慢燉牛腱」這週沒排進去，因為') && missedText.includes('300 分鐘'), `排不進去的照實講、講原因：「${missedText}」`);
+    ok(!missedText.includes('滷雞腳'), '（對照）排進去的滷雞腳不在這張卡上');
+    eq(await page.$$eval('.meal-item[data-item]', (els, id) => els.filter((e) => e.dataset.item === id).length, feetId), 1, '（對照）滷雞腳這次也排進去了');
+    noneOf(['健康', '降', '控制', '療效', '治療'], (w) => missedText.includes(w), '沒有療效字眼');
+  }
+
   eq(pageErrors, [], '沒有未攔截的例外');
 } finally {
   await close();

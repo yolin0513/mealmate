@@ -54,11 +54,13 @@ export default async function recipeView(id) {
   const favBtn = h('button', { class: 'btn', type: 'button', dataset: { action: 'favorite' } });
   const wantBtn = h('button', { class: 'btn', type: 'button', dataset: { action: 'wantThisWeek' } });
   const drawFav = () => {
-    const f = store.favorite(r.id);
-    favBtn.textContent = f ? '♥ 已收藏' : '♡ 收藏';
-    favBtn.className = 'btn' + (f ? ' btn-on' : '');
-    wantBtn.textContent = f?.wantThisWeek ? '✓ 本週想吃' : '本週想吃';
-    wantBtn.className = 'btn' + (f?.wantThisWeek ? ' btn-on' : '');
+    // 兩個開關各自看自己的狀態（以前收藏看「有沒有紀錄」，按本週想吃就一起亮）
+    const fav = store.isFavorite(r.id);
+    const want = !!store.favorite(r.id)?.wantThisWeek;
+    favBtn.textContent = fav ? '♥ 已收藏' : '♡ 收藏';
+    favBtn.className = 'btn' + (fav ? ' btn-on' : '');
+    wantBtn.textContent = want ? '✓ 本週想吃' : '本週想吃';
+    wantBtn.className = 'btn' + (want ? ' btn-on' : '');
   };
   favBtn.addEventListener('click', async () => { await store.toggleFavorite(r.id); drawFav(); });
   wantBtn.addEventListener('click', async () => {

@@ -120,6 +120,52 @@ try {
   ok(howText.includes('→ 甘藍平均值'), '「怎麼算的」列出對到的食藥署條目');
   ok(!/份醣|醣類份數|份的醣/.test(await textOf(page, '#view')), '沒有出現醣類份數（尚無可引用來源，不顯示）');
 
+  section('「本週想吃」和「收藏」各自獨立：按一個，另一個不動');
+  {
+    // 2026-09-14 使用者回報：按「本週想吃」，「收藏」會一起亮。根因：兩個開關存在同一筆紀錄，
+    // 「有紀錄」就被當成已收藏，而本週想吃會順手建紀錄。
+    const soloId = recipes.filter((r) => r.id !== 'r-cabbage-pork-stirfry')[12].id;
+    const favState = () => page.evaluate(async (id) => { const s = await import('./js/store.js'); return { fav: s.isFavorite(id), want: s.wantThisWeekIds().includes(id), row: !!s.favorite(id) }; }, soloId);
+    const buttons = async () => ({ fav: await textOf(page, '[data-action="favorite"]'), want: await textOf(page, '[data-action="wantThisWeek"]') });
+    await goto(page, `#/recipes/${soloId}`);
+    await titleIs(page, byId.get(soloId).name);
+    await sleep(200);
+    eq(await buttons(), { fav: '♡ 收藏', want: '本週想吃' }, '（前提）兩個都還沒按');
+    await clickEl(page, '[data-action="wantThisWeek"]');
+    await page.waitForFunction(() => document.querySelector('[data-action="wantThisWeek"]')?.textContent === '✓ 本週想吃');
+    eq((await buttons()).fav, '♡ 收藏', '按「本週想吃」之後，「收藏」沒有一起亮');
+    eq(await favState(), { fav: false, want: true, row: true }, '資料上也是：勾了本週想吃、沒有收藏');
+    await goto(page, '#/recipes');
+    await titleIs(page, '食譜');
+    await clickEl(page, '[data-filter="fav"]');
+    await sleep(150);
+    ok(!(await rowIds(page)).includes(soloId), '食譜清單的「收藏」篩選裡沒有它');
+    await clickEl(page, '[data-filter="want"]');
+    await sleep(150);
+    ok((await rowIds(page)).includes(soloId), '「本週想吃」篩選裡有它（只勾了本週想吃的菜找得到地方取消）');
+    await clickEl(page, '[data-filter="all"]');
+    await sleep(100);
+    await goto(page, `#/recipes/${soloId}`);
+    await titleIs(page, byId.get(soloId).name);
+    await sleep(200);
+    eq(await buttons(), { fav: '♡ 收藏', want: '✓ 本週想吃' }, '重新進這一頁（從資料重畫）：收藏沒亮、本週想吃亮著');
+    // 反過來：按收藏，本週想吃不動；取消收藏，本週想吃也還在
+    await clickEl(page, '[data-action="favorite"]');
+    await page.waitForFunction(() => document.querySelector('[data-action="favorite"]')?.textContent === '♥ 已收藏');
+    eq((await buttons()).want, '✓ 本週想吃', '按「收藏」之後，本週想吃還是勾著');
+    await clickEl(page, '[data-action="favorite"]');
+    await page.waitForFunction(() => document.querySelector('[data-action="favorite"]')?.textContent === '♡ 收藏');
+    eq((await buttons()).want, '✓ 本週想吃', '取消收藏，本週想吃沒有被一起取消');
+    eq(await favState(), { fav: false, want: true, row: true }, '資料上本週想吃還在');
+    await clickEl(page, '[data-action="wantThisWeek"]');
+    await page.waitForFunction(() => document.querySelector('[data-action="wantThisWeek"]')?.textContent === '本週想吃');
+    eq(await favState(), { fav: false, want: false, row: false }, '兩個都取消 → 那筆紀錄刪掉（不留空紀錄）');
+    await goto(page, '#/recipes/r-cabbage-pork-stirfry');
+    await titleIs(page, '高麗菜炒肉片');
+    await page.waitForSelector('[data-action="favorite"]');
+    await sleep(200);
+  }
+
   section('收藏與本週想吃（最多 7 道）');
   await clickEl(page, '[data-action="favorite"]');
   await sleep(150);
@@ -265,6 +311,28 @@ try {
     eq(saved.foods, ['I0420801', 'E23001'], `直接打的「雞腳」、打在搜尋框沒點的「青蔥」都解析到編號（${saved.labels.join('、')}）`);
     ok(saved.tags.includes('meat'), '雞腳被認成肉 → 標成「葷」不會被擋');
     ok((await textOf(page, '#view')).includes('現成的'), '0 分鐘顯示成「現成的」');
+
+    // 2026-09-14 再回報：「還是強制要求輸入步驟」—— 上面那道打了「加熱」；使用者連那一步都不想寫（表單卡「步驟 #1 還沒寫字」）。
+    // 走真實表單：步驟那一格完全不碰，直接按新增。
+    await goto(page, '#/recipes/new');
+    await titleIs(page, '新增食譜');
+    await page.waitForSelector('[data-field="recipeName"]');
+    await page.type('[data-field="recipeName"]', '滷雞腳不寫步驟');
+    await clickEl(page, chipSel('vegMode', 'meatOnly'));
+    await sleep(150);
+    await page.$eval('[data-field="time"]', (el) => { el.value = '0'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.type('[data-ingredient="0"] [data-field="ingLabel"]', '雞腳');
+    await sleep(150);
+    eq(await page.$$eval('[data-list="steps"] textarea', (els) => els.map((el) => el.value)), [''], '（前提）只有表單預設的那一步，一個字都沒打');
+    await waitToastGone(page);
+    await clickEl(page, '[data-action="saveRecipe"]');
+    await page.waitForFunction(() => document.getElementById('topTitle')?.textContent === '滷雞腳不寫步驟' || document.querySelector('[data-field="errors"]')?.hidden === false);
+    const stepErrs = await page.$eval('[data-field="errors"]', (el) => (el.hidden ? '' : el.textContent)).catch(() => '');
+    eq(await textOf(page, '#topTitle'), '滷雞腳不寫步驟', `步驟一個字都沒打，照樣存得進去（${stepErrs || '沒有錯誤'}）`);
+    const noSteps = await page.evaluate(async () => (await import('./js/store.js')).userRecipes().find((x) => x.name === '滷雞腳不寫步驟')?.steps.map((s) => s.text));
+    eq(noSteps, ['現成的，加熱或直接盛盤即可'], `存成預設那一句（${JSON.stringify(noSteps)}）`);
+    ok((await textOf(page, '[data-card="recipeSteps"]')).includes('現成的，加熱或直接盛盤即可'), '食譜頁的步驟顯示那一句，不是空的一格');
+    await page.evaluate(async () => { const s = await import('./js/store.js'); const r = s.userRecipes().find((x) => x.name === '滷雞腳不寫步驟'); if (r) await s.deleteUserRecipe(r.id); });
 
     // 真的查不到的食材：訊息要把使用者打的字帶進去，不可以是「找不到「」」
     await goto(page, '#/recipes/new');

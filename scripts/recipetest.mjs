@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadContext, buildRecipes, summarize, outputFor } from './build-recipes.mjs';
-import { validateRecipe } from '../js/recipeschema.js';
+import { validateRecipe, USER_DEFAULT_STEP } from '../js/recipeschema.js';
 import { fitsDiet, versionFor } from '../js/members.js';
 import { estimate } from '../js/nutrition.js';
 
@@ -182,9 +182,21 @@ section('使用者自己加的菜：越少必填越好，但硬底線不放');
   // 兩步、短句子也可以
   const twoStep = validate({ ...readyMade, steps: [{ text: '退冰' }, { text: '上桌' }] }, { relaxRequired: true, allowMissingGrams: true });
   eq(twoStep.errors, [], '兩個字的步驟（「上桌」）也收');
-  // 完全沒步驟還是要擋
+  // 2026-09-14 再回報：「還是強制要求輸入步驟」—— v0.17.0 放寬到 1 步，但表單預設的那一步還是要打字（「步驟 #1 還沒寫字」）。
+  // 使用者的菜可以一步都不寫。
   const noStep = validate({ ...readyMade, steps: [] }, { relaxRequired: true, allowMissingGrams: true });
-  ok(noStep.errors.some((e) => /至少要寫 1 個步驟/.test(e)), '一步都沒有還是會擋，而且講人話');
+  eq(noStep.errors, [], `一步都沒寫也存得進去：${JSON.stringify(noStep.errors)}`);
+  eq(noStep.recipe.steps.map((s) => s.text), [USER_DEFAULT_STEP], `存的時候補一句「${USER_DEFAULT_STEP}」（今天頁的做菜順序才有東西可以列）`);
+  // 表單預設就有一個空白步驟：原封不動按新增，送進來的是 [{ text: '' }]。不帶任何旗標（放寬跟著 source 走）。
+  const blankStep = validate({ ...readyMade, steps: [{ stage: 'base', type: 'cook', text: '' }] }, {});
+  eq(blankStep.errors, [], `表單那一步空白也存得進去：${JSON.stringify(blankStep.errors)}`);
+  eq(blankStep.recipe.steps.map((s) => s.text), [USER_DEFAULT_STEP], '空白那一步不存成空字串，存成預設那一句');
+  const mixedSteps = validate({ ...readyMade, steps: [{ text: '加熱' }, { text: '   ' }] }, {});
+  eq(mixedSteps.errors, [], '（對照）寫了一步、多一個空白步驟也存得進去');
+  eq(mixedSteps.recipe.steps.map((s) => s.text), ['加熱'], '空白的那一步略過，寫了字的照存（不補預設句）');
+  // 對照：內建食譜的空白步驟、沒有步驟照樣擋
+  ok(validate({ ...readyMade, source: 'builtin', time: 5, steps: [{ text: '' }, { text: '切好下鍋拌炒' }, { text: '調味後盛盤' }] }, {}).errors.some((e) => /步驟 #1 還沒寫字/.test(e)), '（對照）內建食譜的空白步驟照樣擋');
+  ok(validate({ ...readyMade, source: 'builtin', time: 5, steps: [] }, {}).errors.some((e) => /步驟至少 3 步/.test(e)), '（對照）內建食譜沒有步驟照樣擋');
   // 負的時間要擋
   ok(validate({ ...readyMade, time: -5 }, { relaxRequired: true, allowMissingGrams: true }).errors.some((e) => /0 或正整數/.test(e)), '負的時間會擋，訊息講「現成的菜填 0」');
 }

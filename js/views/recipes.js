@@ -45,6 +45,8 @@ const KIND_FILTERS = [
   { key: 'meat', label: '葷', test: (r) => r.vegMode === 'meatOnly' },
   { key: 'mine', label: '我的', test: (r) => r.source === 'user' },
   { key: 'fav', label: '收藏', test: (r) => store.isFavorite(r.id) },
+  // 本週想吃不再順便收藏，所以要有自己的篩選（不然只勾了本週想吃的菜，找不到地方取消）
+  { key: 'want', label: '本週想吃', test: (r) => store.wantThisWeekIds().includes(r.id) },
 ];
 const NEED_FILTERS = [
   { key: 'quick', label: '20 分內', test: (r) => r.time <= 20 },
