@@ -15,6 +15,8 @@ export const DEFAULTS = {
   dailyTargets: {},
   // 「避開」開關：使用者自己打開才會把菜排除出池子；預設全關（慢性病留意項目本身只降分、不排除）
   avoid: { sweet: false, processed: false, fried: false },
+  // 一週排幾道比較豐盛的主菜：low 2／medium 4／high 6（planner.HEARTY_LEVELS）。只影響分數，不排除。
+  heartyLevel: 'medium',
   // 這週用的亂數種子；「重新產生」會換一個
   planSeed: null,
   // 本週頁把哪幾天收起來了。**依週存**：{ '2026-W38': [5, 6] }。

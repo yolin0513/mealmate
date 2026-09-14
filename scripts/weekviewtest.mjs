@@ -448,6 +448,52 @@ try {
     ok(named.length >= 1, `而且點名是哪幾樣：${named.join('、')}`);
   }
 
+  section('一週平衡：本週頁講出這週排了幾道比較豐盛的主菜，並帶那句說明');
+  {
+    // 使用者 2026-09-14 確認：平衡要誠實告訴使用者，不是偷偷調；那句「不是營養處方」要保留、不准有療效字眼。
+    const readBalance = () => page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const prefs = await import('./js/prefs.js');
+      const { weekBalance, weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const b = weekBalance({ plan, recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(), rules: { heartyLevel: prefs.get('heartyLevel') } });
+      return { n: b.hearty.length, load: b.load, over: b.over, budget: b.budget, names: b.hearty.map((x) => x.name.split('／')[0].replace(/（.*?）/g, '')) };
+    });
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    await goto(page, '#/');
+    await page.waitForSelector('[data-card="balance"] [data-field="balanceText"]');
+    const t1 = await textOf(page, '[data-card="balance"] [data-field="balanceText"]');
+    ok(t1.endsWith('這是一般飲食常識的安排，不是營養處方。'), `一週平衡那一段最後帶著那句說明：「${t1}」`);
+    noneOf(['健康', '降', '控制', '療效', '治療', '改善'], (w) => t1.includes(w), '沒有療效字眼（健康／降／控制…）');
+    const b1 = await readBalance();
+    if (b1.n) ok(t1.includes(`這週有 ${b1.n} 餐`) && b1.names.slice(0, 4).every((nm) => t1.includes(nm)), `講的道數與菜名跟排菜器算的一樣（${b1.n} 道：${b1.names.join('、')}）`);
+    else ok(t1.includes('沒有排到比較豐盛的主菜'), '這週沒有豐盛的主菜 → 照實講');
+
+    // 家人頁選「少」→ 重新產生（先把前面測試鎖住的菜解鎖，免得鎖住的菜佔掉配額）→ 最多 2 道
+    await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const prefs = await import('./js/prefs.js');
+      const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      for (const sl of plan.slots) for (const it of sl.items ?? []) it.locked = false;
+      await store.savePlan(plan);
+      await prefs.set('heartyLevel', 'low');
+    });
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    await goto(page, '#/');
+    await page.waitForSelector('[data-action="regenerate"]');
+    await clickEl(page, '[data-action="regenerate"]');
+    await sleep(1500);
+    await page.waitForSelector('[data-card="balance"] [data-field="balanceText"]');
+    const low = await readBalance();
+    ok(low.budget === 2 && low.load <= 2, `家人頁選「少」之後重新產生：這週豐盛的主菜加權 ${low.load} 道（≤ 2）`);
+    const t2 = await textOf(page, '[data-card="balance"] [data-field="balanceText"]');
+    ok(low.n === 0 ? t2.includes('一週最多 2 道') : t2.includes(`這週有 ${low.n} 餐`), `畫面上的那段話跟著變：「${t2}」`);
+    await page.evaluate(async () => { const prefs = await import('./js/prefs.js'); await prefs.set('heartyLevel', 'medium'); });
+  }
+
   eq(pageErrors, [], '沒有未攔截的例外');
 } finally {
   await close();

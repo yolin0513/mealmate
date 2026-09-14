@@ -11,7 +11,7 @@ import { ROLE_LABELS } from '../recipeschema.js';
 import { NUTRIENT_LABELS } from '../foods.js';
 import {
   generateWeek, dailyEstimates, mondayOf, weekKeyOf, weekDates, addDays, isoDate, parseDate,
-  MEALS, MEAL_LABELS, MEAL_ROLES, DAY_LABELS, RELAXABLE,
+  MEALS, MEAL_LABELS, MEAL_ROLES, DAY_LABELS, RELAXABLE, weekBalance, balanceSentence,
 } from '../planner.js';
 import { swapSlotItem, assignSlotItem, toggleLock, regenerateSlot } from './weekops.js';
 
@@ -24,7 +24,7 @@ async function generate({ mondayIso, prevPlan, newSeed }) {
   await prefs.set('planSeed', seed);
   const { plan, diagnostics } = generateWeek({
     recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
-    rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid') },
+    rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid'), heartyLevel: prefs.get('heartyLevel') },
     favorites: store.favoritesList(), history: await store.history(), mondayIso, seed, prevPlan, shoppingDays: prefs.get('shoppingDays') ?? [],
     haveFoods: await store.haveFoodsForWeek(weekKeyOf(mondayIso)),
   });
@@ -105,6 +105,14 @@ export default async function weekView(query = {}) {
       (diag.noMeat ?? []).length ? h('p', { dataset: { field: 'noMeat' } }, `${diag.noMeat.length} 餐沒有排到葷菜（${diag.noMeat[0].why}）。要吃葷的話可以在那一格手動指定。`) : null,
     ) : null;
 
+  // 一週平衡：這週排了幾道比較豐盛的主菜、有沒有超過設定。從**現在的菜單**重算（換過、鎖過的都算進去），
+  // 讓使用者看得到排菜器做了什麼，不是偷偷調。
+  const balance = weekBalance({ plan, recipes: store.allRecipes(), members, idx, units: store.units(), rules: { heartyLevel: prefs.get('heartyLevel') } });
+  const balanceCard = h('section', { class: 'card', dataset: { card: 'balance' } },
+    h('strong', {}, '一週平衡'),
+    h('p', { class: 'muted sm', dataset: { field: 'balanceText' } }, balanceSentence(balance)),
+  );
+
   // 「家裡有」不只是購物清單上的記號，它會讓用到那個食材的菜加分（先把冰箱裡的東西吃掉）。
   // 這件事以前只寫在每道菜的「為什麼選這道」裡，使用者翻不到，就會覺得這個勾是多餘的。
   // 這張卡讓它自己講出來。
@@ -164,7 +172,7 @@ export default async function weekView(query = {}) {
     return card;
   });
 
-  render(head, diagCard, haveCard, h('div', { class: 'week-grid' }, ...dayCards), noticeFooter());
+  render(head, diagCard, balanceCard, haveCard, h('div', { class: 'week-grid' }, ...dayCards), noticeFooter());
 }
 
 /**

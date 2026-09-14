@@ -9,6 +9,7 @@ import { eduNode } from '../edu.js';
 import { APP_VERSION } from '../version.js';
 import { AGE_LABELS, DIET_LABELS, CONDITION_LABELS, ALLERGEN_LABELS, watchFields } from '../members.js';
 import { TEXTURE_LABELS } from '../recipeschema.js';
+import { HEARTY_LEVELS, HEARTY_LEVEL_LABELS, HEARTY_HINT, BALANCE_NOTE } from '../planner.js';
 import { NUTRIENT_LABELS } from '../foods.js';
 import { exportBundle, bundleFilename, validateImport, bundleCounts, applyImport } from '../backup.js';
 import { noticeCard } from './welcome.js';
@@ -103,6 +104,17 @@ export default async function familyView() {
       }),
     )),
     h('p', { class: 'muted xs' }, '早餐與主食不算不重複——白飯、稀飯本來就會天天出現。'),
+    // 一週平衡（使用者 2026-09-14 確認）：把「一週排幾道豐盛的菜」的選擇權交給使用者。預設適中。
+    h('h3', { class: 'sub-title' }, '一週豐盛程度'),
+    h('p', { class: 'muted sm', dataset: { field: 'heartyHint' } }, `${HEARTY_HINT}${BALANCE_NOTE}`),
+    // chip 自己一列：放在 pref-row 右邊時，旁邊的標籤會被長 chip 擠成一欄一個字（小標題已經講了是什麼設定）
+    h('div', { class: 'row-actions', dataset: { field: 'heartyLevelRow' } },
+      chips({
+        options: Object.entries(HEARTY_LEVELS).map(([k, n]) => ({ value: k, label: `${HEARTY_LEVEL_LABELS[k]}（一週 ${n} 道）` })),
+        value: prefs.get('heartyLevel') ?? 'medium', name: 'heartyLevel',
+        onChange: async (v) => { await prefs.set('heartyLevel', v); refresh(); },
+      }),
+    ),
     h('p', { class: 'muted xs' }, '改了之後下次「產生」或「重新產生」才會生效。'),
   );
 

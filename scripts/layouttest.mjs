@@ -257,6 +257,14 @@ try {
         return { aligned: Math.abs(m.top - v.top) <= 2 && m.top >= desc.bottom - 1 && v.left >= m.right - 1 };
       })(),
       customRows: root.querySelectorAll('.custom-row').length,
+      // 設定列的標籤：每一行至少幾個字（被旁邊的長 chip 擠成「一欄一個字」時是 1）
+      prefLabels: [...root.querySelectorAll('.pref-label')].filter((el) => el.getBoundingClientRect().height > 0).map((el) => {
+        const rg = document.createRange();
+        rg.selectNodeContents(el);
+        const lines = new Set([...rg.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size || 1;
+        const chars = el.textContent.trim().length;
+        return { text: el.textContent.trim().slice(0, 12), chars, lines, perLine: chars / lines };
+      }),
       // 常備品預設就是收合的（用完再補），不算「買齊收合」
       foldedSections: [...root.querySelectorAll('.shop-section:not(.pantry-section)')].filter((x) => x.dataset.foldOpen === 'false').length,
       // 買菜頁控制項（使用者回報第五輪）：長得像超連結的控制項、摺疊箭頭、底下三顆按鈕的排列
@@ -475,6 +483,15 @@ try {
   ok(carets.some((c) => c.open) && carets.some((c) => !c.open), `（前提）量到 ${carets.filter((c) => c.open).length} 個展開、${carets.filter((c) => !c.open).length} 個收合的摺疊標題`);
   everyOf(carets, (c) => c.glyph === (c.open ? '▾' : '▸'), '每個摺疊標題都有箭頭，展開 ▾、收合 ▸');
   everyOf(carets, (c) => c.ratio >= 1.4, `箭頭圖示夠大（最小是字寬的 ${Math.min(...carets.map((c) => c.ratio)).toFixed(2)} 倍）`);
+
+  section('設定列的標籤不會被擠成一欄一個字');
+  // 走查抓到（2026-09-14）：家人頁「一週豐盛程度」的三顆 chip 字很長，塞在 pref-row 右邊時，
+  // 左邊的「豐盛的主菜」被擠成一欄一個字 —— 390px 標準字級就這樣。為什麼上面那些斷言沒抓到：
+  // 字沒有超出畫面、沒有互相重疊、頁面也不會橫向捲動，只是**很難讀**（慣例 20：要守的是什麼就量什麼）。
+  const labelRows = all.filter((p) => p.route === '家人').flatMap((p) => p.prefLabels.map((l) => ({ ...l, where: where(p) })));
+  ok(labelRows.length >= SCALES.length * WIDTHS.length * 3, `（母體）家人頁 ${labelRows.length} 個設定列標籤（三種字級 × 三種寬度）`);
+  everyOf(labelRows.filter((l) => l.chars >= 3), (l) => l.perLine >= 2, '每個設定列的標籤每一行至少兩個字（不會被擠成直的一欄）',
+    labelRows.filter((l) => l.chars >= 3 && l.perLine < 2).slice(0, 3).map((l) => `${l.where}「${l.text}」${l.lines} 行`).join(' ／ '));
 
   section('買菜清單：數量欄要對齊，不會被擠到下一行');
   const withList = all.filter((p) => p.columns.length > 0);

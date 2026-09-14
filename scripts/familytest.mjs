@@ -121,6 +121,28 @@ try {
   await clickEl(page, chipSel('noRepeat-main', '14'));
   await sleep(300);
 
+  section('一週豐盛程度：少 2／適中 4／多 6，預設適中，改了記得住');
+  {
+    // 使用者 2026-09-14 確認：把「一週排幾道豐盛的菜」的選擇權給使用者，預設適中。
+    await page.waitForSelector('[data-chips="heartyLevel"] .chip');
+    eq(await page.$$eval('[data-chips="heartyLevel"] .chip', (els) => els.map((e) => e.dataset.value)), ['low', 'medium', 'high'], '三段：少、適中、多');
+    eq(await page.$$eval('[data-chips="heartyLevel"] .chip', (els) => els.map((e) => e.textContent.trim())), ['少（一週 2 道）', '適中（一週 4 道）', '多（一週 6 道）'], '每一段講得出一週幾道');
+    eq(await page.$eval('[data-chips="heartyLevel"] .chip.on', (el) => el.dataset.value), 'medium', '預設是適中');
+    eq(await page.evaluate(async () => (await import('./js/prefs.js')).DEFAULTS.heartyLevel), 'medium', 'prefs 的預設值也是適中');
+    const hint = await textOf(page, '[data-field="heartyHint"]');
+    ok(hint.includes('這是一般飲食常識的安排，不是營養處方。') && hint.includes('不會把菜拿掉'), `說明講清楚是傾向、不是排除、不是處方：「${hint}」`);
+    noneOf(['健康', '降', '控制', '療效', '治療', '改善'], (w) => hint.includes(w), '說明沒有療效字眼（健康／降／控制…）');
+    await clickEl(page, chipSel('heartyLevel', 'low'));
+    await sleep(300);
+    eq(await page.evaluate(async () => (await import('./js/prefs.js')).get('heartyLevel')), 'low', '點「少」→ prefs 記成 low');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await titleIs(page, '家人');
+    await page.waitForSelector('[data-chips="heartyLevel"] .chip.on');
+    eq(await page.$eval('[data-chips="heartyLevel"] .chip.on', (el) => el.dataset.value), 'low', '重新載入後還是「少」');
+    await clickEl(page, chipSel('heartyLevel', 'medium'));
+    await sleep(300);
+  }
+
   section('字級：標準／大字／特大');
   await page.waitForSelector('[data-chips="fontScale"] .chip');
   const scaleOptions = await page.$$eval('[data-chips="fontScale"] .chip', (els) => els.map((e) => e.dataset.value));

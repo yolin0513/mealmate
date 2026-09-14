@@ -41,12 +41,39 @@ export const DEFAULT_RULES = {
   timeCaps: { weekday: { breakfast: 20, lunch: 35, dinner: 40 }, weekend: { breakfast: 40, lunch: 60, dinner: 60 } },
   fishPerWeek: 2,
   avoid: { sweet: false, processed: false, fried: false },
+  // 一週排幾道比較豐盛的主菜（少 2／適中 4／多 6）。家人頁可調，預設適中。
+  heartyLevel: 'medium',
 };
 
 const NO_REPEAT_PENALTY = { main: 100, side: 60, soup: 60, breakfast: 0, staple: 0 };
 /** 同一餐不重複的烹法（PLAN §4.3：兩道炸、兩道湯）。兩道炒在台灣家常菜很平常，不算衝突。 */
 export const EXCLUSIVE_METHODS = new Set(['deepfry', 'soup']);
 const WATCH_PENALTY = 12;
+
+// ---------- 一週平衡（使用者 2026-09-14 確認的方案）----------
+// 使用者原話：「可以多加一些稍微沒那麼健康的料理並用其他天中和回來」。
+// 做法是**加減分**，不排除任何一道：豐盛的主菜照一週配額分散開來，上一餐豐盛（或昨天估計的鈉偏高）時，
+// 這一餐傾向清淡一點。參照一律是「同一類菜的相對位置」，不是任何營養上限，也不是處方。
+export const HEARTY_LEVELS = { low: 2, medium: 4, high: 6 };
+export const HEARTY_LEVEL_LABELS = { low: '少', medium: '適中', high: '多' };
+/** 午晚餐主菜的一週配額（超過只扣分）。 */
+export const WEEK_CAPS = { fried: 1, processed: 1, redMeat: 5 };
+/** 主菜池裡，熱量、鈉、飽和脂肪的百分位平均排在前這麼多的，算「比較豐盛」。 */
+export const HEARTY_TOP_SHARE = 0.25;
+const HEARTY_BONUS = 6;              // 配額內的豐盛菜小加分：讓它們真的會出現，菜單才不會又變得清淡單調
+const HEARTY_WEEKEND_BONUS = 4;      // 週末再多一點（燉的菜本來就只排得進週末）
+const HEARTY_OVER_PENALTY = 40;      // 超過配額，每多一道扣這麼多
+const HEARTY_SAME_DAY_PENALTY = 30;  // 同一天另一餐已經豐盛
+const HEARTY_AFTER_HEARTY_PENALTY = 15;
+const HEARTY_AHEAD_PENALTY = 8;      // 還在配額內，但比一週的進度超前（前半週就用完的話，週末的燉菜排不進來）
+const LIGHT_BONUS = 10;              // 上一餐豐盛／昨天鈉偏高 → 清淡的菜加分
+// 紅肉原本扣 25，有素食成員的家庭壓不住（可分素葷的葷菜多半是豬肉，量到一週 6～10 道），調成跟其他配額一樣重
+const CAP_OVER_PENALTY = { fried: 40, processed: 40, redMeat: 40 };
+const SODIUM_TILT_RATIO = 1.2;       // 昨天估計的鈉比更早幾天的平均高出兩成
+const RED_MEAT = new Set(['beef', 'pork', 'lamb']);
+/** 本週頁與家人頁都會帶的那句話（使用者要求保留）。 */
+export const BALANCE_NOTE = '這是一般飲食常識的安排，不是營養處方。';
+export const HEARTY_HINT = '燉肉、油炸、重口味這類比較豐盛的主菜，一週排幾道；排了豐盛的菜，前後幾餐會傾向清淡一點。只影響排菜的先後，不會把菜拿掉。';
 const PROTEIN_LABELS = { pork: '豬', chicken: '雞', beef: '牛', lamb: '羊', duck: '鴨鵝', meat: '肉', fish: '魚', shellfish: '蝦蟹貝', egg: '蛋', soy: '豆製品' };
 
 // ---------- 日期（一律本地日期字串，不用 toISOString，避免時區差一天） ----------
@@ -120,6 +147,9 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
     timeCaps: { weekday: { ...DEFAULT_RULES.timeCaps.weekday, ...(rules.timeCaps?.weekday ?? {}) }, weekend: { ...DEFAULT_RULES.timeCaps.weekend, ...(rules.timeCaps?.weekend ?? {}) } },
     fishPerWeek: rules.fishPerWeek ?? DEFAULT_RULES.fishPerWeek,
     avoid: { ...DEFAULT_RULES.avoid, ...(rules.avoid ?? {}) },
+    heartyLevel: Object.hasOwn(HEARTY_LEVELS, rules.heartyLevel ?? '') ? rules.heartyLevel : DEFAULT_RULES.heartyLevel,
+    // 對照用：false 時完全不做一週平衡的加減分。**不在畫面上給使用者**，只給測試比較「有平衡／沒平衡」。
+    balance: rules.balance !== false,
   };
   const vegetarians = members.filter((m) => m.diet !== 'omni');
   const hasOmni = members.some((m) => m.diet === 'omni') || members.length === 0;
@@ -164,7 +194,70 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
     for (const f of watchers.keys()) medians[role][f] = medianOf(recipes.filter((x) => x.role === role).map((x) => watchedValue(x, f)));
   }
 
-  return { recipes, members, idx, units, rules: r, vegetarians, hasOmni, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, haveFoods: new Set(haveFoods) };
+  // ---------- 一週平衡：哪些主菜「比較豐盛」、哪些菜「清淡」----------
+  // 參照版本：可分流的菜，家裡有人吃葷就看葷版（豐盛的是那一鍋），全家吃素就看素版。
+  const refVersion = (recipe) => (recipe.vegMode === 'splittable' ? (hasOmni ? 'meat' : 'veg') : 'all');
+  const refPerServing = (recipe) => (idx ? perServing(recipe, refVersion(recipe)) : null);
+  const RICH_FIELDS = ['kcal', 'sodium', 'satFat'];
+  const sortedBy = {};
+  const roleMedian = {};
+  for (const role of ['main', 'side', 'soup']) {
+    const pool = recipes.filter((x) => x.role === role);
+    sortedBy[role] = Object.fromEntries(RICH_FIELDS.map((f) => [f, pool.map((x) => refPerServing(x)?.[f]).filter((v) => typeof v === 'number').sort((a, b) => a - b)]));
+    roleMedian[role] = { kcal: medianOf(sortedBy[role].kcal), sodium: medianOf(sortedBy[role].sodium) };
+  }
+  /** 在同一類菜裡的百分位（0＝最低；比它低的佔幾成）。 */
+  const rankIn = (sorted, v) => {
+    if (!sorted?.length || typeof v !== 'number') return null;
+    let n = 0;
+    while (n < sorted.length && sorted[n] < v) n += 1;
+    return n / sorted.length;
+  };
+  // 三項各自的百分位取平均 —— **合起來**排前四分之一才算豐盛。
+  // 不用「任一項在前四分之一」：量過，那樣主菜池一半都算豐盛，一週 4 道的配額會把菜單壓回清淡單調。
+  const richnessOf = (recipe) => {
+    const p = refPerServing(recipe);
+    const ranks = RICH_FIELDS.map((f) => rankIn(sortedBy[recipe.role]?.[f], p?.[f])).filter((x) => x != null);
+    return ranks.length ? ranks.reduce((a, b) => a + b, 0) / ranks.length : null;
+  };
+  const mainRichness = recipes.filter((x) => x.role === 'main').map(richnessOf).filter((x) => x != null).sort((a, b) => a - b);
+  const richCut = mainRichness.length ? mainRichness[Math.floor(mainRichness.length * (1 - HEARTY_TOP_SHARE))] : Infinity;
+  const heartyCache = new Map();
+  const NOT_MAIN = Object.freeze({ hearty: false, weight: 0, why: [], high: [], fried: false, processed: false, sweet: false, redMeat: false });
+  const heartyOf = (recipe) => {
+    if (recipe.role !== 'main') return NOT_MAIN;
+    if (heartyCache.has(recipe.id)) return heartyCache.get(recipe.id);
+    const p = refPerServing(recipe);
+    const high = RICH_FIELDS.filter((f) => (rankIn(sortedBy.main[f], p?.[f]) ?? 0) >= 1 - HEARTY_TOP_SHARE);
+    const fried = recipe.method === 'deepfry';
+    const processed = recipe.tags.includes('processed');
+    const sweet = recipe.tags.includes('sweet');
+    const rich = (richnessOf(recipe) ?? -1) >= richCut;
+    const hearty = fried || processed || sweet || rich;
+    const why = [];
+    if (fried) why.push('油炸');
+    if (processed) why.push('用到加工肉或醃漬');
+    if (sweet) why.push('含精緻糖');
+    if (high.length) why.push(`估每份${high.map((f) => NUTRIENT_LABELS[f]).join('、')}在主菜裡偏高`);
+    else if (rich) why.push('估每份熱量、鈉、飽和脂肪合起來在主菜裡偏高');
+    // 家裡有人留意的那一項偏高 → 算兩道（評分收斂，不排除）。watchers 已經照「腎臟病只帶勾選的子項」建好，
+    // 所以腎臟病沒勾鈉的家人不會讓鈉偏高的菜變兩道 —— 不自動限制。
+    const doubled = (high.includes('sodium') && watchers.has('sodium')) || (high.includes('satFat') && watchers.has('satFat')) || (sweet && hasDiabetes);
+    const info = { hearty, weight: hearty ? (doubled ? 2 : 1) : 0, why, high, fried, processed, sweet, redMeat: recipe.proteins.some((x) => RED_MEAT.has(x)) };
+    heartyCache.set(recipe.id, info);
+    return info;
+  };
+  /** 清淡：不是豐盛的菜，估每份熱量與鈉都不高於同類菜的中位數；或是蒸、燙、涼拌。 */
+  const isLight = (recipe) => {
+    if (!['main', 'side', 'soup'].includes(recipe.role)) return false;
+    if (heartyOf(recipe).hearty || recipe.method === 'deepfry' || recipe.tags.includes('processed') || recipe.tags.includes('sweet')) return false;
+    if (['steam', 'boil', 'cold'].includes(recipe.method)) return true;
+    const p = refPerServing(recipe);
+    const m = roleMedian[recipe.role];
+    return p?.kcal != null && p?.sodium != null && m.kcal != null && m.sodium != null && p.kcal <= m.kcal && p.sodium <= m.sodium;
+  };
+
+  return { recipes, members, idx, units, rules: r, vegetarians, hasOmni, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, haveFoods: new Set(haveFoods), refPerServing, heartyOf, isLight };
 }
 
 // ---------- 保存期限 ----------
@@ -261,6 +354,44 @@ export function scoreSoft(recipe, { role, meal, date, day }, ctx, state, rng) {
     else reasons.push(`蛋白質來源：${labels.join('、')}${sameDay.length ? '（今天另一餐也是）' : ''}`);
   }
 
+  // 一週平衡：豐盛的主菜照配額分散；上一餐豐盛、或昨天估計的鈉偏高時，這一餐傾向清淡。
+  // 全部是加減分 —— 池子不夠、你勾了本週想吃、指定或鎖定時照樣排得進來，而且理由與本週頁都會講出來。
+  if (meal !== 'breakfast' && ctx.heartyOf && rules.balance) {
+    const prevMeal = meal === 'dinner' ? { day, meal: 'lunch' } : { day: day - 1, meal: 'dinner' };
+    const prevHearty = state.heartySlot ? state.heartySlot(prevMeal.day, prevMeal.meal) : null;
+    const sodiumHigh = state.sodiumHighYesterday ? state.sodiumHighYesterday(day) : false;
+    if (role === 'main') {
+      const info = ctx.heartyOf(recipe);
+      const budget = HEARTY_LEVELS[rules.heartyLevel];
+      const bal = state.balance ?? { load: 0, count: 0, fried: 0, processed: 0, redMeat: 0 };
+      if (info.hearty) {
+        const after = bal.load + info.weight;
+        const twice = info.weight > 1 ? '（家裡有人留意這一項，算兩道）' : '';
+        // 一週的進度：到這一天為止大約可以排幾道（週一 1、週四 3、週日 4 —— 以一週 4 道為例）
+        // 四捨五入而不是無條件進位：進位的話「少（一週 2 道）」週四前就用完，週末永遠排不到燉菜
+        const pace = Math.round((budget * (day + 1)) / 7);
+        if (after <= budget) {
+          if (bal.count < pace) score += HEARTY_BONUS + (isWeekend(date) ? HEARTY_WEEKEND_BONUS : 0);
+          else score -= HEARTY_AHEAD_PENALTY;
+          reasons.push(`比較豐盛：${info.why.join('、')}；這週第 ${bal.count + 1} 道豐盛的主菜，在一週 ${budget} 道內${twice}`);
+        } else {
+          score -= HEARTY_OVER_PENALTY * (after - budget);
+          reasons.push(`比較豐盛：${info.why.join('、')}；這週已經有 ${bal.count} 道豐盛的主菜，這道超過一週 ${budget} 道的設定${twice}`);
+        }
+        const sameDay = (state.heartyMealsOn ? state.heartyMealsOn(day) : []).filter((m) => m !== meal);
+        if (sameDay.length) { score -= HEARTY_SAME_DAY_PENALTY; reasons.push(`今天${MEAL_LABELS[sameDay[0]]}已經比較豐盛`); }
+        if (prevHearty) score -= HEARTY_AFTER_HEARTY_PENALTY;
+      }
+      if (info.fried && bal.fried >= WEEK_CAPS.fried) { score -= CAP_OVER_PENALTY.fried; reasons.push(`這週已經有 ${bal.fried} 道油炸的主菜`); }
+      if (info.processed && bal.processed >= WEEK_CAPS.processed) { score -= CAP_OVER_PENALTY.processed; reasons.push(`這週已經有 ${bal.processed} 道用到加工肉或醃漬的主菜`); }
+      if (info.redMeat && bal.redMeat >= WEEK_CAPS.redMeat) { score -= CAP_OVER_PENALTY.redMeat; reasons.push(`這週的紅肉（牛、豬）主菜已經有 ${bal.redMeat} 道`); }
+    }
+    if ((prevHearty || sodiumHigh) && ctx.isLight(recipe)) {
+      if (prevHearty) { score += LIGHT_BONUS; reasons.push(`上一餐比較豐盛（${prevHearty}），這一餐傾向清淡`); }
+      if (sodiumHigh) { score += LIGHT_BONUS; reasons.push('昨天估計的鈉比這週前幾天高，今天傾向清淡'); }
+    }
+  }
+
   // 素食成員：吃哪個版本（事實）
   for (const m of ctx.vegetarians) {
     const v = versionFor(recipe, m.diet);
@@ -324,6 +455,10 @@ function makeState(history, ctx, monday) {
   const rangeFoods = new Map();       // lastShopDate → Set(foodId)
   let fish = 0;
   const placedWant = new Set();
+  // 一週平衡：豐盛的主菜幾道（加權）、油炸／加工醃漬／紅肉各幾道、哪幾餐是豐盛的、每天估計的鈉
+  const balance = { load: 0, count: 0, fried: 0, processed: 0, redMeat: 0 };
+  const heartySlots = new Map();   // `${day}|${meal}` → 菜名
+  const daySodium = new Map();     // day → 這天已排的菜每份鈉（參照版本）加總
   const byId = new Map(ctx.recipes.map((r) => [r.id, r]));
   const state = {
     slotItems: [],
@@ -341,10 +476,31 @@ function makeState(history, ctx, monday) {
     dayProteins(day) { return proteinsByDay.get(String(day)) ?? new Set(); },
     prevDayMealProteins(day, meal) { return mainProteinsByDayMeal.get(`${day - 1}|${meal}`) ?? new Set(); },
     fishCount() { return fish; },
+    balance,
+    heartySlot(day, meal) { return heartySlots.get(`${day}|${meal}`) ?? null; },
+    heartyMealsOn(day) { return MEALS.filter((m) => heartySlots.has(`${day}|${m}`)); },
+    /** 昨天估計的鈉，比這週更早幾天的平均高出一截（至少要有兩天可以比，不然不算）。 */
+    sodiumHighYesterday(day) {
+      const prev = daySodium.get(day - 1);
+      const earlier = [];
+      for (let d = 0; d < day - 1; d += 1) if (daySodium.has(d)) earlier.push(daySodium.get(d));
+      if (prev == null || earlier.length < 2) return false;
+      const avg = earlier.reduce((a, b) => a + b, 0) / earlier.length;
+      return avg > 0 && prev > avg * SODIUM_TILT_RATIO;
+    },
     rangeHas(lastShop, foodId) { return rangeFoods.get(lastShop)?.has(foodId) ?? false; },
     /** 把一道菜記進這一週的狀態。 */
     place(recipe, { day, meal, date }) {
       add(recipe.id, date);
+      if (recipe.role === 'main' && meal !== 'breakfast' && ctx.heartyOf) {
+        const info = ctx.heartyOf(recipe);
+        if (info.hearty) { balance.load += info.weight; balance.count += 1; heartySlots.set(`${day}|${meal}`, recipe.name.split('／')[0].replace(/（.*?）/g, '')); }
+        if (info.fried) balance.fried += 1;
+        if (info.processed) balance.processed += 1;
+        if (info.redMeat) balance.redMeat += 1;
+      }
+      const na = ctx.refPerServing?.(recipe)?.sodium;
+      if (typeof na === 'number') daySodium.set(day, (daySodium.get(day) ?? 0) + na);
       if (recipe.role === 'main') {
         if (!proteinsByDay.has(String(day))) proteinsByDay.set(String(day), new Set());
         for (const p of recipe.proteins) proteinsByDay.get(String(day)).add(p);
@@ -529,6 +685,59 @@ export function generateWeek({ recipes, members = [], idx, units, rules = {}, fa
   }
   state.slotItems = [];
   return { plan: { weekKey: weekKeyOf(monday), monday, seed: String(seed), slots }, diagnostics };
+}
+
+/**
+ * 這一週的平衡摘要（本週頁「一週平衡」那一段用）。從**現在的菜單**重算 ——
+ * 換過、鎖過、指定過的菜都算進去；存在 diagnostics 裡的話，換一道之後就不準了。
+ */
+export function weekBalance({ plan, recipes, members = [], idx, units, rules = {} }) {
+  const ctx = buildContext({ recipes, members, idx, units, rules });
+  const byId = new Map(recipes.map((r) => [r.id, r]));
+  const budget = HEARTY_LEVELS[ctx.rules.heartyLevel];
+  const out = { level: ctx.rules.heartyLevel, budget, load: 0, hearty: [], doubled: 0, fried: 0, processed: 0, redMeat: 0, over: 0 };
+  for (const s of plan?.slots ?? []) {
+    if (s.kind !== 'cook' || s.meal === 'breakfast') continue;
+    for (const it of s.items ?? []) {
+      const r = byId.get(it.recipeId);
+      if (!r || r.role !== 'main') continue;
+      const info = ctx.heartyOf(r);
+      if (info.hearty) {
+        out.load += info.weight;
+        if (info.weight > 1) out.doubled += 1;
+        out.hearty.push({ day: s.day, date: s.date, meal: s.meal, recipeId: r.id, name: r.name, why: info.why, weight: info.weight });
+      }
+      if (info.fried) out.fried += 1;
+      if (info.processed) out.processed += 1;
+      if (info.redMeat) out.redMeat += 1;
+    }
+  }
+  out.over = Math.max(0, out.load - budget);
+  return out;
+}
+
+/** 本週頁「一週平衡」那一段話。只講事實，最後一定帶 BALANCE_NOTE。 */
+export function balanceSentence(b) {
+  const parts = [];
+  if (!b.hearty.length) {
+    parts.push(`這週沒有排到比較豐盛的主菜（一週最多 ${b.budget} 道，可以到「家人」分頁的排菜規則調整）。`);
+  } else {
+    const names = b.hearty.map((x) => x.name.split('／')[0].replace(/（.*?）/g, ''));
+    // 超過配額時不能說「前後幾餐排得清淡一點平衡」—— 那不是真的（例如能選的主菜幾乎都是豐盛的）
+    const tail = b.over ? '。' : '，前後幾餐排得清淡一點平衡。';
+    parts.push(`這週有 ${b.hearty.length} 餐的主菜比較豐盛（${names.slice(0, 4).join('、')}${names.length > 4 ? ' 等' : ''}）${tail}`);
+    if (b.doubled) parts.push(`家裡有人留意鈉、飽和脂肪或醣，其中 ${b.doubled} 道各算兩道。`);
+    if (b.over) parts.push(`合起來比你設定的一週 ${b.budget} 道多了 ${b.over} 道（指定、鎖定的菜，或符合條件的菜不夠）。`);
+  }
+  // 其他配額超過也照講，不靜默
+  const capOver = [
+    b.redMeat > WEEK_CAPS.redMeat ? `紅肉（牛、豬）主菜 ${b.redMeat} 道` : null,
+    b.fried > WEEK_CAPS.fried ? `油炸的主菜 ${b.fried} 道` : null,
+    b.processed > WEEK_CAPS.processed ? `用到加工肉或醃漬的主菜 ${b.processed} 道` : null,
+  ].filter(Boolean);
+  if (capOver.length) parts.push(`這週${capOver.join('、')}，比平常排的多一些（指定、鎖定的菜，或要讓家裡每個人都吃得到、符合條件的菜不夠）。`);
+  parts.push(BALANCE_NOTE);
+  return parts.join('');
 }
 
 /** 把一格裡某個角色換一道（排除現在這道）。回新的 item 或 null。 */

@@ -21,7 +21,9 @@ import {
   generateWeek, swapItem, buildContext, scoreSoft, hardBlock, makeRng, hashSeed, weekKeyOf, mondayOf, addDays,
   lastShoppingDayOnOrBefore, historyRowsOf, dailyEstimates, medianOf, MEALS, isMeaty, VEG_MIN_DISHES, withPositions,
   actualRelaxations, shelfBlocker, RELAXABLE, FREEZABLE_CATS, daysBetween,
+  weekBalance, balanceSentence, assignItem, HEARTY_LEVELS, WEEK_CAPS, BALANCE_NOTE, HEARTY_HINT, HEARTY_TOP_SHARE,
 } from '../js/planner.js';
+import { FORBIDDEN } from './copyrules.mjs';
 import { shelfDaysFor } from '../js/units.js';
 import { versionFor } from '../js/members.js';
 
@@ -679,6 +681,194 @@ section('保存天數要蓋得過買菜日之間的間隔（不然離買菜日�
     `肉類保存天數（${units.shelfDays.byCategory['肉類']} 天）蓋得過 ${gap} 天的間隔`);
   ok(units.shelfDays.byCategory['肉類'] > gap,
     `肉類 ${units.shelfDays.byCategory['肉類']} 天 > 最大間隔 ${gap} 天（等於的話當天就卡在邊界上）`);
+}
+
+section('一週平衡：哪些主菜算「比較豐盛」（同一類菜的相對位置，不是營養上限）');
+// 使用者 2026-09-14 原話：「可以多加一些稍微沒那麼健康的料理並用其他天中和回來」。確認的方案：
+// 同類菜前四分之一算豐盛、午晚餐主菜一週配額（豐盛 4／油炸 1／加工醃漬 1／紅肉 5）、家人頁少 2／適中 4／多 6、
+// 有留意項目的家人相關的菜算兩道。**全部是加減分，不排除**；菜單要維持變化，不能被壓回清淡單調。
+const B_MEMBERS = {
+  none: [],
+  hypertension: [{ ...newMember(), name: '爸', diet: 'omni', conditions: ['hypertension'] }],
+  kidneyNoSodium: [{ ...newMember(), name: '阿公', diet: 'omni', conditions: ['kidney'], kidneyWatch: ['phosphorus'] }],
+  lactoOvo: [{ ...newMember(), name: '爸', diet: 'omni' }, { ...newMember(), name: '媽', diet: 'lactoOvo' }],
+  vegan: [{ ...newMember(), name: '爸', diet: 'omni' }, { ...newMember(), name: '媽', diet: 'vegan' }],
+};
+{
+  const ctx0 = buildContext({ recipes, members: [], idx, units });
+  const mains = recipes.filter((r) => r.role === 'main');
+  const hearty = mains.filter((r) => ctx0.heartyOf(r).hearty);
+  const tagged = (r) => r.method === 'deepfry' || r.tags.includes('processed') || r.tags.includes('sweet');
+  const richOnly = hearty.filter((r) => !tagged(r));
+  ok(mains.length >= 100, `（母體）主菜 ${mains.length} 道`);
+  eq(HEARTY_TOP_SHARE, 0.25, '（前提）豐盛的門檻是前四分之一');
+  // 量餘裕：熱量、鈉、飽和脂肪「合起來」排前四分之一 → 約 25%；不是「任一項前四分之一」（那樣會到一半，配額會把菜單壓回清淡）
+  ok(richOnly.length / mains.length >= 0.2 && richOnly.length / mains.length <= 0.3, `只因為熱量／鈉／飽和脂肪合起來偏高而算豐盛的主菜 ${richOnly.length}/${mains.length}（${Math.round(richOnly.length / mains.length * 100)}%，在 20–30%）`);
+  ok(hearty.length / mains.length <= 0.4, `全部算豐盛的主菜 ${hearty.length}/${mains.length}（${Math.round(hearty.length / mains.length * 100)}% ≤ 40%，含油炸、加工醃漬、含精緻糖）`);
+  everyOf(mains.filter(tagged), (r) => ctx0.heartyOf(r).hearty, '油炸、加工肉或醃漬、含精緻糖的主菜一律算豐盛');
+  everyOf(hearty, (r) => ctx0.heartyOf(r).why.length >= 1, '每一道豐盛的主菜都講得出為什麼');
+  everyOf(hearty, (r) => ctx0.heartyOf(r).weight === 1, '沒有家人留意任何項目 → 每道都算一道');
+  everyOf(recipes.filter((r) => r.role !== 'main'), (r) => !ctx0.heartyOf(r).hearty, '只有主菜會被算進豐盛的配額');
+
+  const ctxH = buildContext({ recipes, members: B_MEMBERS.hypertension, idx, units });
+  const naHigh = hearty.filter((r) => ctxH.heartyOf(r).hearty && ctxH.heartyOf(r).high.includes('sodium'));
+  ok(naHigh.length >= 5, `（母體）估每份鈉在主菜裡偏高的豐盛菜 ${naHigh.length} 道`);
+  everyOf(mains.filter((r) => ctxH.heartyOf(r).hearty), (r) => ctxH.heartyOf(r).weight === (ctxH.heartyOf(r).high.includes('sodium') ? 2 : 1), '家裡有人留意鈉：鈉偏高的豐盛菜算兩道，其他照舊算一道');
+  const ctxK = buildContext({ recipes, members: B_MEMBERS.kidneyNoSodium, idx, units });
+  eq(mains.map((r) => ctxK.heartyOf(r).weight), mains.map((r) => ctx0.heartyOf(r).weight), '腎臟病沒勾「鈉」→ 每道的算法跟沒有家人時一模一樣（不自動限制）');
+}
+
+section('一週平衡：配額、分散、上一餐豐盛就傾向清淡（跟「沒平衡」的對照比）');
+const bRun = (members, rules, weeks = 8) => {
+  const ctx = buildContext({ recipes, members, idx, units, rules });
+  let history = [];
+  const out = { weeks: [], reasons: [], lh: 0, lhL: 0, ln: 0, lnL: 0, mains: new Set(), dishes: new Set(), empty: 0 };
+  for (let w = 0; w < weeks; w += 1) {
+    const monday = addDays(MONDAY, 7 * w);
+    const { plan, diagnostics } = generateWeek({ recipes, members, idx, units, rules, favorites: [], history, mondayIso: monday, seed: `bal${w}`, shoppingDays: [3, 6] });
+    history = [...history, ...historyRowsOf(plan)];
+    const b = weekBalance({ plan, recipes, members, idx, units, rules });
+    const perDay = new Map();
+    for (const x of b.hearty) perDay.set(x.day, (perDay.get(x.day) ?? 0) + 1);
+    const naHigh = b.hearty.filter((x) => ctx.heartyOf(byId.get(x.recipeId)).high.includes('sodium')).length;
+    out.weeks.push({ plan, b, doubleDays: [...perDay.values()].filter((n) => n > 1).length, weekend: b.hearty.filter((x) => x.day >= 5).length, naHigh });
+    const seq = cookSlots(plan).filter((sl) => sl.meal !== 'breakfast').map((sl) => sl.items.find((it) => it.role === 'main')).filter(Boolean);
+    for (let i = 1; i < seq.length; i += 1) {
+      const prevH = ctx.heartyOf(byId.get(seq[i - 1].recipeId)).hearty;
+      const light = ctx.isLight(byId.get(seq[i].recipeId));
+      if (prevH) { out.lh += 1; if (light) out.lhL += 1; } else { out.ln += 1; if (light) out.lnL += 1; }
+    }
+    for (const sl of plan.slots) for (const it of sl.items ?? []) { out.reasons.push(...(it.reasons ?? [])); out.dishes.add(it.recipeId); if (it.role === 'main') out.mains.add(it.recipeId); }
+    out.empty += diagnostics.empty.length;
+  }
+  return out;
+};
+const bOn = bRun([], { heartyLevel: 'medium' });
+const bOff = bRun([], { heartyLevel: 'medium', balance: false });
+{
+  const W = bOn.weeks;
+  ok(bOff.weeks.some((x) => x.b.load > 4), `（對照）同樣的種子不做平衡時，有幾週豐盛超過 4 道（最多 ${Math.max(...bOff.weeks.map((x) => x.b.load))} 道）—— 配額真的有在做事`);
+  everyOf(W, (x) => x.b.load <= HEARTY_LEVELS.medium, `適中：每週豐盛的主菜 ≤ 4 道（${W.map((x) => x.b.load).join(' ')}）`);
+  everyOf(W, (x) => x.b.hearty.length >= 2, `而且每週至少 2 道 —— 平衡不是把豐盛的菜拿掉、壓回清淡單調（最少 ${Math.min(...W.map((x) => x.b.hearty.length))} 道）`);
+  ok(bOff.weeks.reduce((n, x) => n + x.doubleDays, 0) > 0, `（對照）不做平衡時有 ${bOff.weeks.reduce((n, x) => n + x.doubleDays, 0)} 天是午晚餐都豐盛`);
+  eq(W.reduce((n, x) => n + x.doubleDays, 0), 0, '做平衡：沒有任何一天午晚餐都是豐盛的主菜');
+  ok(Math.max(...bOff.weeks.map((x) => x.b.redMeat)) > WEEK_CAPS.redMeat, `（對照）不做平衡時紅肉主菜最多一週 ${Math.max(...bOff.weeks.map((x) => x.b.redMeat))} 道`);
+  everyOf(W, (x) => x.b.redMeat <= WEEK_CAPS.redMeat && x.b.fried <= WEEK_CAPS.fried && x.b.processed <= WEEK_CAPS.processed, `做平衡：每週紅肉 ≤ 5、油炸 ≤ 1、加工醃漬 ≤ 1（紅肉 ${W.map((x) => x.b.redMeat).join(' ')}）`);
+  const rateOn = bOn.lhL / bOn.lh; const rateOnNon = bOn.lnL / bOn.ln; const rateOff = bOff.lhL / bOff.lh;
+  ok(bOn.lh >= 16, `（母體）${bOn.lh} 次「上一餐豐盛」`);
+  ok(rateOn >= 0.4 && rateOn >= 2 * rateOnNon, `上一餐豐盛之後，這一餐的主菜清淡的比例 ${Math.round(rateOn * 100)}%（≥ 40%，而且是上一餐不豐盛時 ${Math.round(rateOnNon * 100)}% 的兩倍以上）`);
+  ok(rateOff < rateOn - 0.2, `（對照）不做平衡時只有 ${Math.round(rateOff * 100)}%`);
+  ok(bOn.mains.size >= 0.85 * bOff.mains.size, `變化沒有被壓掉：8 週用到 ${bOn.mains.size} 道不同的主菜（不做平衡 ${bOff.mains.size} 道，≥ 85%）`);
+  ok(bOn.dishes.size >= 0.95 * bOff.dishes.size, `全部的菜 ${bOn.dishes.size} 道不同（不做平衡 ${bOff.dishes.size}，≥ 95%）`);
+  eq(bOn.empty, 0, '做平衡不會排出空格（是加減分，不是排除）');
+  const hi = bRun([], { heartyLevel: 'high' }); const lo = bRun([], { heartyLevel: 'low' });
+  const avgN = (o) => o.weeks.reduce((n, x) => n + x.b.hearty.length, 0) / o.weeks.length;
+  everyOf(lo.weeks, (x) => x.b.load <= HEARTY_LEVELS.low && x.b.hearty.length >= 1, `少：每週 1–2 道（${lo.weeks.map((x) => x.b.hearty.length).join(' ')}）`);
+  ok(lo.weeks.filter((x) => x.weekend >= 1).length >= lo.weeks.length / 2, `少：一半以上的週末排得到一道豐盛的菜（${lo.weeks.filter((x) => x.weekend >= 1).length}/${lo.weeks.length} 週；燉的菜只排得進週末）`);
+  everyOf(hi.weeks, (x) => x.b.load <= HEARTY_LEVELS.high, '多：每週 ≤ 6 道');
+  ok(avgN(hi) > avgN(bOn) + 1 && avgN(bOn) > avgN(lo) + 1, `三段真的有差：多 ${avgN(hi).toFixed(1)}、適中 ${avgN(bOn).toFixed(1)}、少 ${avgN(lo).toFixed(1)} 道／週`);
+}
+
+section('一週平衡：有留意項目、有素食成員的家庭');
+{
+  const hyp = bRun(B_MEMBERS.hypertension, {});
+  everyOf(hyp.weeks, (x) => x.b.load <= HEARTY_LEVELS.medium && x.naHigh <= 2, `家裡有人留意鈉：每週加權 ≤ 4、鈉偏高的豐盛菜 ≤ 2 道（${hyp.weeks.map((x) => x.naHigh).join(' ')}）`);
+  ok(hyp.weeks.some((x) => x.b.doubled > 0) || hyp.weeks.every((x) => x.naHigh === 0), '（前提）算兩道的情況真的有被排到，或者鈉偏高的菜根本沒排（兩者之一）');
+  for (const key of ['lactoOvo', 'vegan']) {
+    const on = bRun(B_MEMBERS[key], {}); const off = bRun(B_MEMBERS[key], { balance: false });
+    everyOf(on.weeks, (x) => x.b.load <= HEARTY_LEVELS.medium, `${key}：每週豐盛 ≤ 4`);
+    ok(on.weeks.reduce((n, x) => n + x.doubleDays, 0) <= 1, `${key}：午晚餐都豐盛的日子 8 週最多 1 天（${on.weeks.reduce((n, x) => n + x.doubleDays, 0)}）`);
+    eq(on.empty, 0, `${key}：沒有空格（素食保障照舊，平衡只是加減分）`);
+    const avgRed = (o) => o.weeks.reduce((n, x) => n + x.b.redMeat, 0) / o.weeks.length;
+    ok(avgRed(on) <= avgRed(off), `${key}：紅肉主菜平均 ${avgRed(on).toFixed(1)} 道／週，不比沒平衡（${avgRed(off).toFixed(1)}）多 —— 可分素葷的葷菜多半是豬肉，壓不到 5，本週頁會照講`);
+  }
+}
+
+section('一週平衡：是加減分不是排除（主菜只剩一定算豐盛的菜，也照樣排得出來）');
+{
+  // 豐盛是相對於傳進去的池子算的，所以這裡只留「不管池子怎麼變都算豐盛」的主菜：油炸、加工肉或醃漬、含精緻糖。
+  const alwaysHearty = (r) => r.method === 'deepfry' || r.tags.includes('processed') || r.tags.includes('sweet');
+  const onlyHearty = recipes.filter((r) => r.role !== 'main' || alwaysHearty(r));
+  const ctxOnly = buildContext({ recipes: onlyHearty, members: [], idx, units });
+  ok(onlyHearty.filter((r) => r.role === 'main').length >= 8, `（前提）主菜只剩 ${onlyHearty.filter((r) => r.role === 'main').length} 道油炸／加工醃漬／含精緻糖的菜`);
+  everyOf(onlyHearty.filter((r) => r.role === 'main'), (r) => ctxOnly.heartyOf(r).hearty, '（前提）在這個池子裡它們每一道都算豐盛');
+  const { plan } = generateWeek({ recipes: onlyHearty, members: [], idx, units, favorites: [], history: [], mondayIso: MONDAY, seed: 'onlyHearty', shoppingDays: [3, 6] });
+  everyOf(cookSlots(plan).filter((sl) => sl.meal !== 'breakfast'), (sl) => sl.items.some((it) => it.role === 'main'), '每個午晚餐照樣有主菜');
+  const b = weekBalance({ plan, recipes: onlyHearty, members: [], idx, units });
+  ok(b.over > 0, `超過配額 ${b.over} 道 —— 而且摘要會講：「${balanceSentence(b)}」`);
+  ok(balanceSentence(b).includes(`比你設定的一週 4 道多了 ${b.over} 道`), '摘要照實講超過幾道');
+  ok(!balanceSentence(b).includes('清淡一點平衡'), '超過配額時不會說「前後幾餐排得清淡一點平衡」（那不是真的）');
+  ok(balanceSentence({ ...b, over: 0, load: 4, hearty: b.hearty.slice(0, 4) }).includes('清淡一點平衡'), '（對照）沒超過的時候才這樣講');
+  ok(cookSlots(plan).flatMap((sl) => sl.items).some((it) => (it.reasons ?? []).some((x) => x.includes('超過一週 4 道的設定'))), '超過的那幾道，理由裡也講了');
+}
+
+section('一週平衡：理由與摘要講事實，換過菜也重算');
+{
+  const W = bOn.weeks;
+  const heartyItems = W.flatMap((x) => cookSlots(x.plan).flatMap((sl) => sl.items.filter((it) => it.role === 'main' && x.b.hearty.some((h) => h.recipeId === it.recipeId && h.date === sl.date))));
+  ok(heartyItems.length >= 16, `（母體）${heartyItems.length} 道豐盛的主菜`);
+  everyOf(heartyItems, (it) => it.reasons.some((x) => x.startsWith('比較豐盛：') && x.includes('這週第')), '每一道豐盛的主菜，理由裡講「比較豐盛：為什麼；這週第幾道」');
+  ok(bOn.reasons.filter((x) => x.startsWith('上一餐比較豐盛（')).length >= 8, `「上一餐比較豐盛（菜名），這一餐傾向清淡」出現 ${bOn.reasons.filter((x) => x.startsWith('上一餐比較豐盛（')).length} 次`);
+
+  const { plan, b } = W[0];
+  const sentence = balanceSentence(b);
+  ok(sentence.includes(`這週有 ${b.hearty.length} 餐的主菜比較豐盛`) && b.hearty.slice(0, 4).every((x) => sentence.includes(x.name.split('／')[0].replace(/（.*?）/g, ''))), `摘要列出這週的豐盛菜：「${sentence}」`);
+  // 換成一道不豐盛的 → 摘要從現在的菜單重算，少一道
+  const ctx0 = buildContext({ recipes, members: [], idx, units });
+  const target = b.hearty[0];
+  const si = plan.slots.findIndex((sl) => sl.date === target.date && sl.meal === target.meal);
+  const pos = plan.slots[si].items.find((it) => it.recipeId === target.recipeId).pos;
+  const light = recipes.find((r) => r.role === 'main' && !ctx0.heartyOf(r).hearty && !cookSlots(plan).some((sl) => sl.items.some((it) => it.recipeId === r.id)));
+  const copy = JSON.parse(JSON.stringify(plan));
+  assignItem(copy, si, pos, light);
+  eq(weekBalance({ plan: copy, recipes, members: [], idx, units }).hearty.length, b.hearty.length - 1, '手動換掉一道豐盛的主菜 → 摘要跟著少一道（從現在的菜單算，不是存下來的舊結果）');
+
+  const variants = [
+    balanceSentence({ ...b, hearty: [], load: 0, over: 0 }),
+    sentence,
+    balanceSentence({ ...b, doubled: 1 }),
+    balanceSentence({ ...b, over: 2 }),
+    balanceSentence({ ...b, redMeat: 8, fried: 2, processed: 2 }),
+  ];
+  everyOf(variants, (t) => t.endsWith(BALANCE_NOTE), `每一種摘要最後都帶「${BALANCE_NOTE}」`);
+  eq(BALANCE_NOTE, '這是一般飲食常識的安排，不是營養處方。', '（前提）那句說明一字不差');
+  ok(variants[4].includes('紅肉（牛、豬）主菜 8 道') && variants[4].includes('油炸的主菜 2 道'), `其他配額超過也照講：「${variants[4]}」`);
+
+  // 禁用詞：理由、摘要、家人頁的說明。除了共用的清單，使用者這次特別點名「健康／降／控制」。
+  const BALANCE_WORDS = [...new Set([...FORBIDDEN, '健康', '降', '控制', '改善', '預防'])];
+  const hits = (t) => BALANCE_WORDS.filter((w) => t.includes(w));
+  ok(hits('排這樣比較健康').length && hits('可以控制血壓').length && hits('幫你降血壓').length, '（對照）判準抓得到「健康」「控制」「降」');
+  const hyp = bRun(B_MEMBERS.hypertension, {}, 3);
+  const corpus = [...new Set([...bOn.reasons, ...hyp.reasons].filter((x) => /豐盛|清淡|油炸|紅肉|加工|鈉/.test(x))), ...variants, HEARTY_HINT, BALANCE_NOTE];
+  ok(corpus.length >= 30, `（母體）${corpus.length} 則平衡相關的理由與摘要`);
+  noneOf(corpus, (t) => hits(t).length > 0, '平衡相關的理由、摘要、家人頁說明都沒有療效字眼（含健康／降／控制）', corpus.filter((t) => hits(t).length).slice(0, 3).join('｜'));
+}
+
+section('一週平衡：配額以外的扣分（油炸、加工醃漬、紅肉）');
+{
+  const ctx0 = buildContext({ recipes, members: [], idx, units });
+  const fried = recipes.find((r) => r.role === 'main' && r.method === 'deepfry' && r.vegMode === 'meatOnly');
+  const processed = recipes.find((r) => r.role === 'main' && r.tags.includes('processed') && r.method !== 'deepfry');
+  const red = recipes.find((r) => r.role === 'main' && r.proteins.includes('beef') && !ctx0.heartyOf(r).hearty);
+  ok(fried && processed && red, `（前提）挑到油炸 ${fried?.name}、加工醃漬 ${processed?.name}、紅肉 ${red?.name}`);
+  const stub = (bal) => ({ slotItems: [], placedWant: new Set(), lastServed: () => null, timesServedWithin: () => 0, dayProteins: () => new Set(), prevDayMealProteins: () => new Set(), fishCount: () => 0, rangeHas: () => false, balance: { load: 0, count: 0, fried: 0, processed: 0, redMeat: 0, ...bal }, heartySlot: () => null, heartyMealsOn: () => [], sodiumHighYesterday: () => false });
+  const slot = { role: 'main', meal: 'lunch', date: '2026-09-16', day: 2 };
+  const at = (r, bal) => scoreSoft(r, slot, ctx0, stub(bal), () => 0);
+  const cases = [['油炸', fried, { fried: 0 }, { fried: WEEK_CAPS.fried }], ['加工醃漬', processed, { processed: 0 }, { processed: WEEK_CAPS.processed }], ['紅肉', red, { redMeat: 0 }, { redMeat: WEEK_CAPS.redMeat }]];
+  for (const [label, r, under, full] of cases) {
+    const a = at(r, under); const z = at(r, full);
+    ok(a.score - z.score >= 30, `${label}：這週的配額滿了之後同一道菜少 ${Math.round(a.score - z.score)} 分（≥ 30）`);
+    ok(z.reasons.some((x) => x.startsWith('這週') && x.includes(label === '紅肉' ? '紅肉' : label === '油炸' ? '油炸' : '加工肉或醃漬')), `${label}：理由講出這週已經有幾道`);
+  }
+  // 同一天另一餐已經豐盛。產生一週時晚餐排在午餐之後，「上一餐豐盛」那條就擋住了 —— 所以只看產生結果的斷言
+  // 量不出這條（突變驗證抓到：把它拿掉，整週的斷言照樣綠）。它真正起作用的是「換一道午餐」：那時晚餐已經排好了。
+  const sameDayMain = recipes.find((r) => r.role === 'main' && ctx0.heartyOf(r).hearty && !r.proteins.some((p) => p === 'beef' || p === 'pork') && r.method !== 'deepfry' && !r.tags.includes('processed'));
+  ok(sameDayMain, `（前提）挑一道豐盛、但不牽涉其他配額的主菜：${sameDayMain?.name}`);
+  const withDay = (meals) => ({ ...stub({}), heartyMealsOn: () => meals });
+  const free = scoreSoft(sameDayMain, slot, ctx0, withDay([]), () => 0);
+  const busy = scoreSoft(sameDayMain, slot, ctx0, withDay(['dinner']), () => 0);
+  ok(free.score - busy.score >= 25, `同一天晚餐已經豐盛 → 午餐這道豐盛的菜少 ${Math.round(free.score - busy.score)} 分（≥ 25）；換一道午餐時靠這條避開同一天兩餐都豐盛`);
+  ok(busy.reasons.includes('今天晚餐已經比較豐盛'), '理由講「今天晚餐已經比較豐盛」');
 }
 
 done('plannertest');
