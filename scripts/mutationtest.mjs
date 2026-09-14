@@ -8,7 +8,7 @@
 // 開頭先跑一次沒有突變的基準：所有涉及的測試必須是綠的。
 //
 // ⚠ 執行期間會暫時改寫工作目錄裡的原始碼（改完立刻還原）。跑的時候不要同時編輯檔案、不要並行跑別的測試。
-//   `--only <關鍵字>` 只跑名稱／檔名／測試名含關鍵字的那幾條。
+//   `--only <關鍵字>` 只跑名稱／檔名／測試名含關鍵字的那幾條；多個關鍵字用 | 分隔（任一個命中就選）。
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -19,6 +19,95 @@ import { ok, eq, section, done, note } from './tap.mjs';
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const MUTATIONS = [
+  // ---- 使用者回報第四輪：客人欄直式、自己加的項目、清單摺疊、日期列按鈕 ----
+  {
+    name: "日期列回到 flex-wrap（有買菜日標籤就擠掉「一起煮」）",
+    why: "使用者截圖：有「買菜日」標籤的那天，「一起煮」被擠到下一行、跑到左邊，跟其他天對不齊。",
+    file: "css/style.css",
+    find: ".day-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; column-gap: 8px; }",
+    replace: ".day-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }",
+    test: "layouttest",
+  },
+  {
+    name: "「這次有客人？」葷素兩格不再並排對齊",
+    why: "使用者回報說明跟兩個框擠在一起；改回去的話兩個框會疊成上下兩列、寬度也不一。",
+    file: "css/style.css",
+    find: ".extra-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: end; max-width: 22em; }",
+    replace: ".extra-inputs { display: block; }",
+    test: "shoppingviewtest",
+  },
+  {
+    name: "自己加的項目不標「自己加的」",
+    why: "看起來跟系統算出來的食材一樣，她會以為加了會影響菜單或營養。",
+    file: "js/views/shopping.js",
+    find: "            h('span', { class: 'muted xs shop-uses' }, pill('自己加的'), '　', del))));",
+    replace: "            h('span', { class: 'muted xs shop-uses' }, del))));",
+    test: "shoppingviewtest",
+  },
+  {
+    name: "進度總數不算自己加的項目",
+    why: "「已買 N／M」少算了飯後水果那幾樣，她會以為都買齊了，其實還缺。",
+    file: "js/views/shopping.js",
+    find: "      const total = range.items.length + range.custom.length;",
+    replace: "      const total = range.items.length;",
+    test: "shoppingviewtest",
+  },
+  {
+    name: "複製出去的清單漏掉自己加的項目",
+    why: "貼到 LINE 給家人代買，飯後水果那幾樣不見了。",
+    file: "js/shopping.js",
+    find: "  if (range.custom?.length) {",
+    replace: "  if (false) {",
+    test: "shoppingtest",
+  },
+  {
+    name: "自己加的項目不分採買卡（每張卡都出現）",
+    why: "週三那趟加的水果，週六那張清單也冒出來，會買兩次。",
+    file: "js/shopping.js",
+    find: "    custom: sanitizeCustom(customByRange[r.key]),",
+    replace: "    custom: sanitizeCustom(Object.values(customByRange).flat()),",
+    test: "shoppingtest",
+  },
+  {
+    name: "自己加的項目名稱空白也收",
+    why: "清單上多出一列沒有名字的項目，不知道要買什麼。",
+    file: "js/shopping.js",
+    find: "    if (!name || !id || seen.has(id)) continue;",
+    replace: "    if (!id || seen.has(id)) continue;",
+    test: "shoppingtest",
+  },
+  {
+    name: "買齊了也不自動收合",
+    why: "使用者要的是「清楚知道還缺什麼」—— 買齊的區塊一直攤開，還沒買的就被淹沒了。",
+    file: "js/views/shopping.js",
+    find: "        const open = manual ? manual === 'open' : !allDone;",
+    replace: "        const open = manual ? manual === 'open' : true;",
+    test: "shoppingviewtest",
+  },
+  {
+    name: "手動展開的區塊又被自動收回去",
+    why: "她特地打開一個買齊的區塊要確認，勾一下就又被收起來 —— 手動意圖要優先。",
+    file: "js/views/shopping.js",
+    find: "        const open = manual ? manual === 'open' : !allDone;",
+    replace: "        const open = !allDone;",
+    test: "shoppingviewtest",
+  },
+  {
+    name: "「家裡有」不算買齊",
+    why: "使用者說「家裡有也等同於已購買」；只看「買了」的話，勾了家裡有的區塊永遠收不起來。",
+    file: "js/views/shopping.js",
+    find: "    const isDone = (k) => !!row.checked?.[k] || !!row.have?.[k];",
+    replace: "    const isDone = (k) => !!row.checked?.[k];",
+    test: "shoppingviewtest",
+  },
+  {
+    name: "收合只改外觀，不用 hidden 移出版面",
+    why: "看起來收了，但版面還被佔著、螢幕閱讀器仍然念整區 —— 跟本週頁摺疊同一個要求。",
+    file: "js/views/shopping.js",
+    find: "        f.body.hidden = !open;",
+    replace: "        f.body.style.opacity = open ? '1' : '0.4';",
+    test: "shoppingviewtest",
+  },
   // ---- 「家裡有」降級並自己解釋自己、客人數收合 ----
   {
     name: "generateWeek 不把 haveFoods 接下去",
@@ -1170,7 +1259,8 @@ const only = (() => {
   const i = process.argv.indexOf('--only');
   return i >= 0 ? String(process.argv[i + 1] ?? '') : '';
 })();
-const SELECTED = only ? MUTATIONS.filter((m) => [m.name, m.file, m.test].some((s) => s.includes(only))) : MUTATIONS;
+const onlyKeys = only ? only.split('|').map((k) => k.trim()).filter(Boolean) : [];
+const SELECTED = only ? MUTATIONS.filter((m) => [m.name, m.file, m.test].some((s) => onlyKeys.some((k) => s.includes(k)))) : MUTATIONS;
 const TESTS = [...new Set(SELECTED.map((m) => m.test))];
 
 function runTest(name) {

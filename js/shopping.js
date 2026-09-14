@@ -115,7 +115,7 @@ export function rangesOfPlan(plan, shoppingDays) {
  * @returns {{ ranges: [{ key, label, dates, items: [...], pantry: [...] }] }}
  *   item：{ foodId, name, labels: string[], grams, buy: {qty, unit, grams}|null, section, uses: [{date, meal, recipe}] }
  */
-export function buildShoppingList({ plan, recipesById, members = [], idx, units, shoppingDays = [], extraByRange = {}, manualByRange = {} }) {
+export function buildShoppingList({ plan, recipesById, members = [], idx, units, shoppingDays = [], extraByRange = {}, manualByRange = {}, customByRange = {} }) {
   const terms = aliasTermsOf(idx);
   const buyUnitFor = (foodId) => {
     for (const t of terms.get(foodId) ?? []) { const u = units?.buyUnits?.[t]; if (u && typeof u === 'object' && u.grams > 0) return u; }
@@ -123,6 +123,8 @@ export function buildShoppingList({ plan, recipesById, members = [], idx, units,
   };
   const ranges = rangesOfPlan(plan, shoppingDays).map((r) => ({
     ...r, items: [], pantry: [],
+    // 自己加的項目跟著這張採買卡走（per-range），整理成乾淨的形狀；不參與任何克數計算
+    custom: sanitizeCustom(customByRange[r.key]),
     extra: { meat: Math.max(0, Math.floor(Number(extraByRange[r.key]?.meat) || 0)), veg: Math.max(0, Math.floor(Number(extraByRange[r.key]?.veg) || 0)) },
   }));
   for (const range of ranges) {
@@ -178,6 +180,29 @@ export function buildShoppingList({ plan, recipesById, members = [], idx, units,
   return { ranges };
 }
 
+/** 自己加的項目在 checked 裡的鍵。跟食材編號分開命名空間，免得撞到。 */
+export const CUSTOM_PREFIX = 'custom:';
+export function customKey(id) { return `${CUSTOM_PREFIX}${id}`; }
+
+/**
+ * 使用者自己加的採買項目（例如飯後水果）。**不是食材**：不解析到食藥署編號、
+ * 不進營養計算，也不影響排菜 —— 純粹是「這趟也要買」的備忘。
+ * 名稱必填、數量可不填（「一串」「3 顆」這種自由文字）；亂填的收成乾淨的形狀。
+ */
+export function sanitizeCustom(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const c of list) {
+    const name = String(c?.name ?? '').trim().slice(0, 30);
+    const id = String(c?.id ?? '').trim();
+    if (!name || !id || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, name, qty: String(c?.qty ?? '').trim().slice(0, 12) });
+  }
+  return out;
+}
+
 /** 「多加 2 位吃葷」這種說明；沒加人回空字串。 */
 export function extraText(extra) {
   const meat = Math.max(0, Math.floor(Number(extra?.meat) || 0));
@@ -223,6 +248,14 @@ export function listAsText(range, { checked = {}, have = {} } = {}) {
     for (const it of items) {
       const mark = checked[it.foodId] ? '✓' : have[it.foodId] ? '（家裡有）' : '□';
       lines.push(`${mark} ${it.labels[0] ?? it.name}　${quantityText(it)}${it.manual ? '（已改）' : ''}`);
+    }
+  }
+  // 自己加的另起一段，每一項都標出來 —— 貼到 LINE 的人才不會以為那是菜單算出來的
+  if (range.custom?.length) {
+    lines.push('— 自己加的（不算進菜單）—');
+    for (const c of range.custom) {
+      const mark = checked[customKey(c.id)] ? '✓' : '□';
+      lines.push(`${mark} ${c.name}${c.qty ? `　${c.qty}` : ''}（自己加的）`);
     }
   }
   if (range.pantry.length) lines.push(`— 常備品（用完再補）—`, range.pantry.map((p) => p.labels[0] ?? p.name).join('、'));

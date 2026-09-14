@@ -5,7 +5,7 @@ import { setTop, render } from '../shell.js';
 import * as store from '../store.js';
 import * as prefs from '../prefs.js';
 import { mondayOf, weekKeyOf, addDays, isoDate, parseDate, DAY_LABELS } from '../planner.js';
-import { buildShoppingList, quantityText, listAsText, extraText, suggestedText, manualUnitOf, SECTIONS, rangesOfPlan } from '../shopping.js';
+import { buildShoppingList, quantityText, listAsText, extraText, suggestedText, manualUnitOf, customKey, sanitizeCustom, SECTIONS, rangesOfPlan } from '../shopping.js';
 import { refresh } from '../router.js';
 
 function fmtMD(iso) { const d = parseDate(iso); return `${d.getMonth() + 1}/${d.getDate()}`; }
@@ -49,12 +49,14 @@ export default async function shoppingView(query = {}) {
   // 所以要先讀出每張卡存著的人數，再算數量。
   const extraByRange = {};
   const manualByRange = {};
+  const customByRange = {};
   for (const r of rangesOfPlan(plan, shoppingDays)) {
     const saved = await store.getShopping(r.key);
     extraByRange[r.key] = { meat: saved.extra?.meat ?? 0, veg: saved.extra?.veg ?? 0 };
     manualByRange[r.key] = saved.manual ?? {};
+    customByRange[r.key] = saved.custom ?? [];
   }
-  const { ranges } = buildShoppingList({ plan, recipesById, members, idx, units: store.units(), shoppingDays, extraByRange, manualByRange });
+  const { ranges } = buildShoppingList({ plan, recipesById, members, idx, units: store.units(), shoppingDays, extraByRange, manualByRange, customByRange });
   if (!ranges.length) {
     render(h('section', { class: 'card', dataset: { card: 'shoppingEmpty' } }, h('div', { class: 'row-actions' }, weekChips), h('h2', { class: 'card-title' }, '這週沒有自己煮的餐'), h('p', { class: 'muted' }, '菜單裡每一餐都是外食或不煮，所以沒有東西要買。')));
     return;
@@ -73,19 +75,60 @@ export default async function shoppingView(query = {}) {
     const row = await store.getShopping(range.key);
     row.weekKey = weekKey;
     const save = () => store.saveShopping(row);
+    // ---- 摺疊：讓她一眼看出還缺什麼 ----
+    // 規則（使用者要求，照這個做）：
+    //   · 手動操作過的區塊 → 照手動（row.fold[key] = 'open' | 'closed'）。
+    //     手動展開一個已經買齊的區塊，不會再被自動收回去 —— 手動意圖優先。
+    //   · 沒操作過 → 裡面每一項都勾了「買了」或「家裡有」就收合，還有沒買的就展開。
+    // 收合用 hidden 真的移出版面（螢幕閱讀器也讀不到），標題留一行摘要，
+    // 讓她知道那一區是「買齊了」不是「不見了」。
+    const cardIdx = cards.length;
+    const isDone = (k) => !!row.checked?.[k] || !!row.have?.[k];
+    const folds = [];
+    const applyFolds = () => {
+      for (const f of folds) {
+        const total = f.itemKeys.length;
+        const doneN = f.itemKeys.filter(isDone).length;
+        const allDone = total > 0 && doneN === total;
+        const manual = row.fold?.[f.key];
+        const open = manual ? manual === 'open' : !allDone;
+        f.body.hidden = !open;
+        f.toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        f.caret.textContent = open ? '▾' : '▸';
+        f.summary.textContent = allDone ? `（${total} 項全買齊）` : `（還差 ${total - doneN} 項）`;
+        const box = f.body.parentElement;
+        if (box) { box.dataset.foldOpen = open ? 'true' : 'false'; box.dataset.foldDone = allDone ? 'true' : 'false'; }
+      }
+    };
+    const makeFold = ({ key, label, extraNodes = [], itemKeys, bodyNodes, headingTag, headingClass }) => {
+      const id = `fold-${cardIdx}-${folds.length}`;
+      const caret = h('span', { class: 'fold-caret', 'aria-hidden': 'true' }, '▾');
+      const summary = h('span', { class: 'muted xs fold-summary', dataset: { field: 'foldSummary' } });
+      const toggle = h('button', { class: 'fold-toggle', type: 'button', 'aria-expanded': 'true', 'aria-controls': id, dataset: { action: 'fold', fold: key } },
+        caret, h('span', { class: 'fold-label' }, label), ...extraNodes, summary);
+      const body = h('div', { class: 'fold-body', id }, ...bodyNodes);
+      const f = { key, itemKeys, toggle, body, caret, summary, heading: h(headingTag, { class: headingClass }, toggle) };
+      folds.push(f);
+      toggle.addEventListener('click', async () => {
+        const nowOpen = toggle.getAttribute('aria-expanded') === 'true';
+        row.fold = { ...(row.fold ?? {}), [key]: nowOpen ? 'closed' : 'open' };
+        await save();
+        applyFolds();
+      });
+      return f;
+    };
     const progress = h('p', { class: 'muted sm', dataset: { field: 'progress' } });
     const drawProgress = () => {
-      const total = range.items.length;
-      const bought = range.items.filter((it) => row.checked?.[it.foodId]).length;
+      const total = range.items.length + range.custom.length;
+      const bought = range.items.filter((it) => row.checked?.[it.foodId]).length
+        + range.custom.filter((c) => row.checked?.[customKey(c.id)]).length;
       const have = range.items.filter((it) => !row.checked?.[it.foodId] && row.have?.[it.foodId]).length;
       progress.textContent = `已買 ${bought}／${total}${have ? `，家裡有 ${have}` : ''}`;
     };
     const sections = SECTIONS.map((sec) => {
       const items = range.items.filter((it) => it.section === sec);
       if (!items.length) return null;
-      return h('div', { class: 'shop-section', dataset: { section: sec } },
-        h('h3', { class: 'shop-section-title' }, sec, ' ', pill(String(items.length))),
-        ...items.map((it) => {
+      const f = makeFold({ key: sec, label: sec, extraNodes: [' ', pill(String(items.length))], itemKeys: items.map((it) => it.foodId), headingTag: 'h3', headingClass: 'shop-section-title', bodyNodes: items.map((it) => {
           const cb = h('input', { type: 'checkbox', checked: !!row.checked?.[it.foodId], 'aria-label': `買了 ${it.labels[0] ?? it.name}` });
           // 「打勾」是主動作，「家裡有」降成第二行的小連結（使用者回報兩個並排看起來重複）。
           // 沒有合併成一個勾：兩者對排菜器的意義不同 —— 勾「家裡有」的食材，下次用到它的菜會加分，
@@ -136,15 +179,16 @@ export default async function shoppingView(query = {}) {
                   it.labels.length > 1 ? `也叫${it.labels.slice(1, 3).join('、')}；` : '',
                   `用在：${it.uses.slice(0, 2).map((u) => `${fmtMD(u.date)} ${u.recipe}`).join('、')}${it.uses.length > 2 ? ` 等 ${it.uses.length} 餐` : ''}`))),
           );
-          cb.addEventListener('change', async () => { row.checked = { ...(row.checked ?? {}), [it.foodId]: cb.checked }; line.classList.toggle('done', cb.checked); await save(); drawProgress(); });
+          cb.addEventListener('change', async () => { row.checked = { ...(row.checked ?? {}), [it.foodId]: cb.checked }; line.classList.toggle('done', cb.checked); await save(); drawProgress(); applyFolds(); });
           haveBtn.addEventListener('click', async () => {
             const on = !row.have?.[it.foodId];
             row.have = { ...(row.have ?? {}), [it.foodId]: on };
             haveBtn.classList.toggle('on', on); haveBtn.setAttribute('aria-pressed', on ? 'true' : 'false'); line.classList.toggle('have', on);
-            await save(); drawProgress();
+            await save(); drawProgress(); applyFolds();
           });
           return line;
-        }));
+        }) });
+      return h('div', { class: 'shop-section', dataset: { section: sec } }, f.heading, f.body);
     });
     drawProgress();
     const copyBtn = h('button', { class: 'btn', type: 'button', dataset: { action: 'copyList' } }, '複製清單');
@@ -175,23 +219,87 @@ export default async function shoppingView(query = {}) {
     const extraOpen = (range.extra.meat + range.extra.veg) > 0;
     const extraBlock = h('details', { class: 'how no-print', open: extraOpen ? 'open' : null, dataset: { field: 'extraRow' } },
       h('summary', {}, extraOpen ? `這次有客人（${extraText(range.extra).replace('多加 ', '')}）` : '這次有客人？'),
-      h('div', { class: 'extra-row' },
-        h('span', { class: 'muted sm' }, '這張清單多幾個人吃'),
-        numField('meat', '吃葷'), numField('veg', '吃素'),
-        h('span', { class: 'muted xs' }, '0 ＝ 照家裡人數')));
+      // 使用者回報說明跟兩個框擠在同一行。改成說明在上、葷素兩格並排對齊在下。
+      h('p', { class: 'muted sm extra-desc', dataset: { field: 'extraDesc' } }, '這張清單多幾個人吃？填 0 就是照家裡人數。'),
+      h('div', { class: 'extra-inputs', dataset: { field: 'extraInputs' } }, numField('meat', '吃葷'), numField('veg', '吃素')));
+
+    // ---- 自己加的項目（例如飯後水果）----
+    // 不在菜單裡、不解析食藥署編號、不進營養：純粹是「這趟也要買」。所以另起一區，
+    // 每一項都標「自己加的」，免得她以為加了會影響菜單或營養。
+    const customKeys = range.custom.map((c) => customKey(c.id));
+    const customRows = range.custom.map((c) => {
+      const k = customKey(c.id);
+      const cb = h('input', { type: 'checkbox', checked: !!row.checked?.[k], 'aria-label': `買了 ${c.name}` });
+      const del = h('button', { class: 'linklike', type: 'button', dataset: { action: 'deleteCustom', custom: c.id } }, '刪除');
+      const line = h('div', { class: 'shop-row custom-row' + (row.checked?.[k] ? ' done' : ''), dataset: { custom: c.id } },
+        h('label', { class: 'check shop-check', 'aria-label': `買了 ${c.name}` }, cb,
+          h('span', { class: 'shop-main' },
+            h('span', { class: 'shop-line1' },
+              h('span', { class: 'shop-name' }, c.name),
+              c.qty ? h('span', { class: 'shop-qty num' }, c.qty) : null),
+            h('span', { class: 'muted xs shop-uses' }, pill('自己加的'), '　', del))));
+      cb.addEventListener('change', async () => { row.checked = { ...(row.checked ?? {}), [k]: cb.checked }; line.classList.toggle('done', cb.checked); await save(); drawProgress(); applyFolds(); });
+      del.addEventListener('click', async () => {
+        const res = await modal({ title: `刪除「${c.name}」？`, body: h('p', { class: 'muted sm' }, '只會從這張清單拿掉，不會影響菜單。'),
+          actions: [{ value: null, label: '取消' }, { value: 'del', label: '刪除', danger: true }] });
+        if (res !== 'del') return;
+        row.custom = (row.custom ?? []).filter((x) => x.id !== c.id);
+        const nextChecked = { ...(row.checked ?? {}) };
+        delete nextChecked[k];
+        row.checked = nextChecked;
+        await save();
+        refresh();
+      });
+      return line;
+    });
+    const customFold = range.custom.length
+      ? makeFold({ key: '自己加的', label: '自己加的', extraNodes: [' ', pill(String(range.custom.length))], itemKeys: customKeys, headingTag: 'h3', headingClass: 'shop-section-title',
+        bodyNodes: [h('p', { class: 'muted xs' }, '這些是你自己加的，不會影響菜單或營養。'), ...customRows] })
+      : null;
+    const addBtn = h('button', { class: 'btn', type: 'button', dataset: { action: 'addCustom' } }, '＋ 自己加一項');
+    addBtn.addEventListener('click', async () => {
+      const nameIn = h('input', { type: 'text', class: 'field', maxLength: 30, placeholder: '例：蘋果、衛生紙', 'aria-label': '要買什麼', dataset: { field: 'customName' } });
+      const qtyIn = h('input', { type: 'text', class: 'field', maxLength: 12, placeholder: '例：3 顆、一串（可不填）', 'aria-label': '買多少', dataset: { field: 'customQty' } });
+      const res = await modal({
+        title: '自己加一項',
+        body: h('div', { class: 'qty-edit' },
+          h('p', { class: 'muted sm' }, '菜單以外要買的東西（像飯後水果）。只是提醒自己，不會算進菜單或營養。'),
+          h('label', { class: 'custom-field' }, h('span', { class: 'muted sm' }, '要買什麼'), nameIn),
+          h('label', { class: 'custom-field' }, h('span', { class: 'muted sm' }, '買多少'), qtyIn)),
+        actions: [{ value: null, label: '取消' }, { value: 'ok', label: '加進清單', primary: true }],
+      });
+      if (res !== 'ok') return;
+      const id = `c-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+      const item = sanitizeCustom([{ id, name: nameIn.value, qty: qtyIn.value }])[0];
+      if (!item) { toast('請填要買什麼'); return; }
+      row.custom = [...(row.custom ?? []), item];
+      await save();
+      refresh();
+    });
+
+    const pantryEl = range.pantry.length ? h('details', { class: 'how', dataset: { field: 'pantry' } }, h('summary', {}, `常備品 ${range.pantry.length} 項（用完再補）`),
+      h('p', { class: 'muted sm' }, range.pantry.map((p) => p.labels[0] ?? p.name).join('、'))) : null;
+    const customSectionEl = customFold ? h('div', { class: 'shop-section custom-section', dataset: { section: '自己加的' } }, customFold.heading, customFold.body) : null;
+    // 整張卡也可以摺疊：全部買齊（含自己加的）就收起來，只留標題「（N 項全買齊）」
+    const cardFold = makeFold({
+      key: '__card', label: range.label,
+      // 調過就一定要看得出來，不然她對不起來為什麼買這麼多
+      extraNodes: extraNote ? [' ', pill(extraNote, 'accent')] : [],
+      itemKeys: [...range.items.map((it) => it.foodId), ...customKeys],
+      headingTag: 'h2', headingClass: 'card-title',
+      bodyNodes: [...sections.filter(Boolean), customSectionEl, pantryEl],
+    });
+    applyFolds();
 
     cards.push(h('section', { class: 'card shop-card', dataset: { card: 'shopRange', range: range.key } },
-      h('h2', { class: 'card-title' }, range.label,
-        // 調過就一定要看得出來，不然她對不起來為什麼買這麼多
-        extraNote ? ' ' : '', extraNote ? pill(extraNote, 'accent') : null),
+      cardFold.heading,
       h('p', { class: 'muted sm' }, `給 ${range.dates.map((d) => `${fmtMD(d)}（${dayLabel(d)}）`).join('、')} 的餐`),
       extraBlock,
       extraNote ? h('p', { class: 'muted sm', dataset: { field: 'extraNote' } },
         `下面的數量已經${extraNote}算進去了（家裡 ${members.length} 位 ＋ 這些人）。`) : null,
       progress,
-      ...sections,
-      range.pantry.length ? h('details', { class: 'how', dataset: { field: 'pantry' } }, h('summary', {}, `常備品 ${range.pantry.length} 項（用完再補）`),
-        h('p', { class: 'muted sm' }, range.pantry.map((p) => p.labels[0] ?? p.name).join('、'))) : null,
+      cardFold.body,
+      h('div', { class: 'custom-add no-print' }, addBtn),
       h('div', { class: 'btn-row no-print' }, copyBtn, printBtn),
     ));
   }

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, near, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { indexFoods } from '../js/foods.js';
 import { newMember } from '../js/members.js';
-import { rangesOfPlan, buildShoppingList, scaleFor, scaleWithGuests, guestScaleFor, extraText, suggestedText, manualUnitOf, sectionOf, quantityText, listAsText, SECTIONS } from '../js/shopping.js';
+import { rangesOfPlan, buildShoppingList, scaleFor, scaleWithGuests, guestScaleFor, extraText, suggestedText, manualUnitOf, sanitizeCustom, customKey, sectionOf, quantityText, listAsText, SECTIONS } from '../js/shopping.js';
 import { generateWeek } from '../js/planner.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -296,6 +296,54 @@ section('手改與「多幾個人吃」並存時，手改優先');
   const otherItem = both.ranges[0].items.find((x) => x.foodId !== CABBAGE && !x.manual);
   ok(otherItem, '（前提）還有沒被手改的項目');
   eq(otherItem.manual, undefined, '沒手改的項目仍然照「多幾個人」算');
+}
+
+section('自己加的項目：純採買備忘，不解析編號、不進任何計算');
+// 使用者回報：「有時候如買水果不是在菜單裡的，只是飯後水果」。
+{
+  eq(sanitizeCustom(null), [], '沒給 → 空陣列');
+  eq(sanitizeCustom([{ id: 'c1', name: '  蘋果 ', qty: ' 3 顆 ' }]), [{ id: 'c1', name: '蘋果', qty: '3 顆' }], '名稱與數量去掉前後空白');
+  eq(sanitizeCustom([{ id: 'c1', name: '   ' }, { id: '', name: '香蕉' }, { name: '橘子' }]), [], '沒有名稱或沒有 id 的都不收');
+  eq(sanitizeCustom([{ id: 'c1', name: '蘋果' }, { id: 'c1', name: '重複的' }]).length, 1, '同一個 id 只收一次');
+  const long = sanitizeCustom([{ id: 'c1', name: 'x'.repeat(50), qty: 'y'.repeat(50) }])[0];
+  ok(long.name.length === 30 && long.qty.length === 12, `名稱截到 30 字、數量截到 12 字（${long.name.length}／${long.qty.length}）`);
+  eq(sanitizeCustom([{ id: 'c1', name: '蘋果' }])[0].qty, '', '數量可以不填（是空字串，不是 undefined）');
+  eq(customKey('c1'), 'custom:c1', '勾選狀態用自己的命名空間，不會撞到食材編號');
+
+  const p = plan([slot(0, 'dinner', [cabbagePork.id])]);
+  const base = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [] });
+  const key = base.ranges[0].key;
+  eq(base.ranges[0].custom, [], '沒加任何東西 → 這張卡的自己加的是空陣列');
+  const withC = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [],
+    customByRange: { [key]: [{ id: 'c1', name: '蘋果', qty: '3 顆' }, { id: 'c2', name: '香蕉', qty: '' }] } });
+  const r = withC.ranges[0];
+  eq(r.custom.map((c) => c.name), ['蘋果', '香蕉'], '自己加的跟著這張卡');
+
+  // 不進任何計算：食材清單（編號與克數）一模一樣
+  const sig = (range) => range.items.map((it) => `${it.foodId}:${it.grams}`).join('|');
+  ok(base.ranges[0].items.length >= 3, `（母體）食材 ${base.ranges[0].items.length} 項`);
+  eq(sig(r), sig(base.ranges[0]), '加了自己加的項目，食材清單的編號與克數一項都沒變');
+  eq(r.pantry.length, base.ranges[0].pantry.length, '常備品也沒變');
+  noneOf(r.items, (it) => it.name === '蘋果' || it.labels.includes('蘋果') || it.name === '香蕉', '自己加的不會混進食材清單');
+
+  // per-range：只加在第一張卡，第二張卡沒有
+  const two = plan([slot(2, 'dinner', [cabbagePork.id]), slot(5, 'dinner', [cabbagePork.id])]);
+  const keys = rangesOfPlan(two, [3, 6]).map((x) => x.key);
+  ok(keys.length === 2, `（前提）買菜日週三＋週六 → ${keys.length} 張卡`);
+  const byTwo = buildShoppingList({ plan: two, recipesById: byId, members: fam, idx, units, shoppingDays: [3, 6], customByRange: { [keys[0]]: [{ id: 'c1', name: '蘋果' }] } });
+  eq(byTwo.ranges.find((x) => x.key === keys[0]).custom.length, 1, '第一張卡有');
+  eq(byTwo.ranges.find((x) => x.key === keys[1]).custom, [], '第二張卡沒有（自己加的跟著加的那張卡走）');
+
+  // 複製出去的文字：另起一段、帶名稱與數量、每一項都標「自己加的」
+  const text = listAsText(r, { checked: { [customKey('c1')]: true } });
+  ok(text.includes('— 自己加的（不算進菜單）—'), '複製的文字另起一段「自己加的」');
+  ok(/✓ 蘋果　3 顆（自己加的）/.test(text), '勾過的那項是 ✓、帶數量、標「自己加的」');
+  ok(/□ 香蕉（自己加的）/.test(text), '沒填數量的那項沒有多出空白');
+  noneOf([text], (t) => /undefined|null/.test(t), '文字裡沒有 undefined／null');
+  const idxCustom = text.indexOf('— 自己加的');
+  const idxFood = text.indexOf('— 蔬菜');
+  ok(idxFood >= 0 && idxCustom > idxFood, '自己加的排在系統算出來的食材後面');
+  noneOf([listAsText(base.ranges[0], {})], (t) => /自己加的/.test(t), '（對照）沒加的清單不會出現那一段');
 }
 
 done('shoppingtest');

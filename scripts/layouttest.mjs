@@ -122,6 +122,10 @@ try {
     { name: '今日煮', hash: `#/today?d=${seeded.today.d}&meal=${seeded.today.meal}` },
     { name: '買菜', hash: '#/shopping' },
     { name: '買菜（改過數量）', hash: '#/shopping', manualQty: true },
+    // 「這次有客人？」展開（葷素兩格）＋自己加的項目（名稱與數量放到上限）
+    { name: '買菜（有客人＋自己加的）', hash: '#/shopping', guestsCustom: true },
+    // 某一區全部買齊 → 自動收合，標題只剩摘要
+    { name: '買菜（買齊收合）', hash: '#/shopping', foldDone: true },
     { name: '食譜清單', hash: '#/recipes' },
     { name: '食譜（最長名）', hash: `#/recipes/${LONG_RECIPE}` },
     { name: '我的食譜', hash: `#/recipes/${seeded.myRecipeId}` },
@@ -232,6 +236,28 @@ try {
     return { overflow, overlaps, columns, docW, scrollW: document.documentElement.scrollWidth, leafCount: boxes.length,
       dayBodies, dayToggleMinH: Number.isFinite(dayToggleMinH) ? Math.round(dayToggleMinH) : 999,
       manualMarks: root.querySelectorAll('.qty-manual').length,
+      // 日期列：「一起煮」要跟日期在同一列、靠右（有沒有買菜日標籤都一樣）
+      dayHeads: [...root.querySelectorAll('[data-card="day"]')].map((c) => {
+        const btn = c.querySelector('[data-action="cookToday"]');
+        const tog = c.querySelector('[data-action="toggleDay"]');
+        const head = c.querySelector('.day-head');
+        if (!btn || !tog || !head) return null;
+        const b = btn.getBoundingClientRect(); const t = tog.getBoundingClientRect(); const hd = head.getBoundingClientRect();
+        if (b.width === 0) return null;
+        return { pill: !!tog.querySelector('.pill'), sameRow: b.top < t.bottom - 4, rightGap: Math.round(hd.right - b.right) };
+      }).filter(Boolean),
+      // 「這次有客人？」展開時：說明在上、葷素兩格同一列並排
+      guest: (() => {
+        const d = root.querySelector('[data-field="extraRow"][open]');
+        if (!d) return null;
+        const desc = d.querySelector('[data-field="extraDesc"]')?.getBoundingClientRect();
+        const m = d.querySelector('[data-field="extraMeat"]')?.getBoundingClientRect();
+        const v = d.querySelector('[data-field="extraVeg"]')?.getBoundingClientRect();
+        if (!desc || !m || !v) return { aligned: false };
+        return { aligned: Math.abs(m.top - v.top) <= 2 && m.top >= desc.bottom - 1 && v.left >= m.right - 1 };
+      })(),
+      customRows: root.querySelectorAll('.custom-row').length,
+      foldedSections: [...root.querySelectorAll('.shop-section')].filter((x) => x.dataset.foldOpen === 'false').length,
       qtyBtnMinH: (() => {
         const hs = [...root.querySelectorAll('[data-action="editQty"]')].map((e) => e.getBoundingClientRect().height);
         return hs.length ? Math.round(Math.min(...hs)) : 999;
@@ -279,6 +305,33 @@ try {
             await store.saveShopping(row);
           }
         }, !!route.manualQty);
+        await page.evaluate(async (opt) => {
+          const store = await import('./js/store.js');
+          const prefs = await import('./js/prefs.js');
+          const { rangesOfPlan, buildShoppingList } = await import('./js/shopping.js');
+          const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+          const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+          if (!plan) return;
+          const days = prefs.get('shoppingDays') ?? [];
+          const built = opt.foldDone ? buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days }) : null;
+          for (const r of rangesOfPlan(plan, days)) {
+            const row = await store.getShopping(r.key);
+            row.extra = opt.guestsCustom ? { meat: 2, veg: 1 } : { meat: 0, veg: 0 };
+            row.custom = opt.guestsCustom ? [
+              { id: 'c-long', name: '進口富士蘋果（要挑大顆一點不要太軟的）', qty: '一大袋約兩公斤' },
+              { id: 'c-short', name: '香蕉', qty: '' },
+            ] : [];
+            row.fold = {};
+            if (opt.foldDone) {
+              const items = built.ranges.find((x) => x.key === r.key)?.items ?? [];
+              const firstSec = items[0]?.section;
+              row.checked = Object.fromEntries(items.filter((it) => it.section === firstSec).map((it) => [it.foodId, true]));
+            } else {
+              row.checked = {};
+            }
+            await store.saveShopping(row);
+          }
+        }, { guestsCustom: !!route.guestsCustom, foldDone: !!route.foldDone });
         await page.evaluate(() => { location.hash = '#/family/new'; });
         await new Promise((r) => setTimeout(r, 180));
         await page.evaluate((h) => { location.hash = h; }, route.hash);
@@ -343,6 +396,31 @@ try {
   const plainPages = all.filter((p) => p.route === '買菜');
   everyOf(plainPages, (p) => p.manualMarks === 0, '（對照）沒改過的買菜頁一個「已改」都沒有 —— 上面那條不是因為到處都印這兩個字');
   everyOf(manualPages, (p) => p.qtyBtnMinH >= 44, `改過之後數量還是按得到（最小 ${Math.min(...manualPages.map((p) => p.qtyBtnMinH))}px）`);
+
+  section('日期列：「一起煮」不論有沒有買菜日標籤都靠右、不掉行');
+  // 使用者截圖：有「買菜日」標籤的那天，「一起煮」被擠到下一行、跑到左邊，跟其他天對不齊。
+  // 為什麼以前沒抓到：fixture 早就設了買菜日（週一、週四），320px 也每次都掃 —— 那個壞掉的狀態
+  // 其實每一輪都有被畫出來（修之前量到 320px 有標籤的日子 100% 掉行、沒標籤的 0%）。
+  // 但掃描器只量「超出畫面」「兩段文字重疊」「橫向捲動」，按鈕整個換到下一行、靠左，三樣都不算。
+  // 缺的不是狀態，是量測：這裡直接量按鈕跟日期在不在同一列、離右緣多遠。
+  const heads = all.flatMap((p) => (p.dayHeads ?? []).map((d) => ({ ...d, where: where(p) })));
+  const pillHeads = heads.filter((d) => d.pill);
+  ok(pillHeads.length >= SCALES.length * WIDTHS.length, `（前提）掃到 ${pillHeads.length} 個有「買菜日」標籤的日期列（每種字級 × 寬度都要有）`);
+  ok(heads.length - pillHeads.length >= SCALES.length * WIDTHS.length, `（對照母體）沒有標籤的日期列 ${heads.length - pillHeads.length} 個`);
+  everyOf(heads, (d) => d.sameRow, '「一起煮」一律跟日期在同一列，不會掉到下一行',
+    heads.filter((d) => !d.sameRow).slice(0, 3).map((d) => `${d.where}${d.pill ? '（有買菜日標籤）' : ''}`).join(' ／ '));
+  everyOf(heads, (d) => d.rightGap <= 1, '而且一律靠右對齊',
+    heads.filter((d) => d.rightGap > 1).slice(0, 3).map((d) => `${d.where} 離右緣 ${d.rightGap}px`).join(' ／ '));
+
+  section('買菜頁新狀態：客人欄直式、自己加的、買齊收合');
+  const guestPages = all.filter((p) => p.route === '買菜（有客人＋自己加的）');
+  ok(guestPages.length === SCALES.length * WIDTHS.length, `（母體）有客人＋自己加的買菜頁掃了 ${guestPages.length} 組`);
+  everyOf(guestPages, (p) => p.guest?.aligned === true, '三種字級 × 三種寬度：說明在上、葷素兩格在同一列並排');
+  everyOf(guestPages, (p) => p.customRows >= 2, '自己加的項目有畫出來（名稱與數量放到上限的那項也在）');
+  const foldPages = all.filter((p) => p.route === '買菜（買齊收合）');
+  ok(foldPages.length === SCALES.length * WIDTHS.length, `（母體）買齊收合的買菜頁掃了 ${foldPages.length} 組`);
+  everyOf(foldPages, (p) => p.foldedSections >= 1, '買齊的那一區收起來了（上面的溢出、重疊、橫向捲動斷言也涵蓋收合後的標題）');
+  everyOf(all.filter((p) => p.route === '買菜'), (p) => p.foldedSections === 0 && p.customRows === 0, '（對照）什麼都沒勾、沒加的買菜頁：沒有收合的區塊、沒有自己加的');
 
   section('買菜清單：數量欄要對齊，不會被擠到下一行');
   const withList = all.filter((p) => p.columns.length > 0);

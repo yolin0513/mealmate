@@ -318,6 +318,239 @@ try {
     eq(reset.qty, first.qty, '數量也回到原本的建議值');
   }
 
+
+  section('「這次有客人？」：說明在上、葷素兩格對齊在下');
+  {
+    const vp0 = page.viewport();
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    await goto(page, '#/shopping');
+    await page.waitForSelector('[data-card="shopRange"] [data-field="extraRow"]');
+    const measureGuest = () => page.evaluate(() => {
+      const d = document.querySelector('[data-card="shopRange"] [data-field="extraRow"]');
+      d.open = true;
+      const desc = d.querySelector('[data-field="extraDesc"]').getBoundingClientRect();
+      const m = d.querySelector('[data-field="extraMeat"]').getBoundingClientRect();
+      const v = d.querySelector('[data-field="extraVeg"]').getBoundingClientRect();
+      const card = d.closest('[data-card="shopRange"]').getBoundingClientRect();
+      return { descBottom: desc.bottom, mTop: m.top, vTop: v.top, mLeft: m.left, mRight: m.right, vLeft: v.left, vRight: v.right, mW: m.width, vW: v.width, mH: m.height, cardLeft: card.left, cardRight: card.right };
+    });
+    for (const [w, scale] of [[390, 'md'], [320, 'xl']]) {
+      await page.setViewport({ width: w, height: 900 });
+      await page.evaluate(async (s) => { const prefs = await import('./js/prefs.js'); await prefs.set('fontScale', s); prefs.applyFontScale(s); }, scale);
+      await sleep(300);
+      const g = await measureGuest();
+      ok(g.mTop >= g.descBottom - 1 && g.vTop >= g.descBottom - 1, `${w}px／${scale}：說明文字在上，兩個框都在它下面`);
+      ok(Math.abs(g.mTop - g.vTop) <= 2, `${w}px／${scale}：葷、素兩個框在同一列（上緣差 ${Math.round(Math.abs(g.mTop - g.vTop))}px）`);
+      ok(g.vLeft >= g.mRight - 1, `${w}px／${scale}：兩格並排（素在葷的右邊，不是疊到下面）`);
+      ok(Math.abs(g.mW - g.vW) <= 2, `${w}px／${scale}：兩格一樣寬（${Math.round(g.mW)}／${Math.round(g.vW)}px），看起來是對齊的`);
+      ok(g.mLeft >= g.cardLeft - 1 && g.vRight <= g.cardRight + 1, `${w}px／${scale}：兩格都在卡片裡，沒有撐破`);
+      ok(g.mH >= 44, `${w}px／${scale}：框高 ${Math.round(g.mH)}px（≥ 44）`);
+    }
+    await page.setViewport(vp0);
+    await page.evaluate(async () => { const prefs = await import('./js/prefs.js'); await prefs.set('fontScale', 'md'); prefs.applyFontScale('md'); });
+  }
+
+  section('自己加的項目：飯後水果這種不在菜單裡的東西');
+  {
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    await goto(page, '#/shopping');
+    await page.waitForSelector('[data-card="shopRange"] [data-action="addCustom"]');
+    const cardKey = await page.$eval('[data-card="shopRange"]', (el) => el.dataset.range);
+    const card = `[data-card="shopRange"][data-range="${cardKey}"]`;
+    const totalOf = async () => Number(/／(\d+)/.exec(await textOf(page, `${card} [data-field="progress"]`))?.[1] ?? NaN);
+    const before = await totalOf();
+    ok(Number.isFinite(before) && before >= 5, `（前提）進度讀得到總數 ${before}`);
+    eq(await page.$$eval(`${card} .custom-row`, (e) => e.length), 0, '一開始沒有自己加的項目');
+
+    const addOne = async (name, qty) => {
+      await clickEl(page, `${card} [data-action="addCustom"]`);
+      await page.waitForSelector('.modal-card [data-field="customName"]');
+      await page.type('.modal-card [data-field="customName"]', name);
+      if (qty) await page.type('.modal-card [data-field="customQty"]', qty);
+      await page.evaluate(() => [...document.querySelectorAll('.modal-actions .btn')].find((b) => b.textContent.trim() === '加進清單').click());
+      await sleep(900);
+    };
+    const rowInfo = (name) => page.evaluate((c, n) => {
+      const r = [...document.querySelectorAll(`${c} .custom-row`)].find((x) => x.querySelector('.shop-name')?.textContent === n);
+      return r ? {
+        id: r.dataset.custom, qty: r.querySelector('.shop-qty')?.textContent ?? null,
+        pill: r.querySelector('.pill')?.textContent ?? '', checked: r.querySelector('input[type="checkbox"]').checked,
+        inFoodSection: !!r.closest('.shop-section:not(.custom-section)'), inNoPrint: !!r.closest('.no-print'),
+      } : null;
+    }, card, name);
+
+    await addOne('蘋果', '3 顆');
+    await page.waitForSelector(`${card} .custom-row`);
+    const apple = await rowInfo('蘋果');
+    ok(apple, '加進去的項目出現在清單裡');
+    eq(apple.qty, '3 顆', '數量就是打的那個');
+    eq(apple.pill, '自己加的', '標「自己加的」，跟系統算出來的食材分得出來');
+    eq(apple.inFoodSection, false, '放在自己的區塊，沒有混進蔬菜、肉類那些分區');
+    eq(apple.inNoPrint, false, '會被印出來（不在 no-print 裡）');
+    eq(await totalOf(), before + 1, '進度的總數加 1（「還缺什麼」要把它算進去）');
+
+    await addOne('香蕉', '');
+    const banana = await rowInfo('香蕉');
+    ok(banana, '不填數量也加得進去');
+    eq(banana.qty, null, '沒填數量就不顯示數量欄（不會出現空白或 undefined）');
+
+    const countBeforeBlank = await page.$$eval(`${card} .custom-row`, (e) => e.length);
+    await addOne('   ', '5 個');
+    eq(await page.$$eval(`${card} .custom-row`, (e) => e.length), countBeforeBlank, '名稱是空白 → 不加進清單');
+
+    await page.evaluate((c, id) => document.querySelector(`${c} .custom-row[data-custom="${id}"] input[type="checkbox"]`).click(), card, apple.id);
+    await sleep(400);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector(`${card} .custom-row`);
+    await sleep(300);
+    const appleAfter = await rowInfo('蘋果');
+    ok(appleAfter, '重新整理後自己加的項目還在');
+    eq(appleAfter.checked, true, '勾過的「買了」也還在');
+
+    const text = await page.evaluate(async (key) => {
+      const store = await import('./js/store.js');
+      const prefs = await import('./js/prefs.js');
+      const { buildShoppingList, listAsText, rangesOfPlan } = await import('./js/shopping.js');
+      const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const days = prefs.get('shoppingDays') ?? [];
+      const extraByRange = {}; const manualByRange = {}; const customByRange = {}; let mine = null;
+      for (const r of rangesOfPlan(plan, days)) {
+        const row = await store.getShopping(r.key);
+        extraByRange[r.key] = { meat: row.extra?.meat ?? 0, veg: row.extra?.veg ?? 0 };
+        manualByRange[r.key] = row.manual ?? {};
+        customByRange[r.key] = row.custom ?? [];
+        if (r.key === key) mine = row;
+      }
+      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days, extraByRange, manualByRange, customByRange });
+      return listAsText(ranges.find((r) => r.key === key), { checked: mine.checked ?? {}, have: mine.have ?? {} });
+    }, cardKey);
+    ok(/✓ 蘋果　3 顆（自己加的）/.test(text), '複製出去的文字帶名稱、數量、勾選狀態，並標「自己加的」');
+    ok(/□ 香蕉（自己加的）/.test(text), '沒填數量的那項也在');
+
+    const others = await page.$$eval('[data-card="shopRange"]', (els, k) => els.filter((e) => e.dataset.range !== k).map((e) => e.querySelectorAll('.custom-row').length), cardKey);
+    ok(others.length >= 1, `（前提）還有 ${others.length} 張別的採買卡`);
+    everyOf(others, (n) => n === 0, '別的卡沒有出現（自己加的跟著加的那張卡走）');
+
+    await page.evaluate((c, id) => document.querySelector(`${c} .custom-row[data-custom="${id}"] [data-action="deleteCustom"]`).click(), card, banana.id);
+    await page.waitForSelector('.modal-card .modal-title');
+    const delTitle = await textOf(page, '.modal-card .modal-title');
+    ok(delTitle.includes('香蕉'), `刪除前先問一次：「${delTitle}」`);
+    await page.evaluate(() => [...document.querySelectorAll('.modal-actions .btn')].find((b) => b.textContent.trim() === '刪除').click());
+    await sleep(900);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector(`${card} .custom-row`);
+    await sleep(300);
+    eq(await rowInfo('香蕉'), null, '刪掉之後重新整理也不在了');
+    ok(await rowInfo('蘋果'), '另一項沒被一起刪掉');
+
+    // 清掉，不影響後面的測試
+    await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.custom = []; row.checked = {}; await store.saveShopping(row); }, cardKey);
+  }
+
+  section('購物清單摺疊：買齊的區塊自動收合，手動展開的不會被收回去');
+  {
+    const cardKey = await page.$eval('[data-card="shopRange"]', (el) => el.dataset.range);
+    const card = `[data-card="shopRange"][data-range="${cardKey}"]`;
+    await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.have = {}; row.fold = {}; row.custom = []; await store.saveShopping(row); }, cardKey);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector(`${card} .shop-section`);
+    await sleep(300);
+    const reloadCard = async () => { await page.reload({ waitUntil: 'domcontentloaded' }); await page.waitForSelector(`${card} .shop-section`); await sleep(300); };
+    const secState = (sec) => page.evaluate((c, s) => {
+      const box = document.querySelector(`${c} .shop-section[data-section="${s}"]`);
+      const t = box.querySelector('[data-action="fold"]');
+      const body = box.querySelector('.fold-body');
+      return {
+        open: t.getAttribute('aria-expanded'), hidden: body.hidden, h: Math.round(body.getBoundingClientRect().height),
+        summary: box.querySelector('[data-field="foldSummary"]').textContent, done: box.dataset.foldDone,
+        toggleH: Math.round(t.getBoundingClientRect().height), controls: t.getAttribute('aria-controls') === body.id,
+        rows: [...box.querySelectorAll('.shop-row')].map((r) => r.dataset.buy),
+      };
+    }, card, sec);
+    const click = (sel) => page.evaluate((s) => document.querySelector(s).click(), sel);
+
+    const sections = await page.$$eval(`${card} .shop-section:not(.custom-section)`, (els) => els.map((e) => ({ sec: e.dataset.section, n: e.querySelectorAll('.shop-row').length })));
+    ok(sections.length >= 2, `（母體）這張卡有 ${sections.length} 個分區`);
+    const initial = [];
+    for (const s of sections) initial.push(await secState(s.sec));
+    everyOf(initial, (s) => s.open === 'true' && s.hidden === false, '什麼都還沒買 → 每一區都展開');
+    everyOf(initial, (s) => s.toggleH >= 44, '每一區的標題按得到（≥ 44px）');
+    everyOf(initial, (s) => s.controls, 'aria-controls 指到它控制的那一塊');
+
+    const target = [...sections].filter((s) => s.n >= 2).sort((a, b) => a.n - b.n)[0];
+    ok(target, `（前提）挑一區至少兩項的：「${target?.sec}」${target?.n} 項 —— 一半勾「買了」、一半勾「家裡有」，兩種都要算數`);
+    const other = sections.find((s) => s.sec !== target.sec);
+    const tRows = initial[sections.indexOf(target)].rows;
+    for (const [i, id] of tRows.entries()) {
+      if (i % 2 === 0) await click(`${card} .shop-row[data-buy="${id}"] input[type="checkbox"]`);
+      else await click(`${card} .shop-row[data-buy="${id}"] [data-action="have"]`);
+      await sleep(250);
+    }
+    await sleep(300);
+    const done1 = await secState(target.sec);
+    eq(done1.open, 'false', `「${target.sec}」每一項都勾了買了或家裡有 → 自動收合`);
+    eq(done1.hidden, true, '內容用 hidden 真的移出版面');
+    eq(done1.h, 0, '收起來不佔高度');
+    ok(done1.summary.includes(`${tRows.length} 項全買齊`), `標題留摘要，讓她知道是買齊了不是不見了：「${done1.summary}」`);
+    eq(done1.done, 'true', '整區標成買齊');
+    const otherState = await secState(other.sec);
+    eq(otherState.open, 'true', `（對照）還沒買的「${other.sec}」仍然展開`);
+    ok(/還差 \d+ 項/.test(otherState.summary), `還沒買完的區塊講還差幾項：「${otherState.summary}」`);
+
+    await click(`${card} .shop-section[data-section="${target.sec}"] [data-action="fold"]`);
+    await sleep(300);
+    eq((await secState(target.sec)).open, 'true', '手動展開買齊的那一區 → 打開');
+    await click(`${card} .shop-row[data-buy="${tRows[0]}"] input[type="checkbox"]`);
+    await sleep(250);
+    await click(`${card} .shop-row[data-buy="${tRows[0]}"] input[type="checkbox"]`);
+    await sleep(300);
+    eq((await secState(target.sec)).open, 'true', '取消一項再勾回來（又買齊了）→ 還是展開：手動意圖優先，不會被自動收回去');
+    await reloadCard();
+    const reloaded = await secState(target.sec);
+    eq(reloaded.open, 'true', '重新整理後，手動展開的狀態還在');
+    eq(reloaded.done, 'true', '（對照）它確實是買齊的 —— 開著是因為手動，不是因為沒買齊');
+
+    await click(`${card} .shop-section[data-section="${other.sec}"] [data-action="fold"]`);
+    await sleep(300);
+    const oc = await secState(other.sec);
+    eq(oc.open, 'false', '手動收合還沒買完的區塊 → 收起來');
+    ok(/還差 \d+ 項/.test(oc.summary), `收起來的標題仍然講還差幾項：「${oc.summary}」`);
+    await reloadCard();
+    eq((await secState(other.sec)).open, 'false', '重新整理後，手動收合也還在');
+
+    // 整張卡：每一項都買了 → 整張收合，但「自己加一項」仍然按得到
+    await page.evaluate(async (key) => {
+      const store = await import('./js/store.js');
+      const prefs = await import('./js/prefs.js');
+      const { buildShoppingList } = await import('./js/shopping.js');
+      const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: prefs.get('shoppingDays') ?? [] });
+      const r = ranges.find((x) => x.key === key);
+      const row = await store.getShopping(key);
+      row.checked = Object.fromEntries(r.items.map((it) => [it.foodId, true]));
+      row.have = {}; row.fold = {}; row.custom = [];
+      await store.saveShopping(row);
+    }, cardKey);
+    await reloadCard();
+    const cs = await page.evaluate((c) => {
+      const el = document.querySelector(c);
+      const t = el.querySelector('.card-title [data-action="fold"]');
+      const body = document.getElementById(t.getAttribute('aria-controls'));
+      return { open: t.getAttribute('aria-expanded'), hidden: body.hidden, summary: el.querySelector('.card-title [data-field="foldSummary"]').textContent,
+        addH: Math.round(el.querySelector('[data-action="addCustom"]').getBoundingClientRect().height) };
+    }, card);
+    eq(cs.open, 'false', '整張卡每一項都買了 → 整張收合');
+    eq(cs.hidden, true, '整張卡的清單內容也是用 hidden 移出版面');
+    ok(/全買齊/.test(cs.summary), `卡片標題講全買齊：「${cs.summary}」`);
+    ok(cs.addH >= 44, '收合之後「自己加一項」仍然按得到（隨時可以補買）');
+
+    await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.have = {}; row.fold = {}; await store.saveShopping(row); }, cardKey);
+  }
+
   eq(pageErrors, [], '沒有未攔截的例外');
 } finally {
   await close();
