@@ -100,7 +100,7 @@ export default async function memberView(id) {
     return h('div', { class: 'target-row' },
       h('span', { class: 'target-label' }, `${NUTRIENT_LABELS[k]}`),
       input,
-      h('span', { class: 'muted sm' }, units[k] ?? ''),
+      h('span', { class: 'muted sm target-unit' }, units[k] ?? ''),
     );
   });
 
@@ -148,7 +148,7 @@ export default async function memberView(id) {
     h('section', { class: 'card', dataset: { card: 'memberTargets' } },
       h('h2', { class: 'card-title' }, '每日目標（選填）'),
       h('p', { class: 'muted sm' }, '若醫師或營養師有給你每日目標（例如醣類幾克），可填在這裡，App 只做加總對照，不會自己建議目標。留空就不對照。'),
-      ...targetInputs,
+      h('div', { class: 'target-grid' }, ...targetInputs),
     ),
     errBox,
     h('section', { class: 'card' }, h('div', { class: 'btn-row' }, saveBtn, delBtn, h('a', { class: 'btn', href: '#/family' }, '取消'))),

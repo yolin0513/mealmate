@@ -19,6 +19,71 @@ import { ok, eq, section, done, note } from './tap.mjs';
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const MUTATIONS = [
+  // ---- 2026-09-16 回報四項：目標欄位對齊、需求篩選、分組估算、加菜按鈕 ----
+  {
+    name: "每日估算不分組（每位成員各列一份）",
+    why: "使用者 2026-09-16 回報的就是這個：吃葷的三個人數字一樣卻列三次。",
+    file: "js/views/week.js",
+    find: "    ...groupEstimates(rows, fields).map((g) => {",
+    replace: "    ...rows.map((r) => ({ ...r, labels: [r.label], diets: [r.diet] })).map((g) => {",
+    test: "weekviewtest",
+  },
+  {
+    name: "分組時忽略「吃不了的道數」",
+    why: "兩位成員數字一樣但一位有兩道吃不了，併在一起會把那個事實藏起來。",
+    file: "js/planner.js",
+    find: "    const key = JSON.stringify([fields.map((f) => row.fields?.[f] ?? null), row.missing ?? 0, row.partialDishes ?? 0]);",
+    replace: "    const key = JSON.stringify([fields.map((f) => row.fields?.[f] ?? null)]);",
+    test: "plannertest",
+  },
+  {
+    name: "分組時只記第一種飲食型態",
+    why: "一組裡有五辛素與全素時，只寫其中一種會讓使用者以為另一位沒被算到。",
+    file: "js/planner.js",
+    find: "    if (!g.diets.includes(row.diet)) g.diets.push(row.diet);",
+    replace: "    if (!g.diets.length) g.diets.push(row.diet);",
+    test: "plannertest",
+  },
+  {
+    name: "更新提示列不講目前版本",
+    why: "遠端支援時要靠它判斷對方在看舊版還是新版。",
+    file: "js/app.js",
+    find: "  const text = h('span', { class: 'update-text' }, `有新版本（目前 ${APP_VERSION.replace('mealmate-', '')}）`);",
+    replace: "  const text = h('span', { class: 'update-text' }, '有新版本');",
+    test: "versionmixtest",
+  },
+  {
+    name: "「＋ 加一道」低於 44px",
+    why: "長輩點不到；使用者本來就回報過看不到這顆按鈕。",
+    file: "css/style.css",
+    find: ".chip-sm { padding: 6px 12px; min-height: 44px; font-size: 0.85em; }",
+    replace: ".chip-sm { padding: 6px 12px; min-height: 30px; font-size: 0.85em; }",
+    test: "layouttest",
+  },
+  {
+    name: "每日目標的每一列各自算欄寬（輸入框又參差）",
+    why: "使用者截圖回報的就是這個：單位欄寬度不同，把輸入框推得左緣不齊。",
+    file: "css/style.css",
+    find: ".target-row { display: contents; }",
+    replace: ".target-row { display: grid; grid-template-columns: minmax(0, 1fr) max-content max-content; }",
+    test: "layouttest",
+  },
+  {
+    name: "需求篩選回到會亂跑的 flex",
+    why: "使用者回報那排 pill 看起來雜亂：寬度不一、換行後對不齊。",
+    file: "css/style.css",
+    find: ".filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; margin-top: 8px; }",
+    replace: ".filter-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }",
+    test: "layouttest",
+  },
+  {
+    name: "「誰要吃」的下拉又跑回來",
+    why: "使用者要求上方少一塊；留著它就等於沒做。",
+    file: "js/views/recipes.js",
+    find: "    h('section', { class: 'card', dataset: { card: 'recipeSearch' } }, input, kindChips, needChips, count),",
+    replace: "    h('section', { class: 'card', dataset: { card: 'recipeSearch' } }, input, h('select', { class: 'field', dataset: { field: 'eater' } }), kindChips, needChips, count),",
+    test: "recipeviewtest",
+  },
   // ---- 2026-09-16 回報六項：慢性病搜尋挑選、加菜減菜、分段控制 ----
   {
     name: "素食標籤對調（把可吃五辛的叫「全素」）",
@@ -1257,14 +1322,6 @@ const MUTATIONS = [
     test: 'recipeviewtest',
   },
   {
-    name: '「誰要吃」的飲食型態被忽略',
-    why: '「全素」的人會看到有肉有蒜的菜。',
-    file: 'js/views/recipes.js',
-    find: "  if (eater.startsWith('diet:')) return versionFor(recipe, eater.slice(5));",
-    replace: "  if (eater.startsWith('diet:')) return recipe.vegMode === 'splittable' ? 'meat' : 'all';",
-    test: 'recipeviewtest',
-  },
-  {
     name: '本週想吃沒有上限',
     why: '第 8 道也勾得起來，M2 的「本週想吃大加分」會把整週塞滿。',
     file: 'js/store.js',
@@ -1389,8 +1446,8 @@ const MUTATIONS = [
     name: '沒填目標的家人也顯示對照條',
     why: '對照條只給醫師或營養師有給目標的人；其他人看到「目標 undefined」等於 App 在暗示目標。',
     file: 'js/views/week.js',
-    find: '        ...fields.filter((f) => targets[f] != null && row.fields[f] != null).map((f) => h(',
-    replace: '        ...fields.filter((f) => row.fields[f] != null).map((f) => h(',
+    find: '          .filter((f) => m.targets?.[f] != null && g.fields[f] != null)',
+    replace: '          .filter((f) => g.fields[f] != null)',
     test: 'weekviewtest',
   },
   // ---- M3：購物清單 ----

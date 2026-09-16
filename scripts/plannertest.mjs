@@ -21,7 +21,7 @@ import {
   generateWeek, swapItem, buildContext, scoreSoft, hardBlock, makeRng, hashSeed, weekKeyOf, mondayOf, addDays,
   lastShoppingDayOnOrBefore, historyRowsOf, dailyEstimates, medianOf, MEALS, isMeaty, VEG_MIN_DISHES, withPositions,
   actualRelaxations, shelfBlocker, RELAXABLE, FREEZABLE_CATS, daysBetween,
-  weekBalance, balanceSentence, assignItem, HEARTY_LEVELS, WEEK_CAPS, BALANCE_NOTE, HEARTY_HINT, HEARTY_TOP_SHARE,
+  weekBalance, balanceSentence, assignItem, HEARTY_LEVELS, WEEK_CAPS, BALANCE_NOTE, HEARTY_HINT, HEARTY_TOP_SHARE, groupEstimates,
 } from '../js/planner.js';
 import { FORBIDDEN } from './copyrules.mjs';
 import { shelfDaysFor } from '../js/units.js';
@@ -934,6 +934,40 @@ section('本週想吃：一定要排到（重新產生幾次都一樣），排�
   const onlyWant = buildContext({ recipes, members: [], idx, units, favorites: [{ recipeId: again.id, wantThisWeek: true, favorite: false }, { recipeId: vegMain.id, wantThisWeek: false }] });
   ok(!onlyWant.favSet.has(again.id) && onlyWant.wantSet.has(again.id), '只勾本週想吃、沒按收藏：排菜器不當成收藏');
   ok(onlyWant.favSet.has(vegMain.id), '（對照）舊資料沒有 favorite 欄位 → 照舊算收藏');
+}
+
+section('每日估算分組：數字一樣的成員併一組，不一樣的分開');
+{
+  // 使用者 2026-09-16：吃葷的家人每人各列一份、數字完全相同 —— 重複又佔版面。
+  // 併的條件是數字完全一致，所以「分類正確才併」是由結構保證的，不是靠飲食型態硬併。
+  const F = ['kcal', 'protein'];
+  const row = (label, diet, kcal, protein, extra = {}) => ({ label, diet, fields: { kcal, protein }, missing: 0, ...extra });
+  const same = groupEstimates([
+    row('爺爺', 'omni', 1800, 70), row('爸爸', 'omni', 1800, 70), row('媽媽', 'omni', 1800, 70),
+    row('奶奶', 'lactoOvo', 1500, 55),
+  ], F);
+  eq(same.length, 2, '三位吃葷的數字一樣 → 併成一組；蛋奶素的自己一組');
+  eq(same[0].labels, ['爺爺', '爸爸', '媽媽'], '第一組列出三位成員');
+  eq(same[0].diets, ['omni'], '第一組是葷');
+  eq(same[0].fields, { kcal: 1800, protein: 70 }, '共用同一份估算（沒有相加）');
+  eq(same[1].labels, ['奶奶'], '第二組是蛋奶素的奶奶');
+  const diff = groupEstimates([
+    row('爸爸', 'omni', 1800, 70), row('哥哥', 'omni', 1801, 70),
+  ], F);
+  eq(diff.length, 2, '（對照）同樣吃葷但數字差 1 → 不會併');
+  const missing = groupEstimates([
+    row('爸爸', 'omni', 1800, 70), row('哥哥', 'omni', 1800, 70, { missing: 2 }),
+  ], F);
+  eq(missing.length, 2, '數字一樣、但「吃不了的道數」不同 → 也分開（那是兩件不一樣的事實）');
+  const partial = groupEstimates([
+    row('爸爸', 'omni', 1800, 70), row('哥哥', 'omni', 1800, 70, { partialDishes: 1 }),
+  ], F);
+  eq(partial.length, 2, '部分估算的道數不同 → 也分開（不可以把「只是部分估算」藏起來）');
+  const mixedDiet = groupEstimates([
+    row('姊', 'vegan', 1400, 48), row('妹', 'veganNoAllium', 1400, 48),
+  ], F);
+  eq(mixedDiet.length, 1, '五辛素與全素這一天吃到的數字一樣 → 併成一組');
+  eq(mixedDiet[0].diets, ['vegan', 'veganNoAllium'], '而且兩種飲食型態都列出來，不會只寫其中一種');
 }
 
 done('plannertest');

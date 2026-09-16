@@ -186,7 +186,8 @@ function setupUpdates(reg) {
 
 function showUpdateBar(onApply) {
   if (document.getElementById('updateBar')) return;
-  const text = h('span', { class: 'update-text' }, '有新版本');
+  // 寫出目前這一版：使用者說「看不到新功能」時，最快的判斷就是問他畫面上顯示哪一版（2026-09-16 實際遇到）。
+  const text = h('span', { class: 'update-text' }, `有新版本（目前 ${APP_VERSION.replace('mealmate-', '')}）`);
   const go = h('button', { class: 'update-go' }, '點一下更新');
   const later = h('button', { class: 'update-later', 'aria-label': '稍後再說', onclick: () => bar.remove() }, '✕');
   const bar = h('div', { id: 'updateBar', class: 'update-bar' }, text, go, later);

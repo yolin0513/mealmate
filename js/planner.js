@@ -878,6 +878,29 @@ export function historyRowsOf(plan) {
  * 一天的每人估計（每位家人吃自己的版本；沒有家人時給「不分流／葷版」一份）。
  * 回 [{ label, diet, fields: {key: number|null}, missing: number }]
  */
+/**
+ * 把每日估算併成幾組：**數字一模一樣的成員算同一組**。
+ * 使用者 2026-09-16 回報：吃葷的家人每人各列一份、數字完全相同，看起來只是重複佔版面。
+ * 併的鍵包含每一個欄位的值、吃不了的道數、部分估算的道數 —— 只要有一項不同就分開列，不會把不一樣的數字混在一起。
+ * 回 [{ labels: 成員名[], diets: 飲食型態[], fields, missing, partialDishes? }]，順序照第一次出現的成員。
+ */
+export function groupEstimates(rows, fields) {
+  const groups = [];
+  const byKey = new Map();
+  for (const row of rows) {
+    const key = JSON.stringify([fields.map((f) => row.fields?.[f] ?? null), row.missing ?? 0, row.partialDishes ?? 0]);
+    if (!byKey.has(key)) {
+      const g = { labels: [], diets: [], fields: row.fields, missing: row.missing ?? 0, ...(row.partialDishes ? { partialDishes: row.partialDishes } : {}) };
+      byKey.set(key, g);
+      groups.push(g);
+    }
+    const g = byKey.get(key);
+    g.labels.push(row.label);
+    if (!g.diets.includes(row.diet)) g.diets.push(row.diet);
+  }
+  return groups;
+}
+
 export function dailyEstimates(daySlots, members, idx, recipesById, fields) {
   const rows = [];
   const who = members.length ? members.map((m) => ({ label: m.name, diet: m.diet })) : [{ label: '每人一份', diet: 'omni' }];

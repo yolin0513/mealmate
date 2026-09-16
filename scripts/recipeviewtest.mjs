@@ -29,6 +29,10 @@ try {
   const segs0 = await segState();
   eq(segs0.map((s) => s.key), ['all', 'veg', 'split', 'meat', 'mine', 'fav', 'want'], '七格分段控制，順序固定');
   eq(segs0.filter((s) => s.on === 'true').map((s) => s.key), ['all'], '預設選中「全部」');
+  // 2026-09-16：「誰要吃：不限」那塊下拉整個移除（使用者要求上方少一塊）
+  eq(await page.$$eval('[data-field="eater"]', (els) => els.length), 0, '「誰要吃」的下拉已經不在畫面上');
+  eq(await page.$$eval('[data-field="needFilters"] .chip', (els) => els.map((e) => e.dataset.filter)), ['quick', 'soft', 'season', 'lowCarb', 'lowSodium'],
+    '需求篩選還是那五顆（20 分內／軟質／當季／醣較低／鈉較低）');
   ok(all.length >= 36, `全部 ${all.length} 道`);
   await clickEl(page, '[data-filter="veg"]');
   await sleep(100);
@@ -44,18 +48,6 @@ try {
   await clickEl(page, '[data-filter="quick"]');
   await clickEl(page, '[data-filter="all"]');
   await sleep(100);
-
-  section('誰要吃：全素（不吃五辛）');
-  await page.select('[data-field="eater"]', 'diet:veganNoAllium');
-  await sleep(150);
-  const noAllium = await rowIds(page);
-  const expected = recipes.filter((r) => fitsDiet(r, 'veganNoAllium')).map((r) => r.id).sort();
-  ok(expected.length >= 5 && expected.length < recipes.length, `（母體）依資料應有 ${expected.length} 道可吃，池子共 ${recipes.length}`);
-  eq([...noAllium].sort(), expected, '清單剛好是資料算出來「全素（不吃五辛）可吃」的那幾道');
-  const tagged = recipes.filter((r) => (r.vegMode === 'splittable' ? r.vegTags : r.tags).some((t) => ['meat', 'seafood', 'egg', 'dairy', 'allium'].includes(t)) && !r.alliumOptional).map((r) => r.id);
-  ok(tagged.length >= 15, `（對照母體）${tagged.length} 道帶葷／蛋／奶／五辛（不可省略）`);
-  noneOf(tagged, (id) => noAllium.includes(id), '那些都不在清單裡');
-  await page.select('[data-field="eater"]', '');
 
   section('醣較低：門檻是池子的中位數');
   await clickEl(page, '[data-filter="lowCarb"]');

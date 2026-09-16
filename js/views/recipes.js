@@ -6,7 +6,7 @@ import * as store from '../store.js';
 import { ROLE_LABELS, VEG_MODE_LABELS, VEG_MODE_SHORT, TEXTURE_LABELS, timeText } from '../recipeschema.js';
 import { NUTRIENT_LABELS } from '../foods.js';
 import { estimate } from '../nutrition.js';
-import { versionFor, familyWatchFields, DIETS, DIET_LABELS } from '../members.js';
+import { familyWatchFields } from '../members.js';
 
 export function vegTone(vegMode) {
   return vegMode === 'nativeVeg' ? 'green' : vegMode === 'splittable' ? 'yellow' : 'accent';
@@ -19,14 +19,8 @@ export function matchesQuery(recipe, q) {
   return recipe.ingredients.some((ing) => ing.label.includes(s));
 }
 
-/** 一道菜對某個「誰要吃」的版本：'all' | 'veg' | 'meat' | null（吃不了）。eater 是 'diet:x' 或 'member:id' 或 ''。 */
-export function versionForEater(recipe, eater) {
-  if (!eater) return recipe.vegMode === 'splittable' ? 'meat' : 'all';
-  if (eater.startsWith('diet:')) return versionFor(recipe, eater.slice(5));
-  if (eater.startsWith('member:')) {
-    const m = store.memberById(eater.slice(7));
-    return m ? versionFor(recipe, m.diet) : (recipe.vegMode === 'splittable' ? 'meat' : 'all');
-  }
+/** 清單上營養值要看哪個版本：可分流的菜看葷版（素版在食譜頁自己切）。 */
+export function listVersionOf(recipe) {
   return recipe.vegMode === 'splittable' ? 'meat' : 'all';
 }
 
@@ -72,15 +66,14 @@ export default async function recipesView(query = {}) {
 
   let kind = KIND_FILTERS.find((f) => f.key === query.f) ?? KIND_FILTERS[0];
   const needs = new Set();
-  let eater = query.eater ?? '';
   let q = query.q ?? '';
 
   const perCache = new Map();
   const per = (r) => {
-    const key = `${r.id}|${eater}`;
+    const key = r.id;
     if (!perCache.has(key)) {
-      const v = versionForEater(r, eater);
-      perCache.set(key, v && idx ? estimate(r, idx, { version: v }).perServing : null);
+      const v = listVersionOf(r);
+      perCache.set(key, idx ? estimate(r, idx, { version: v }).perServing : null);
     }
     return perCache.get(key);
   };
@@ -92,21 +85,14 @@ export default async function recipesView(query = {}) {
   recomputeMedians();
 
   const input = h('input', { class: 'field', type: 'search', placeholder: '找菜名或食材，例如：豆腐', value: q, 'aria-label': '搜尋食譜' });
-  const eaterOptions = [{ value: '', label: '誰要吃：不限' }];
-  for (const m of members) eaterOptions.push({ value: `member:${m.id}`, label: `${m.name}（${DIET_LABELS[m.diet]}）可吃` });
-  for (const d of DIETS.filter((x) => x !== 'omni')) eaterOptions.push({ value: `diet:${d}`, label: `${DIET_LABELS[d]}可吃` });
-  const eaterSel = h('select', { class: 'field', 'aria-label': '誰要吃', dataset: { field: 'eater' } },
-    ...eaterOptions.map((o) => h('option', { value: o.value, selected: o.value === eater ? 'selected' : null }, o.label)));
-  eaterSel.addEventListener('change', () => { eater = eaterSel.value; recomputeMedians(); draw(); });
-
   const kindChips = h('div', { class: 'segmented', role: 'group', 'aria-label': '種類', dataset: { field: 'kindFilters' } });
-  const needChips = h('div', { class: 'chip-row', role: 'group', 'aria-label': '需求' });
+  const needChips = h('div', { class: 'filter-grid', role: 'group', 'aria-label': '需求', dataset: { field: 'needFilters' } });
   const list = h('div', { class: 'list', dataset: { list: 'recipes' } });
   const count = h('p', { class: 'muted sm', dataset: { field: 'recipeCount' } });
 
   const draw = () => {
     const rows = all.filter((r) => kind.test(r) && [...needs].every((k) => NEED_FILTERS.find((f) => f.key === k).test(r, ctx))
-      && (!eater || versionForEater(r, eater) !== null) && matchesQuery(r, q));
+      && matchesQuery(r, q));
     count.textContent = `${rows.length} 道${rows.length !== all.length ? `（共 ${all.length} 道）` : ''}`
       + (needs.has('lowCarb') && ctx.medians.carb != null ? `；醣較低＝每份低於 ${Math.round(ctx.medians.carb)} g（這個池子的中位數）` : '')
       + (needs.has('lowSodium') && ctx.medians.sodium != null ? `；鈉較低＝每份低於 ${Math.round(ctx.medians.sodium)} mg（中位數）` : '');
@@ -124,7 +110,7 @@ export default async function recipesView(query = {}) {
   draw();
 
   render(
-    h('section', { class: 'card', dataset: { card: 'recipeSearch' } }, input, eaterSel, kindChips, needChips, count),
+    h('section', { class: 'card', dataset: { card: 'recipeSearch' } }, input, kindChips, needChips, count),
     h('section', { class: 'card', dataset: { card: 'recipeList' } }, list),
   );
 }

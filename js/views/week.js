@@ -11,7 +11,7 @@ import { ROLE_LABELS } from '../recipeschema.js';
 import { NUTRIENT_LABELS } from '../foods.js';
 import {
   generateWeek, dailyEstimates, mondayOf, weekKeyOf, weekDates, addDays, isoDate, parseDate,
-  MEALS, MEAL_LABELS, MEAL_ROLES, DAY_LABELS, RELAXABLE, weekBalance, balanceSentence,
+  MEALS, MEAL_LABELS, MEAL_ROLES, DAY_LABELS, RELAXABLE, weekBalance, balanceSentence, groupEstimates,
 } from '../planner.js';
 import { swapSlotItem, assignSlotItem, addSlotItem, removeSlotItem, toggleLock, regenerateSlot } from './weekops.js';
 
@@ -371,16 +371,24 @@ function estimateBlock({ daySlots, members, idx, recipesById, fields, units }) {
   if (!anyCook) return null;
   return h('details', { class: 'how day-estimate', dataset: { field: 'dayEstimate' } },
     h('summary', {}, '今日估算（每人一份，三餐加總）'),
-    ...rows.map((row) => {
-      const member = members.find((m) => m.name === row.label);
-      const targets = member?.targets ?? {};
-      return h('div', { class: 'est-row', dataset: { member: row.label } },
-        h('p', { class: 'row-title' }, row.label, member ? h('span', { class: 'muted xs' }, `（${DIET_LABELS[member.diet]}）`) : null),
-        h('div', { class: 'nutri-grid' }, ...fields.map((f) => h('div', { class: 'nutri-row' }, h('span', {}, NUTRIENT_LABELS[f]), h('span', { class: 'num nutri-value', dataset: { nutrient: f } }, fmtNutrient(row.fields[f], units[f]))))),
-        ...fields.filter((f) => targets[f] != null && row.fields[f] != null).map((f) => h('p', { class: 'sm target-line', dataset: { target: f } },
-          `${NUTRIENT_LABELS[f]}：醫師或營養師給的每日目標 ${targets[f]} ${units[f] ?? ''}，今日估 ${fmtNutrient(row.fields[f], units[f]).replace('估 ', '')}（${Math.round(row.fields[f] / targets[f] * 100)}%）`)),
-        row.missing ? h('p', { class: 'muted xs' }, `有 ${row.missing} 道這位吃不了，沒算進去`) : null,
-        row.partialDishes ? h('p', { class: 'muted xs', dataset: { field: 'partialDishes' } }, `其中 ${row.partialDishes} 道有食材查不到營養資料，這天的數字只是部分估算`) : null,
+    // 數字一樣的成員併成一組：吃葷的三個人本來就吃到同一份估算，列三次只是重複（使用者 2026-09-16 回報）
+    ...groupEstimates(rows, fields).map((g) => {
+      const groupMembers = g.labels.map((name) => members.find((m) => m.name === name)).filter(Boolean);
+      const dietText = groupMembers.length ? g.diets.map((d) => DIET_LABELS[d]).join('、') : g.labels[0];
+      return h('div', { class: 'est-row est-card', dataset: { members: g.labels.join('、'), diets: g.diets.join(',') } },
+        h('div', { class: 'est-head' },
+          h('span', { class: 'est-diet' }, dietText),
+          groupMembers.length ? h('span', { class: 'est-names' }, g.labels.join('、')) : null),
+        h('div', { class: 'est-values' }, ...fields.map((f) => h('div', { class: 'est-line' },
+          h('span', { class: 'est-key' }, NUTRIENT_LABELS[f]),
+          h('span', { class: 'num nutri-value', dataset: { nutrient: f } }, fmtNutrient(g.fields[f], units[f]))))),
+        // 每日目標是**個人**的，所以逐位列（標明是誰的），不會因為併組而混在一起
+        ...groupMembers.flatMap((m) => fields
+          .filter((f) => m.targets?.[f] != null && g.fields[f] != null)
+          .map((f) => h('p', { class: 'sm target-line', dataset: { target: f, member: m.name } },
+            `${m.name}：${NUTRIENT_LABELS[f]} 醫師或營養師給的每日目標 ${m.targets[f]} ${units[f] ?? ''}，今日估 ${fmtNutrient(g.fields[f], units[f]).replace('估 ', '')}（${Math.round(g.fields[f] / m.targets[f] * 100)}%）`))),
+        g.missing ? h('p', { class: 'muted xs' }, `有 ${g.missing} 道這一組吃不了，沒算進去`) : null,
+        g.partialDishes ? h('p', { class: 'muted xs', dataset: { field: 'partialDishes' } }, `其中 ${g.partialDishes} 道有食材查不到營養資料，這天的數字只是部分估算`) : null,
       );
     }),
     h('p', { class: 'muted xs' }, watch.length

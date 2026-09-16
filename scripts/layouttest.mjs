@@ -236,6 +236,57 @@ try {
     return { overflow, overlaps, columns, docW, scrollW: document.documentElement.scrollWidth, leafCount: boxes.length,
       dayBodies, dayToggleMinH: Number.isFinite(dayToggleMinH) ? Math.round(dayToggleMinH) : 999,
       manualMarks: root.querySelectorAll('.qty-manual').length,
+      // 「＋ 加一道」：使用者 2026-09-16 回報看不到它（根因是舊版快取，不是版面）——
+      // 加一條量測把「看得到、按得到、跟餐別同一列」釘住，以後真的被擠掉就會紅。
+      addDish: (() => {
+        const btns = [...root.querySelectorAll('[data-action="addDish"]')];
+        if (!btns.length) return null;
+        const docW = document.documentElement.clientWidth;
+        const rows = btns.map((b) => {
+          const r = b.getBoundingClientRect();
+          const label = b.closest('.meal-head')?.querySelector('strong')?.getBoundingClientRect();
+          return { h: r.height, w: r.width, right: r.right, sameRow: label ? Math.abs(r.top - label.top) < r.height : false };
+        });
+        return {
+          n: btns.length,
+          minH: Math.round(Math.min(...rows.map((x) => x.h))),
+          allVisible: rows.every((x) => x.w > 0 && x.h > 0),
+          allInside: rows.every((x) => x.right <= docW + 1),
+          allSameRow: rows.every((x) => x.sameRow),
+        };
+      })(),
+      // 每日目標：三欄要對齊 —— 輸入框左緣、寬度、單位的左緣都一致（使用者截圖回報參差）
+      targets: (() => {
+        const inputs = [...root.querySelectorAll('.target-grid [data-target]')];
+        if (!inputs.length) return null;
+        const r = inputs.map((el) => el.getBoundingClientRect());
+        const units = [...root.querySelectorAll('.target-grid .target-unit')].map((el) => el.getBoundingClientRect());
+        const spread = (xs) => Math.round(Math.max(...xs) - Math.min(...xs));
+        return {
+          n: inputs.length,
+          leftSpread: spread(r.map((x) => x.left)),
+          widthSpread: spread(r.map((x) => x.width)),
+          unitLeftSpread: units.length ? spread(units.map((x) => x.left)) : null,
+          minH: Math.round(Math.min(...r.map((x) => x.height))),
+        };
+      })(),
+      // 需求篩選：等寬、同列高度一致、按得到
+      needFilters: (() => {
+        const box = root.querySelector('.filter-grid');
+        if (!box) return null;
+        const chips = [...box.querySelectorAll('.chip')];
+        if (!chips.length) return { n: 0 };
+        const r = chips.map((c) => c.getBoundingClientRect());
+        const rows = new Map();
+        for (const x of r) { const k = Math.round(x.top); rows.set(k, [...(rows.get(k) ?? []), x]); }
+        const widths = r.map((x) => Math.round(x.width));
+        return {
+          n: chips.length,
+          widthSpread: Math.max(...widths) - Math.min(...widths),
+          minH: Math.round(Math.min(...r.map((x) => x.height))),
+          rowAligned: [...rows.values()].every((row) => row.every((x) => Math.abs(x.height - row[0].height) <= 1)),
+        };
+      })(),
       // 食譜頁的分段控制：格子要等寬、同一列對齊、每格按得到、永遠剛好一格是選中的
       segmented: (() => {
         const bar = root.querySelector('.segmented');
@@ -458,6 +509,40 @@ try {
     heads.filter((d) => !d.sameRow).slice(0, 3).map((d) => `${d.where}${d.pill ? '（有買菜日標籤）' : ''}`).join(' ／ '));
   everyOf(heads, (d) => d.rightGap <= 1, '而且一律靠右對齊',
     heads.filter((d) => d.rightGap > 1).slice(0, 3).map((d) => `${d.where} 離右緣 ${d.rightGap}px`).join(' ／ '));
+
+  section('「＋ 加一道」在每一餐都看得到、按得到（三種字級 × 三種寬度）');
+  {
+    // 2026-09-16 使用者回報看不到加菜按鈕。實測根因是他的裝置還在跑舊版，但版面這一面也要有斷言守著。
+    const addPages = all.filter((p) => p.route === '本週' && p.addDish);
+    ok(addPages.length === SCALES.length * WIDTHS.length, `（母體）本週頁掃了 ${addPages.length} 組`);
+    ok(addPages.every((p) => p.addDish.n >= 14), `每一組有 ${addPages[0]?.addDish.n} 顆加一道按鈕（21 個餐格）`);
+    everyOf(addPages, (p) => p.addDish.allVisible, '每一顆都畫得出來（不是 0×0）');
+    everyOf(addPages, (p) => p.addDish.minH >= 44, `每一顆都按得到（最小 ${Math.min(...addPages.map((p) => p.addDish.minH))}px）`);
+    everyOf(addPages, (p) => p.addDish.allInside, '沒有一顆被擠出畫面');
+    everyOf(addPages, (p) => p.addDish.allSameRow, '跟餐別名稱在同一列（不會掉到下一行找不到）');
+  }
+
+  section('每日目標：名稱／輸入框／單位三欄對齊（三種字級 × 三種寬度）');
+  {
+    // 使用者 2026-09-16 截圖回報：輸入框左緣參差、寬度不一。慣例 20：要守的是「對齊」就量對齊。
+    const tPages = all.filter((p) => p.route === '編輯家人（最多標籤）' && p.targets);
+    ok(tPages.length === SCALES.length * WIDTHS.length, `（母體）編輯家人頁掃了 ${tPages.length} 組`);
+    ok(tPages.every((p) => p.targets.n >= 5), `每一組有 ${tPages[0]?.targets.n} 個每日目標欄位`);
+    everyOf(tPages, (p) => p.targets.leftSpread <= 1, '所有輸入框的左緣切齊（最大差 ' + Math.max(...tPages.map((p) => p.targets.leftSpread)) + 'px）');
+    everyOf(tPages, (p) => p.targets.widthSpread <= 1, '所有輸入框等寬');
+    everyOf(tPages, (p) => p.targets.unitLeftSpread <= 1, '右邊的單位（kcal／g／mg）也對齊');
+    everyOf(tPages, (p) => p.targets.minH >= 44, `每個輸入框都按得到（最小 ${Math.min(...tPages.map((p) => p.targets.minH))}px）`);
+  }
+
+  section('食譜頁需求篩選：跟分段控制同一套節奏（等寬、對齊、按得到）');
+  {
+    const nPages = all.filter((p) => p.route === '食譜清單' && p.needFilters);
+    ok(nPages.length === SCALES.length * WIDTHS.length, `（母體）食譜清單掃了 ${nPages.length} 組`);
+    ok(nPages.every((p) => p.needFilters.n === 5), `需求篩選 ${nPages[0]?.needFilters.n} 顆`);
+    everyOf(nPages, (p) => p.needFilters.widthSpread <= 1, '每一顆等寬');
+    everyOf(nPages, (p) => p.needFilters.rowAligned, '同一列的高度一致（換行也對齊）');
+    everyOf(nPages, (p) => p.needFilters.minH >= 44, '每一顆都按得到');
+  }
 
   section('食譜頁篩選：一條分段控制，等寬、對齊、按得到（三種字級 × 三種寬度）');
   {

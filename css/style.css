@@ -217,6 +217,11 @@ a.btn {
 }
 .seg.on { background: var(--accent); color: #fff; font-weight: 600; }
 
+/* 需求篩選（20 分內／軟質／當季／醣較低／鈉較低）：跟上面的分段控制同一套節奏 ——
+   等寬格子、間距一致、換行時仍然對齊。它們是可複選，所以保留 chip 的外框樣式跟分段控制區分開。 */
+.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; margin-top: 8px; }
+.filter-grid .chip { min-width: 0; padding: 10px 8px; text-align: center; }
+
 /* 小標籤 */
 .pill {
   display: inline-block;
@@ -430,8 +435,13 @@ textarea.field { resize: vertical; line-height: 1.5; }
 .err-list { margin: 0; padding-left: 20px; }
 .warn { color: var(--danger); margin: 0; }
 
-.target-row { display: grid; grid-template-columns: minmax(0, 1fr) 130px max-content; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
-.target-row:first-of-type { border-top: 0; }
+/* 每日目標：整張表共用三欄（名稱／輸入框／單位）。
+   每一列各自 grid 的話，單位欄（kcal 比 g 寬）會把中間那欄推得參差 —— 使用者 2026-09-16 截圖回報的就是這個。
+   列本身用 display: contents，欄寬由外層一次決定，所有列一定切齊。 */
+.target-grid { display: grid; grid-template-columns: minmax(0, 1fr) 120px 40px; gap: 10px 8px; align-items: center; }
+.target-row { display: contents; }
+.target-grid .field-inline { width: 100%; min-width: 0; }
+.target-unit { white-space: nowrap; }
 .target-label { font-weight: 600; }
 
 /* 買菜日：七顆圓鈕 */
@@ -512,6 +522,14 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 .lock { font-size: 0.9em; }
 .reason-list { margin: 4px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 .est-row { padding: 8px 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+/* 每日估算：一組一張小卡（數字一樣的成員併一組）。留白與層次比格線重要 —— 標題一行、數值兩欄。 */
+.est-card { border-top: 0; padding: 12px; margin-top: 10px; background: var(--bg-card-2); border-radius: 12px; gap: 8px; }
+.est-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.est-diet { font-weight: 700; }
+.est-names { color: var(--fg-muted); font-size: 0.92em; }
+.est-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0 20px; }
+.est-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.est-key { color: var(--fg-muted); }
 .target-line { margin: 0; color: var(--fg); }
 .picker-list { max-height: 50vh; overflow-y: auto; margin-top: 8px; }
 
@@ -685,5 +703,5 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 }
 @media (max-width: 420px) {
   .nutri-grid { grid-template-columns: 1fr; }
-  .target-row { grid-template-columns: minmax(0, 1fr) 110px max-content; }
+  .target-grid { grid-template-columns: minmax(0, 1fr) 96px 36px; }
 }

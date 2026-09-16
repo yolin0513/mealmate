@@ -247,6 +247,9 @@ try {
       };
     });
     ok(bar.text.includes('有新版本'), `提示列講出有新版本：「${bar.text}」`);
+    // 2026-09-16：使用者回報「看不到新功能」，根因是他還在看舊版。提示列要講得出目前是哪一版，
+    // 遠端支援時才問得出對方手上是新是舊。
+    ok(/v\d+\.\d+\.\d+/.test(bar.text), `而且講出目前是哪一版：「${bar.text}」`);
     ok(bar.labels.includes('點一下更新'), `有「點一下更新」可以按（${bar.labels.join('、')}）`);
     ok(bar.aria.includes('稍後再說'), `也可以先不要更新（${bar.aria.filter(Boolean).join('、')}）`);
     everyOf(bar.heights, (hh) => hh >= 44, `兩顆按鈕都按得到（${bar.heights.join('、')}px）`);

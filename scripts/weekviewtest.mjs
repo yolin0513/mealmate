@@ -149,13 +149,51 @@ try {
   await page.waitForSelector('[data-card="day"][data-day="0"] [data-field="dayEstimate"]');
   await page.$eval('[data-card="day"][data-day="0"] [data-field="dayEstimate"] summary', (el) => el.click());
   await sleep(150);
-  const estRows = await page.$$eval('[data-card="day"][data-day="0"] .est-row', (els) => els.map((e) => ({ member: e.dataset.member, values: [...e.querySelectorAll('.nutri-value')].map((v) => v.textContent.trim()), targets: [...e.querySelectorAll('[data-target]')].map((t) => t.textContent) })));
-  eq(estRows.map((r) => r.member), ['爸', '阿嬤', '姊'], '三位家人各一列');
+  const readEst = () => page.$$eval('[data-card="day"][data-day="0"] .est-row', (els) => els.map((e) => ({ members: e.dataset.members, diets: e.dataset.diets, values: [...e.querySelectorAll('.nutri-value')].map((v) => v.textContent.trim()), targets: [...e.querySelectorAll('[data-target]')].map((t) => t.textContent) })));
+  const estRows = await readEst();
+  const whoIn = (r) => r.members.split('、');
+  eq(estRows.flatMap(whoIn).sort(), ['姊', '爸', '阿嬤'].sort(), '三位家人都被歸進某一組，沒有人不見');
+  ok(estRows.length >= 1 && estRows.length <= 3, `三位家人併成 ${estRows.length} 組（數字一樣的才併）`);
+  const sigs = estRows.map((r) => r.values.join('|'));
+  eq(new Set(sigs).size, sigs.length, '不同組的數字一定不一樣 —— 一樣的話早就併在同一組了');
+  everyOf(estRows, (r) => r.diets && r.diets.length > 0, '每一組都標出飲食型態');
   everyOf(estRows.flatMap((r) => r.values), (t) => /^估 /.test(t) || t.startsWith('未估算'), '每個數字帶「估」或「未估算」');
-  const grandma = estRows.find((r) => r.member === '阿嬤');
+  const grandma = estRows.find((r) => whoIn(r).includes('阿嬤'));
   eq(grandma.targets.length, 1, '阿嬤有填醣的目標 → 一條對照');
   ok(grandma.targets[0].includes('醫師或營養師給的每日目標 180') && /今日估 [\d.]+/.test(grandma.targets[0]) && /\d+%/.test(grandma.targets[0]), `對照條講事實：${grandma.targets[0]}`);
-  everyOf(estRows.filter((r) => r.member !== '阿嬤'), (r) => r.targets.length === 0, '沒填目標的家人沒有對照條（App 不替人設目標）');
+  everyOf(estRows.flatMap((r) => r.targets), (t) => t.startsWith('阿嬤：'), '只有填了目標的阿嬤有對照條，而且標明是誰的目標（App 不替人設目標）');
+  eq(estRows.filter((r) => r.targets.length).length, 1, `只有一組帶對照條（阿嬤在的那一組）`);
+
+  // 2026-09-16 使用者回報：吃葷的家人每人各列一份、數字一模一樣，重複又佔版面 → 數字一樣的併成一組。
+  await page.evaluate(async () => {
+    const store = await import('./js/store.js');
+    const { newMember } = await import('./js/members.js');
+    await store.saveMember({ ...newMember(), name: '弟', diet: 'omni' });
+  });
+  await goto(page, '#/family');
+  await titleIs(page, '家人');
+  await goto(page, '#/');
+  await titleIs(page, '本週菜單');
+  await page.waitForSelector('[data-card="day"][data-day="0"] [data-field="dayEstimate"]');
+  await page.$eval('[data-card="day"][data-day="0"] [data-field="dayEstimate"] summary', (el) => el.click());
+  await sleep(200);
+  const merged = await readEst();
+  const dadNow = merged.find((r) => r.members.split('、').includes('爸'));
+  ok(dadNow.members.split('、').includes('弟'), `再加一位吃葷的「弟」→ 跟「爸」併成同一組（${dadNow.members}），那份數字只列一次`);
+  eq(merged.length, estRows.length, '組數沒有變多 —— 弟沒有自己多佔一張卡');
+  eq(dadNow.diets, 'omni', '那一組標出飲食型態是葷');
+  eq(dadNow.values, estRows.find((r) => whoIn(r).includes('爸')).values, '數字跟原本「爸」那一組一模一樣 —— 共用同一份估算，不是相加');
+  const dayTextGrouped = await textOf(page, '[data-card="day"][data-day="0"]');
+  ok(dayTextGrouped.includes('爸、弟'), '卡片上寫出這一組包含哪些成員');
+  await page.evaluate(async () => {
+    const store = await import('./js/store.js');
+    const bro = store.members().find((m) => m.name === '弟');
+    if (bro) await store.deleteMember(bro.id);
+  });
+  await goto(page, '#/family');
+  await titleIs(page, '家人');
+  await goto(page, '#/');
+  await titleIs(page, '本週菜單');
 
   section('營養標示：預設熱量＋蛋白質，有留意項目的加顯');
   const fieldsOf = () => page.$$eval('[data-card="day"][data-day="0"] .est-row', (els) => [...els[0].querySelectorAll('.nutri-value')].map((e) => e.dataset.nutrient));
@@ -176,7 +214,7 @@ try {
   await sleep(200);
   eq(await fieldsOf(), ['kcal', 'protein'], '沒有人設留意項目 → 只剩熱量與蛋白質兩項');
   const dayText = await textOf(page, '[data-card="day"][data-day="0"]');
-  ok(dayText.includes('阿嬤') && dayText.includes('（蛋奶素）'), '列出飲食型態');
+  ok(dayText.includes('阿嬤') && dayText.includes('蛋奶素'), '列出飲食型態與成員');
   noneOf([dayText], (t) => /建議攝取|應該吃/.test(t), '每日估計沒有處方式的字');
 
   section('舊版存下來的計畫（沒有位置欄位）也要能用');
