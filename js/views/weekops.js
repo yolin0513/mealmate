@@ -3,7 +3,7 @@
 import { h, modal } from '../ui.js';
 import * as store from '../store.js';
 import * as prefs from '../prefs.js';
-import { swapItem, assignItem, daysBetween, MEAL_ROLES, MEAL_LABELS } from '../planner.js';
+import { swapItem, assignItem, refillSlot, daysBetween, MEAL_ROLES, MEAL_LABELS } from '../planner.js';
 import { ROLE_LABELS, timeText } from '../recipeschema.js';
 import { versionFor, DIET_LABELS } from '../members.js';
 import { matchesQuery } from './recipes.js';
@@ -110,18 +110,14 @@ export async function assignSlotItem({ plan, slotIndex, pos, recipesById, member
   return true;
 }
 
-/** 某一格從外食改回自己煮時把它重排（其他格不動）。 */
+/**
+ * 某一格從外食改回自己煮時把它重排（其他格不動）。
+ * 走 planner.refillSlot → fillMeal，跟「產生菜單」同一條規則 ——
+ * 以前這裡是逐格呼叫 swapItem，那條路永遠補配菜、不會有混合家庭的加菜（慣例 21：同一條規則在兩個入口行為不同）。
+ */
 export async function regenerateSlot({ plan, slotIndex }) {
-  const args = await planArgs(plan);
-  const history = await pastHistory(plan);
   const slot = plan.slots[slotIndex];
   slot.items = [];
-  const byId = new Map(args.recipes.map((r) => [r.id, r]));
-  MEAL_ROLES[slot.meal].forEach((role, pos) => {
-    const main = slot.items.find((x) => x.role === 'main');
-    if (role === 'staple' && main && byId.get(main.recipeId)?.includesStaple) return;
-    const next = swapItem({ plan, slotIndex, pos, history, ...args });
-    if (next) slot.items.push(next);
-  });
-  slot.items.sort((a, b) => a.pos - b.pos);
+  const { items } = refillSlot({ plan, slotIndex, history: await pastHistory(plan), ...(await planArgs(plan)) });
+  slot.items = items;
 }

@@ -248,6 +248,35 @@ section('使用者自己加的菜裡查不到的食材：照樣列進購物清�
   ok(/豬耳朵/.test(listAsText(l.ranges[0], {})), '複製出去的文字也有');
 }
 
+section('排菜葷素比例：加菜只買吃葷的人的份（走真實路徑）');
+{
+  // SPEC_排菜葷素比例：混合家庭每個午晚餐多一道純葷加菜。那道菜只有吃葷的人吃，
+  // 所以採買量只照「吃得了的人數」算（scaleFor 的 all ／ servings），素食成員不算進去。
+  const dad = { ...newMember(), name: '爸', diet: 'omni' };
+  const mom = { ...newMember(), name: '媽', diet: 'lactoOvo' };
+  const { plan: mixPlan } = generateWeek({ recipes, members: [dad, mom], idx, units, favorites: [], history: [],
+    mondayIso: MONDAY, seed: 'extra-shop', shoppingDays: [] });
+  const extraItems = mixPlan.slots.flatMap((s) => (s.items ?? []).filter((it) => it.extraMeat));
+  ok(extraItems.length >= 10, `（前提）這一週有 ${extraItems.length} 道加菜`);
+  const { ranges: mixRanges } = buildShoppingList({ plan: mixPlan, recipesById: byId, members: [dad, mom], idx, units, shoppingDays: [] });
+  // 挑一道加菜、找它獨有的食材（只被它用到），這樣克數才歸得到它身上
+  let checked = 0;
+  for (const it of extraItems) {
+    const r = byId.get(it.recipeId);
+    const ing = r.ingredients.find((x) => !x.pantry && x.food && x.grams > 0);
+    if (!ing) continue;
+    const row = mixRanges[0].items.find((x) => x.foodId === ing.food);
+    if (!row || row.uses.length !== 1) continue;
+    // 一位吃葷的人配 4 人份的食譜＝0.25 份，但 v0.22.0 的「不少於一份」把它補到 1 份
+    const scale = scaleFor(r, [dad, mom]);
+    eq(row.grams, Math.round(ing.grams * scale.base), `${r.name} 的「${ing.label}」：${ing.grams} g × ${scale.base} ＝ ${row.grams} g`);
+    eq(scale.veg, 0, '素鍋軌是 0 —— 媽不吃這道，一點都不買');
+    checked += 1;
+    if (checked >= 2) break;
+  }
+  ok(checked >= 1, `（母體）對照了 ${checked} 道加菜的食材`);
+}
+
 section('份數同步：每位成員各自的食量 ＋ 不少於一份');
 {
   // 使用者 2026-09-16：家裡 5 人，清單份量卻不夠。診斷出兩件事 ——

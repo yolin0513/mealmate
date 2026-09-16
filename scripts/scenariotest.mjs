@@ -89,6 +89,12 @@ try {
   const extraTotal = vegCheck.reduce((n, m) => n + m.extras, 0);
   eq(labelled, extraTotal, `畫面上標「僅葷食成員」的道數（${labelled}）跟計畫裡的加菜數一致`);
 
+  // SPEC_排菜葷素比例：加了素食成員之後，午晚餐會多一道只有吃葷的人吃的純葷加菜。
+  {
+    const extras = await page.$$eval('.meal-item[data-extra="meat"]', (els) => els.length);
+    ok(extras >= 5, `加入素食成員之後，這一週有 ${extras} 道「僅葷食成員」的加菜`);
+  }
+
   section('D 加入慢性病成員：留意欄位一路跟著出現');
   await goto(page, '#/family/new');
   await titleIs(page, '新增家人');

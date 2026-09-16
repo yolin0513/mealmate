@@ -48,6 +48,16 @@ everyOf(CONDITIONS.flatMap((c) => CONDITION_FIELDS[c] ?? []), (f) => NUTRIENT_OR
 noneOf(CONDITIONS, (c) => ['gout', 'anemia'].includes(c), '痛風、貧血仍然不在清單裡');
 ok(PLAN.includes('痛風不做'), '（文件）PLAN 確實寫了痛風不做');
 
+section('排菜葷素比例：混合家庭每個午晚餐放一道純葷加菜（2026-09-16）');
+ok(STATUS.includes('SPEC_排菜葷素比例'), '（文件）STATUS 指到規格');
+ok(STATUS.includes('每個午晚餐') && STATUS.includes('純葷加菜'), '（文件）STATUS 寫了「每個午晚餐放一道純葷加菜」');
+eq(VEG_MIN_DISHES, 3, '素食保障的門檻沒有變（仍是 3 道，含主食）');
+ok(read('js/planner.js').includes('export function refillSlot'), '程式：planner 匯出 refillSlot');
+ok(read('js/planner.js').includes('export function fillMeal'), '程式：填一餐抽成 fillMeal 給兩個入口共用');
+ok(read('js/views/weekops.js').includes('refillSlot({'), '程式：外食改回自己煮走 refillSlot');
+ok(!/regenerateSlot[\s\S]{0,600}swapItem\(/.test(read('js/views/weekops.js')),
+  '程式：regenerateSlot 不再逐格呼叫 swapItem（同一條規則不可以有兩套寫法）');
+
 section('食量只影響採買，不碰營養（2026-09-16 份數同步）');
 ok(STATUS.includes('食量只影響採買'), '（文件）STATUS 寫了這條界線');
 noneOf(['js/nutrition.js', 'js/planner.js'], (f) => read(f).includes('appetite'),

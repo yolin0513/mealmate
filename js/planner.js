@@ -4,7 +4,8 @@
 //   · 慢性病留意項目**只降分、不排除**（scoreSoft 裡的 WATCH_PENALTY）；唯一會把菜排除出池子的
 //     慢性病相關機制是使用者自己打開的「避開」開關（rules.avoid）
 //   · 腎臟病只對 watchFields() 帶出來的欄位計分 —— 沒勾的欄位連分數都不參與
-//   · 有素食成員時，每一格的菜都要是每位素食成員吃得了的版本（versionFor ≠ null）
+//   · 有素食成員時，**除了標記 extraMeat 的加菜**，每一格的菜都要是每位素食成員吃得了的版本
+//     （加菜是給吃葷的人的，放之前一定先確認素食成員那一餐仍吃得到 VEG_MIN_DISHES 道；見 docs/SPEC_排菜葷素比例.md）（versionFor ≠ null）
 //   · 早餐不吃「不重複」扣分（noRepeatDays.breakfast = 0）
 //   · 池子不夠時**明講**（diagnostics.forcedRepeats／relaxed），不硬塞也不靜默重複
 //   · reasons[] 只寫事實（「估 鈉 320 mg／份，低於池子中位數」），沒有建議語氣
@@ -258,7 +259,9 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
     return p?.kcal != null && p?.sodium != null && m.kcal != null && m.sodium != null && p.kcal <= m.kcal && p.sodium <= m.sodium;
   };
 
-  return { recipes, members, idx, units, rules: r, vegetarians, hasOmni, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, haveFoods: new Set(haveFoods), refPerServing, heartyOf, isLight };
+  // 混合家庭：同時有吃葷與吃素的人。hasOmni 在「還沒新增家人」時也是 true，但那時 vegetarians 是空的，所以不算。
+  const mixedHome = vegetarians.length > 0 && hasOmni;
+  return { recipes, members, idx, units, rules: r, vegetarians, hasOmni, mixedHome, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, haveFoods: new Set(haveFoods), refPerServing, heartyOf, isLight };
 }
 
 // ---------- 保存期限 ----------
@@ -639,6 +642,97 @@ export function pickForSlot(ctx, state, slotInfo, role, rng, { exclude = new Set
 }
 
 /**
+ * 填一餐：鎖住的先擺回去，再照 MEAL_ROLES 逐格挑。
+ *
+ * 為什麼抽出來：generateWeek 與 refillSlot（外食改回自己煮）**必須走同一條規則**。
+ * 以前 regenerateSlot 是逐格呼叫 swapItem，那條路永遠補配菜、不會有加菜 ——
+ * 同一個規則在兩個入口行為不同，正是「家裡有」那次的形狀（慣例 21）。
+ *
+ * 回傳的 item 帶著 method（同餐不重複烹法要用），呼叫端存檔前自己剝掉。
+ */
+export function fillMeal(ctx, state, slotInfo, { lockedItems = [], rng, diagnostics = null, pendingWant = () => [], onlyThese = () => new Set() } = {}) {
+  const { day, meal, date } = slotInfo;
+  const items = [];
+  state.slotItems = items;
+  for (const it of lockedItems) items.push({ ...it, method: state.byId.get(it.recipeId).method });
+  const hasStapleInMain = () => items.some((it) => it.role === 'main' && state.byId.get(it.recipeId)?.includesStaple);
+  const roles = MEAL_ROLES[meal];
+  // 家裡有吃葷的人（或還沒新增家人）→ 這一餐要有一道葷的。早餐不套用：
+  // 早餐以簡單為準（優格水果、燕麥粥這種），為了湊葷加重口味不划算，葷早餐的池子也太小。
+  const wantsMeat = ctx.hasOmni && meal !== 'breakfast';
+  const lastSidePos = roles.lastIndexOf('side');
+  const note = (key, row) => { if (diagnostics && Array.isArray(diagnostics[key])) diagnostics[key].push(row); };
+  /** 挑到一道之後要記的診斷：勉強重複、實際放寬了哪幾條。一般位置與加菜共用同一支，不然加菜會漏報。 */
+  const recordPick = ({ role, pos, recipe, relaxed, wanted }) => {
+    const last = state.lastServed(recipe.id, date);
+    const noRepeat = ctx.rules.noRepeatDays[role] ?? 0;
+    if (!wanted && noRepeat > 0 && last != null && last <= noRepeat) note('forcedRepeats', { date, meal, role, recipeId: recipe.id, daysAgo: last });
+    // 一道菜一筆。舊版是「每開一個旗標推一筆」，12 道菜會被講成 37 道。
+    if (relaxed?.length) note('relaxed', { date, meal, role, pos, recipeId: recipe.id, constraints: relaxed });
+  };
+  /** 這一餐排完之後，每位素食成員吃得到幾道（還沒填的位置都會過飲食型態過濾，所以算得進去）。 */
+  const vegDishesAfter = (extraRecipe, pos) => {
+    if (!ctx.vegetarians.length) return Infinity;
+    const eatable = items.filter((it) => {
+      const r = state.byId.get(it.recipeId);
+      return r && ctx.vegetarians.every((m) => versionFor(r, m.diet) !== null);
+    }).length;
+    const extraOk = ctx.vegetarians.every((m) => versionFor(extraRecipe, m.diet) !== null) ? 1 : 0;
+    // 還沒填的位置：主菜本身含主食（炒米粉）時主食那一格會略過，不能算成素食成員吃得到的一道
+    const later = roles.slice(pos + 1).filter((r) => !(r === 'staple' && hasStapleInMain())).length;
+    return eatable + extraOk + later;
+  };
+  roles.forEach((role, pos) => {
+    if (items.some((it) => it.pos === pos)) return;                // 鎖住的已經佔了這個位置
+    if (role === 'staple' && hasStapleInMain()) return;            // 炒米粉這類主菜本身就是主食
+    // 最後一道配菜：改排一道「只有吃葷的人吃」的純葷菜（extraMeat）。三種情況會開這一格：
+    //   1. 勾了純葷菜的「本週想吃」—— 那道菜只能從這裡進來
+    //   2. 主菜排不到葷（葷食保障，現有行為）
+    //   3. **混合家庭的每一個午晚餐**（SPEC_排菜葷素比例）：不可分流的純葷菜（滷雞腳這種）本來永遠排不進去
+    // 素食保障是唯一的硬門檻：放之前一定先算 vegDishesAfter >= VEG_MIN_DISHES，算不到就不放、照常排配菜。
+    if (wantsMeat && role === 'side' && pos === lastSidePos) {
+      const mainMeaty = items.some((it) => isMeaty(state.byId.get(it.recipeId)));
+      const wantMeatOnly = ctx.vegetarians.length ? pendingWant('main', day).filter((r) => r.vegMode === 'meatOnly') : [];
+      const openExtra = !mainMeaty || ctx.mixedHome;
+      const tries = [];
+      if (wantMeatOnly.length) tries.push(() => pickForSlot(ctx, state, slotInfo, 'main', rng, { meatOnlyExtra: true, strict: true, exclude: onlyThese(wantMeatOnly) }));
+      if (openExtra) tries.push(() => pickForSlot(ctx, state, slotInfo, 'main', rng, { meatOnlyExtra: true }));
+      let skipWhy = null;
+      for (const [i, tryPick] of tries.entries()) {
+        const extra = tryPick();
+        if (!extra) { skipWhy = skipWhy ?? 'noCandidate'; continue; }
+        if (vegDishesAfter(extra.recipe, pos) < VEG_MIN_DISHES) { skipWhy = 'vegGuarantee'; continue; }
+        const wanted = i === 0 && wantMeatOnly.length > 0;
+        items.push({ recipeId: extra.recipe.id, role: 'main', pos, locked: false, extraMeat: true, method: extra.recipe.method,
+          reasons: [...extra.reasons, mainMeaty ? '這道是給吃葷的人的加菜（素食家人吃這一餐其他的菜）' : '這一餐的主菜是素的，這道是給吃葷的人的加菜'] });
+        recordPick({ role: 'main', pos, recipe: extra.recipe, relaxed: extra.relaxed, wanted });
+        state.place(extra.recipe, slotInfo);
+        return;
+      }
+      // 混合家庭本來每餐都要放一道，沒放成要留下原因（只給測試與除錯，不上畫面）
+      if (ctx.mixedHome && tries.length) note('meatExtraSkipped', { date, meal, why: skipWhy ?? 'noCandidate' });
+    }
+    const requireMeaty = wantsMeat && role === 'main';
+    // 本週想吃先挑（不要求葷：勾了素的主菜也排得進來，這一餐的葷由上面的加菜補）
+    const wants = pendingWant(role, day);
+    let picked = wants.length ? pickForSlot(ctx, state, slotInfo, role, rng, { strict: true, exclude: onlyThese(wants) }) : null;
+    const wanted = !!picked;
+    if (!picked && requireMeaty) picked = pickForSlot(ctx, state, slotInfo, role, rng, { requireMeaty: true });
+    if (!picked) picked = pickForSlot(ctx, state, slotInfo, role, rng);
+    if (!picked) { note('empty', { date, meal, role, pos }); return; }
+    const { recipe, reasons, relaxed } = picked;
+    recordPick({ role, pos, recipe, relaxed, wanted });
+    items.push({ recipeId: recipe.id, role, pos, locked: false, reasons, method: recipe.method });
+    state.place(recipe, slotInfo);
+  });
+  // 排完還是沒有葷的 → 記下來，本週頁明講（不硬塞、也不靜默）
+  if (wantsMeat && !items.some((it) => isMeaty(state.byId.get(it.recipeId)))) {
+    note('noMeat', { date, meal, why: ctx.vegetarians.length ? '要先確保素食成員吃得到' : '沒有葷菜排得進來' });
+  }
+  return items;
+}
+
+/**
  * 產生一週。prevPlan 裡 kind 不是 cook 的格子與 locked 的菜會原樣保留。
  * @returns {{ plan, diagnostics }}
  */
@@ -650,7 +744,7 @@ export function generateWeek({ recipes, members = [], idx, units, rules = {}, fa
   // 這一週自己的歷史不算（重新產生時舊格子會被換掉）；只帶這週之前 28 天內的
   const past = history.filter((h) => h.date < monday && daysBetween(h.date, monday) <= 28);
   const state = makeState(past, ctx, monday);
-  const diagnostics = { forcedRepeats: [], relaxed: [], empty: [], noMeat: [], wantMissed: [], poolSizes: {} };
+  const diagnostics = { forcedRepeats: [], relaxed: [], empty: [], noMeat: [], wantMissed: [], meatExtraSkipped: [], poolSizes: {} };
   for (const role of ['main', 'side', 'soup', 'staple', 'breakfast']) diagnostics.poolSizes[role] = recipes.filter((r) => r.role === role).length;
 
   // 「本週想吃」＝這週一定要排到（2026-09-14 使用者回報：勾了滷雞腳，重新產生幾次都沒排進去，畫面上也沒說為什麼）。
@@ -677,70 +771,8 @@ export function generateWeek({ recipes, members = [], idx, units, rules = {}, fa
       const prev = prevSlots.get(`${day}|${meal}`);
       const slotInfo = { day, meal, date };
       if (prev && prev.kind !== 'cook') { slots.push({ ...prev, date }); continue; }
-      const items = [];
-      state.slotItems = items;
       const lockedItems = (prev?.items ?? []).filter((it) => it.locked && state.byId.has(it.recipeId));
-      for (const it of lockedItems) items.push({ ...it, method: state.byId.get(it.recipeId).method });
-      const hasStapleInMain = () => items.some((it) => it.role === 'main' && state.byId.get(it.recipeId)?.includesStaple);
-      const roles = MEAL_ROLES[meal];
-      // 家裡有吃葷的人（或還沒新增家人）→ 這一餐要有一道葷的。早餐不套用：
-      // 早餐以簡單健康為準（優格水果、燕麥粥這種），為了湊葷加重口味不划算，葷早餐的池子也太小。
-      const wantsMeat = ctx.hasOmni && meal !== 'breakfast';
-      const lastSidePos = roles.lastIndexOf('side');
-      /** 這一餐排完之後，每位素食成員吃得到幾道（還沒填的位置都會過飲食型態過濾，所以算得進去）。 */
-      const vegDishesAfter = (extraRecipe, pos) => {
-        if (!ctx.vegetarians.length) return Infinity;
-        const eatable = items.filter((it) => {
-          const r = state.byId.get(it.recipeId);
-          return r && ctx.vegetarians.every((m) => versionFor(r, m.diet) !== null);
-        }).length;
-        const extraOk = ctx.vegetarians.every((m) => versionFor(extraRecipe, m.diet) !== null) ? 1 : 0;
-        // 還沒填的位置：主菜本身含主食（炒米粉）時主食那一格會略過，不能算成素食成員吃得到的一道
-        const later = roles.slice(pos + 1).filter((r) => !(r === 'staple' && hasStapleInMain())).length;
-        return eatable + extraOk + later;
-      };
-      roles.forEach((role, pos) => {
-        if (items.some((it) => it.pos === pos)) return;                // 鎖住的已經佔了這個位置
-        if (role === 'staple' && hasStapleInMain()) return;            // 炒米粉這類主菜本身就是主食
-        // 最後一道配菜：主菜排不到葷的時候，這一格改排「僅葷食成員」的加菜（素食保障仍要成立）。
-        // 家裡有素食成員、又勾了純葷的「本週想吃」時也開這一格 —— 那道菜只能從這裡進來。
-        if (wantsMeat && role === 'side' && pos === lastSidePos) {
-          const mainMeaty = items.some((it) => isMeaty(state.byId.get(it.recipeId)));
-          const wantMeatOnly = ctx.vegetarians.length ? pendingWant('main', day).filter((r) => r.vegMode === 'meatOnly') : [];
-          const tries = [];
-          if (wantMeatOnly.length) tries.push(() => pickForSlot(ctx, state, slotInfo, 'main', rng, { meatOnlyExtra: true, strict: true, exclude: onlyThese(wantMeatOnly) }));
-          if (!mainMeaty) tries.push(() => pickForSlot(ctx, state, slotInfo, 'main', rng, { meatOnlyExtra: true }));
-          for (const tryPick of tries) {
-            const extra = tryPick();
-            if (extra && vegDishesAfter(extra.recipe, pos) >= VEG_MIN_DISHES) {
-              items.push({ recipeId: extra.recipe.id, role: 'main', pos, locked: false, extraMeat: true, method: extra.recipe.method,
-                reasons: [...extra.reasons, mainMeaty ? '這道是給吃葷的人的加菜（素食家人吃這一餐其他的菜）' : '這一餐的主菜是素的，這道是給吃葷的人的加菜'] });
-              state.place(extra.recipe, slotInfo);
-              return;
-            }
-          }
-        }
-        const requireMeaty = wantsMeat && role === 'main';
-        // 本週想吃先挑（不要求葷：勾了素的主菜也排得進來，這一餐的葷由上面的加菜補）
-        const wants = pendingWant(role, day);
-        let picked = wants.length ? pickForSlot(ctx, state, slotInfo, role, rng, { strict: true, exclude: onlyThese(wants) }) : null;
-        const wanted = !!picked;
-        if (!picked && requireMeaty) picked = pickForSlot(ctx, state, slotInfo, role, rng, { requireMeaty: true });
-        if (!picked) picked = pickForSlot(ctx, state, slotInfo, role, rng);
-        if (!picked) { diagnostics.empty.push({ date, meal, role, pos }); return; }
-        const { recipe, reasons, relaxed } = picked;
-        const last = state.lastServed(recipe.id, date);
-        const noRepeat = ctx.rules.noRepeatDays[role] ?? 0;
-        if (!wanted && noRepeat > 0 && last != null && last <= noRepeat) diagnostics.forcedRepeats.push({ date, meal, role, recipeId: recipe.id, daysAgo: last });
-        // 一道菜一筆。舊版是「每開一個旗標推一筆」，12 道菜會被講成 37 道。
-        if (relaxed.length) diagnostics.relaxed.push({ date, meal, role, pos, recipeId: recipe.id, constraints: relaxed });
-        items.push({ recipeId: recipe.id, role, pos, locked: false, reasons, method: recipe.method });
-        state.place(recipe, slotInfo);
-      });
-      // 排完還是沒有葷的 → 記下來，本週頁明講（不硬塞、也不靜默）
-      if (wantsMeat && !items.some((it) => isMeaty(state.byId.get(it.recipeId)))) {
-        diagnostics.noMeat.push({ date, meal, why: ctx.vegetarians.length ? '要先確保素食成員吃得到' : '沒有葷菜排得進來' });
-      }
+      const items = fillMeal(ctx, state, slotInfo, { lockedItems, rng, diagnostics, pendingWant, onlyThese });
       slots.push({ day, date, meal, kind: 'cook', items: items.map(({ method, ...it }) => it).sort((a, b) => a.pos - b.pos) });
     }
   }
@@ -805,6 +837,32 @@ export function balanceSentence(b) {
   if (capOver.length) parts.push(`這週${capOver.join('、')}，比平常排的多一些（指定、鎖定的菜，或要讓家裡每個人都吃得到、符合條件的菜不夠）。`);
   parts.push(BALANCE_NOTE);
   return parts.join('');
+}
+
+/**
+ * 把某一格整個重填（外食改回自己煮）。走的是 generateWeek 同一支 fillMeal ——
+ * 以前這裡是逐格呼叫 swapItem，那條路永遠補配菜、不會有加菜，同一條規則在兩個入口行為不同。
+ * @returns {{ items, diagnostics }} items 已經剝掉 method、依位置排好
+ */
+export function refillSlot({ plan, slotIndex, recipes, members = [], idx, units, rules = {}, favorites = [], history = [], shoppingDays = [], seed, haveFoods = new Set() }) {
+  const slot = plan.slots[slotIndex];
+  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays, haveFoods });
+  const past = history.filter((h) => h.date < plan.monday && daysBetween(h.date, plan.monday) <= 28);
+  const state = makeState(past, ctx, plan.monday);
+  // 這一週其他格子的菜都算「已排」（這一格自己要重填，所以不算）
+  for (const s of plan.slots) {
+    if (s.kind !== 'cook' || s === slot) continue;
+    for (const it of s.items) {
+      const r = state.byId.get(it.recipeId);
+      if (r) state.place(r, { day: s.day, meal: s.meal, date: s.date });
+    }
+  }
+  const diagnostics = { forcedRepeats: [], relaxed: [], empty: [], noMeat: [], meatExtraSkipped: [] };
+  const rng = makeRng(`${seed}|refill|${slotIndex}`);
+  const lockedItems = (slot.items ?? []).filter((it) => it.locked && state.byId.has(it.recipeId));
+  const items = fillMeal(ctx, state, { day: slot.day, meal: slot.meal, date: slot.date }, { lockedItems, rng, diagnostics });
+  state.slotItems = [];
+  return { items: items.map(({ method, ...it }) => it).sort((a, b) => a.pos - b.pos), diagnostics };
 }
 
 /** 把一格裡某個角色換一道（排除現在這道）。回新的 item 或 null。 */

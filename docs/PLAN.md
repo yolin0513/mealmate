@@ -126,6 +126,9 @@ GitHub Pages（yolin0513.github.io/mealmate）
 - `vegMode`：`nativeVeg`（本身素；含蛋／奶／五辛由食材標籤推）、`splittable`（可一鍋兩吃）、`meatOnly`。
 - `track`：`base`（共用）、`veg`（素那鍋）、`meat`（葷那鍋）。**營養標示分兩欄**：素版＝base＋veg，葷版＝base＋meat，各除以該版份數（由家人組成算出）。
 - `texture`：`normal`／`soft`／`minced`（長輩質地標籤，§5B）。`season`：月份陣列，空陣列＝全年（§5F）。
+- **混合家庭（有葷有素）**：每個午晚餐在素食保障成立下，第二道配菜的位置改放一道只有吃葷的人吃的純葷菜
+  （`extraMeat`，畫面標「加菜」「僅葷食成員」）；素食成員那一餐仍至少吃得到 `VEG_MIN_DISHES` 道（含主食）。
+  詳見 `docs/SPEC_排菜葷素比例.md`（2026-09-16 定案）。不想要的那一餐用「拿掉這道」移除。
 - 「全素」（`veganNoAllium`，原名「全素不含五辛」）：食材標籤 `allium`（蔥、蒜、韭、洋蔥、薤）→ 有此標籤的 base 食材會讓這道菜對全素不含五辛成員不可用（或標「可省略蔥蒜」若食譜宣告 `alliumOptional`）。
 - 有 `splittable` 才會在煮菜頁顯示「分流時間線」；`nativeVeg` 全家一起吃；`meatOnly` 在有素食成員時只能當「葷食成員的加菜」。
 

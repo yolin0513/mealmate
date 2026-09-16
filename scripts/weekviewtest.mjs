@@ -54,12 +54,19 @@ try {
   everyOf(meatyPerMeal, (ids) => ids.some((id) => byId.get(id) && byId.get(id).vegMode !== 'nativeVeg'), '每個午晚餐都有一道葷的（可分流的算 —— 素食成員吃素版）');
   const items = await allItemIds(page);
   ok(items.length >= 50, `（母體）${items.length} 道菜`);
-  everyOf(items, (id) => byId.get(id) && versionFor(byId.get(id), 'lactoOvo') !== null && versionFor(byId.get(id), 'veganNoAllium') !== null, '每一道菜阿嬤（蛋奶素）與姊（全素（不吃五辛））都吃得了');
+  // 2026-09-16 SPEC_排菜葷素比例：混合家庭每個午晚餐會多一道只有吃葷的人吃的純葷加菜。
+  // 這裡驗的改成「除了加菜以外」每一道素食成員都吃得了。
+  const extraIds = await page.$$eval('.meal-item[data-extra="meat"]', (els) => els.map((e) => e.dataset.item));
+  const plainIds = items.filter((id) => !extraIds.includes(id));
+  ok(plainIds.length >= 40, `（母體）不含加菜的 ${plainIds.length} 道`);
+  everyOf(plainIds, (id) => byId.get(id) && versionFor(byId.get(id), 'lactoOvo') !== null && versionFor(byId.get(id), 'veganNoAllium') !== null, '除了加菜，每一道菜阿嬤（蛋奶素）與姊（全素（不吃五辛））都吃得了');
   const vegPerMeal = await page.$$eval('.meal-block', (els) => els.filter((e) => e.dataset.meal !== 'breakfast')
     .map((e) => [...e.querySelectorAll('.meal-item[data-item]')].map((x) => x.dataset.item)));
   everyOf(vegPerMeal, (ids) => ids.filter((id) => byId.get(id) && versionFor(byId.get(id), 'veganNoAllium') !== null).length >= 3,
     '每個午晚餐，全素（不吃五辛）的姊至少吃得到 3 道（素食保障優先於「每餐有葷」）');
-  noneOf(items, (id) => byId.get(id)?.vegMode === 'meatOnly', '這個家庭這一週沒有排到純葷的菜（靠可分流的菜就湊得出每餐有葷）');
+  ok(extraIds.length >= 10, `（母體）這一週有 ${extraIds.length} 道加菜`);
+  everyOf(extraIds, (id) => byId.get(id)?.vegMode === 'meatOnly', '標了加菜的都是純葷的菜');
+  noneOf(plainIds, (id) => byId.get(id)?.vegMode === 'meatOnly', '沒標加菜的那些，一道純葷的都沒有（純葷只會以加菜的身分出現）');
   ok(items.some((id) => byId.get(id)?.vegMode === 'splittable'), '（對照）有可分流的菜，爸吃葷版');
   const pageText = await textOf(page, '#view');
   noneOf(['建議攝取', '應該吃', '治療', '療效'], (w) => pageText.includes(w), '整頁沒有處方式的字');
@@ -133,7 +140,9 @@ try {
   await titleIs(page, '本週菜單');
   await page.waitForSelector('.meal-item[data-extra="meat"]');
   const extraEl = await page.$$eval('.meal-item[data-extra="meat"]', (els) => els.map((e) => ({ id: e.dataset.item, role: e.dataset.role, text: e.textContent.replace(/\s+/g, ' ') })));
-  eq(extraEl.length, 1, '（母體）畫面上有一道加菜');
+  // 2026-09-16 起混合家庭每餐本來就有加菜，所以不再是「剛好一道」；驗的是剛剛塞的那一道有畫出來。
+  ok(extraEl.length >= 1, `（母體）畫面上有 ${extraEl.length} 道加菜`);
+  ok(extraEl.some((x) => x.id === extraDishId), '剛剛塞進計畫的那一道加菜有畫出來');
   ok(extraEl[0].text.includes('僅葷食成員'), `加菜標明「僅葷食成員」：${extraEl[0].text}`);
   ok(extraEl[0].text.includes('加菜'), '而且角色標籤寫「加菜」，不是「主菜」');
   eq(extraEl[0].id, extraDishId, '就是那道純葷的菜');
@@ -526,7 +535,19 @@ try {
     await sleep(1500);
     await page.waitForSelector('[data-card="balance"] [data-field="balanceText"]');
     const low = await readBalance();
-    ok(low.budget === 2 && low.load <= 2, `家人頁選「少」之後重新產生：這週豐盛的主菜加權 ${low.load} 道（≤ 2）`);
+    // 混合家庭每餐多一道純葷加菜之後，一週的主菜從 14 道變 28 道（SPEC_排菜葷素比例）。
+    // 配額是給正規主菜設計的，所以這裡看不含加菜的那一半；加菜照樣算進 weekBalance（plannertest P9 驗）。
+    const lowNoExtra = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const prefs = await import('./js/prefs.js');
+      const { weekBalance, weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const noExtra = { ...plan, slots: plan.slots.map((sl) => ({ ...sl, items: (sl.items ?? []).filter((it) => !it.extraMeat) })) };
+      const b = weekBalance({ plan: noExtra, recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(), rules: { heartyLevel: prefs.get('heartyLevel') } });
+      return { load: b.load, budget: b.budget };
+    });
+    ok(lowNoExtra.budget === 2 && lowNoExtra.load <= 2, `家人頁選「少」之後重新產生：不含加菜的豐盛主菜加權 ${lowNoExtra.load} 道（≤ 2）`);
+    ok(low.load >= lowNoExtra.load, `（對照）含加菜是 ${low.load} 道 —— 加菜有被算進一週平衡`);
     const t2 = await textOf(page, '[data-card="balance"] [data-field="balanceText"]');
     ok(low.n === 0 ? t2.includes('一週最多 2 道') : t2.includes(`這週有 ${low.n} 餐`), `畫面上的那段話跟著變：「${t2}」`);
     await page.evaluate(async () => { const prefs = await import('./js/prefs.js'); await prefs.set('heartyLevel', 'medium'); });
@@ -572,7 +593,13 @@ try {
     await goto(page, '#/shopping');
     await titleIs(page, '買菜');
     await page.waitForSelector('[data-card="shopRange"]');
+    const gramsOfFood = (food) => page.$$eval(`[data-buy="${food}"] .shop-qty`, (els) => {
+      if (!els.length) return null;
+      const m = /(\d+)\s*g/.exec(els[0].textContent.replace(/,/g, ''));
+      return m ? Number(m[1]) : null;
+    });
     ok(await page.$(`[data-buy="${target.food}"]`) != null, `買菜清單多了「${target.foodName}」`);
+    const gramsWithDish = await gramsOfFood(target.food);
 
     // 重新產生：鎖住的自己加的菜還在
     await goto(page, '#/');
@@ -595,7 +622,11 @@ try {
     await goto(page, '#/shopping');
     await titleIs(page, '買菜');
     await page.waitForSelector('[data-card="shopRange"]');
-    ok(await page.$(`[data-buy="${target.food}"]`) == null, `買菜清單也不再要買「${target.foodName}」`);
+    // 混合家庭每餐都有純葷加菜（SPEC_排菜葷素比例），中間又按過「重新產生」——
+    // 別的菜也可能用到同一樣食材，所以驗的是「變少了」，不是「一定消失」。
+    const gramsAfterRemove = await gramsOfFood(target.food);
+    ok(gramsAfterRemove === null || (gramsWithDish != null && gramsAfterRemove < gramsWithDish),
+      `拿掉那道之後，買菜清單的「${target.foodName}」跟著變少（${gramsWithDish} g → ${gramsAfterRemove === null ? '不用買了' : `${gramsAfterRemove} g`}）`);
     await goto(page, '#/');
     await titleIs(page, '本週菜單');
   }
@@ -652,6 +683,103 @@ try {
     ok(!missedText.includes('滷雞腳'), '（對照）排進去的滷雞腳不在這張卡上');
     eq(await page.$$eval('.meal-item[data-item]', (els, id) => els.filter((e) => e.dataset.item === id).length, feetId), 1, '（對照）滷雞腳這次也排進去了');
     noneOf(['健康', '降', '控制', '療效', '治療'], (w) => missedText.includes(w), '沒有療效字眼');
+  }
+
+  section('排菜葷素比例：混合家庭每個午晚餐一道純葷加菜（走真實畫面與按鈕）');
+  {
+    // SPEC_排菜葷素比例（2026-09-16 定案）。這一家是爸（葷）、阿嬤（蛋奶素）、姊（全素）＝混合家庭。
+
+    // 在瀏覽器端查食譜：加菜可能是使用者自己加的（這支測試前面建過滷雞腳），Node 端的 byId 只有內建食譜。
+    const readMeals = () => page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const { versionFor } = await import('./js/members.js');
+      const all = new Map(store.allRecipes().map((r) => [r.id, r]));
+      return [...document.querySelectorAll('.meal-block[data-kind="cook"]')]
+        .filter((e) => e.dataset.meal !== 'breakfast')
+        .map((e) => {
+          const ids = [...e.querySelectorAll('.meal-item[data-item]')].map((x) => x.dataset.item);
+          return {
+            meal: e.dataset.meal,
+            ids,
+            vegEatable: ids.filter((id) => all.get(id) && versionFor(all.get(id), 'veganNoAllium') !== null).length,
+            extras: [...e.querySelectorAll('.meal-item[data-extra="meat"]')].map((x) => ({
+              id: x.dataset.item, role: x.dataset.role, pos: x.dataset.pos,
+              vegMode: all.get(x.dataset.item)?.vegMode ?? null,
+              pills: [...x.querySelectorAll('.pill')].map((p) => p.textContent.trim()),
+            })),
+          };
+        });
+    });
+    const regen = async () => {
+      await waitToastGone(page).catch(() => {});
+      await clickEl(page, '[data-action="regenerate"]');
+      await page.waitForFunction(() => { const t = document.getElementById('toast'); return t && !t.hidden && t.textContent.includes('已重新排好'); });
+      await sleep(500);
+    };
+
+    // W1：按三次「重新產生」，每一次都要成立
+    for (let round = 1; round <= 3; round += 1) {
+      await regen();
+      const meals = await readMeals();
+      eq(meals.length, 14, `第 ${round} 次重新產生：14 個午晚餐`);
+      everyOf(meals, (m) => m.extras.length <= 1, `第 ${round} 次：一餐最多一道加菜`);
+      const withExtra = meals.filter((m) => m.extras.length === 1);
+      ok(withExtra.length >= 10, `第 ${round} 次：有加菜的 ${withExtra.length}／14 餐`);
+      everyOf(meals.flatMap((m) => m.extras), (x) => x.vegMode === 'meatOnly', `第 ${round} 次：加菜都是純葷的菜`);
+      everyOf(meals.flatMap((m) => m.extras), (x) => x.pills.includes('加菜') && x.pills.includes('僅葷食成員'), `第 ${round} 次：加菜標了「加菜」「僅葷食成員」`);
+      const noExtra = meals.filter((m) => m.extras.length === 0);
+      // 兩種情況都要有斷言：有沒放加菜的，就要說得出為什麼；一餐都沒漏，就直接斷言 14 餐全有。
+      if (noExtra.length) {
+        everyOf(noExtra, (m) => m.vegEatable <= 3,
+          `第 ${round} 次：沒放加菜的 ${noExtra.length} 餐，是因為姊只吃得到 3 道（再放就少於 3）`);
+      } else {
+        eq(withExtra.length, meals.length, `第 ${round} 次：14 個午晚餐全部都放了加菜`);
+      }
+      everyOf(meals, (m) => m.vegEatable >= 3, `第 ${round} 次：每一餐姊仍吃得到 ≥ 3 道（最少 ${Math.min(...meals.map((m) => m.vegEatable))} 道）`);
+    }
+
+    // W2：在加菜上「換一道」→ 仍是純葷、仍標加菜
+    const mealsNow = await readMeals();
+    const firstExtra = mealsNow.find((m) => m.extras.length === 1);
+    ok(firstExtra, '（前提）找得到一餐有加菜');
+    await clickEl(page, `.meal-item[data-extra="meat"][data-item="${firstExtra.extras[0].id}"] .item-menu`);
+    await page.waitForSelector('.modal-card .modal-actions');
+    await page.evaluate(() => { [...document.querySelectorAll('.modal-card .modal-actions .btn')].find((b) => b.textContent.includes('換一道'))?.click(); });
+    await waitToastGone(page).catch(() => {});
+    await sleep(700);
+    const afterSwap = await readMeals();
+    const swapped = afterSwap.find((m) => m.meal === firstExtra.meal && m.extras.length === 1);
+    ok(swapped, '換一道之後那一餐仍有加菜');
+    eq(swapped.extras[0].vegMode, 'meatOnly', '換到的還是純葷的菜');
+    ok(swapped.extras[0].pills.includes('僅葷食成員'), '仍然標「僅葷食成員」');
+
+    // W3：把加菜拿掉 → 那一格變空的（角色是配菜，加菜佔的本來就是配菜的位置）
+    await clickEl(page, `.meal-item[data-extra="meat"][data-item="${swapped.extras[0].id}"] .item-menu`);
+    await page.waitForSelector('.modal-card .modal-actions');
+    await page.evaluate(() => { [...document.querySelectorAll('.modal-card .modal-actions .btn')].find((b) => b.textContent.includes('拿掉這道'))?.click(); });
+    await waitToastGone(page).catch(() => {});
+    await sleep(700);
+    const emptyCells = await page.$$eval('.meal-item.empty', (els) => els.map((e) => ({ role: e.dataset.role, text: e.textContent })));
+    ok(emptyCells.some((c) => c.text.includes('這格沒有菜')), '拿掉之後那一格是空的');
+    ok(emptyCells.some((c) => c.role === 'side'), '空的那一格角色是配菜');
+
+    // W4：某餐設外食再改回自己煮（走 regenerateSlot → refillSlot）→ 那一餐也照同一條規則排
+    await regen();
+    await clickEl(page, '.meal-block[data-meal="lunch"][data-kind="cook"] [data-action="kind"]');
+    await page.waitForSelector('.modal-card .modal-actions');
+    await page.evaluate(() => { [...document.querySelectorAll('.modal-card .modal-actions .btn')].find((b) => b.textContent === '外食')?.click(); });
+    await page.waitForSelector('.meal-block[data-meal="lunch"][data-kind="eatOut"]');
+    await sleep(400);
+    await clickEl(page, '.meal-block[data-meal="lunch"][data-kind="eatOut"] [data-action="kind"]');
+    await page.waitForSelector('.modal-card .modal-actions');
+    await page.evaluate(() => { [...document.querySelectorAll('.modal-card .modal-actions .btn')].find((b) => b.textContent === '自己煮')?.click(); });
+    await page.waitForSelector('.meal-block[data-meal="lunch"][data-kind="cook"]');
+    await sleep(800);
+    const refilled = (await readMeals()).find((m) => m.meal === 'lunch');
+    ok(refilled.ids.length >= 3, `改回自己煮之後那一餐有 ${refilled.ids.length} 道`);
+    ok(refilled.vegEatable >= 3, `姊仍吃得到 ${refilled.vegEatable} 道（≥ 3）`);
+    ok(refilled.extras.length === 1 || refilled.vegEatable <= 3,
+      `改回自己煮的那一餐走的是同一條規則：加菜 ${refilled.extras.length} 道`);
   }
 
   eq(pageErrors, [], '沒有未攔截的例外');

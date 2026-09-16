@@ -6,7 +6,8 @@
 //   · 早餐不吃不重複扣分（同一道可以週一、週三重複）
 //   · 慢性病只降分：池子只剩高醣主菜時，糖尿病家庭仍排得出主菜，理由講事實
 //   · 腎臟病沒勾「鉀」時，鉀不影響分數
-//   · 有素食成員：每格的每道菜都是每位素食成員吃得了的版本；meatOnly 不會出現
+//   · 有素食成員：除了標記 extraMeat 的加菜，每格的每道菜都是每位素食成員吃得了的版本
+//   · 混合家庭（有葷有素）每個午晚餐在素食保障成立下放一道純葷加菜（SPEC_排菜葷素比例）
 //   · 保存期限：葉菜不會排在買菜日後第 4 天以上
 //   · 鎖住的格子重新產生後不變；外食格沒有菜
 //   · 理由只有事實，沒有建議語氣
@@ -20,7 +21,7 @@ import { newMember } from '../js/members.js';
 import {
   generateWeek, swapItem, buildContext, scoreSoft, hardBlock, makeRng, hashSeed, weekKeyOf, mondayOf, addDays,
   lastShoppingDayOnOrBefore, historyRowsOf, dailyEstimates, medianOf, MEALS, isMeaty, VEG_MIN_DISHES, withPositions,
-  actualRelaxations, shelfBlocker, RELAXABLE, FREEZABLE_CATS, daysBetween,
+  actualRelaxations, shelfBlocker, RELAXABLE, FREEZABLE_CATS, daysBetween, MEAL_ROLES, refillSlot,
   weekBalance, balanceSentence, assignItem, HEARTY_LEVELS, WEEK_CAPS, BALANCE_NOTE, HEARTY_HINT, HEARTY_TOP_SHARE, groupEstimates,
 } from '../js/planner.js';
 import { FORBIDDEN } from './copyrules.mjs';
@@ -186,8 +187,17 @@ const fam = [{ ...newMember(), name: '爸', diet: 'omni' }, { ...newMember(), na
 const { plan: vp } = gen({ members: fam });
 const vItems = cookSlots(vp).flatMap((s) => s.items.map((it) => byId.get(it.recipeId)));
 ok(vItems.length >= 50, `（母體）${vItems.length} 道菜`);
-everyOf(vItems, (r) => versionFor(r, 'lactoOvo') !== null && versionFor(r, 'veganNoAllium') !== null, '每一道菜蛋奶素與全素（不吃五辛）的成員都吃得了');
-noneOf(vItems, (r) => r.vegMode === 'meatOnly', '沒有任何 meatOnly 的菜');
+// 2026-09-16 SPEC_排菜葷素比例：混合家庭每個午晚餐在素食保障成立下會放一道純葷加菜，
+// 所以「零 meatOnly」不再是對的語意。改成三件事：沒標加菜的每一道素食成員都吃得了、標加菜的都是純葷主菜、一餐最多一道。
+const vRows = cookSlots(vp).flatMap((s) => s.items.map((it) => ({ it, r: byId.get(it.recipeId), meal: s.meal })));
+const vPlain = vRows.filter((x) => !x.it.extraMeat);
+const vExtras = vRows.filter((x) => x.it.extraMeat);
+ok(vPlain.length >= 40, `（母體）不含加菜的 ${vPlain.length} 道`);
+everyOf(vPlain.map((x) => x.r), (r) => versionFor(r, 'lactoOvo') !== null && versionFor(r, 'veganNoAllium') !== null,
+  '除了加菜，每一道菜蛋奶素與全素（不吃五辛）的成員都吃得了');
+ok(vExtras.length >= 10, `（母體）這一週有 ${vExtras.length} 道加菜`);
+everyOf(vExtras, (x) => x.r.vegMode === 'meatOnly' && x.it.role === 'main', '標了加菜的都是純葷主菜');
+everyOf(cookSlots(vp).filter((s) => s.meal !== 'breakfast'), (s) => s.items.filter((it) => it.extraMeat).length <= 1, '一餐最多一道加菜');
 ok(vItems.some((r) => r.vegMode === 'splittable'), '（對照）有可分流的菜（葷食成員吃葷版），不是全變成素菜');
 ok(cookSlots(vp).flatMap((s) => s.items).some((it) => it.reasons.some((t) => t.includes('姊（全素）可吃'))), '理由寫出「姊（全素）可吃」');
 ok(recipes.some((r) => r.role === 'main' && r.vegMode === 'meatOnly'), '（對照母體）池子裡本來有 meatOnly 主菜');
@@ -735,10 +745,14 @@ const bRun = (members, rules, weeks = 8) => {
     const { plan, diagnostics } = generateWeek({ recipes, members, idx, units, rules, favorites: [], history, mondayIso: monday, seed: `bal${w}`, shoppingDays: [3, 6] });
     history = [...history, ...historyRowsOf(plan)];
     const b = weekBalance({ plan, recipes, members, idx, units, rules });
+    // 混合家庭每餐會多一道純葷加菜（SPEC_排菜葷素比例）。配額是給正規主菜設計的，
+    // 所以另外算一份「不含加菜」的平衡；加菜本身照樣算進 b（上面那一份），兩份都留著比對。
+    const planNoExtra = { ...plan, slots: plan.slots.map((sl) => ({ ...sl, items: (sl.items ?? []).filter((it) => !it.extraMeat) })) };
+    const bNoExtra = weekBalance({ plan: planNoExtra, recipes, members, idx, units, rules });
     const perDay = new Map();
-    for (const x of b.hearty) perDay.set(x.day, (perDay.get(x.day) ?? 0) + 1);
+    for (const x of bNoExtra.hearty) perDay.set(x.day, (perDay.get(x.day) ?? 0) + 1);
     const naHigh = b.hearty.filter((x) => ctx.heartyOf(byId.get(x.recipeId)).high.includes('sodium')).length;
-    out.weeks.push({ plan, b, doubleDays: [...perDay.values()].filter((n) => n > 1).length, weekend: b.hearty.filter((x) => x.day >= 5).length, naHigh });
+    out.weeks.push({ plan, b, bNoExtra, doubleDays: [...perDay.values()].filter((n) => n > 1).length, weekend: b.hearty.filter((x) => x.day >= 5).length, naHigh });
     const seq = cookSlots(plan).filter((sl) => sl.meal !== 'breakfast').map((sl) => sl.items.find((it) => it.role === 'main')).filter(Boolean);
     for (let i = 1; i < seq.length; i += 1) {
       const prevH = ctx.heartyOf(byId.get(seq[i - 1].recipeId)).hearty;
@@ -783,7 +797,11 @@ section('一週平衡：有留意項目、有素食成員的家庭');
   ok(hyp.weeks.some((x) => x.b.doubled > 0) || hyp.weeks.every((x) => x.naHigh === 0), '（前提）算兩道的情況真的有被排到，或者鈉偏高的菜根本沒排（兩者之一）');
   for (const key of ['lactoOvo', 'vegan']) {
     const on = bRun(B_MEMBERS[key], {}); const off = bRun(B_MEMBERS[key], { balance: false });
-    everyOf(on.weeks, (x) => x.b.load <= HEARTY_LEVELS.medium, `${key}：每週豐盛 ≤ 4`);
+    // 2026-09-16 SPEC_排菜葷素比例：混合家庭每個午晚餐多一道純葷加菜，一週的主菜從 14 道變 28 道。
+    // 配額看的是正規主菜那一半；加菜也算進 weekBalance（下一條對照），整週的豐盛道數因此會比配額高 —— 那是事實，STATUS 記了數字。
+    everyOf(on.weeks, (x) => x.bNoExtra.load <= HEARTY_LEVELS.medium, `${key}：不含加菜的主菜每週豐盛 ≤ 4`);
+    ok(on.weeks.some((x) => x.b.load > x.bNoExtra.load),
+      `（對照）加菜確實算進一週平衡：含加菜最多 ${Math.max(...on.weeks.map((x) => x.b.load))} 道、不含加菜最多 ${Math.max(...on.weeks.map((x) => x.bNoExtra.load))} 道`);
     ok(on.weeks.reduce((n, x) => n + x.doubleDays, 0) <= 1, `${key}：午晚餐都豐盛的日子 8 週最多 1 天（${on.weeks.reduce((n, x) => n + x.doubleDays, 0)}）`);
     eq(on.empty, 0, `${key}：沒有空格（素食保障照舊，平衡只是加減分）`);
     const avgRed = (o) => o.weeks.reduce((n, x) => n + x.b.redMeat, 0) / o.weeks.length;
@@ -968,6 +986,150 @@ section('每日估算分組：數字一樣的成員併一組，不一樣的分�
   ], F);
   eq(mixedDiet.length, 1, '五辛素與全素這一天吃到的數字一樣 → 併成一組');
   eq(mixedDiet[0].diets, ['vegan', 'veganNoAllium'], '而且兩種飲食型態都列出來，不會只寫其中一種');
+}
+
+section('排菜葷素比例：加菜那天的每日估算，素食成員吃不了的道數＝有加菜的餐數');
+{
+  // 加菜是「只有吃葷的人吃」的菜，所以素食成員那一天的估算不含它，而且畫面要講得出「有 N 道這位吃不了」。
+  const dad = { ...newMember(), name: '爸', diet: 'omni' };
+  const mom = { ...newMember(), name: '媽', diet: 'lactoOvo' };
+  const { plan: mp } = gen({ members: [dad, mom], seed: 'est-extra' });
+  const day0 = mp.slots.filter((s) => s.day === 0);
+  const extrasDay0 = day0.flatMap((s) => (s.items ?? []).filter((it) => it.extraMeat)).length;
+  ok(extrasDay0 >= 1, `（前提）第一天有 ${extrasDay0} 道加菜`);
+  const rows = dailyEstimates(day0, [dad, mom], idx, byId, ['kcal', 'protein']);
+  const momRow = rows.find((r) => r.label === '媽');
+  const dadRow = rows.find((r) => r.label === '爸');
+  eq(momRow.missing, extrasDay0, `媽那天吃不了的道數＝加菜數（${momRow.missing}）`);
+  eq(dadRow.missing, 0, '爸什麼都吃得到');
+  ok(dadRow.fields.kcal > momRow.fields.kcal, `爸的估計值比媽高（多了加菜那幾道）：${Math.round(dadRow.fields.kcal)} vs ${Math.round(momRow.fields.kcal)}`);
+}
+
+section('排菜葷素比例：混合家庭每個午晚餐放一道純葷加菜（SPEC_排菜葷素比例）');
+{
+  // Yolin 原話：「午餐、晚餐在素食有 2 道菜以上的情況下，可以有幾道是葷食；不然像滷雞腳這類無法分流的葷菜永遠排不進去。」
+  // 定案是「每餐都放、沒有配額」，唯一硬門檻是素食保障（每位素食成員仍吃得到 VEG_MIN_DISHES 道，含主食）。
+  const mixed = [{ ...newMember(), name: '爸', diet: 'omni' }, { ...newMember(), name: '媽', diet: 'lactoOvo' }];
+  const SEEDS8 = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8'];
+  const runs = SEEDS8.map((seed) => gen({ members: mixed, seed }));
+  const meals = runs.flatMap((r) => cookSlots(r.plan).filter((s) => s.meal !== 'breakfast'));
+  const extrasOf = (s) => s.items.filter((it) => it.extraMeat);
+
+  // P1
+  eq(meals.length, 112, `（母體）8 週共 ${meals.length} 個午晚餐`);
+  const withExtra = meals.filter((s) => extrasOf(s).length > 0);
+  ok(withExtra.length >= 90, `有加菜的 ${withExtra.length}／${meals.length} 餐 —— 量的是餘裕，門檻 90 不是「> 0」（慣例 22）`);
+  everyOf(meals, (s) => extrasOf(s).length <= 1, '一餐最多一道加菜');
+  const extras = meals.flatMap((s) => extrasOf(s).map((it) => ({ it, meal: s.meal })));
+  everyOf(extras, (x) => byId.get(x.it.recipeId).vegMode === 'meatOnly', '加菜都是純葷的菜');
+  everyOf(extras, (x) => x.it.role === 'main', '加菜的角色是主菜（它取代一道配菜的位置）');
+  everyOf(extras, (x) => x.it.pos === MEAL_ROLES[x.meal].lastIndexOf('side'), '加菜佔的是最後一道配菜的位置');
+  everyOf(extras, (x) => x.it.reasons.some((t) => t.includes('加菜')), '理由講明它是加菜');
+  const skipped = runs.flatMap((r) => r.diagnostics.meatExtraSkipped);
+  eq(skipped.length, meals.length - withExtra.length, `沒放加菜的 ${meals.length - withExtra.length} 餐，每一餐都記在 meatExtraSkipped`);
+  everyOf(skipped, (x) => ['vegGuarantee', 'noCandidate'].includes(x.why), '不放的原因只有素食保障或挑不到兩種');
+
+  // P2 素食保障（母體現在幾乎每餐都含加菜）
+  const vegCounts = meals.map((s) => s.items.filter((it) => versionFor(byId.get(it.recipeId), 'lactoOvo') !== null).length);
+  everyOf(vegCounts, (n) => n >= VEG_MIN_DISHES, `每個午晚餐媽仍吃得到 ≥ ${VEG_MIN_DISHES} 道（最少 ${Math.min(...vegCounts)} 道）`);
+
+  // P3 對照：全葷、全素、沒有家人都不放加菜
+  const omniFam = [{ ...newMember(), name: 'a' }, { ...newMember(), name: 'b' }, { ...newMember(), name: 'c' }];
+  const omniRun = gen({ members: omniFam });
+  const omniExtras = cookSlots(omniRun.plan).flatMap((s) => s.items.filter((it) => it.extraMeat));
+  ok(cookSlots(omniRun.plan).flatMap((s) => s.items).filter((it) => byId.get(it.recipeId).vegMode === 'meatOnly').length >= 5,
+    `（對照母體）全葷家庭本來就吃得到純葷主菜 ${cookSlots(omniRun.plan).flatMap((s) => s.items).filter((it) => byId.get(it.recipeId).vegMode === 'meatOnly').length} 道`);
+  eq(omniExtras.length, 0, '全葷家庭不放加菜（純葷菜直接當主菜就好）');
+  eq(omniRun.diagnostics.meatExtraSkipped.length, 0, '全葷家庭也不會記 meatExtraSkipped');
+  const vegFam2 = [{ ...newMember(), name: '姊', diet: 'vegan' }, { ...newMember(), name: '妹', diet: 'veganNoAllium' }];
+  const vegRun = gen({ members: vegFam2 });
+  noneOf(cookSlots(vegRun.plan).flatMap((s) => s.items), (it) => byId.get(it.recipeId).vegMode === 'meatOnly', '全素家庭一道純葷的都沒有（紅線）');
+  eq(cookSlots(gen({}).plan).flatMap((s) => s.items).filter((it) => it.extraMeat).length, 0, '還沒新增家人 → 不放加菜');
+
+  // P4 合成池：可分流主菜只剩「什錦炒米粉」（本身含主食）→ 午餐素食成員只剩 2 道，放不了加菜；晚餐多一道湯，放得下
+  const noodle = recipes.find((r) => r.vegMode === 'splittable' && r.includesStaple);
+  ok(noodle, `（前提）挑到一道本身含主食的可分流主菜：${noodle?.name}`);
+  const meatMains2 = recipes.filter((r) => r.role === 'main' && r.vegMode === 'meatOnly');
+  const pool4 = [noodle, ...meatMains2, ...recipes.filter((r) => r.role !== 'main')];
+  const run4 = gen({ members: mixed, recipes: pool4, seed: 'noodle' });
+  const lunches = cookSlots(run4.plan).filter((s) => s.meal === 'lunch');
+  const dinners = cookSlots(run4.plan).filter((s) => s.meal === 'dinner');
+  eq(lunches.filter((s) => extrasOf(s).length).length, 0, '主菜本身含主食的午餐：素食成員只剩 2 道 → 不放加菜');
+  ok(dinners.filter((s) => extrasOf(s).length).length >= 5, `同一週的晚餐多一道湯 → ${dinners.filter((s) => extrasOf(s).length).length}／7 餐放得下加菜`);
+  ok(run4.diagnostics.meatExtraSkipped.filter((x) => x.why === 'vegGuarantee').length >= 7,
+    `午餐沒放的原因都是素食保障（${run4.diagnostics.meatExtraSkipped.filter((x) => x.why === 'vegGuarantee').length} 筆）`);
+
+  // P5 純葷池砍到 5 道 → 加菜會在 14 天內重複，而且要照實記進 forcedRepeats
+  const pool5 = [...recipes.filter((r) => r.vegMode !== 'meatOnly'), ...meatMains2.slice(0, 5)];
+  const run5 = gen({ members: mixed, recipes: pool5, seed: 'tiny-meat' });
+  const extras5 = cookSlots(run5.plan).flatMap((s) => s.items.filter((it) => it.extraMeat));
+  ok(extras5.length >= 10, `（前提）這一週有 ${extras5.length} 道加菜，池子只有 5 道純葷主菜`);
+  const repeatExtras = run5.diagnostics.forcedRepeats.filter((x) => byId.get(x.recipeId)?.vegMode === 'meatOnly');
+  ok(repeatExtras.length >= 5, `加菜的重複照實記進「勉強排的」診斷：${repeatExtras.length} 筆`);
+  everyOf(repeatExtras, (x) => x.role === 'main', '記的角色是主菜');
+
+  // P6 時間上限壓到 15 分鐘 → 放寬時間的加菜要進 relaxed
+  const tight = { timeCaps: { weekday: { breakfast: 15, lunch: 15, dinner: 15 }, weekend: { breakfast: 15, lunch: 15, dinner: 15 } } };
+  const run6 = gen({ members: mixed, rules: tight, seed: 'tight' });
+  const extras6 = cookSlots(run6.plan).flatMap((s) => s.items.filter((it) => it.extraMeat));
+  ok(extras6.length >= 5, `（前提）時間上限 15 分鐘時仍放了 ${extras6.length} 道加菜`);
+  const relaxedIds = new Set(run6.diagnostics.relaxed.filter((x) => x.constraints.includes('relaxTime')).map((x) => x.recipeId));
+  const overTime = extras6.filter((it) => byId.get(it.recipeId).time > 15);
+  // 兩種情況都要有斷言：有超時的就要記 relaxTime；沒有超時的就代表全部都在上限內（空集合不算通過）。
+  if (overTime.length) {
+    everyOf(overTime, (it) => relaxedIds.has(it.recipeId), `超過 15 分鐘的加菜都記了 relaxTime（${overTime.length} 道）`);
+  } else {
+    everyOf(extras6, (it) => byId.get(it.recipeId).time <= 15, `時間上限壓到 15 分鐘時，${extras6.length} 道加菜全部都在上限內（沒有放寬）`);
+  }
+
+  // P7 本週想吃的純葷菜：一定排到，而且那一餐不會有第二道純葷
+  const feetWant = { ...meatMains2[0], id: 'r-user-feet-spec', name: '滷雞腳', time: 0, source: 'user' };
+  const run7 = gen({ members: mixed, recipes: [...recipes, feetWant], favorites: [{ recipeId: feetWant.id, wantThisWeek: true }], seed: 'want-extra' });
+  const feetSlots = cookSlots(run7.plan).filter((s) => s.items.some((it) => it.recipeId === feetWant.id));
+  eq(feetSlots.length, 1, '勾了本週想吃的滷雞腳排進去剛好一次');
+  eq(extrasOf(feetSlots[0]).length, 1, '那一餐只有一道加菜（就是滷雞腳，沒有第二道純葷）');
+  eq(extrasOf(feetSlots[0])[0].recipeId, feetWant.id, '而且那一道就是它');
+
+  // P9 一週平衡要把加菜算進去
+  const bal = weekBalance({ plan: runs[0].plan, recipes, members: mixed, idx, units, rules: {} });
+  const extraIds = new Set(cookSlots(runs[0].plan).flatMap((s) => s.items.filter((it) => it.extraMeat).map((it) => it.recipeId)));
+  ok(extraIds.size >= 8, `（母體）第一個種子有 ${extraIds.size} 道不同的加菜`);
+  ok(bal.hearty.some((h) => extraIds.has(h.recipeId)) || bal.redMeat > 0,
+    `加菜有算進一週平衡（豐盛 ${bal.hearty.length} 道、紅肉 ${bal.redMeat} 道）`);
+
+  // P10 鎖住的加菜重新產生後留著，而且那一餐仍只有一道
+  const base10 = runs[0].plan;
+  const lockSlot = cookSlots(base10).find((s) => extrasOf(s).length === 1);
+  ok(lockSlot, '（前提）找得到一餐有加菜的');
+  const locked = JSON.parse(JSON.stringify(base10));
+  const li = locked.slots.findIndex((s) => s.day === lockSlot.day && s.meal === lockSlot.meal);
+  const lockedId = extrasOf(lockSlot)[0].recipeId;
+  for (const it of locked.slots[li].items) if (it.extraMeat) it.locked = true;
+  const run10 = gen({ members: mixed, prevPlan: locked, seed: 'relock' });
+  const after10 = run10.plan.slots.find((s) => s.day === lockSlot.day && s.meal === lockSlot.meal);
+  ok(after10.items.some((it) => it.recipeId === lockedId && it.extraMeat), '鎖住的加菜重新產生後還在');
+  eq(after10.items.filter((it) => it.extraMeat).length, 1, '那一餐仍然只有一道加菜');
+
+  // P11 refillSlot：外食改回自己煮，走的是同一條規則（慣例 21）
+  const plan11 = JSON.parse(JSON.stringify(runs[1].plan));
+  const di = plan11.slots.findIndex((s) => s.kind === 'cook' && s.meal === 'dinner');
+  plan11.slots[di].items = [];
+  const refilled = refillSlot({ plan: plan11, slotIndex: di, recipes, members: mixed, idx, units, favorites: [], history: [], shoppingDays: [3, 6], seed: 'refill' });
+  ok(refilled.items.length >= 4, `重填的晚餐有 ${refilled.items.length} 道`);
+  ok(refilled.items.some((it) => isMeaty(byId.get(it.recipeId))), '重填之後那一餐有葷的');
+  eq(refilled.items.filter((it) => it.extraMeat).length, 1, '重填的晚餐也放了一道加菜 —— 跟「產生菜單」同一條規則');
+  ok(refilled.items.filter((it) => versionFor(byId.get(it.recipeId), 'lactoOvo') !== null).length >= VEG_MIN_DISHES,
+    `重填之後媽仍吃得到 ≥ ${VEG_MIN_DISHES} 道`);
+  const plan11b = JSON.parse(JSON.stringify(omniRun.plan));
+  const di2 = plan11b.slots.findIndex((s) => s.kind === 'cook' && s.meal === 'dinner');
+  plan11b.slots[di2].items = [];
+  const refilledOmni = refillSlot({ plan: plan11b, slotIndex: di2, recipes, members: omniFam, idx, units, favorites: [], history: [], shoppingDays: [3, 6], seed: 'refill' });
+  eq(refilledOmni.items.filter((it) => it.extraMeat).length, 0, '（對照）全葷家庭重填那一餐不會有加菜');
+
+  // P12 全葷家庭：同種子同輸出（這一版沒有動到主亂數串）
+  const twiceA = gen({ members: omniFam, seed: 'stable' });
+  const twiceB = gen({ members: omniFam, seed: 'stable' });
+  eq(JSON.stringify(twiceA.plan.slots), JSON.stringify(twiceB.plan.slots), '全葷家庭同種子同輸出');
 }
 
 done('plannertest');
