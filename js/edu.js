@@ -27,6 +27,8 @@ export function eduNode(id) {
     h('p', {}, e.kind === 'quote' ? `「${e.text}」` : e.text),
     h('p', { class: 'muted xs' },
       `${label}：${s.org ?? ''}《${s.title ?? ''}》${s.version ? '，' + s.version : ''}${s.fetchedAt ? '，' + s.fetchedAt + ' 擷取' : ''} `,
-      s.url ? h('a', { href: s.url, target: '_blank', rel: 'noopener' }, '開原文') : null),
+      // noreferrer 不只是 noopener 的加強：它連「你是從哪個網址點過來的」都不告訴對方。
+      // 這個 App 的網址列不帶任何個資，但「什麼都不送出去」本來就是它的預設立場，連這個也照做。
+      s.url ? h('a', { href: s.url, target: '_blank', rel: 'noopener noreferrer' }, '開原文') : null),
   );
 }

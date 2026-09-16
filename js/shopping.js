@@ -86,6 +86,32 @@ export function rangesOfPlan(plan, shoppingDays) {
 }
 
 /**
+ * 這張清單整個過去了嗎？
+ *
+ * **看的是它「給哪幾餐」，不是買菜日本身。** 星期四打開買菜頁時，星期三那張清單的買菜日雖然過了，
+ * 但它買的正是今天晚上要煮的菜 —— 把它當成過去的收起來，就是把最要緊的那一張藏掉。
+ * 所以只有「它涵蓋的每一天都已經過了」才算過去（那幾餐已經吃完了，只剩補買的意義）。
+ */
+export function rangeIsPast(range, todayIso) {
+  if (!todayIso) return false;
+  const dates = range?.dates ?? [];
+  if (!dates.length) return range.key < todayIso;
+  return dates.every((d) => d < todayIso);
+}
+
+/**
+ * 買菜頁的顯示順序：**還有餐要煮的清單排前面**（由近到遠），整個過去的排在後面。
+ *
+ * 為什麼要換順序：`rangesOfPlan` 是照買菜日排的，而一週的第一張清單常常落在「上週六」——
+ * 星期四打開買菜頁，最上面那張是上週六該買、餐也早吃完了的，要一直往下捲才看得到現在這一張。
+ * 過去的那幾張沒有刪掉也沒有藏起來（還是會想補買），只是排到後面、預設收合。
+ */
+export function orderRangesForToday(ranges, todayIso) {
+  const past = (r) => rangeIsPast(r, todayIso);
+  return [...ranges.filter((r) => !past(r)), ...ranges.filter(past)];
+}
+
+/**
  * 產生購物清單。
  * @returns {{ ranges: [{ key, label, dates, items: [...], pantry: [...] }] }}
  *   item：{ foodId, name, labels: string[], grams, buy: {qty, unit, grams}|null, section, uses: [{date, meal, recipe}] }

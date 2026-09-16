@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf } from './tap.mjs';
 import { openApp, acceptWelcome, goto, titleIs, textOf, sleep, clickEl } from './browserlib.mjs';
 import { indexFoods } from '../js/foods.js';
-import { buildShoppingList, rangesOfPlan, quantityText } from '../js/shopping.js';
+import { buildShoppingList, rangesOfPlan, orderRangesForToday, quantityText } from '../js/shopping.js';
+import { mondayOf, isoDate, addDays } from '../js/planner.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const foods = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foods.json'), 'utf8'));
@@ -16,7 +17,7 @@ const recipes = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/recipes.json'),
 const idx = indexFoods(foods, aliases);
 const byId = new Map(recipes.map((r) => [r.id, r]));
 
-const { page, pageErrors, close } = await openApp();
+const { page, browser, port, pageErrors, close } = await openApp();
 try {
   await acceptWelcome(page);
   const members = await page.evaluate(async () => {
@@ -53,7 +54,11 @@ try {
   await titleIs(page, '買菜');
   await page.waitForSelector('[data-card="shopRange"]');
   const rangeKeys = await page.$$eval('[data-card="shopRange"]', (els) => els.map((e) => e.dataset.range));
-  eq(rangeKeys, expectedRanges.map((r) => r.key), `區間跟 Node 端算的一樣：${rangeKeys.join('、')}`);
+  // 2026-09-17：順序改成「還有餐要煮的排前面，整個過去的排後面」（見 shopping.orderRangesForToday）。
+  // 這條原本比的是 rangesOfPlan 的時間順序，現在比的是畫面真正該有的順序 —— 語意換掉，不是刪掉。
+  const todayIso = isoDate(new Date());
+  eq(rangeKeys, orderRangesForToday(expectedRanges, todayIso).map((r) => r.key), `區間與順序跟 Node 端算的一樣：${rangeKeys.join('、')}`);
+  eq([...rangeKeys].sort(), expectedRanges.map((r) => r.key).sort(), '而且一張清單都沒有少（只是換順序）');
   ok(rangeKeys.length >= 2, `（母體）${rangeKeys.length} 個區間`);
 
   section('每一項的數量跟 Node 端手算一致');
@@ -557,6 +562,74 @@ try {
     await page.setViewport(vp0);
 
     await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.have = {}; row.fold = {}; row.custom = []; await store.saveShopping(row); }, cardKey);
+  }
+
+  section('已經過去的那張清單：排到後面、預設收起來，但打得開（補買）');
+  // 使用者回報：星期四打開買菜頁，最上面那張是「上週買」——那幾餐早吃完了，要一直往下捲才看得到現在這一張。
+  //
+  // 「今天星期幾」會決定有沒有過去的清單，所以不能靠跑測試的當下是星期幾（慣例 19）。
+  // 這裡開一個把 new Date() 固定在「本週四」的分頁：週一那張（涵蓋週一到週三）必然整個過去了，
+  // 而 mondayOf 不變，所以剛才存的那份菜單照樣讀得到。
+  {
+    const mondayIso = mondayOf(isoDate(new Date()));
+    const thursdayIso = addDays(mondayIso, 3);
+    const fakeNow = new Date(`${thursdayIso}T10:00:00`).getTime();
+    const p2 = await browser.newPage();
+    p2.setDefaultTimeout(60000);
+    try {
+      await p2.evaluateOnNewDocument((now) => {
+        const Real = Date;
+        const Fake = function Fake(...a) { return a.length ? new Real(...a) : new Real(now); };
+        Fake.now = () => now;
+        Fake.parse = Real.parse;
+        Fake.UTC = Real.UTC;
+        Fake.prototype = Real.prototype;
+        window.Date = Fake;
+      }, fakeNow);
+      await p2.goto(`http://localhost:${port}/#/shopping`, { waitUntil: 'networkidle0' });
+      await p2.waitForSelector('[data-card="shopRange"]');
+      await sleep(300);
+      const cards = await p2.$$eval('[data-card="shopRange"]', (els) => els.map((e) => ({
+        key: e.dataset.range,
+        past: e.dataset.past,
+        title: e.querySelector('.card-title').textContent.replace(/\s+/g, ' ').trim(),
+        open: e.querySelector('.fold-body').hidden === false,
+      })));
+      ok(cards.length >= 2, `（母體）站在週四看，畫面上有 ${cards.length} 張清單：${cards.map((c) => c.key).join('、')}`);
+      const pastCards = cards.filter((c) => c.past === 'true');
+      const liveCards = cards.filter((c) => c.past !== 'true');
+      ok(pastCards.length >= 1, `（前提）有 ${pastCards.length} 張整個過去了（週一那張涵蓋週一到週三）`);
+      ok(liveCards.length >= 1, `（前提）也有 ${liveCards.length} 張還有餐要煮`);
+      ok(cards.indexOf(liveCards[0]) < cards.indexOf(pastCards[0]), '還有餐要煮的排在前面');
+      eq(cards.slice(-pastCards.length).every((c) => c.past === 'true'), true, '過去的全部排在最後面');
+      everyOf(pastCards, (c) => c.open === false, '過去的那幾張預設收起來');
+      everyOf(pastCards, (c) => c.title.includes('已過'), `標題上標「已過」（${pastCards[0].title}）`);
+      everyOf(pastCards, (c) => /還差|全買齊/.test(c.title), '但還是寫得出還差幾項 —— 不是把它藏起來');
+      everyOf(liveCards, (c) => c.open === true, '還有餐要煮的那幾張照樣是展開的');
+      noneOf(liveCards, (c) => c.title.includes('已過'), '（對照）沒過去的不會被標成「已過」');
+
+      // 補買：打得開，而且重畫之後還是開著（手動意圖優先，跟既有的摺疊規則同一套）
+      const pastKey = pastCards[0].key;
+      await p2.$eval(`[data-card="shopRange"][data-range="${pastKey}"] [data-action="fold"][data-fold="__card"]`, (el) => el.click());
+      await sleep(300);
+      const opened = await p2.$eval(`[data-card="shopRange"][data-range="${pastKey}"] .fold-body`, (el) => !el.hidden);
+      eq(opened, true, '點一下標題就打得開，可以補買');
+      await p2.evaluate(() => { location.hash = '#/recipes'; });
+      await p2.waitForSelector('[data-list="recipes"]');
+      await p2.evaluate(() => { location.hash = '#/shopping'; });
+      await p2.waitForSelector('[data-card="shopRange"]');
+      await sleep(300);
+      const stillOpen = await p2.$eval(`[data-card="shopRange"][data-range="${pastKey}"] .fold-body`, (el) => !el.hidden);
+      eq(stillOpen, true, '換頁回來還是開著 —— 手動展開過就不會再被自動收回去');
+      await p2.evaluate(async (key) => {
+        const store = await import('./js/store.js');
+        const row = await store.getShopping(key);
+        row.fold = {};
+        await store.saveShopping(row);
+      }, pastKey);
+    } finally {
+      await p2.close();
+    }
   }
 
   eq(pageErrors, [], '沒有未攔截的例外');

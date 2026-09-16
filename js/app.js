@@ -8,7 +8,8 @@
 import { route, setNotFound, startRouter, currentRoute, navigate, setSlowIndicator } from './router.js';
 import * as store from './store.js';
 import * as prefs from './prefs.js';
-import { h } from './ui.js';
+import * as db from './db.js';
+import { h, modal, toast } from './ui.js';
 import { setTop, render, renderLoading, renderTabs, viewIsEmpty } from './shell.js';
 import { APP_VERSION, V } from './version.js';
 
@@ -86,11 +87,65 @@ async function forceUpdate() {
   location.replace(`./?fresh=${Date.now()}#/`);
 }
 
+// ---------- 存不進去的時候要講 ----------
+//
+// 這個 App 沒有伺服器：寫不進 IndexedDB 就是真的沒有了。以前十幾個寫入點沒有一個 catch，
+// 失敗時畫面完全不出聲 —— 按鈕彈回去、沒有訊息，使用者會以為存好了。
+// db.onWriteError 是唯一的通報口（每個寫入都會經過），所以**新增的寫入點不可能忘記接**。
+let tellingWriteFailed = false;
+async function tellWriteFailed({ error }) {
+  if (tellingWriteFailed) return;        // 一次動作可能連續寫好幾筆，只講一次就夠
+  tellingWriteFailed = true;
+  const why = String(error?.name || error?.message || error || '不明原因');
+  try {
+    await modal({
+      title: '沒有存起來',
+      body: h('div', {},
+        h('p', {}, '剛才的變更沒有存進這台裝置。畫面上看到的還在，但關掉 App 之後就會不見。'),
+        h('p', { class: 'muted sm' }, '常見原因是裝置空間不夠，或瀏覽器在無痕模式下不讓 App 存資料。清出一點空間、或改用一般視窗開，再做一次。'),
+        h('p', { class: 'muted xs' }, `錯誤：${why}`),
+      ),
+      actions: [{ label: '知道了', value: true, primary: true }],
+    });
+  } finally { tellingWriteFailed = false; }
+}
+db.onWriteError(tellWriteFailed);
+
+// 漏網的安全網：任何沒被接住的 Promise 失敗（例如某個按鈕的處理函式自己丟例外）至少要出一句話，
+// 不能讓使用者對著一個「按了沒反應」的畫面猜。寫入失敗已經有上面那個對話框，這裡就不重複講。
+window.addEventListener('unhandledrejection', (e) => {
+  console.error(e.reason);
+  if (tellingWriteFailed) return;
+  toast('剛才那個動作沒有完成，請再試一次。');
+});
+
 // ---------- 啟動 ----------
+/** 連資料庫都開不起來時的畫面。停在轉圈圈比講實話更糟 —— 使用者會一直等。 */
+function showStorageBlocked(error) {
+  const why = String(error?.name || error?.message || error || '不明原因');
+  setTop({ title: 'MealMate', back: false });
+  const again = h('button', { class: 'btn btn-primary', type: 'button', dataset: { action: 'retryBoot' }, onclick: () => location.reload() }, '再試一次');
+  render(
+    h('section', { class: 'card', dataset: { card: 'storageBlocked' } },
+      h('h2', { class: 'card-title' }, '這台裝置不讓 App 存資料'),
+      h('p', {}, 'MealMate 把家人設定與菜單存在這台裝置裡，存不了就沒辦法開始。'),
+      h('p', { class: 'muted sm' }, '最常見的原因是用無痕／私密瀏覽開啟，或瀏覽器把這個網站的儲存空間關掉了。改用一般視窗開一次就會好。'),
+      h('p', { class: 'muted xs' }, `錯誤：${why}`),
+      again,
+    ),
+  );
+}
+
 (async function boot() {
   setSlowIndicator(() => { if (viewIsEmpty()) renderLoading(); });
   renderLoading();
-  await store.init();
+  try {
+    await store.init();
+  } catch (e) {
+    console.error(e);
+    showStorageBlocked(e);
+    return;
+  }
   prefs.applyFontScale();
   startRouter();
   renderTabs();

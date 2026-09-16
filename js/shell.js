@@ -10,10 +10,26 @@ import { back, canGoBack, renderIsStale } from './router.js';
 
 const view = document.getElementById('view');
 
+/**
+ * 換頁時只播報「現在是哪一頁」。
+ *
+ * 以前 aria-live="polite" 掛在 #view 上，每次重畫都把整頁念一遍 —— 換一次頁、按一顆開關、
+ * 勾一項買菜清單都會從頭念，長輩用螢幕閱讀器會被洗版。頁名沒變就不播（同一頁的重畫是安靜的）。
+ */
+let lastAnnounced = null;
+function announceRoute(title) {
+  const el = document.getElementById('routeAnnounce');
+  if (!el || title === lastAnnounced) return;
+  lastAnnounced = title;
+  el.textContent = title;
+}
+
 export function setTop({ title, back: showBack = true, action = null }) {
   // 跟 render() 同一道守門：過期的 view 不准改頂列。
   if (renderIsStale()) return;
-  document.getElementById('topTitle').textContent = title || 'MealMate';
+  const shown = title || 'MealMate';
+  document.getElementById('topTitle').textContent = shown;
+  announceRoute(shown);
   const backBtn = document.getElementById('backBtn');
   backBtn.hidden = !showBack || !canGoBack();
   const actionBtn = document.getElementById('topActionBtn');

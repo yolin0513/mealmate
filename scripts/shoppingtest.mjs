@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, near, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { indexFoods } from '../js/foods.js';
 import { newMember } from '../js/members.js';
-import { rangesOfPlan, buildShoppingList, scaleFor, suggestedText, manualUnitOf, sanitizeCustom, customKey, sectionOf, quantityText, listAsText, SECTIONS } from '../js/shopping.js';
+import { rangesOfPlan, orderRangesForToday, rangeIsPast, buildShoppingList, scaleFor, suggestedText, manualUnitOf, sanitizeCustom, customKey, sectionOf, quantityText, listAsText, SECTIONS } from '../js/shopping.js';
 import { generateWeek } from '../js/planner.js';
 import { estimate } from '../js/nutrition.js';
 
@@ -43,6 +43,28 @@ eq(rangesOfPlan(p1, []).length, 1, '沒設買菜日 → 一個整週區間');
 eq(rangesOfPlan(p1, []).at(0).dates, dates, '整週區間包含七天');
 const p1eat = plan(dates.map((_, d) => slot(d, 'dinner', ['r-stir-fried-cabbage'], d === 0 ? 'eatOut' : 'cook')));
 eq(rangesOfPlan(p1eat, [3, 6])[0].dates, ['2026-09-15'], '外食的那一天不算進區間');
+
+section('買菜頁的順序：還有餐要煮的排前面，整個過去的排後面');
+// 使用者回報：星期四打開買菜頁，最上面那張是「上週六買」——三天前該買的、那幾餐也早吃完了，
+// 要一直往下捲才看得到現在這一張。判斷「過去了」看的是**它給哪幾餐**，不是買菜日本身：
+// 星期三那張的買菜日雖然過了，但它買的正是今天晚上要煮的菜。
+{
+  // ranges 是上面那組：9/12 買（給 9/14、9/15）、9/16 買（給 9/16–9/18）、9/19 買（給 9/19、9/20）
+  eq(ranges.map((r) => rangeIsPast(r, '2026-09-17')), [true, false, false],
+    '9/17（四）站在這裡：只有「上週六買」那張整個過去了');
+  eq(orderRangesForToday(ranges, '2026-09-17').map((r) => r.key), ['2026-09-16', '2026-09-19', '2026-09-12'],
+    '所以順序是「9/16 買」→「9/19 買」→ 最後才是已經過去的「9/12 買」');
+  eq(rangeIsPast(ranges[1], '2026-09-18'), false, '9/18（五）那天，9/16 那張還是「現在這一張」（它涵蓋到 9/18）');
+  eq(rangeIsPast(ranges[1], '2026-09-19'), true, '到了 9/19 它才算過去（9/16–9/18 都吃完了）');
+  eq(orderRangesForToday(ranges, '2026-09-14').map((r) => r.key), ['2026-09-12', '2026-09-16', '2026-09-19'],
+    '（對照）週一站在這裡時一張都還沒過去，順序完全不變');
+  eq(orderRangesForToday(ranges, '2026-09-21').map((r) => r.key), ['2026-09-12', '2026-09-16', '2026-09-19'],
+    '（對照）整週都過去了也不重排 —— 全部同一類，就維持原本的時間順序');
+  everyOf(orderRangesForToday(ranges, '2026-09-17'), (r) => ranges.includes(r), '一張都沒有被弄丟（只換順序，不刪東西）');
+  eq(orderRangesForToday(ranges, '2026-09-17').length, ranges.length, `而且張數一樣（${ranges.length} 張）`);
+  eq(rangeIsPast({ key: '2026-09-12', dates: [] }, '2026-09-17'), true, '沒有 dates 的退路：拿買菜日本身比');
+  eq(rangeIsPast(ranges[0], null), false, '不知道今天是哪天就不判任何一張是過去的');
+}
 
 section('縮放倍數');
 const fam = [{ ...newMember(), name: 'a', diet: 'omni' }, { ...newMember(), name: 'b', diet: 'omni' }, { ...newMember(), name: 'c', diet: 'lactoOvo' }];

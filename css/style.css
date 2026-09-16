@@ -705,3 +705,31 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
   .nutri-grid { grid-template-columns: 1fr; }
   .target-grid { grid-template-columns: minmax(0, 1fr) 96px 36px; }
 }
+
+/* ---------- 只給螢幕閱讀器看的字 ---------- */
+/* 換頁時播報頁名用（index.html 的 #routeAnnounce）。不能用 display:none 或 hidden ——
+   那樣螢幕閱讀器也讀不到，等於沒有播報。 */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- 系統設了「減少動態」就不要動 ---------- */
+/* 會去開這個設定的人，多半是動畫會讓他頭暈或分心的人。轉圈圈、toast 滑入、開關滑塊
+   全部停掉，但**狀態照樣要看得出來** —— 所以只拿掉動畫，不是把東西藏起來：
+   轉圈圈仍然是一個看得見的圈，toast 仍然會出現，開關的滑塊仍然會到另一邊，只是不滑過去。 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .spinner { animation: none; border-top-color: var(--accent); }
+}

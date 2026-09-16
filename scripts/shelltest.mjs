@@ -203,10 +203,52 @@ export function viewsWritingViewDirectly(source) {
   return /getElementById\(\s*['"]view['"]\s*\)/.test(source) || /mount\(\s*view/.test(source);
 }
 
+section('寫入失敗一定有人接得到（結構保證，不靠十幾個呼叫點各自記得）');
+{
+  // 以前只有一個呼叫點有 catch —— 存不進去時畫面完全不出聲，按鈕彈回去、沒有訊息。
+  // 現在每一支寫入都包在 db.js 的 writing() 裡，那是唯一的通報口，所以新增寫入點也漏不掉。
+  const dbSrc = stripComments(read('js/db.js'));
+  const chunkOf = (name) => {
+    const at = dbSrc.indexOf(`export async function ${name}(`);
+    if (at < 0) return null;
+    const next = dbSrc.indexOf('\nexport ', at + 1);
+    return dbSrc.slice(at, next < 0 ? dbSrc.length : next);
+  };
+  const writes = ['put', 'del', 'clear', 'putAll'].map((n) => ({ n, src: chunkOf(n) }));
+  const reads = ['get', 'getAll', 'count', 'getByIndex'].map((n) => ({ n, src: chunkOf(n) }));
+  ok(writes.length === 4, `（母體）db.js 的寫入函式共 ${writes.length} 支：${writes.map((w) => w.n).join('、')}`);
+  noneOf(writes, (w) => w.src == null, '四支寫入都在 db.js 裡找得到');
+  everyOf(writes, (w) => w.src.includes('writing('), '每一支寫入都經過 writing()（會通報，錯誤照樣往上丟）');
+  noneOf(reads, (r) => r.src == null, '（對照）四支唯讀的也找得到');
+  noneOf(reads, (r) => r.src.includes('writing('), '（對照）get／getAll／count／getByIndex 不通報 —— 上面那條不是因為整個檔案都被包起來');
+  ok(/export function onWriteError/.test(dbSrc), 'db.js 對外開了 onWriteError');
+  const appSrc = stripComments(read('js/app.js'));
+  ok(/db\.onWriteError\(/.test(appSrc), 'app.js 真的訂閱了它 —— 沒人接的話通報等於沒有');
+  ok(/addEventListener\('unhandledrejection'/.test(appSrc), 'app.js 另外掛了漏網的安全網（unhandledrejection）');
+}
+
+section('連資料庫都開不起來時，啟動要講話，不能停在轉圈圈');
+{
+  const appSrc = stripComments(read('js/app.js'));
+  ok(/await store\.init\(\);/.test(appSrc), '（前提）boot() 會 await store.init()');
+  ok(/try \{\s*await store\.init\(\);\s*\} catch/.test(appSrc), '而且包在 try/catch 裡');
+  ok(/showStorageBlocked\(e\)/.test(appSrc), '失敗時走 showStorageBlocked()，不是把例外吞掉');
+  ok(/card: 'storageBlocked'/.test(appSrc), '那張卡片有自己的 data-card，測得到');
+}
+
 section('沒有任何模組 import 進入點 app.js');
 const nonEntryModules = ['sw.js', ...jsFiles].filter((f) => f !== 'js/app.js');
 noneOf(nonEntryModules, (f) => importsOf(read(f)).some((spec) => spec.split('?')[0].endsWith('/app.js')),
   '沒有任何模組 import app.js（view 要的東西在 js/shell.js）');
+
+section('外部連結不把來源網址送出去');
+{
+  const eduSrc = read('js/edu.js');
+  const rels = [...eduSrc.matchAll(/target: '_blank'[^)]*?rel: '([^']*)'/g)].map((m) => m[1]);
+  ok(rels.length >= 1, `（母體）另開視窗的連結有 ${rels.length} 處`);
+  everyOf(rels, (r) => r.includes('noopener'), 'rel 有 noopener（新視窗拿不到 window.opener）');
+  everyOf(rels, (r) => r.includes('noreferrer'), 'rel 有 noreferrer（連「你從哪個網址點過來」都不告訴對方）');
+}
 
 section('沒有任何一頁繞過 render() 直接寫 #view');
 const viewFiles = fs.readdirSync(path.join(ROOT, 'js/views')).filter((f) => f.endsWith('.js'));
@@ -401,6 +443,113 @@ try {
   ok(about.edus.includes('fda.tfnd.attribution'), '有標示食藥署資料來源');
   ok(about.edus.includes('hpa.open-data.attribution'), '有標示國健署開放宣告');
   ok(about.text.includes('食品藥物管理署'), '文字裡真的有機關名');
+
+  section('換頁只播報頁名，不是把整頁念一次');
+  // 以前 aria-live="polite" 掛在 #view 上：換一次頁、按一顆開關、勾一項買菜清單，
+  // 螢幕閱讀器都會把整頁（本週頁 680 個節點）從頭念一遍。改成只播報「現在是哪一頁」。
+  {
+    const shell = await page.evaluate(() => {
+      const ann = document.getElementById('routeAnnounce');
+      const r = ann?.getBoundingClientRect();
+      return {
+        viewLive: document.getElementById('view').getAttribute('aria-live'),
+        annExists: !!ann,
+        annRole: ann?.getAttribute('role'),
+        annLive: ann?.getAttribute('aria-live'),
+        annClass: ann?.className,
+        annDisplay: ann ? getComputedStyle(ann).display : null,
+        annW: r ? Math.round(r.width) : null,
+        annH: r ? Math.round(r.height) : null,
+      };
+    });
+    eq(shell.viewLive, null, '#view 身上沒有 aria-live 了（整頁重畫不再整頁播報）');
+    ok(shell.annExists, '另外有一塊專門播報的區域 #routeAnnounce');
+    eq(shell.annRole, 'status', '它是 role="status"');
+    eq(shell.annLive, 'polite', '而且是 polite（不打斷使用者正在聽的東西）');
+    eq(shell.annClass, 'sr-only', '畫面上看不到它（.sr-only）');
+    ok(shell.annDisplay !== 'none', `但**不是** display:none —— 那樣螢幕閱讀器也讀不到（實際是 ${shell.annDisplay}）`);
+    ok(shell.annW <= 1 && shell.annH <= 1, `它不佔版面（${shell.annW}×${shell.annH}px）`);
+
+    await goto('#/recipes');
+    await page.waitForSelector('#view [data-list="recipes"]', { timeout: 60000 });
+    eq(await page.$eval('#routeAnnounce', (el) => el.textContent), '食譜', '換到食譜頁時播報「食譜」');
+    await goto('#/shopping');
+    await page.waitForSelector('#view .card', { timeout: 60000 });
+    eq(await page.$eval('#routeAnnounce', (el) => el.textContent), '買菜', '換到買菜頁時播報「買菜」');
+
+    // 同一頁重畫不可以再播一次（勾一項、按一顆開關都會重畫）。
+    // 播報區塞一個哨兵字串，重畫之後哨兵還在 → 代表沒有再播；換到別頁才會被覆蓋。
+    await page.evaluate(() => { document.getElementById('routeAnnounce').textContent = '哨兵'; });
+    await page.evaluate(async () => { (await import('./js/router.js')).refresh(); });
+    await new Promise((r) => setTimeout(r, 500));
+    eq(await page.$eval('#routeAnnounce', (el) => el.textContent), '哨兵', '同一頁重畫沒有再播一次');
+    await goto('#/family');
+    await page.waitForSelector('#view [data-card="about"]', { timeout: 60000 });
+    eq(await page.$eval('#routeAnnounce', (el) => el.textContent), '家人', '（對照）真的換頁時哨兵會被換掉 —— 上面那條不是因為播報壞了');
+  }
+
+  section('存不進去的時候要講出來（不是默默失敗）');
+  {
+    await goto('#/family/new');
+    await page.waitForSelector('#view [data-field="name"]', { timeout: 60000 });
+    await page.type('[data-field="name"]', '測試家人');
+    // 把 IndexedDB 的寫入弄壞（模擬空間不足／無痕模式）。讀取不動，所以其他畫面照樣正常。
+    await page.evaluate(() => {
+      const proto = IDBObjectStore.prototype;
+      proto.__origPut = proto.put;
+      proto.put = function put() { throw new DOMException('模擬空間不足', 'QuotaExceededError'); };
+    });
+    await page.click('[data-action="saveMember"]');
+    await page.waitForSelector('.modal-card', { timeout: 20000 });
+    const dlg = await page.$eval('.modal-card', (el) => el.textContent.replace(/\s+/g, ' ').trim());
+    ok(dlg.includes('沒有存起來'), `跳出對話框講明沒存成功：「${dlg.slice(0, 12)}…」`);
+    ok(dlg.includes('關掉 App'), '而且講出後果（關掉 App 就會不見），不是只說「錯誤」');
+    ok(/QuotaExceeded/.test(dlg), '附上原始錯誤名稱，遠端支援時問得出來');
+    ok(!/^0|^成功|已儲存/.test(dlg), '沒有假裝成功');
+    eq(await page.$eval('#toast', (el) => el.hidden), true, '而且沒有同時再冒一個 toast —— 兩道網不會各講一次');
+    await page.$$eval('.modal-actions .btn', (els) => els[els.length - 1].click());
+    await page.waitForFunction(() => !document.querySelector('.modal-card'), { timeout: 20000 });
+    eq(await page.$eval('#topTitle', (el) => el.textContent), '新增家人', '存失敗就留在原地，輸入的東西還在畫面上');
+    eq(await page.$eval('[data-field="name"]', (el) => el.value), '測試家人', '（對照）名字沒有被清掉');
+
+    // 對照組：修好之後同一顆按鈕要存得進去、而且不跳對話框。
+    await page.evaluate(() => { IDBObjectStore.prototype.put = IDBObjectStore.prototype.__origPut; });
+    await page.click('[data-action="saveMember"]');
+    await page.waitForFunction(() => document.getElementById('topTitle')?.textContent === '家人', { timeout: 20000 });
+    eq(await page.$('.modal-card'), null, '（對照）寫得進去的時候不會跳那個對話框');
+    const saved = await page.evaluate(async () => (await import('./js/store.js')).members().map((m) => m.name));
+    ok(saved.includes('測試家人'), `（對照）這次真的存進去了：${saved.join('、')}`);
+  }
+
+  section('整個 IndexedDB 都不能用時（無痕模式）：講清楚，不要停在「載入中…」');
+  {
+    // 實測過的壞法：iOS 私密瀏覽、或瀏覽器把這個網站的儲存空間關掉，indexedDB 一碰就丟例外。
+    // 修之前畫面會永遠停在轉圈圈的「載入中…」，連底部分頁列都沒有。
+    const blind = await browser.newPage();
+    blind.setDefaultTimeout(30000);
+    try {
+      await blind.evaluateOnNewDocument(() => {
+        Object.defineProperty(window, 'indexedDB', {
+          configurable: true,
+          get() { throw new DOMException('模擬無痕模式', 'SecurityError'); },
+        });
+      });
+      await blind.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle0' });
+      await blind.waitForSelector('[data-card="storageBlocked"]', { timeout: 30000 });
+      const info = await blind.evaluate(() => ({
+        text: document.querySelector('[data-card="storageBlocked"]').textContent.replace(/\s+/g, ' ').trim(),
+        stillLoading: !!document.querySelector('#view .spinner'),
+        retry: !!document.querySelector('[data-action="retryBoot"]'),
+      }));
+      eq(info.stillLoading, false, '不再停在轉圈圈的「載入中…」');
+      ok(info.text.includes('不讓 App 存資料'), `畫面講出發生什麼事：「${info.text.slice(0, 14)}…」`);
+      ok(info.text.includes('無痕'), '講出最常見的原因（無痕／私密瀏覽）');
+      ok(/SecurityError/.test(info.text), '附上原始錯誤名稱');
+      ok(info.retry, '而且給一顆「再試一次」');
+    } finally {
+      await blind.close();
+    }
+  }
 } finally {
   await browser.close();
   srv.close();

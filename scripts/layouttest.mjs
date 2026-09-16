@@ -419,7 +419,11 @@ try {
               { id: 'c-long', name: '進口富士蘋果（要挑大顆一點不要太軟的）', qty: '一大袋約兩公斤' },
               { id: 'c-short', name: '香蕉', qty: '' },
             ] : [];
-            row.fold = {};
+            // 2026-09-17：已經過去的採買卡預設是收起來的（shopping.orderRangesForToday）。
+            // 這一支量的是「卡片展開時裡面排得整不整齊」，收起來的卡量到的一律是 0 —— 那不是版面壞了，是沒東西可量。
+            // 所以每一張都用既有的手動展開機制（跟使用者點開補買走同一條路）打開，母體才會是全部的卡。
+            // 「過去的卡預設收起來」本身由 shoppingviewtest 守。
+            row.fold = { __card: 'open' };
             if (opt.foldDone) {
               const items = built.ranges.find((x) => x.key === r.key)?.items ?? [];
               const firstSec = items[0]?.section;

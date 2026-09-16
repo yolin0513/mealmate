@@ -5,7 +5,7 @@ import { setTop, render } from '../shell.js';
 import * as store from '../store.js';
 import * as prefs from '../prefs.js';
 import { mondayOf, weekKeyOf, addDays, isoDate, parseDate, DAY_LABELS } from '../planner.js';
-import { buildShoppingList, quantityText, listAsText, suggestedText, manualUnitOf, customKey, sanitizeCustom, SECTIONS, rangesOfPlan } from '../shopping.js';
+import { buildShoppingList, quantityText, listAsText, suggestedText, manualUnitOf, customKey, sanitizeCustom, SECTIONS, rangesOfPlan, orderRangesForToday, rangeIsPast } from '../shopping.js';
 import { refresh } from '../router.js';
 
 function fmtMD(iso) { const d = parseDate(iso); return `${d.getMonth() + 1}/${d.getDate()}`; }
@@ -66,8 +66,11 @@ export default async function shoppingView(query = {}) {
     h('p', { class: 'muted xs' }, `數量依${members.length ? `家裡 ${members.length} 位的食量` : '食譜原份量'}縮放、最少一份，是估計值。`),
   );
 
+  // 還沒到的買菜日排前面；已經過去的排後面、預設收合（仍然打得開，因為常常要補買）。
+  const todayIso = isoDate(new Date());
   const cards = [];
-  for (const range of ranges) {
+  for (const range of orderRangesForToday(ranges, todayIso)) {
+    const past = rangeIsPast(range, todayIso);
     const row = await store.getShopping(range.key);
     row.weekKey = weekKey;
     const save = () => store.saveShopping(row);
@@ -262,13 +265,17 @@ export default async function shoppingView(query = {}) {
     const actionsRow = h('div', { class: 'shop-actions no-print', dataset: { field: 'shopActions' } }, addBtn, copyBtn, printBtn);
     const cardFold = makeFold({
       key: '__card', label: range.label,
+      extraNodes: past ? [' ', pill('已過')] : [],
       itemKeys: [...range.items.map((it) => it.foodId), ...customKeys],
       headingTag: 'h2', headingClass: 'card-title',
+      // 過去的買菜日預設收合（不看買齊沒買齊）；沒過的照舊 —— 還有沒買的就展開。
+      // 手動展開過的仍然照手動（row.fold['__card']），所以補買的時候不會被自動收回去。
+      defaultOpen: past ? false : undefined,
       bodyNodes: [...sections.filter(Boolean), customSectionEl, pantryEl, actionsRow],
     });
     applyFolds();
 
-    cards.push(h('section', { class: 'card shop-card', dataset: { card: 'shopRange', range: range.key } },
+    cards.push(h('section', { class: 'card shop-card', dataset: { card: 'shopRange', range: range.key, past: past ? 'true' : 'false' } },
       cardFold.heading,
       h('p', { class: 'muted sm' }, `給 ${range.dates.map((d) => `${fmtMD(d)}（${dayLabel(d)}）`).join('、')} 的餐`),
       progress,

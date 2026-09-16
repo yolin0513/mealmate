@@ -46,6 +46,22 @@ everyOf(icons, (i) => `${i.w}x${i.h}` === i.sizes, `宣告的尺寸跟檔案一�
 ok(icons.some((i) => i.purpose === 'maskable'), '有 maskable 圖示（Android 圓形遮罩才不會被切到）');
 ok(icons.some((i) => i.sizes === '512x512'), '有 512 的大圖');
 
+section('主畫面圖示長按的捷徑');
+// 每天用的兩件事是「今天要煮什麼」與「這次要買什麼」，但兩者都在首頁往下按兩層。
+// Android 長按圖示、桌面右鍵就能直接跳過去（iOS 目前不支援，裝了也不會壞）。
+{
+  const cuts = manifest.shortcuts ?? [];
+  ok(cuts.length >= 2, `（母體）manifest 列了 ${cuts.length} 個捷徑：${cuts.map((c) => c.name).join('、')}`);
+  everyOf(cuts, (c) => typeof c.name === 'string' && c.name.length > 0, '每個捷徑都有名稱');
+  everyOf(cuts, (c) => typeof c.short_name === 'string' && c.short_name.length <= 6, `短名稱都 ≤ 6 字（${cuts.map((c) => c.short_name).join('、')}）`);
+  everyOf(cuts, (c) => String(c.url).startsWith('./'), '每個網址都是相對的（GitHub Pages 有子路徑）');
+  everyOf(cuts, (c) => (c.icons ?? []).every((i) => fs.existsSync(path.join(ROOT, i.src.replace(/^\.\//, '')))), '捷徑的圖示檔都存在');
+  const routes = read('js/app.js');
+  everyOf(cuts, (c) => routes.includes(`route('${String(c.url).replace('./#', '')}'`), `每個捷徑都指到真的存在的路由（${cuts.map((c) => c.url).join('、')}）`);
+  ok(cuts.some((c) => c.url.includes('/today')), '有「今日煮」');
+  ok(cuts.some((c) => c.url.includes('/shopping')), '有「買菜」');
+}
+
 section('index.html 的 iOS 設定跟 manifest 不打架');
 ok(/<link rel="manifest" href="\.\/manifest\.webmanifest"/.test(html), '有掛 manifest');
 ok(/apple-mobile-web-app-capable" content="yes"/.test(html), 'iOS 加到主畫面後用獨立視窗');

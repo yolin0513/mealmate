@@ -79,16 +79,41 @@ function wrap(req) {
   });
 }
 
+// ---------- 寫入失敗一定要有人講 ----------
+//
+// 每一次寫入都會經過 writing()。**不在這裡通報，就只能靠十幾個呼叫點各自記得 catch** ——
+// 漏掉一個，使用者按了「儲存」就只會看到什麼都沒發生：按鈕彈回去、沒有訊息、資料無聲無息地掉了。
+// 這個 App 沒有伺服器，寫不進去就是真的沒有了，不能假裝成功。
+//
+// 這裡只負責「通知」，不負責畫面（db.js 不認識 UI，也不該認識）。錯誤照樣往上丟，
+// 所以呼叫端原本的行為一點都沒變 —— 這是加一條安全網，不是改流程。app.js 負責把它畫出來。
+const writeErrorListeners = new Set();
+
+/** 註冊「寫入失敗了」的聽眾。回傳取消註冊的函式。 */
+export function onWriteError(fn) { writeErrorListeners.add(fn); return () => writeErrorListeners.delete(fn); }
+
+async function writing(store, run) {
+  try {
+    return await run();
+  } catch (e) {
+    for (const fn of [...writeErrorListeners]) { try { fn({ store, error: e }); } catch { /* 聽眾自己壞掉不能蓋掉原始錯誤 */ } }
+    throw e;
+  }
+}
+
 export async function get(store, key) { return wrap((await tx(store)).get(key)); }
 export async function getAll(store) { return wrap((await tx(store)).getAll()); }
-export async function put(store, value) { return wrap((await tx(store, 'readwrite')).put(value)); }
-export async function del(store, key) { return wrap((await tx(store, 'readwrite')).delete(key)); }
-export async function clear(store) { return wrap((await tx(store, 'readwrite')).clear()); }
 export async function count(store) { return wrap((await tx(store)).count()); }
 
+export async function put(store, value) { return writing(store, async () => wrap((await tx(store, 'readwrite')).put(value))); }
+export async function del(store, key) { return writing(store, async () => wrap((await tx(store, 'readwrite')).delete(key))); }
+export async function clear(store) { return writing(store, async () => wrap((await tx(store, 'readwrite')).clear())); }
+
 export async function putAll(store, values) {
-  const s = await tx(store, 'readwrite');
-  await Promise.all(values.map((v) => wrap(s.put(v))));
+  return writing(store, async () => {
+    const s = await tx(store, 'readwrite');
+    await Promise.all(values.map((v) => wrap(s.put(v))));
+  });
 }
 
 export async function getByIndex(store, index, key) {

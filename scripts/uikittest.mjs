@@ -175,6 +175,51 @@ try {
   everyOf(chipInfo, (c) => c.id.length > 0, '每顆 chip 都帶 data-value 或 data-filter（測試才點得到）');
   everyOf(chipInfo, (c) => c.group.length > 0, '每顆 chip 都屬於一個有名字的群組（data-chips 或 aria-label）');
 
+  section('系統設了「減少動態」就不要動 —— 但狀態照樣要看得出來');
+  // 會去開這個設定的人，多半是動畫會讓他頭暈或分心的人。重點是「拿掉動畫」不能變成「拿掉資訊」：
+  // 轉圈圈仍然是一個看得見的圈、開關的滑塊仍然會到另一邊，只是不滑過去。
+  {
+    const measure = async () => page.evaluate(() => {
+      const probe = document.createElement('div');
+      probe.className = 'spinner';
+      document.body.append(probe);
+      const sp = getComputedStyle(probe);
+      const r = probe.getBoundingClientRect();
+      const toast = getComputedStyle(document.getElementById('toast'));
+      const knob = document.querySelector('.switch-knob');
+      const track = document.querySelector('.switch-track');
+      const out = {
+        spinnerAnim: sp.animationName,
+        spinnerW: Math.round(r.width),
+        spinnerBorderTop: sp.borderTopColor,
+        spinnerBorderLeft: sp.borderLeftColor,
+        toastTrans: parseFloat(toast.transitionDuration),
+        knobTrans: knob ? parseFloat(getComputedStyle(knob).transitionDuration) : null,
+        trackTrans: track ? parseFloat(getComputedStyle(track).transitionDuration) : null,
+      };
+      probe.remove();
+      return out;
+    });
+    await page.evaluate(() => { location.hash = '#/family'; });
+    await page.waitForSelector('#view .switch', { timeout: 60000 });
+
+    await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
+    const normal = await measure();
+    ok(normal.spinnerAnim !== 'none', `（對照）沒設定時轉圈圈是會轉的（animation：${normal.spinnerAnim}）`);
+    ok(normal.toastTrans > 0.05, `（對照）沒設定時 toast 會滑入（${normal.toastTrans}s）`);
+    ok(normal.knobTrans > 0.05, `（對照）沒設定時開關滑塊會滑過去（${normal.knobTrans}s）`);
+
+    await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+    const reduced = await measure();
+    eq(reduced.spinnerAnim, 'none', '設了減少動態：轉圈圈不轉了');
+    ok(reduced.toastTrans <= 0.01, `toast 不滑入了（${reduced.toastTrans}s）`);
+    ok(reduced.knobTrans <= 0.01, `開關滑塊不滑了（${reduced.knobTrans}s）`);
+    ok(reduced.trackTrans <= 0.01, `軌道也不漸變了（${reduced.trackTrans}s）`);
+    ok(reduced.spinnerW >= 20, `但轉圈圈**還在**、還是那麼大（${reduced.spinnerW}px）—— 不是把等待的提示藏起來`);
+    ok(reduced.spinnerBorderTop !== reduced.spinnerBorderLeft, `而且還看得出是個有缺口的圈（上緣 ${reduced.spinnerBorderTop} ≠ 左緣 ${reduced.spinnerBorderLeft}）`);
+    await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
+  }
+
   eq(pageErrors, [], '整段沒有未攔截的例外');
 } finally {
   await browser.close();

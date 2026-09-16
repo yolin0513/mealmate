@@ -14,5 +14,21 @@
     { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "今日煮",
+      "short_name": "今日煮",
+      "description": "今天這一餐要煮什麼、怎麼一起煮",
+      "url": "./#/today",
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "買菜清單",
+      "short_name": "買菜",
+      "description": "這次要買的東西",
+      "url": "./#/shopping",
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }

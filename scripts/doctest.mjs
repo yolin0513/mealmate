@@ -64,6 +64,37 @@ noneOf(['js/nutrition.js', 'js/planner.js'], (f) => read(f).includes('appetite')
   '程式：營養估算與排菜器完全不認識食量 —— 它只走購物清單那條路');
 ok(read('js/shopping.js').includes('appetiteOf'), '（對照）購物清單那條路確實有用到食量');
 
+section('自主優化一輪（2026-09-17）：文件宣稱的每一條都對得到程式');
+{
+  const dbSrc = read('js/db.js');
+  const appSrc = read('js/app.js');
+  const shopSrc = read('js/shopping.js');
+
+  ok(STATUS.includes('唯一的通報口'), '（文件）STATUS 說寫入失敗只有一個通報口');
+  ok(/export function onWriteError/.test(dbSrc), '程式：db.js 匯出 onWriteError');
+  ok(/db\.onWriteError\(/.test(appSrc), '程式：app.js 訂閱了它');
+  ok(STATUS.includes('unhandledrejection'), '（文件）STATUS 說另外有一道安全網');
+  ok(/unhandledrejection/.test(appSrc), '程式：app.js 真的掛了');
+
+  ok(STATUS.includes('不再停在「載入中…」'), '（文件）STATUS 說開機失敗不再停在載入中');
+  ok(/showStorageBlocked/.test(appSrc), '程式：app.js 有那張說明卡');
+
+  ok(STATUS.includes('同一頁重畫不重播'), '（文件）STATUS 說同一頁重畫不重播');
+  ok(/lastAnnounced/.test(read('js/shell.js')), '程式：shell.js 記得上一次播報過什麼');
+  ok(!/<main id="view" aria-live/.test(read('index.html')), '程式：#view 身上沒有 aria-live');
+
+  ok(STATUS.includes('沒有真的螢幕閱讀器可以驗'), '（文件）STATUS 誠實寫明這一項沒有真的螢幕閱讀器驗過');
+
+  ok(STATUS.includes('拿掉動畫不等於拿掉資訊'), '（文件）STATUS 寫了減少動態的界線');
+  ok(/prefers-reduced-motion/.test(read('css/style.css')), '程式：CSS 有那個 media query');
+
+  ok(PLAN.includes('整個過去的'), '（文件）PLAN §4.3 寫了買菜清單的順序規則');
+  ok(PLAN.includes('不是買菜日本身'), '（文件）而且寫明「過去了」看的是它給哪幾餐');
+  ok(/export function orderRangesForToday/.test(shopSrc), '程式：shopping.js 有 orderRangesForToday');
+  ok(/dates\.every\(\(d\) => d < todayIso\)/.test(shopSrc), '程式：rangeIsPast 真的是看每一天，不是看 key');
+  ok(/orderRangesForToday\(/.test(read('js/views/shopping.js')), '程式：買菜頁真的用了它（不是寫了沒接上）');
+}
+
 section('PLAN §1.2 第 5 點：禁用詞清單');
 const planWords = ['治療', '療效', '控制血糖', '降血糖', '降血壓', '改善腎功能', '糖尿病專用', '腎臟病專用', '減重', '瘦身', '排毒', '保證', '建議攝取', '應該吃'];
 everyOf(planWords, (w) => PLAN.includes(w), `（文件）PLAN 列的 ${planWords.length} 個禁用詞都還在文件裡`);
