@@ -186,10 +186,10 @@ const fam = [{ ...newMember(), name: '爸', diet: 'omni' }, { ...newMember(), na
 const { plan: vp } = gen({ members: fam });
 const vItems = cookSlots(vp).flatMap((s) => s.items.map((it) => byId.get(it.recipeId)));
 ok(vItems.length >= 50, `（母體）${vItems.length} 道菜`);
-everyOf(vItems, (r) => versionFor(r, 'lactoOvo') !== null && versionFor(r, 'veganNoAllium') !== null, '每一道菜蛋奶素與全素不含五辛的成員都吃得了');
+everyOf(vItems, (r) => versionFor(r, 'lactoOvo') !== null && versionFor(r, 'veganNoAllium') !== null, '每一道菜蛋奶素與全素（不吃五辛）的成員都吃得了');
 noneOf(vItems, (r) => r.vegMode === 'meatOnly', '沒有任何 meatOnly 的菜');
 ok(vItems.some((r) => r.vegMode === 'splittable'), '（對照）有可分流的菜（葷食成員吃葷版），不是全變成素菜');
-ok(cookSlots(vp).flatMap((s) => s.items).some((it) => it.reasons.some((t) => t.includes('姊（全素不含五辛）可吃'))), '理由寫出「姊（全素不含五辛）可吃」');
+ok(cookSlots(vp).flatMap((s) => s.items).some((it) => it.reasons.some((t) => t.includes('姊（全素）可吃'))), '理由寫出「姊（全素）可吃」');
 ok(recipes.some((r) => r.role === 'main' && r.vegMode === 'meatOnly'), '（對照母體）池子裡本來有 meatOnly 主菜');
 
 section('保存期限：葉菜不排在買菜日後第 4 天以上');
@@ -254,7 +254,7 @@ ok(allReasons.some((t) => /蛋白質來源/.test(t)), '有蛋白質來源');
 ok(allReasons.some((t) => /約 \d+ 分鐘/.test(t)), '有時間');
 detects((t) => /建議|應該|適合|療效|治療|控制|改善/.test(t), {
   shouldHit: ['建議多吃這道', '適合糖尿病患者', '有助控制血糖', '這道很健康應該常吃'],
-  shouldMiss: ['估 鈉 320 mg／份，不高於主菜池子的中位數 450', '14 天內沒出現過', '姊（全素不含五辛）可吃素版', '當季（9 月）'],
+  shouldMiss: ['估 鈉 320 mg／份，不高於主菜池子的中位數 450', '14 天內沒出現過', '姊（全素）可吃素版', '當季（9 月）'],
 }, '「建議語氣」的判準有對照組');
 
 section('一餐 3–5 道：午餐 4、晚餐 5、早餐 1');
@@ -299,7 +299,7 @@ section('每餐都要有葷（午晚餐）');
   eq(omni.meaty, omni.total, `全葷家庭：每一個午晚餐都有葷菜（${omni.meaty}/${omni.total}）`);
   eq(omni.noMeat.length, 0, '沒有任何一餐要靠 diagnostics 說明缺葷菜');
   const mixed = check([{ ...newMember(), name: '爸' }, { ...newMember(), name: '姊', diet: 'veganNoAllium' }]);
-  eq(mixed.meaty, mixed.total, `有全素不含五辛的成員時也一樣（${mixed.meaty}/${mixed.total}）—— 靠的是可分流的菜，素食成員吃素版`);
+  eq(mixed.meaty, mixed.total, `有全素（不吃五辛）的成員時也一樣（${mixed.meaty}/${mixed.total}）—— 靠的是可分流的菜，素食成員吃素版`);
   // 對照組：全家都吃素 → 不需要葷菜，也不可以硬塞 meatOnly
   const vegFam = [{ ...newMember(), name: '姊', diet: 'vegan' }, { ...newMember(), name: '妹', diet: 'veganNoAllium' }];
   const { plan: vpp } = gen({ members: vegFam });
@@ -570,7 +570,7 @@ section('早餐不排連續兩天一樣');
 {
   const fams = {
     '全葷 3 人': [{ ...newMember(), name: 'a' }, { ...newMember(), name: 'b' }, { ...newMember(), name: 'c' }],
-    '含全素不含五辛': [{ ...newMember(), name: 'a' }, { ...newMember(), name: 'b', diet: 'veganNoAllium' }],
+    '含全素（不吃五辛）': [{ ...newMember(), name: 'a' }, { ...newMember(), name: 'b', diet: 'veganNoAllium' }],
     '全家全素': [{ ...newMember(), name: 'a', diet: 'vegan' }],
   };
   const runs = [];

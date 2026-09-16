@@ -38,7 +38,6 @@ export default async function welcomeView() {
     noticeCard(),
     h('section', { class: 'card' },
       btn,
-      h('p', { class: 'muted xs' }, '這段說明之後在「家人」分頁底部隨時看得到。'),
     ),
   );
 }

@@ -107,124 +107,6 @@ try {
   eq(await page.evaluate(() => window.__printed), true, '印出鈕呼叫 window.print');
 
 
-  section('這張清單多幾個人吃：預設 0、調過看得出痕跡、數量跟著變');
-  {
-    await goto(page, '#/shopping');
-    await page.waitForSelector('[data-card="shopRange"]');
-
-    const cardKey = await page.$eval('[data-card="shopRange"]', (el) => el.dataset.range);
-    const sel = `[data-card="shopRange"][data-range="${cardKey}"]`;
-    const readCard = () => page.evaluate((s) => {
-      const card = document.querySelector(s);
-      const rows = [...card.querySelectorAll('.shop-row')].map((r) => ({
-        food: r.dataset.buy,
-        qty: r.querySelector('.shop-qty')?.textContent?.trim() ?? '',
-      }));
-      const meat = card.querySelector('[data-field="extraMeat"]');
-      const veg = card.querySelector('[data-field="extraVeg"]');
-      return {
-        meatVal: meat?.value, vegVal: veg?.value,
-        meatH: meat ? Math.round(meat.getBoundingClientRect().height) : null,
-        note: card.querySelector('[data-field="extraNote"]')?.textContent?.trim() ?? '',
-        pill: card.querySelector('.card-title .pill')?.textContent?.trim() ?? '',
-        rows,
-        pantry: card.querySelector('[data-field="pantry"]')?.textContent?.trim() ?? '',
-      };
-    }, sel);
-
-    const beforeFold = await page.evaluate((s2) => {
-      const d = document.querySelector(`${s2} [data-field="extraRow"]`);
-      return { open: d?.open, summary: d?.querySelector('summary')?.textContent?.trim() };
-    }, sel);
-    eq(beforeFold.open, false, '「這次有客人？」預設是收起來的（逐項手改才是主角）');
-    eq(beforeFold.summary, '這次有客人？', `收起來時的字：「${beforeFold.summary}」`);
-    await page.evaluate((s2) => { document.querySelector(`${s2} [data-field="extraRow"]`).open = true; }, sel);
-    await sleep(150);
-
-    const before = await readCard();
-    eq(before.meatVal, '0', '「吃葷」預設是 0');
-    eq(before.vegVal, '0', '「吃素」預設是 0');
-    eq(before.note, '', '沒調過就沒有那行說明');
-    eq(before.pill, '', '沒調過標題旁也沒有標記');
-    ok(before.meatH >= 44, `數字框按得到（${before.meatH}px ≥ 44）`);
-    ok(before.rows.length >= 5, `（母體）這張卡有 ${before.rows.length} 項`);
-
-    // 加 2 位吃葷
-    await page.evaluate((s) => {
-      const el = document.querySelector(`${s} [data-field="extraMeat"]`);
-      el.value = '2';
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-    }, sel);
-    await sleep(700);
-    await page.waitForSelector(`${sel} [data-field="extraNote"]`, { timeout: 10000 });
-    const after = await readCard();
-    eq(after.meatVal, '2', '調過之後欄位記著 2');
-    ok(/多加 2 位吃葷/.test(after.pill), `標題旁看得出來：「${after.pill}」`);
-    ok(/多加 2 位吃葷/.test(after.note) && /家裡/.test(after.note), `而且有一行說明數量已經算進去了：「${after.note}」`);
-    const afterFold = await page.evaluate((s2) => {
-      const d = document.querySelector(`${s2} [data-field="extraRow"]`);
-      return { open: d?.open, summary: d?.querySelector('summary')?.textContent?.trim() };
-    }, sel);
-    eq(afterFold.open, true, '填了人數之後預設是展開的（收起來就看不到痕跡了）');
-    ok(/2 位吃葷/.test(afterFold.summary), `連收合的那一行都講得出加了幾個人：「${afterFold.summary}」`);
-
-    // 數量真的變多（至少一項），而且沒有任何一項變少
-    const byFood = new Map(before.rows.map((r) => [r.food, r.qty]));
-    const changed = after.rows.filter((r) => byFood.has(r.food) && byFood.get(r.food) !== r.qty);
-    ok(changed.length >= 1, `${changed.length} 項的數量跟著變了（例：${changed[0]?.food} ${byFood.get(changed[0]?.food)} → ${changed[0]?.qty}）`);
-    const gramsOf = (t) => Number(/(\d+) g/.exec(t)?.[1] ?? 0);
-    everyOf(after.rows.filter((r) => byFood.has(r.food)), (r) => gramsOf(r.qty) >= gramsOf(byFood.get(r.food)),
-      '加人之後沒有任何一項變少');
-
-    // 常備品那一段沒有數字
-    ok(after.pantry.length > 0, `（前提）常備品那一段有內容：「${after.pantry.slice(0, 24)}…」`);
-    noneOf([after.pantry.replace(/常備品 \d+ 項/, '')], (t) => /\d+ g|約 \d/.test(t), '常備品只列名稱，沒有數量（所以不會被乘）');
-
-    // 重新載入之後還記得
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForSelector(`${sel} [data-field="extraMeat"]`);
-    await sleep(300);
-    const reloaded = await readCard();
-    eq(reloaded.meatVal, '2', '重新載入後仍然記得加了 2 位');
-    ok(/多加 2 位吃葷/.test(reloaded.pill), '痕跡也還在');
-
-    // 複製出去的文字帶得到
-    const copied = await page.evaluate(async (s) => {
-      const store = await import('./js/store.js');
-      const prefs = await import('./js/prefs.js');
-      const { buildShoppingList, listAsText, rangesOfPlan } = await import('./js/shopping.js');
-      const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
-      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
-      const days = prefs.get('shoppingDays') ?? [];
-      const extraByRange = {};
-      for (const r of rangesOfPlan(plan, days)) {
-        const row = await store.getShopping(r.key);
-        extraByRange[r.key] = { meat: row.extra?.meat ?? 0, veg: row.extra?.veg ?? 0 };
-      }
-      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days, extraByRange });
-      const target = ranges.find((r) => r.key === s);
-      return listAsText(target, {});
-    }, cardKey);
-    ok(/多加 2 位吃葷/.test(copied), '複製出去的文字也講明加了 2 位吃葷');
-
-    // 調回 0 → 痕跡消失、數量回原本
-    await page.evaluate((s) => {
-      const el = document.querySelector(`${s} [data-field="extraMeat"]`);
-      el.value = '0';
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-    }, sel);
-    await sleep(700);
-    const reset = await readCard();
-    eq(reset.pill, '', '調回 0 → 標題旁的標記消失');
-    eq(reset.note, '', '說明那一行也消失');
-    const backToSame = after.rows.filter((r) => byFood.has(r.food)).every((r) => {
-      const now = reset.rows.find((x) => x.food === r.food);
-      return now && now.qty === byFood.get(r.food);
-    });
-    ok(backToSame, '每一項的數量都回到原本（0 ＝ 照家裡人數，不是「回不去了」）');
-  }
-
-
   section('逐項手改數量：點數字就能改、看得出「已改」、改得回去');
   {
     await goto(page, '#/family');
@@ -297,13 +179,12 @@ try {
       const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
       const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
       const days = prefs.get('shoppingDays') ?? [];
-      const extraByRange = {}; const manualByRange = {};
+      const manualByRange = {};
       for (const r of rangesOfPlan(plan, days)) {
         const row = await store.getShopping(r.key);
-        extraByRange[r.key] = { meat: row.extra?.meat ?? 0, veg: row.extra?.veg ?? 0 };
         manualByRange[r.key] = row.manual ?? {};
       }
-      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days, extraByRange, manualByRange });
+      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days, manualByRange });
       return ranges.map((r) => listAsText(r, {})).join('\n');
     });
     ok(/（已改）/.test(copied), '複製出去的文字帶著「（已改）」');
@@ -318,38 +199,6 @@ try {
     eq(reset.qty, first.qty, '數量也回到原本的建議值');
   }
 
-
-  section('「這次有客人？」：說明在上、葷素兩格對齊在下');
-  {
-    const vp0 = page.viewport();
-    await goto(page, '#/family');
-    await titleIs(page, '家人');
-    await goto(page, '#/shopping');
-    await page.waitForSelector('[data-card="shopRange"] [data-field="extraRow"]');
-    const measureGuest = () => page.evaluate(() => {
-      const d = document.querySelector('[data-card="shopRange"] [data-field="extraRow"]');
-      d.open = true;
-      const desc = d.querySelector('[data-field="extraDesc"]').getBoundingClientRect();
-      const m = d.querySelector('[data-field="extraMeat"]').getBoundingClientRect();
-      const v = d.querySelector('[data-field="extraVeg"]').getBoundingClientRect();
-      const card = d.closest('[data-card="shopRange"]').getBoundingClientRect();
-      return { descBottom: desc.bottom, mTop: m.top, vTop: v.top, mLeft: m.left, mRight: m.right, vLeft: v.left, vRight: v.right, mW: m.width, vW: v.width, mH: m.height, cardLeft: card.left, cardRight: card.right };
-    });
-    for (const [w, scale] of [[390, 'md'], [320, 'xl']]) {
-      await page.setViewport({ width: w, height: 900 });
-      await page.evaluate(async (s) => { const prefs = await import('./js/prefs.js'); await prefs.set('fontScale', s); prefs.applyFontScale(s); }, scale);
-      await sleep(300);
-      const g = await measureGuest();
-      ok(g.mTop >= g.descBottom - 1 && g.vTop >= g.descBottom - 1, `${w}px／${scale}：說明文字在上，兩個框都在它下面`);
-      ok(Math.abs(g.mTop - g.vTop) <= 2, `${w}px／${scale}：葷、素兩個框在同一列（上緣差 ${Math.round(Math.abs(g.mTop - g.vTop))}px）`);
-      ok(g.vLeft >= g.mRight - 1, `${w}px／${scale}：兩格並排（素在葷的右邊，不是疊到下面）`);
-      ok(Math.abs(g.mW - g.vW) <= 2, `${w}px／${scale}：兩格一樣寬（${Math.round(g.mW)}／${Math.round(g.vW)}px），看起來是對齊的`);
-      ok(g.mLeft >= g.cardLeft - 1 && g.vRight <= g.cardRight + 1, `${w}px／${scale}：兩格都在卡片裡，沒有撐破`);
-      ok(g.mH >= 44, `${w}px／${scale}：框高 ${Math.round(g.mH)}px（≥ 44）`);
-    }
-    await page.setViewport(vp0);
-    await page.evaluate(async () => { const prefs = await import('./js/prefs.js'); await prefs.set('fontScale', 'md'); prefs.applyFontScale('md'); });
-  }
 
   section('自己加的項目：飯後水果這種不在菜單裡的東西');
   {
@@ -419,15 +268,14 @@ try {
       const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
       const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
       const days = prefs.get('shoppingDays') ?? [];
-      const extraByRange = {}; const manualByRange = {}; const customByRange = {}; let mine = null;
+      const manualByRange = {}; const customByRange = {}; let mine = null;
       for (const r of rangesOfPlan(plan, days)) {
         const row = await store.getShopping(r.key);
-        extraByRange[r.key] = { meat: row.extra?.meat ?? 0, veg: row.extra?.veg ?? 0 };
         manualByRange[r.key] = row.manual ?? {};
         customByRange[r.key] = row.custom ?? [];
         if (r.key === key) mine = row;
       }
-      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days, extraByRange, manualByRange, customByRange });
+      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days, manualByRange, customByRange });
       return listAsText(ranges.find((r) => r.key === key), { checked: mine.checked ?? {}, have: mine.have ?? {} });
     }, cardKey);
     ok(/✓ 蘋果　3 顆（自己加的）/.test(text), '複製出去的文字帶名稱、數量、勾選狀態，並標「自己加的」');
@@ -451,6 +299,36 @@ try {
 
     // 清掉，不影響後面的測試
     await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.custom = []; row.checked = {}; await store.saveShopping(row); }, cardKey);
+  }
+
+  section('主畫面只留日期與進度：三顆按鈕跟著日期的摺疊一起收；沒有「這次有客人？」');
+  {
+    // 使用者 2026-09-16 要求：買菜頁主畫面更簡潔 —— 三顆按鈕收進日期的摺疊裡、客人功能整個拿掉。
+    const cardSel = '[data-card="shopRange"]';
+    await page.waitForSelector(`${cardSel} [data-field="shopActions"]`);
+    const state = () => page.evaluate((c) => {
+      const card = document.querySelector(c);
+      const actions = card.querySelector('[data-field="shopActions"]');
+      const body = card.querySelector('[data-action="fold"][data-fold="__card"]').closest('.card').querySelector('.fold-body');
+      return {
+        inFold: body.contains(actions), visible: actions.getBoundingClientRect().height > 0,
+        buttons: [...actions.querySelectorAll('button')].map((b) => b.textContent.trim()),
+        guests: document.querySelectorAll('[data-field="extraRow"], [data-field="extraMeat"], [data-field="extraVeg"]').length,
+        guestText: document.body.innerText.includes('這次有客人'),
+      };
+    }, cardSel);
+    const open = await state();
+    eq(open.buttons, ['＋ 自己加一項', '複製清單', '印出'], '三顆按鈕都在');
+    ok(open.inFold, '三顆按鈕在日期摺疊的內容裡（不是卡片底部）');
+    ok(open.visible, '（對照）日期展開時看得到');
+    eq(open.guests, 0, '畫面上沒有客人數的欄位了');
+    eq(open.guestText, false, '也沒有「這次有客人」這句話');
+    await clickEl(page, `${cardSel} [data-action="fold"][data-fold="__card"]`);
+    await sleep(300);
+    ok(!(await state()).visible, '把日期收起來 → 三顆按鈕也跟著收起來');
+    await clickEl(page, `${cardSel} [data-action="fold"][data-fold="__card"]`);
+    await sleep(300);
+    ok((await state()).visible, '再展開就回來');
   }
 
   section('購物清單摺疊：買齊的區塊自動收合，手動展開的不會被收回去');
@@ -549,7 +427,8 @@ try {
     eq(cs.open, 'false', '整張卡每一項都買了 → 整張收合');
     eq(cs.hidden, true, '整張卡的清單內容也是用 hidden 移出版面');
     ok(/全買齊/.test(cs.summary), `卡片標題講全買齊：「${cs.summary}」`);
-    ok(cs.addH >= 44, '收合之後「自己加一項」仍然按得到（隨時可以補買）');
+    // 2026-09-16 使用者要求主畫面只留日期與進度：三顆按鈕收進日期的摺疊裡，所以收合時它們也跟著收起來。
+    eq(cs.addH, 0, '整張卡收合 → 「自己加一項」也跟著收起來');
 
     await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.have = {}; row.fold = {}; await store.saveShopping(row); }, cardKey);
   }

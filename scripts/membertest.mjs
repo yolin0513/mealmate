@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import {
   watchFields, familyWatchFields, validateMember, newMember, versionFor, fitsDiet, allergenHits, splitByDiet,
-  KIDNEY_FIELDS, TARGET_FIELDS, CONDITION_FIELDS, DIETS, displayFields,
+  KIDNEY_FIELDS, TARGET_FIELDS, CONDITION_FIELDS, CONDITIONS, CONDITION_LABELS, matchesCondition, DIETS, DIET_LABELS, displayFields,
 } from '../js/members.js';
 import { NUTRIENT_ORDER } from '../js/foods.js';
 
@@ -69,20 +69,20 @@ const threeCup = byId.get('r-three-cup-split');            // splittable，base 
 ok(cabbagePork && tomatoEgg && steamedFish && bokChoy && threeCup, '（母體）五道用來驗的食譜都在');
 eq(versionFor(cabbagePork, 'omni'), 'meat', '葷食者吃可分流菜的葷版');
 eq(versionFor(cabbagePork, 'lactoOvo'), 'veg', '蛋奶素吃可分流菜的素版');
-eq(versionFor(cabbagePork, 'veganNoAllium'), 'veg', '高麗菜炒肉片 base 只有薑 → 全素不含五辛也能吃素版');
-eq(versionFor(threeCup, 'veganNoAllium'), null, '三杯的 base 有蒜且不可省略 → 全素不含五辛吃不了');
+eq(versionFor(cabbagePork, 'veganNoAllium'), 'veg', '高麗菜炒肉片 base 只有薑 → 全素（不吃五辛）也能吃素版');
+eq(versionFor(threeCup, 'veganNoAllium'), null, '三杯的 base 有蒜且不可省略 → 全素（不吃五辛）吃不了');
 eq(versionFor(threeCup, 'vegan'), 'veg', '全素（可吃五辛）可以吃三杯杏鮑菇');
 eq(versionFor(tomatoEgg, 'lactoOvo'), 'all', '蛋奶素可以吃番茄炒蛋');
 eq(versionFor(tomatoEgg, 'vegan'), null, '全素不能吃番茄炒蛋（有蛋）');
 eq(versionFor(steamedFish, 'lactoOvo'), null, '蛋奶素不能吃清蒸魚');
 eq(versionFor(steamedFish, 'omni'), 'all', '葷食者吃清蒸魚');
-eq(versionFor(bokChoy, 'veganNoAllium'), 'all', '薑絲青江菜零標籤 → 全素不含五辛可吃');
+eq(versionFor(bokChoy, 'veganNoAllium'), 'all', '薑絲青江菜零標籤 → 全素（不吃五辛）可吃');
 const noAlliumOk = recipes.filter((r) => fitsDiet(r, 'veganNoAllium'));
-ok(noAlliumOk.length >= 5, `（母體）${noAlliumOk.length} 道全素不含五辛可吃`);
+ok(noAlliumOk.length >= 5, `（母體）${noAlliumOk.length} 道全素（不吃五辛）可吃`);
 everyOf(noAlliumOk, (r) => {
   const tags = r.vegMode === 'splittable' ? r.vegTags : r.tags;
   return !tags.includes('meat') && !tags.includes('seafood') && !tags.includes('egg') && !tags.includes('dairy') && (!tags.includes('allium') || r.alliumOptional);
-}, '全素不含五辛可吃的每一道，吃到的版本都沒有肉／海鮮／蛋／奶，五辛只在可省略時出現');
+}, '全素（不吃五辛）可吃的每一道，吃到的版本都沒有肉／海鮮／蛋／奶，五辛只在可省略時出現');
 const tagged = recipes.filter((r) => (r.vegMode === 'splittable' ? r.vegTags : r.tags).some((t) => ['meat', 'seafood', 'egg', 'dairy', 'allium'].includes(t)) || r.vegMode === 'meatOnly');
 ok(tagged.length >= 15, `（對照母體）池裡有 ${tagged.length} 道帶這些標籤，所以上一條不是空談`);
 everyOf(DIETS, (d) => recipes.some((r) => fitsDiet(r, d)), '每一種飲食型態都至少有菜可吃');
@@ -116,6 +116,46 @@ section('留意欄位的順序：照營養素的固定順序，不照誰先被�
   eq(d.slice(0, 2), ['kcal', 'protein'], '顯示欄位仍然是熱量、蛋白質打頭');
   eq(d.slice(2), one, '後面接的就是排好序的留意欄位');
   eq(familyWatchFields([]), [], '沒有人留意任何項目 → 空陣列（不是硬塞 12 項）');
+}
+
+section('素食標籤的語意：五辛素吃得到蔥蒜、全素吃不到');
+{
+  // 2026-09-16 定案：一般講「全素」就是不含五辛。原本把可吃五辛的那個叫「全素」，名稱與行為對不起來。
+  // 這一節把「名稱」與「versionFor 的行為」綁在一起 —— 以後誰把兩個標籤對調，這裡就會紅。
+  eq(DIET_LABELS.vegan, '五辛素', '可吃五辛的那個叫「五辛素」');
+  eq(DIET_LABELS.veganNoAllium, '全素', '連五辛都不吃的那個叫「全素」');
+  noneOf(Object.values(DIET_LABELS), (t) => t.includes('不含五辛'), '畫面上不再有「全素不含五辛」這個標籤');
+  const alliumVeg = recipes.find((r) => r.vegMode === 'nativeVeg' && r.tags.includes('allium') && !r.alliumOptional);
+  ok(alliumVeg, `（前提）挑到一道有蔥蒜、不可省略的素菜：${alliumVeg?.name}`);
+  eq(versionFor(alliumVeg, 'vegan'), 'all', `「${DIET_LABELS.vegan}」吃得到有蔥蒜的素菜（${alliumVeg?.name}）`);
+  eq(versionFor(alliumVeg, 'veganNoAllium'), null, `「${DIET_LABELS.veganNoAllium}」吃不到有蔥蒜的素菜`);
+  const plainVeg = recipes.find((r) => r.vegMode === 'nativeVeg' && !r.tags.includes('allium') && !r.tags.includes('egg') && !r.tags.includes('dairy'));
+  ok(plainVeg, `（對照母體）也有完全不含蔥蒜蛋奶的素菜：${plainVeg?.name}`);
+  eq(versionFor(plainVeg, 'veganNoAllium'), 'all', '那種菜「全素」照樣吃得到（上面那條不是因為全素什麼都不能吃）');
+}
+
+section('慢性病清單：只收資料庫撐得起數字的；搜尋比對名稱與口語說法');
+{
+  // 使用者 2026-09-16：清單要擴充、要能用搜尋挑。紅線是「沒有數字的病先不要加」——
+  // 食藥署資料庫只有 12 個欄位，沒有普林（痛風）也沒有鐵（貧血）。
+  ok(CONDITIONS.length >= 10, `（母體）慢性病 ${CONDITIONS.length} 項`);
+  everyOf(CONDITIONS.filter((c) => c !== 'kidney'), (c) => (CONDITION_FIELDS[c] ?? []).length > 0,
+    '除了腎臟病（欄位由使用者自己勾）以外，每一項都對得到至少一個食藥署欄位');
+  everyOf(CONDITIONS.flatMap((c) => CONDITION_FIELDS[c] ?? []), (f) => NUTRIENT_ORDER.includes(f),
+    '沒有任何一項指到資料庫沒有的欄位');
+  everyOf(CONDITIONS, (c) => typeof CONDITION_LABELS[c] === 'string' && CONDITION_LABELS[c].length > 0, '每一項都有中文名稱');
+  eq(watchFields({ conditions: ['cardio'], kidneyWatch: [] }), ['satFat', 'cholesterol', 'sodium'], '心血管疾病 → 飽和脂肪、膽固醇、鈉');
+  eq(watchFields({ conditions: ['osteoporosis'], kidneyWatch: [] }), ['calcium'], '骨質疏鬆 → 鈣');
+  eq(watchFields({ conditions: ['constipation'], kidneyWatch: [] }), ['fiber'], '腸道不順 → 膳食纖維');
+  eq(watchFields({ conditions: ['kidney', 'osteoporosis'], kidneyWatch: [] }), ['calcium'],
+    '（紅線）多選了腎臟病也不會自己冒出鈉鉀磷蛋白質');
+  eq(CONDITIONS.filter((c) => matchesCondition(c, '血壓')), ['hypertension'], '搜尋「血壓」→ 高血壓');
+  eq(CONDITIONS.filter((c) => matchesCondition(c, '糖尿')), ['diabetes', 'prediabetes'], '搜尋「糖尿」→ 糖尿病與糖尿病前期');
+  eq(CONDITIONS.filter((c) => matchesCondition(c, '骨鬆')), ['osteoporosis'], '打口語說法也找得到（骨鬆 → 骨質疏鬆）');
+  eq(CONDITIONS.filter((c) => matchesCondition(c, '洗腎')), ['kidney'], '「洗腎」找得到腎臟病');
+  eq(CONDITIONS.filter((c) => matchesCondition(c, '')), CONDITIONS, '沒打字 → 全部都在');
+  eq(CONDITIONS.filter((c) => matchesCondition(c, '痛風')), [], '搜尋「痛風」查不到（沒有普林資料，清單裡本來就沒有）');
+  eq(CONDITIONS.filter((c) => matchesCondition(c, '貧血')), [], '搜尋「貧血」也查不到（沒有鐵）');
 }
 
 done('membertest');

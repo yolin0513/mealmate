@@ -5,7 +5,7 @@ import { setTop, render } from '../shell.js';
 import * as store from '../store.js';
 import * as prefs from '../prefs.js';
 import { mondayOf, weekKeyOf, addDays, isoDate, parseDate, DAY_LABELS } from '../planner.js';
-import { buildShoppingList, quantityText, listAsText, extraText, suggestedText, manualUnitOf, customKey, sanitizeCustom, SECTIONS, rangesOfPlan } from '../shopping.js';
+import { buildShoppingList, quantityText, listAsText, suggestedText, manualUnitOf, customKey, sanitizeCustom, SECTIONS, rangesOfPlan } from '../shopping.js';
 import { refresh } from '../router.js';
 
 function fmtMD(iso) { const d = parseDate(iso); return `${d.getMonth() + 1}/${d.getDate()}`; }
@@ -36,7 +36,7 @@ export default async function shoppingView(query = {}) {
     render(h('section', { class: 'card', dataset: { card: 'shoppingEmpty' } },
       h('div', { class: 'row-actions' }, weekChips),
       h('h2', { class: 'card-title' }, offset ? '下週還沒有菜單' : '這週還沒有菜單'),
-      h('p', { class: 'muted' }, '先到「本週」產生菜單，這裡會依你的買菜日分成幾張清單：同一種食材跨餐加總、換成「約幾顆、幾把」、依賣場分區排好；油鹽醬油這類常備品另外列。'),
+      h('p', { class: 'muted' }, '先到「本週」產生菜單。'),
       h('a', { class: 'btn btn-primary', href: offset ? '#/?w=next' : '#/' }, '去產生菜單'),
     ));
     return;
@@ -45,18 +45,14 @@ export default async function shoppingView(query = {}) {
   const members = store.members();
   const idx = store.foodsIndex();
   const recipesById = new Map(store.allRecipes().map((r) => [r.id, r]));
-  // 份數是每張採買卡各自調的（客人通常只來週末，不該把整週都加倍），
-  // 所以要先讀出每張卡存著的人數，再算數量。
-  const extraByRange = {};
   const manualByRange = {};
   const customByRange = {};
   for (const r of rangesOfPlan(plan, shoppingDays)) {
     const saved = await store.getShopping(r.key);
-    extraByRange[r.key] = { meat: saved.extra?.meat ?? 0, veg: saved.extra?.veg ?? 0 };
     manualByRange[r.key] = saved.manual ?? {};
     customByRange[r.key] = saved.custom ?? [];
   }
-  const { ranges } = buildShoppingList({ plan, recipesById, members, idx, units: store.units(), shoppingDays, extraByRange, manualByRange, customByRange });
+  const { ranges } = buildShoppingList({ plan, recipesById, members, idx, units: store.units(), shoppingDays, manualByRange, customByRange });
   if (!ranges.length) {
     render(h('section', { class: 'card', dataset: { card: 'shoppingEmpty' } }, h('div', { class: 'row-actions' }, weekChips), h('h2', { class: 'card-title' }, '這週沒有自己煮的餐'), h('p', { class: 'muted' }, '菜單裡每一餐都是外食或不煮，所以沒有東西要買。')));
     return;
@@ -67,7 +63,7 @@ export default async function shoppingView(query = {}) {
     h('p', { class: 'muted sm' }, shoppingDays.length
       ? `買菜日：星期${[...shoppingDays].sort().map((d) => '日一二三四五六'[d]).join('、')}；每張清單涵蓋到下一個買菜日前一天。`
       : '還沒設定買菜日，整週一張清單。到「家人」分頁勾星期幾買菜，清單會分開、規劃時也會考慮食材放幾天。'),
-    h('p', { class: 'muted xs' }, `數量依${members.length ? `家裡 ${members.length} 位實際吃的人數` : '食譜原份量（還沒新增家人）'}縮放，是估計值；依實際包裝與食量調整。`),
+    h('p', { class: 'muted xs' }, `數量依${members.length ? `家裡 ${members.length} 位` : '食譜原份量'}縮放，是估計值。`),
   );
 
   const cards = [];
@@ -152,7 +148,7 @@ export default async function shoppingView(query = {}) {
             const res = await modal({
               title: `${it.labels[0] ?? it.name} 要買多少`,
               body: h('div', { class: 'qty-edit' },
-                h('p', { class: 'muted sm' }, `原本建議 ${suggestedText(it)}。你可以自己改，改過的會標「已改」。`),
+                h('p', { class: 'muted sm' }, `原本建議 ${suggestedText(it)}。`),
                 h('label', { class: 'extra-field' }, box, h('span', { class: 'muted sm' }, cur.unit))),
               actions: [{ value: null, label: '取消' }, { value: 'reset', label: '改回建議值' }, { value: 'ok', label: '存起來', primary: true }],
             });
@@ -200,34 +196,6 @@ export default async function shoppingView(query = {}) {
     copyBtn.addEventListener('click', () => copyText(listAsText(range, { checked: row.checked ?? {}, have: row.have ?? {} })));
     const printBtn = h('button', { class: 'btn', type: 'button', dataset: { action: 'print' } }, '印出');
     printBtn.addEventListener('click', () => window.print());
-    // 「多幾個人吃」：預設 0 ＝ 照家人實際人數。分葷素是因為分軌要各自正確 ——
-    // 家裡 1 素 2 葷、來了 2 位吃葷的，正確是葷鍋軌 ×2、素鍋軌 ×1，
-    // 單一倍率會同時多買素菜又買不夠肉。
-    const numField = (kind, label) => {
-      const input = h('input', {
-        type: 'number', class: 'field field-num', min: '0', max: '20', step: '1',
-        value: String(range.extra[kind] ?? 0), inputMode: 'numeric',
-        'aria-label': `多幾位${label}`, dataset: { field: `extra${kind === 'meat' ? 'Meat' : 'Veg'}` },
-      });
-      input.addEventListener('change', async () => {
-        const n = Math.max(0, Math.min(20, Math.floor(Number(input.value) || 0)));
-        input.value = String(n);
-        row.extra = { ...(row.extra ?? { meat: 0, veg: 0 }), [kind]: n };
-        await save();
-        refresh();     // 數量要重算，整頁重畫最單純
-      });
-      return h('label', { class: 'extra-field' }, h('span', { class: 'muted sm' }, label), input);
-    };
-    const extraNote = extraText(range.extra);
-    // 逐項手改是每次買菜都會用的，客人數是偶爾才用 —— 讓前者當主角，客人數收起來。
-    // 已經填了人數就預設展開，不然痕跡會被藏起來。
-    const extraOpen = (range.extra.meat + range.extra.veg) > 0;
-    const extraBlock = h('details', { class: 'how no-print', open: extraOpen ? 'open' : null, dataset: { field: 'extraRow' } },
-      h('summary', {}, extraOpen ? `這次有客人（${extraText(range.extra).replace('多加 ', '')}）` : '這次有客人？'),
-      // 使用者回報說明跟兩個框擠在同一行。改成說明在上、葷素兩格並排對齊在下。
-      h('p', { class: 'muted sm extra-desc', dataset: { field: 'extraDesc' } }, '這張清單多幾個人吃？填 0 就是照家裡人數。'),
-      h('div', { class: 'extra-inputs', dataset: { field: 'extraInputs' } }, numField('meat', '吃葷'), numField('veg', '吃素')));
-
     // ---- 自己加的項目（例如飯後水果）----
     // 不在菜單裡、不解析食藥署編號、不進營養：純粹是「這趟也要買」。所以另起一區，
     // 每一項都標「自己加的」，免得她以為加了會影響菜單或營養。
@@ -245,7 +213,7 @@ export default async function shoppingView(query = {}) {
             h('span', { class: 'muted xs shop-uses' }, pill('自己加的'), '　', del))));
       cb.addEventListener('change', async () => { row.checked = { ...(row.checked ?? {}), [k]: cb.checked }; line.classList.toggle('done', cb.checked); await save(); drawProgress(); applyFolds(); });
       del.addEventListener('click', async () => {
-        const res = await modal({ title: `刪除「${c.name}」？`, body: h('p', { class: 'muted sm' }, '只會從這張清單拿掉，不會影響菜單。'),
+        const res = await modal({ title: `刪除「${c.name}」？`, body: null,
           actions: [{ value: null, label: '取消' }, { value: 'del', label: '刪除', danger: true }] });
         if (res !== 'del') return;
         row.custom = (row.custom ?? []).filter((x) => x.id !== c.id);
@@ -259,7 +227,7 @@ export default async function shoppingView(query = {}) {
     });
     const customFold = range.custom.length
       ? makeFold({ key: '自己加的', label: '自己加的', extraNodes: [' ', pill(String(range.custom.length))], itemKeys: customKeys, headingTag: 'h3', headingClass: 'shop-section-title',
-        bodyNodes: [h('p', { class: 'muted xs' }, '這些是你自己加的，不會影響菜單或營養。'), ...customRows] })
+        bodyNodes: customRows })
       : null;
     const addBtn = h('button', { class: 'btn', type: 'button', dataset: { action: 'addCustom' } }, '＋ 自己加一項');
     addBtn.addEventListener('click', async () => {
@@ -268,7 +236,6 @@ export default async function shoppingView(query = {}) {
       const res = await modal({
         title: '自己加一項',
         body: h('div', { class: 'qty-edit' },
-          h('p', { class: 'muted sm' }, '菜單以外要買的東西（像飯後水果）。只是提醒自己，不會算進菜單或營養。'),
           h('label', { class: 'custom-field' }, h('span', { class: 'muted sm' }, '要買什麼'), nameIn),
           h('label', { class: 'custom-field' }, h('span', { class: 'muted sm' }, '買多少'), qtyIn)),
         actions: [{ value: null, label: '取消' }, { value: 'ok', label: '加進清單', primary: true }],
@@ -291,27 +258,21 @@ export default async function shoppingView(query = {}) {
     const pantryEl = pantryFold ? h('div', { class: 'shop-section pantry-section', dataset: { section: '常備品', field: 'pantry' } }, pantryFold.heading, pantryFold.body) : null;
     const customSectionEl = customFold ? h('div', { class: 'shop-section custom-section', dataset: { section: '自己加的' } }, customFold.heading, customFold.body) : null;
     // 整張卡也可以摺疊：全部買齊（含自己加的）就收起來，只留標題「（N 項全買齊）」
+    // 三顆按鈕跟著日期的摺疊一起收（使用者要求：主畫面只留日期與進度）。
+    const actionsRow = h('div', { class: 'shop-actions no-print', dataset: { field: 'shopActions' } }, addBtn, copyBtn, printBtn);
     const cardFold = makeFold({
       key: '__card', label: range.label,
-      // 調過就一定要看得出來，不然她對不起來為什麼買這麼多
-      extraNodes: extraNote ? [' ', pill(extraNote, 'accent')] : [],
       itemKeys: [...range.items.map((it) => it.foodId), ...customKeys],
       headingTag: 'h2', headingClass: 'card-title',
-      bodyNodes: [...sections.filter(Boolean), customSectionEl, pantryEl],
+      bodyNodes: [...sections.filter(Boolean), customSectionEl, pantryEl, actionsRow],
     });
     applyFolds();
 
     cards.push(h('section', { class: 'card shop-card', dataset: { card: 'shopRange', range: range.key } },
       cardFold.heading,
       h('p', { class: 'muted sm' }, `給 ${range.dates.map((d) => `${fmtMD(d)}（${dayLabel(d)}）`).join('、')} 的餐`),
-      extraBlock,
-      extraNote ? h('p', { class: 'muted sm', dataset: { field: 'extraNote' } },
-        `下面的數量已經${extraNote}算進去了（家裡 ${members.length} 位 ＋ 這些人）。`) : null,
       progress,
       cardFold.body,
-      // 底下三顆排成同一套格子（使用者回報寬度、排列不一致看起來亂）：手機上「自己加一項」佔滿第一列、
-      // 「複製清單」「印出」兩顆等寬在第二列，左右緣跟第一列對齊；夠寬時三顆等寬排一列。
-      h('div', { class: 'shop-actions no-print', dataset: { field: 'shopActions' } }, addBtn, copyBtn, printBtn),
     ));
   }
   render(head, ...cards);

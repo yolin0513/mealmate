@@ -113,7 +113,7 @@ const byId = new Map(recipes.map((r) => [r.id, r]));
 ok(byId.get('r-tomato-egg')?.tags.includes('allium') && byId.get('r-tomato-egg')?.tags.includes('egg'), '番茄炒蛋（有青蔥、雞蛋）→ 五辛＋蛋', JSON.stringify(byId.get('r-tomato-egg')?.tags));
 ok(!byId.get('r-tomato-egg')?.tags.includes('meat'), '番茄炒蛋沒有 meat');
 ok(byId.get('r-steamed-fish')?.tags.includes('seafood') && byId.get('r-steamed-fish')?.proteins.includes('fish'), '清蒸鯛魚 → 海鮮、蛋白質來源 fish', JSON.stringify(byId.get('r-steamed-fish')));
-ok(byId.get('r-ginger-bok-choy')?.tags.length === 0, '薑絲炒青江菜沒有任何標籤（全素不含五辛可吃）', JSON.stringify(byId.get('r-ginger-bok-choy')?.tags));
+ok(byId.get('r-ginger-bok-choy')?.tags.length === 0, '薑絲炒青江菜沒有任何標籤（全素（不吃五辛）可吃）', JSON.stringify(byId.get('r-ginger-bok-choy')?.tags));
 ok(byId.get('r-cabbage-pork-stirfry')?.proteins.includes('pork'), '高麗菜炒肉片的蛋白質來源含 pork');
 ok(byId.get('r-clam-loofah-split')?.proteins.includes('shellfish'), '蛤蜊絲瓜 → shellfish');
 ok(byId.get('r-mapo-tofu-split')?.proteins.includes('soy') && byId.get('r-mapo-tofu-split')?.proteins.includes('pork'), '麻婆豆腐同時有 soy 與 pork');
@@ -321,7 +321,7 @@ section('使用者自己加的菜：食藥署查不到的食材也可以存，�
   const vegDish = validateRecipe({ ...base, name: '素排', vegMode: 'nativeVeg', vegModeConfirmed: true, ingredients: [{ food: '', label: '某牌素排', grams: 100 }] }, userCtx);
   eq(vegDish.errors, [], `自己選了「素」→ 存得進去：${JSON.stringify(vegDish.errors)}`);
   eq([versionFor(vegDish.recipe, 'omni'), versionFor(vegDish.recipe, 'lactoOvo'), versionFor(vegDish.recipe, 'vegan'), versionFor(vegDish.recipe, 'veganNoAllium')], ['all', 'all', null, null],
-    '查不到的「素」食材：葷、蛋奶素吃得到；全素與全素不含五辛保守地不排');
+    '查不到的「素」食材：葷、蛋奶素吃得到；全素與全素（不吃五辛）保守地不排');
 
   // 可分流：放葷那鍋 → 素食成員不受影響；放共用或素那鍋 → 全素保守地不排
   const splitBase = {

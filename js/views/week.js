@@ -13,7 +13,7 @@ import {
   generateWeek, dailyEstimates, mondayOf, weekKeyOf, weekDates, addDays, isoDate, parseDate,
   MEALS, MEAL_LABELS, MEAL_ROLES, DAY_LABELS, RELAXABLE, weekBalance, balanceSentence,
 } from '../planner.js';
-import { swapSlotItem, assignSlotItem, toggleLock, regenerateSlot } from './weekops.js';
+import { swapSlotItem, assignSlotItem, addSlotItem, removeSlotItem, toggleLock, regenerateSlot } from './weekops.js';
 
 const KIND_LABELS = { cook: '自己煮', eatOut: '外食', skip: '不煮' };
 
@@ -112,7 +112,6 @@ export default async function weekView(query = {}) {
   const wantCard = missedWants.length ? h('section', { class: 'card notice', dataset: { card: 'wantMissed' } },
     h('strong', {}, '你勾的「本週想吃」有沒排進去的'),
     ...missedWants.map((x) => h('p', { dataset: { field: 'wantMissedLine' } }, `你想吃的「${recipesById.get(x.recipeId).name}」這週沒排進去，因為${x.why}。`)),
-    h('p', { class: 'muted sm' }, '還是要吃的話，可以在想吃的那一餐點那道菜旁邊的選單，選「我來指定…」。'),
   ) : null;
 
   // 一週平衡：這週排了幾道比較豐盛的主菜、有沒有超過設定。從**現在的菜單**重算（換過、鎖過的都算進去），
@@ -278,7 +277,7 @@ function mealBlock({ slot, slotIndex, plan, mondayIso, recipesById, members }) {
   kindBtn.addEventListener('click', async () => {
     const next = await modal({
       title: `${MEAL_LABELS[slot.meal]}怎麼安排`,
-      body: h('p', { class: 'muted sm' }, '外食或不煮的那一餐不排菜、不進購物清單。'),
+      body: null,
       actions: [{ label: '自己煮', value: 'cook', primary: slot.kind !== 'cook' }, { label: '外食', value: 'eatOut' }, { label: '不煮', value: 'skip' }, { label: '取消', value: null }],
     });
     if (!next || next === slot.kind) return;
@@ -291,6 +290,19 @@ function mealBlock({ slot, slotIndex, plan, mondayIso, recipesById, members }) {
     refresh();
   });
 
+  // 一道菜畫成一列。固定位置與「自己加的」共用這一支，不然兩邊的樣子會慢慢漂開。
+  const itemRow = (it, pos) => {
+    const r = recipesById.get(it.recipeId);
+    return h('div', { class: 'meal-item', dataset: { slot: String(slotIndex), role: it.role, pos: String(pos), item: it.recipeId, ...(it.extraMeat ? { extra: 'meat' } : {}), ...(it.added ? { added: 'true' } : {}) } },
+      pill(it.extraMeat ? '加菜' : ROLE_LABELS[it.role]),
+      h('a', { class: 'meal-name', href: `#/recipes/${it.recipeId}` }, r?.name ?? it.recipeId),
+      it.extraMeat ? pill('僅葷食成員', 'accent') : null,
+      it.added ? pill('自己加的') : null,
+      it.locked ? h('span', { class: 'lock', title: '已鎖定', 'aria-label': '已鎖定' }, '🔒') : null,
+      itemMenuBtn({ slot, slotIndex, pos, role: it.role, item: it, plan, mondayIso, recipesById, members }),
+    );
+  };
+  const fixedCount = MEAL_ROLES[slot.meal].length;
   const items = slot.kind === 'cook'
     // 一餐有兩道配菜，所以每道菜認的是**位置**不是角色（只看角色的話兩道配菜分不開）
     ? h('div', { class: 'meal-items' }, ...MEAL_ROLES[slot.meal].map((slotRole, pos) => {
@@ -298,21 +310,24 @@ function mealBlock({ slot, slotIndex, plan, mondayIso, recipesById, members }) {
       if (!it) {
         const main = slot.items.find((x) => x.role === 'main');
         if (slotRole === 'staple' && main && recipesById.get(main.recipeId)?.includesStaple) return null;
-        return h('div', { class: 'meal-item empty', dataset: { slot: String(slotIndex), role: slotRole, pos: String(pos) } }, pill(ROLE_LABELS[slotRole]), h('span', { class: 'muted sm' }, '排不出菜'), itemMenuBtn({ slot, slotIndex, pos, role: slotRole, item: null, plan, mondayIso, recipesById, members }));
+        return h('div', { class: 'meal-item empty', dataset: { slot: String(slotIndex), role: slotRole, pos: String(pos) } }, pill(ROLE_LABELS[slotRole]), h('span', { class: 'muted sm' }, '這格沒有菜'), itemMenuBtn({ slot, slotIndex, pos, role: slotRole, item: null, plan, mondayIso, recipesById, members }));
       }
-      const r = recipesById.get(it.recipeId);
-      return h('div', { class: 'meal-item', dataset: { slot: String(slotIndex), role: it.role, pos: String(pos), item: it.recipeId, ...(it.extraMeat ? { extra: 'meat' } : {}) } },
-        pill(it.extraMeat ? '加菜' : ROLE_LABELS[it.role]),
-        h('a', { class: 'meal-name', href: `#/recipes/${it.recipeId}` }, r?.name ?? it.recipeId),
-        it.extraMeat ? pill('僅葷食成員', 'accent') : null,
-        it.locked ? h('span', { class: 'lock', title: '已鎖定', 'aria-label': '已鎖定' }, '🔒') : null,
-        itemMenuBtn({ slot, slotIndex, pos, role: it.role, item: it, plan, mondayIso, recipesById, members }),
-      );
-    }))
+      return itemRow(it, pos);
+    }),
+    // 自己加的菜排在固定位置之後
+    ...slot.items.filter((it) => it.pos >= fixedCount).sort((a, b) => a.pos - b.pos).map((it) => itemRow(it, it.pos)))
     : h('p', { class: 'muted sm' }, slot.kind === 'eatOut' ? '這一餐外食，不排菜。' : '這一餐不煮。');
 
+  // 自己加一道：有時候某一餐的菜就不是固定的（使用者 2026-09-16 要求）
+  const addBtn = slot.kind === 'cook'
+    ? h('button', { class: 'chip chip-sm', type: 'button', dataset: { action: 'addDish', slot: String(slotIndex) }, 'aria-label': `${MEAL_LABELS[slot.meal]}加一道菜` }, '＋ 加一道')
+    : null;
+  if (addBtn) addBtn.addEventListener('click', async () => {
+    const done = await addSlotItem({ plan, slotIndex, recipesById, members });
+    if (done) { toast('已加進這一餐'); refresh(); }
+  });
   return h('div', { class: 'meal-block', dataset: { slot: String(slotIndex), meal: slot.meal, kind: slot.kind } },
-    h('div', { class: 'meal-head' }, h('strong', {}, MEAL_LABELS[slot.meal]), kindBtn),
+    h('div', { class: 'meal-head' }, h('strong', {}, MEAL_LABELS[slot.meal]), kindBtn, addBtn),
     items,
   );
 }
@@ -333,12 +348,14 @@ function itemMenuBtn({ slot, slotIndex, pos, role, item, plan, mondayIso, recipe
         ...(item ? [{ label: item.locked ? '解除鎖定' : '鎖定這道', value: 'lock' }] : []),
         { label: '換一道', value: 'swap' },
         { label: '我來指定…', value: 'assign' },
+        ...(item ? [{ label: '拿掉這道', value: 'remove', danger: true }] : []),
         ...(r ? [{ label: '看食譜', value: 'open' }] : []),
       ],
     });
     if (!choice) return;
     if (choice === 'open') { location.hash = `#/recipes/${item.recipeId}`; return; }
     if (choice === 'lock') { await toggleLock({ plan, slotIndex, pos }); refresh(); return; }
+    if (choice === 'remove') { const gone = await removeSlotItem({ plan, slotIndex, pos }); toast(gone ? '已拿掉這道' : '這格本來就沒有菜'); refresh(); return; }
     if (choice === 'swap') { const ok = await swapSlotItem({ plan, slotIndex, pos }); toast(ok ? '換好了' : '沒有別的菜可以換了', 2600); refresh(); return; }
     if (choice === 'assign') { const done = await assignSlotItem({ plan, slotIndex, pos, recipesById, members }); if (done) { toast('已指定並鎖定'); refresh(); } }
   });

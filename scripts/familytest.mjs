@@ -34,8 +34,21 @@ try {
   const shownBox = (sel) => page.$eval(sel, (el) => { const cs = getComputedStyle(el); return cs.display !== 'none' && el.getBoundingClientRect().height > 0; });
   eq(await shownBox('.sub-block'), false, '腎臟病還沒開之前，子項（鈉／鉀／磷／蛋白質）是看不到的');
   eq(await shownBox('.err-box'), false, '沒有錯誤時，錯誤框看不到（不是一條空的紅框）');
-  await clickEl(page, '[data-pref="cond-kidney"]');
+  // 2026-09-16：慢性病改成搜尋式挑選（清單 10 項，一排開關會把整頁塞滿），選過的用 tag 呈現。
+  const hits = () => page.$$eval('[data-list="condResults"] [data-cond]', (els) => els.map((e) => e.dataset.cond));
+  const tags = () => page.$$eval('[data-field="condTags"] [data-tag]', (els) => els.map((e) => e.dataset.tag));
+  await page.focus('[data-field="condSearch"]');
   await sleep(150);
+  const allHits = await hits();
+  ok(allHits.length >= 8, `（母體）還沒打字時列出 ${allHits.length} 項可以選`);
+  await page.type('[data-field="condSearch"]', '腎');
+  await sleep(150);
+  eq(await hits(), ['kidney'], '打「腎」→ 清單只剩腎臟病');
+  await clickEl(page, '[data-cond="kidney"]');
+  await sleep(150);
+  eq(await tags(), ['kidney'], '點一下 → 變成 tag');
+  eq(await page.$eval('[data-field="condSearch"]', (el) => el.value), '', '選完把搜尋的字清掉');
+  ok(!(await hits()).includes('kidney'), '選過的不會再出現在結果清單裡');
   eq(await shownBox('.sub-block'), true, '開腎臟病後出現子項（鈉／鉀／磷／蛋白質）');
   const subChecked = await page.$$eval(chipSel('kidneyWatch', 'potassium').replace(' .chip[data-value="potassium"]', ' .chip.on'), (els) => els.length);
   eq(subChecked, 0, '子項預設全不勾');
@@ -52,7 +65,23 @@ try {
   await titleIs(page, '新增家人');
   await page.waitForSelector('[data-field="name"]');
   await page.type('[data-field="name"]', '爸');
-  await clickEl(page, '[data-pref="cond-diabetes"]');
+  await page.focus('[data-field="condSearch"]');
+  await page.type('[data-field="condSearch"]', '糖尿');
+  await sleep(150);
+  const sugarHits = await page.$$eval('[data-list="condResults"] [data-cond]', (els) => els.map((e) => e.dataset.cond));
+  eq(sugarHits, ['diabetes', 'prediabetes'], '打「糖尿」→ 糖尿病與糖尿病前期都列出來');
+  await clickEl(page, '[data-cond="diabetes"]');
+  await sleep(150);
+  // tag 上的 × 要真的拿得掉：多選一項再拿掉
+  await page.focus('[data-field="condSearch"]');
+  await page.type('[data-field="condSearch"]', '骨鬆');
+  await sleep(150);
+  await clickEl(page, '[data-cond="osteoporosis"]');
+  await sleep(150);
+  eq(await page.$$eval('[data-field="condTags"] [data-tag]', (els) => els.map((e) => e.dataset.tag)), ['diabetes', 'osteoporosis'], '兩個 tag');
+  await clickEl(page, '[data-remove-cond="osteoporosis"]');
+  await sleep(150);
+  eq(await page.$$eval('[data-field="condTags"] [data-tag]', (els) => els.map((e) => e.dataset.tag)), ['diabetes'], '按 tag 上的 × → 只剩糖尿病');
   await clickEl(page, '[data-action="saveMember"]');
   await titleIs(page, '家人');
   await page.waitForFunction(() => document.querySelectorAll('[data-member]').length === 2);

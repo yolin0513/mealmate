@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, near, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { indexFoods } from '../js/foods.js';
 import { newMember } from '../js/members.js';
-import { rangesOfPlan, buildShoppingList, scaleFor, scaleWithGuests, guestScaleFor, extraText, suggestedText, manualUnitOf, sanitizeCustom, customKey, sectionOf, quantityText, listAsText, SECTIONS } from '../js/shopping.js';
+import { rangesOfPlan, buildShoppingList, scaleFor, suggestedText, manualUnitOf, sanitizeCustom, customKey, sectionOf, quantityText, listAsText, SECTIONS } from '../js/shopping.js';
 import { generateWeek } from '../js/planner.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -120,110 +120,6 @@ detects((t) => /約 [\d.]+ (顆|把|條|盒|包|片|朵|根|支|杯|斤|塊|段|
   shouldMiss: ['高麗菜', '約 顆', '0 g'],
 }, '數量文字的格式：約 N 單位');
 
-section('這張清單多幾個人吃：客人各自加到自己那一軌');
-// 高麗菜炒肉片（可分素葷）：高麗菜 500 base、乾香菇 15 veg、豬肉片 200 meat；
-// servings 4、splitServings { veg: 1, meat: 3 }。家人 fam = 2 葷 ＋ 1 蛋奶素。
-{
-  const none = { meat: 0, veg: 0 };
-  eq(guestScaleFor(cabbagePork, none), { base: 0, veg: 0, meat: 0 }, '沒加人 → 三軌都加 0');
-  eq(scaleWithGuests(cabbagePork, fam, none), scaleFor(cabbagePork, fam), '沒加人時，結果跟原本的縮放**完全一樣**（預設 0 ＝ 照家裡人數）');
-  eq(scaleWithGuests(cabbagePork, fam, undefined), scaleFor(cabbagePork, fam), '連 extra 都沒給也一樣');
-
-  // 手算：2 位吃葷的客人 → 共用軌 +2/4、葷鍋 +2/3、素鍋不動
-  eq(guestScaleFor(cabbagePork, { meat: 2, veg: 0 }), { base: 2 / 4, veg: 0, meat: 2 / 3 }, '2 位吃葷：共用 +2/4、葷鍋 +2/3、素鍋 +0');
-  eq(scaleWithGuests(cabbagePork, fam, { meat: 2, veg: 0 }), { base: 5 / 4, veg: 1, meat: 4 / 3 }, '家人 3 人 ＋ 2 位吃葷 → 共用 5/4、素鍋維持 1、葷鍋 4/3');
-  eq(scaleWithGuests(cabbagePork, fam, { meat: 2, veg: 0 }).veg, scaleFor(cabbagePork, fam).veg,
-    '**分軌**：只加吃葷的客人，素鍋軌一點都沒變（全域倍率就會在這裡出錯）');
-
-  // 手算：1 位吃素的客人 → 素鍋軌加，葷鍋不動
-  eq(guestScaleFor(cabbagePork, { meat: 0, veg: 1 }), { base: 1 / 4, veg: 1 / 1, meat: 0 }, '1 位吃素：共用 +1/4、素鍋 +1/1、葷鍋 +0');
-  eq(scaleWithGuests(cabbagePork, fam, { meat: 0, veg: 1 }).meat, scaleFor(cabbagePork, fam).meat, '只加吃素的客人，葷鍋軌沒變');
-
-  // 純葷的菜：吃素的客人不算
-  const fish = byId.get('r-steamed-fish');
-  eq(guestScaleFor(fish, { meat: 0, veg: 3 }), { base: 0, veg: 0, meat: 0 }, '清蒸魚是純葷的：加 3 位吃素的客人，一點都不多買');
-  ok(guestScaleFor(fish, { meat: 3, veg: 0 }).base > 0, `（對照）加 3 位吃葷的就會多買（+${guestScaleFor(fish, { meat: 3, veg: 0 }).base.toFixed(2)}）`);
-
-  // 純素的菜：兩種客人都吃得到
-  eq(guestScaleFor(plainCabbage, { meat: 2, veg: 1 }), { base: 3 / 4, veg: 0, meat: 0 }, '清炒高麗菜是純素的：3 位客人都算得進共用軌');
-
-  // 亂填的值不可以把數量弄爛
-  everyOf([{ meat: -5, veg: 0 }, { meat: 1.7, veg: 0 }, { meat: NaN, veg: 0 }, { meat: '2', veg: null }],
-    (e) => Number.isFinite(guestScaleFor(cabbagePork, e).base) && guestScaleFor(cabbagePork, e).base >= 0,
-    '負數、小數、NaN、字串都收得住（取整數、不小於 0），不會算出 NaN 或負的克數');
-  eq(guestScaleFor(cabbagePork, { meat: '2', veg: null }), guestScaleFor(cabbagePork, { meat: 2, veg: 0 }), '字串 "2" 跟數字 2 同樣處理');
-}
-
-section('加人之後：先乘人數再換算顆把，常備品不乘');
-{
-  const p = plan([slot(0, 'dinner', [cabbagePork.id])]);
-  const base = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [] });
-  const plus = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [], extraByRange: { [base.ranges[0].key]: { meat: 2, veg: 0 } } });
-  const gramsOf = (r, id) => r.ranges[0].items.find((it) => it.foodId === id)?.grams ?? null;
-  const buyOf = (r, id) => r.ranges[0].items.find((it) => it.foodId === id)?.buy ?? null;
-
-  // 高麗菜是共用軌：500 g × 3/4 = 375 → 加 2 位吃葷 → 500 × 5/4 = 625
-  eq(gramsOf(base, CABBAGE), 375, '（手算）沒加人：高麗菜 500 × 3/4 = 375 g');
-  eq(gramsOf(plus, CABBAGE), 625, '（手算）加 2 位吃葷：高麗菜 500 × 5/4 = 625 g');
-
-  // 換算：一顆 1000 g，無條件進位到 0.5 顆。375 → 0.5 顆；625 → 1 顆。
-  eq(buyOf(base, CABBAGE).qty, 0.5, '（手算）375 g → 0.5 顆');
-  eq(buyOf(plus, CABBAGE).qty, 1, '（手算）625 g → 1 顆');
-  // **順序**：先換算再乘的話是 0.5 × 5/3 = 0.83…（進位成 1），克數也會停在 375。
-  // 拿克數當證據：625 ≠ 375，代表倍數確實作用在克數上、不是作用在顆數上。
-  ok(gramsOf(plus, CABBAGE) === 625 && buyOf(plus, CABBAGE).grams === 1000,
-    '先乘人數再換算：克數是 625（不是 375），顆數才由 625 去進位');
-
-  // 素鍋軌：乾香菇 15 g × 1（一位蛋奶素）—— 加吃葷的客人不該動它
-  const dried = base.ranges[0].items.find((it) => it.labels.some((l) => l.includes('香菇')));
-  ok(dried, `（前提）清單裡有素鍋軌的乾香菇：${dried?.labels[0]}`);
-  eq(gramsOf(plus, dried.foodId), gramsOf(base, dried.foodId), '加 2 位吃葷的客人，素鍋軌的乾香菇一克都沒多買');
-
-  // 葷鍋軌：豬肉片 200 × 2/3 → 200 × 4/3
-  const pork = base.ranges[0].items.find((it) => it.foodId === 'I0304101');
-  ok(pork, `（前提）清單裡有葷鍋軌的豬里肌肉片：${pork?.labels[0]}`);
-  eq(gramsOf(base, pork.foodId), Math.round(200 * 2 / 3), '（手算）沒加人：豬肉 200 × 2/3');
-  eq(gramsOf(plus, pork.foodId), Math.round(200 * 4 / 3), '（手算）加 2 位吃葷：豬肉 200 × 4/3');
-
-  // 常備品：油鹽醬油本來就只列名稱、沒有數量，所以沒有東西可乘
-  ok(plus.ranges[0].pantry.length >= 2, `（母體）常備品 ${plus.ranges[0].pantry.length} 項`);
-  everyOf(plus.ranges[0].pantry, (x) => x.grams === undefined && x.buy === undefined, '常備品沒有數量欄位（所以「多幾個人」對它們沒有作用）');
-  eq(plus.ranges[0].pantry.map((x) => x.foodId).sort(), base.ranges[0].pantry.map((x) => x.foodId).sort(), '加人前後常備品是同一批');
-
-  // range 上帶著它自己的人數，畫面與複製文字才講得出來
-  eq(plus.ranges[0].extra, { meat: 2, veg: 0 }, 'range 帶著這張卡的人數');
-  eq(base.ranges[0].extra, { meat: 0, veg: 0 }, '沒調過就是 0');
-}
-
-section('每張採買卡各自調，不會互相影響');
-{
-  const p = plan([slot(2, 'dinner', [cabbagePork.id]), slot(5, 'dinner', [cabbagePork.id])]);
-  const r0 = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [3, 6] });
-  ok(r0.ranges.length >= 2, `（前提）兩個買菜日 → ${r0.ranges.length} 張卡`);
-  const [a, b] = r0.ranges;
-  const only = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [3, 6], extraByRange: { [b.key]: { meat: 4, veg: 0 } } });
-  const g = (rs, key, id) => rs.ranges.find((x) => x.key === key)?.items.find((it) => it.foodId === id)?.grams ?? null;
-  eq(g(only, a.key, CABBAGE), g(r0, a.key, CABBAGE), '只調第二張卡，第一張卡的高麗菜一克都沒變');
-  ok(g(only, b.key, CABBAGE) > g(r0, b.key, CABBAGE), `第二張卡才變多（${g(r0, b.key, CABBAGE)} → ${g(only, b.key, CABBAGE)} g）`);
-  eq(only.ranges.find((x) => x.key === a.key).extra, { meat: 0, veg: 0 }, '第一張卡的人數仍然是 0');
-}
-
-section('複製出去的文字要帶到「已加 N 人」');
-{
-  const p = plan([slot(0, 'dinner', [cabbagePork.id])]);
-  const key = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [] }).ranges[0].key;
-  const plus = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [], extraByRange: { [key]: { meat: 2, veg: 1 } } });
-  const text = listAsText(plus.ranges[0], {});
-  ok(text.includes('多加2 位吃葷、1 位吃素') || text.includes('多加 2 位吃葷、1 位吃素') || /多加.*2 位吃葷.*1 位吃素/.test(text),
-    `複製的文字講明加了幾個人：「${text.split('\n')[1]}」`);
-  ok(text.includes('625') || /高麗菜/.test(text), '而且列的是調整後的數量');
-  const plain = listAsText(buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [] }).ranges[0], {});
-  noneOf([plain], (t) => /多加/.test(t), '（對照）沒加人的清單不會出現那一行');
-  eq(extraText({ meat: 0, veg: 0 }), '', '沒加人 → 空字串');
-  eq(extraText({ meat: 2, veg: 0 }), '多加 2 位吃葷', '只加葷的');
-  eq(extraText({ meat: 0, veg: 3 }), '多加 3 位吃素', '只加素的');
-}
-
 section('逐項手改數量：建議 2 條、我要買 3 條');
 // 使用者澄清「份數可調」的原意就是這個 —— 站在菜攤前對照清單，想多買就自己改。
 {
@@ -282,20 +178,6 @@ section('逐項手改數量：建議 2 條、我要買 3 條');
   const text = listAsText(edited.ranges[0], {});
   ok(/高麗菜.*約 3 顆（已改）/.test(text), `複製的文字帶著改過的量與「已改」：${text.split('\n').find((l) => l.includes('高麗菜'))}`);
   noneOf([listAsText(base.ranges[0], {})], (t) => /已改/.test(t), '（對照）沒改過的清單不會出現「已改」');
-}
-
-section('手改與「多幾個人吃」並存時，手改優先');
-{
-  const p = plan([slot(0, 'dinner', [cabbagePork.id])]);
-  const key = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [] }).ranges[0].key;
-  const both = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [],
-    extraByRange: { [key]: { meat: 2, veg: 0 } }, manualByRange: { [key]: { [CABBAGE]: 3 } } });
-  const it = both.ranges[0].items.find((x) => x.foodId === CABBAGE);
-  eq(it.buy.qty, 3, '手改的 3 顆蓋過「多 2 人」算出來的建議值');
-  eq(it.suggested.buy.qty, 1, '（手算）而「原本建議」是含 2 位客人的 625 g → 1 顆，不是沒加人的 0.5 顆');
-  const otherItem = both.ranges[0].items.find((x) => x.foodId !== CABBAGE && !x.manual);
-  ok(otherItem, '（前提）還有沒被手改的項目');
-  eq(otherItem.manual, undefined, '沒手改的項目仍然照「多幾個人」算');
 }
 
 section('自己加的項目：純採買備忘，不解析編號、不進任何計算');

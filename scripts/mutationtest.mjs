@@ -19,6 +19,120 @@ import { ok, eq, section, done, note } from './tap.mjs';
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const MUTATIONS = [
+  // ---- 2026-09-16 回報六項：慢性病搜尋挑選、加菜減菜、分段控制 ----
+  {
+    name: "素食標籤對調（把可吃五辛的叫「全素」）",
+    why: "使用者 2026-09-16 指出的正是這個：一般講「全素」就是不含五辛，名稱與行為對不起來會排錯菜給家人。",
+    file: "js/members.js",
+    find: "export const DIET_LABELS = { omni: '葷', lactoOvo: '蛋奶素', vegan: '五辛素', veganNoAllium: '全素' };",
+    replace: "export const DIET_LABELS = { omni: '葷', lactoOvo: '蛋奶素', vegan: '全素', veganNoAllium: '五辛素' };",
+    test: "membertest",
+  },
+  {
+    name: "慢性病搜尋不理會打的字",
+    why: "清單有十項，搜尋失效就回到「一整排看到眼花」。",
+    file: "js/members.js",
+    find: "  const q = String(query ?? '').trim();\n  if (!q) return true;",
+    replace: "  const q = String(query ?? '').trim();\n  if (true) return true;",
+    test: "membertest",
+  },
+  {
+    name: "慢性病搜尋不理會打的字（真實表單）",
+    why: "同一條，走家人表單的搜尋框。",
+    file: "js/members.js",
+    find: "  const q = String(query ?? '').trim();\n  if (!q) return true;",
+    replace: "  const q = String(query ?? '').trim();\n  if (true) return true;",
+    test: "familytest",
+  },
+  {
+    name: "選過的慢性病還留在結果清單裡",
+    why: "會被重複選，tag 也會出現兩個一樣的。",
+    file: "js/views/member.js",
+    find: "    const hits = CONDITIONS.filter((c) => !m.conditions.includes(c) && matchesCondition(c, condSearch.value));",
+    replace: "    const hits = CONDITIONS.filter((c) => matchesCondition(c, condSearch.value));",
+    test: "familytest",
+  },
+  {
+    name: "tag 上的 × 拿不掉",
+    why: "選錯了就拿不掉，只能整個重填。",
+    file: "js/views/member.js",
+    find: "          m.conditions = m.conditions.filter((x) => x !== c);",
+    replace: "          m.conditions = m.conditions.slice();",
+    test: "familytest",
+  },
+  {
+    name: "腎臟病自動帶出鉀（紅線）",
+    why: "紅線：腎臟病只帶使用者自己勾的欄位，不自動限鉀。",
+    file: "js/members.js",
+    find: "  kidney: [],",
+    replace: "  kidney: ['potassium'],",
+    test: "membertest",
+  },
+  {
+    name: "自己加的菜沒有鎖定",
+    why: "重新產生就被洗掉 —— 使用者加的菜留不住等於沒做。",
+    file: "js/views/weekops.js",
+    find: "  slot.items = [...slot.items, { recipeId: recipe.id, role: recipe.role, pos, locked: true, added: true, reasons: ['你自己加的，已鎖定'] }]",
+    replace: "  slot.items = [...slot.items, { recipeId: recipe.id, role: recipe.role, pos, locked: false, added: true, reasons: ['你自己加的，已鎖定'] }]",
+    test: "weekviewtest",
+  },
+  {
+    name: "自己加的菜沒有畫出來",
+    why: "存進去了、購物清單也變了，畫面上卻看不到那道菜。",
+    file: "js/views/week.js",
+    find: "    ...slot.items.filter((it) => it.pos >= fixedCount).sort((a, b) => a.pos - b.pos).map((it) => itemRow(it, it.pos)))",
+    replace: "    ...slot.items.filter(() => false).sort((a, b) => a.pos - b.pos).map((it) => itemRow(it, it.pos)))",
+    test: "weekviewtest",
+  },
+  {
+    name: "自己加的菜佔到固定位置",
+    why: "pos 算錯就會蓋掉主菜或配菜，那一餐反而少一道。",
+    file: "js/views/weekops.js",
+    find: "  const pos = Math.max(base - 1, ...slot.items.map((it) => it.pos)) + 1;",
+    replace: "  const pos = 0;",
+    test: "weekviewtest",
+  },
+  {
+    name: "拿掉一道之後沒存檔",
+    why: "畫面上不見了，重新整理又回來，購物清單也照樣要買。",
+    file: "js/views/weekops.js",
+    find: "  await store.savePlan(plan);   // 拿掉之後購物清單要跟著少買",
+    replace: "  void plan;",
+    test: "weekviewtest",
+  },
+  {
+    name: "篩選又變回一排 chip",
+    why: "使用者回報原本那排「太雜亂」，分段控制是這一版的重點之一。",
+    file: "js/views/recipes.js",
+    find: "      class: 'seg' + (f === kind ? ' on' : ''), type: 'button', 'aria-pressed': f === kind ? 'true' : 'false', dataset: { filter: f.key },",
+    replace: "      class: 'chip' + (f === kind ? ' on' : ''), type: 'button', 'aria-pressed': f === kind ? 'true' : 'false', dataset: { filter: f.key },",
+    test: "layouttest",
+  },
+  {
+    name: "分段控制的格子不等寬",
+    why: "等寬是「整齊」的全部意義；寬度參差就是使用者說的那種雜亂。",
+    file: "css/style.css",
+    find: "  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));",
+    replace: "  grid-template-columns: repeat(auto-fit, minmax(76px, auto));",
+    test: "layouttest",
+  },
+  {
+    name: "分段控制的格子按不到（低於 44px）",
+    why: "長輩的手指點不到 24px 的格子。",
+    file: "css/style.css",
+    find: "  min-height: 44px;\n  min-width: 0;\n  padding: 0 8px;",
+    replace: "  min-height: 24px;\n  min-width: 0;\n  padding: 0 8px;",
+    test: "layouttest",
+  },
+  // ---- 2026-09-16 回報六項：買菜頁移除客人、三顆按鈕收進日期摺疊 ----
+  {
+    name: "三顆按鈕又回到日期摺疊外面",
+    why: "使用者要求主畫面只留日期與進度；放在摺疊外面的話，收起來還是佔著版面。",
+    file: "js/views/shopping.js",
+    find: "      bodyNodes: [...sections.filter(Boolean), customSectionEl, pantryEl, actionsRow],",
+    replace: "      bodyNodes: [...sections.filter(Boolean), customSectionEl, pantryEl],",
+    test: "shoppingviewtest",
+  },
   // ---- 2026-09-14 回報三項：步驟可不寫、收藏與本週想吃獨立、本週想吃一定排到 ----
   {
     name: "素食保障把「主菜含主食時略過的主食格」算成一道",
@@ -577,7 +691,7 @@ const MUTATIONS = [
     replace: ".shop-actions > [data-action=\"addCustom\"] { }",
     test: "shoppingviewtest",
   },
-  // ---- 使用者回報第四輪：客人欄直式、自己加的項目、清單摺疊、日期列按鈕 ----
+  // ---- 使用者回報第四輪：自己加的項目、清單摺疊、日期列按鈕 ----
   {
     name: "日期列回到 flex-wrap（有買菜日標籤就擠掉「一起煮」）",
     why: "使用者截圖：有「買菜日」標籤的那天，「一起煮」被擠到下一行、跑到左邊，跟其他天對不齊。",
@@ -585,14 +699,6 @@ const MUTATIONS = [
     find: ".day-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; column-gap: 8px; }",
     replace: ".day-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }",
     test: "layouttest",
-  },
-  {
-    name: "「這次有客人？」葷素兩格不再並排對齊",
-    why: "使用者回報說明跟兩個框擠在一起；改回去的話兩個框會疊成上下兩列、寬度也不一。",
-    file: "css/style.css",
-    find: ".extra-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: end; max-width: 22em; }",
-    replace: ".extra-inputs { display: block; }",
-    test: "shoppingviewtest",
   },
   {
     name: "自己加的項目不標「自己加的」",
@@ -666,7 +772,7 @@ const MUTATIONS = [
     replace: "        f.body.style.opacity = open ? '1' : '0.4';",
     test: "shoppingviewtest",
   },
-  // ---- 「家裡有」降級並自己解釋自己、客人數收合 ----
+  // ---- 「家裡有」降級並自己解釋自己 ----
   {
     name: "generateWeek 不把 haveFoods 接下去",
     why: "本週頁傳進來的「家裡有」被靜默丟掉，冰箱裡的東西不會被優先吃掉。這是實際踩過的 bug：scoreSoft 是對的，少接一個參數就整個功能沒作用，而且畫面上看不出來。",
@@ -682,22 +788,6 @@ const MUTATIONS = [
     find: "  const haveCard = haveUsed.count ? h('section', { class: 'card', dataset: { card: 'usedHave' } },",
     replace: "  const haveCard = false ? h('section', { class: 'card', dataset: { card: 'usedHave' } },",
     test: "weekviewtest",
-  },
-  {
-    name: "「這次有客人」不收合",
-    why: "逐項手改是每次買菜都用的，客人數偶爾才用。兩個並排會讓主要動作被稀釋。",
-    file: "js/views/shopping.js",
-    find: "    const extraBlock = h('details', { class: 'how no-print', open: extraOpen ? 'open' : null, dataset: { field: 'extraRow' } },",
-    replace: "    const extraBlock = h('details', { class: 'how no-print', open: 'open', dataset: { field: 'extraRow' } },",
-    test: "shoppingviewtest",
-  },
-  {
-    name: "填了客人數卻仍然收起來",
-    why: "調過的痕跡被藏在收合區裡，她看不到數量為什麼變多（使用者明確要求要看得出來）。",
-    file: "js/views/shopping.js",
-    find: "    const extraOpen = (range.extra.meat + range.extra.veg) > 0;",
-    replace: "    const extraOpen = false;",
-    test: "shoppingviewtest",
   },
   // ---- 使用者實測回報的四項 ----
   {
@@ -780,46 +870,14 @@ const MUTATIONS = [
     replace: "",
     test: "recipetest",
   },
-  // ---- 購物清單：這張清單多幾個人吃 ----
-  {
-    name: "購物清單忽略「多幾個人吃」",
-    why: "她填了「多 2 位吃葷」，數量卻一點都沒變 —— 客人來了買不夠。",
-    file: "js/shopping.js",
-    find: "        const scale = scaleWithGuests(r, members, extraByRange[range.key]);",
-    replace: "        const scale = scaleFor(r, members);",
-    test: "shoppingtest",
-  },
-  {
-    name: "客人的人數套到素葷兩軌",
-    why: "加 2 位吃葷的客人，素鍋軌也跟著乘 —— 這就是「全域倍率」的錯法：同時多買素菜、又買不夠肉。分軌的正確性要由結構保證。",
-    file: "js/shopping.js",
-    find: "  return { base: (veg + meat) / recipe.servings, veg: veg / recipe.splitServings.veg, meat: meat / recipe.splitServings.meat };",
-    replace: "  return { base: (veg + meat) / recipe.servings, veg: (veg + meat) / recipe.splitServings.veg, meat: (veg + meat) / recipe.splitServings.meat };",
-    test: "shoppingtest",
-  },
-  {
-    name: "客人的倍數提早進位（先四捨五入再加）",
-    why: "倍數在合併進克數之前就被進位，手算對照的數字全部對不上。份量換算只能在**最後**做一次。",
-    file: "js/shopping.js",
-    find: "  if (recipe.vegMode !== 'splittable') return { base: all / recipe.servings, veg: 0, meat: 0 };\n  return { base: (veg + meat) / recipe.servings",
-    replace: "  if (recipe.vegMode !== 'splittable') return { base: Math.round(all / recipe.servings), veg: 0, meat: 0 };\n  return { base: (veg + meat) / recipe.servings",
-    test: "shoppingtest",
-  },
+  // ---- 購物清單：份量與常備品 ----
   {
     name: "常備品也跟著人數乘",
-    why: "油鹽醬油被列進主清單並乘上人數。常備品是「用完再補」，不該因為多兩個客人就叫她再買一瓶醬油。",
+    why: "油鹽醬油被列進主清單、跟著人數乘。常備品是「用完再補」，不該每次買菜都叫她再買一瓶醬油。",
     file: "js/shopping.js",
     find: "          if (ing.pantry) {",
     replace: "          if (false) {",
     test: "shoppingtest",
-  },
-  {
-    name: "換頁之後忘記加過幾個人",
-    why: "她調好人數、去別頁看一眼再回來，數量又縮回去了，而且畫面上的痕跡也不見了。",
-    file: "js/views/shopping.js",
-    find: "    extraByRange[r.key] = { meat: saved.extra?.meat ?? 0, veg: saved.extra?.veg ?? 0 };",
-    replace: "    extraByRange[r.key] = { meat: 0, veg: 0 };\n    void saved;",
-    test: "shoppingviewtest",
   },
   // ---- 本週頁：每一天可以摺疊 ----
   {
@@ -1084,7 +1142,7 @@ const MUTATIONS = [
   },
   {
     name: '五辛標籤不推導',
-    why: '全素不含五辛的成員會被排到有蔥蒜的菜。',
+    why: '「全素」的成員會被排到有蔥蒜的菜。',
     file: 'js/recipeschema.js',
     find: '    if (Array.isArray(ids) && ids.includes(food.id)) out.add(tag);',
     replace: "    if (Array.isArray(ids) && ids.includes(food.id) && tag !== 'allium') out.add(tag);",
@@ -1150,7 +1208,7 @@ const MUTATIONS = [
     test: 'membertest',
   },
   {
-    name: '全素不含五辛忽略五辛',
+    name: '全素忽略五辛',
     why: '有蒜的三杯會排給不吃五辛的家人。',
     file: 'js/members.js',
     find: "    if (tags.includes('allium') && !recipe.alliumOptional) return null;",
@@ -1200,7 +1258,7 @@ const MUTATIONS = [
   },
   {
     name: '「誰要吃」的飲食型態被忽略',
-    why: '全素不含五辛的人會看到有肉有蒜的菜。',
+    why: '「全素」的人會看到有肉有蒜的菜。',
     file: 'js/views/recipes.js',
     find: "  if (eater.startsWith('diet:')) return versionFor(recipe, eater.slice(5));",
     replace: "  if (eater.startsWith('diet:')) return recipe.vegMode === 'splittable' ? 'meat' : 'all';",
@@ -1749,8 +1807,8 @@ const MUTATIONS = [
     name: '加菜不標「僅葷食成員」',
     why: '素食成員會以為那道也是給他們的。',
     file: 'js/views/week.js',
-    find: "        it.extraMeat ? pill('僅葷食成員', 'accent') : null,",
-    replace: '        null,',
+    find: "      it.extraMeat ? pill('僅葷食成員', 'accent') : null,",
+    replace: '      null,',
     test: 'weekviewtest',
   },
   {

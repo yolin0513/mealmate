@@ -99,7 +99,7 @@ export default async function recipesView(query = {}) {
     ...eaterOptions.map((o) => h('option', { value: o.value, selected: o.value === eater ? 'selected' : null }, o.label)));
   eaterSel.addEventListener('change', () => { eater = eaterSel.value; recomputeMedians(); draw(); });
 
-  const kindChips = h('div', { class: 'chip-row', role: 'group', 'aria-label': '種類' });
+  const kindChips = h('div', { class: 'segmented', role: 'group', 'aria-label': '種類', dataset: { field: 'kindFilters' } });
   const needChips = h('div', { class: 'chip-row', role: 'group', 'aria-label': '需求' });
   const list = h('div', { class: 'list', dataset: { list: 'recipes' } });
   const count = h('p', { class: 'muted sm', dataset: { field: 'recipeCount' } });
@@ -110,9 +110,9 @@ export default async function recipesView(query = {}) {
     count.textContent = `${rows.length} 道${rows.length !== all.length ? `（共 ${all.length} 道）` : ''}`
       + (needs.has('lowCarb') && ctx.medians.carb != null ? `；醣較低＝每份低於 ${Math.round(ctx.medians.carb)} g（這個池子的中位數）` : '')
       + (needs.has('lowSodium') && ctx.medians.sodium != null ? `；鈉較低＝每份低於 ${Math.round(ctx.medians.sodium)} mg（中位數）` : '');
-    list.replaceChildren(...(rows.length ? rows.map((r) => rowFor(r, watch, per(r), idx)) : [h('p', { class: 'muted' }, '沒有符合的食譜。換個字試試，或清掉篩選。')]));
+    list.replaceChildren(...(rows.length ? rows.map((r) => rowFor(r, watch, per(r), idx)) : [h('p', { class: 'muted' }, '沒有符合的食譜。')]));
     kindChips.replaceChildren(...KIND_FILTERS.map((f) => h('button', {
-      class: 'chip' + (f === kind ? ' on' : ''), type: 'button', 'aria-pressed': f === kind ? 'true' : 'false', dataset: { filter: f.key },
+      class: 'seg' + (f === kind ? ' on' : ''), type: 'button', 'aria-pressed': f === kind ? 'true' : 'false', dataset: { filter: f.key },
       onclick: () => { kind = f; draw(); },
     }, f.label)));
     needChips.replaceChildren(...NEED_FILTERS.map((f) => h('button', {

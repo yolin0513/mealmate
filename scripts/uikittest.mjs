@@ -34,7 +34,8 @@ eq(markdownish, [], '畫面字串裡沒有 **粗體**、# 標題或 [連結](網
 noneOf(viewFiles, (f) => /role:\s*['"]switch['"]/.test(read(f)), '沒有任何畫面自己手刻切換開關 —— 一律用 ui.switchRow()');
 ok(/role:\s*['"]switch['"]/.test(read('js/ui.js')), '（對照）ui.js 裡確實有那個共用元件 —— 上面那條不是因為整個 App 都沒有開關');
 const usesSwitch = viewFiles.filter((f) => /switchRow\(/.test(read(f)));
-ok(usesSwitch.length >= 2, `而且有 ${usesSwitch.length} 個畫面在用它：${usesSwitch.map((f) => f.split('/').pop()).join('、')}`);
+ok(usesSwitch.length >= 1, `而且有 ${usesSwitch.length} 個畫面在用它：${usesSwitch.map((f) => f.split('/').pop()).join('、')}`);
+// 2026-09-16：家人表單的慢性病從一排開關改成搜尋式挑選，所以用開關的畫面剩家人頁（排菜規則的三個避開開關）。
 noneOf(viewFiles, (f) => /\.toFixed\(/.test(read(f)), '沒有任何畫面自己 toFixed 一個營養值（要走 fmtNutrient／fmtEst，才會有「估」字）');
 const usesFmt = viewFiles.filter((f) => /fmtNutrient\(|fmtEst\(/.test(read(f)));
 ok(usesFmt.length >= 3, `（對照）有 ${usesFmt.length} 個畫面在顯示營養值、走的是共用格式器：${usesFmt.map((f) => f.split('/').pop()).join('、')}`);

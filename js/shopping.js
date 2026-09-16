@@ -30,46 +30,6 @@ export function sectionOf(food) {
   return CAT_SECTION[food.cat] ?? '調味與其他';
 }
 
-/**
- * 臨時多幾個人吃的時候，那些人算成什麼飲食型態。
- * 素的客人算「蛋奶素」而不是「全素」：兩者的差別只在含蛋奶的菜算不算他吃得到，
- * 算得到就會多買一點。**寧可多買半個，不可少買**（跟 toBuyQty 同一個原則）。
- */
-const GUEST_DIETS = { meat: 'omni', veg: 'lactoOvo' };
-
-/**
- * 臨時客人替這道菜的每一軌加上的倍數。
- *
- * 為什麼不做「整張清單一個倍率」：家裡 3 人（1 素 2 葷）來了 2 位吃葷的客人時，
- * 正確的縮放是葷鍋軌 ×2、素鍋軌 ×1。全域倍率 ×1.67 會**同時多買素菜、又買不夠肉**——
- * 倍率在混合葷素的家庭裡不是「簡化版的正確」，它就是錯的。
- * 這裡讓客人走跟家人**完全同一套** versionFor 判斷，分軌正確性由結構保證，不是靠額外檢查。
- */
-export function guestScaleFor(recipe, extra = {}) {
-  const counts = {
-    meat: Math.max(0, Math.floor(Number(extra.meat) || 0)),
-    veg: Math.max(0, Math.floor(Number(extra.veg) || 0)),
-  };
-  let veg = 0; let meat = 0; let all = 0;
-  for (const kind of ['meat', 'veg']) {
-    const n = counts[kind];
-    if (!n) continue;
-    const v = versionFor(recipe, GUEST_DIETS[kind]);
-    if (v === 'veg') veg += n;
-    else if (v === 'meat') meat += n;
-    else if (v === 'all') all += n;
-  }
-  if (recipe.vegMode !== 'splittable') return { base: all / recipe.servings, veg: 0, meat: 0 };
-  return { base: (veg + meat) / recipe.servings, veg: veg / recipe.splitServings.veg, meat: meat / recipe.splitServings.meat };
-}
-
-/** 家人的倍數 ＋ 臨時客人的倍數。extra 全是 0 時跟以前完全一樣。 */
-export function scaleWithGuests(recipe, members, extra) {
-  const s = scaleFor(recipe, members);
-  const g = guestScaleFor(recipe, extra);
-  return { base: s.base + g.base, veg: s.veg + g.veg, meat: s.meat + g.meat };
-}
-
 /** 這道菜每一軌要乘的倍數（依實際吃的人）。沒有家人 → 全部 1。 */
 export function scaleFor(recipe, members) {
   if (!members || members.length === 0) return { base: 1, veg: 1, meat: 1 };
@@ -115,7 +75,7 @@ export function rangesOfPlan(plan, shoppingDays) {
  * @returns {{ ranges: [{ key, label, dates, items: [...], pantry: [...] }] }}
  *   item：{ foodId, name, labels: string[], grams, buy: {qty, unit, grams}|null, section, uses: [{date, meal, recipe}] }
  */
-export function buildShoppingList({ plan, recipesById, members = [], idx, units, shoppingDays = [], extraByRange = {}, manualByRange = {}, customByRange = {} }) {
+export function buildShoppingList({ plan, recipesById, members = [], idx, units, shoppingDays = [], manualByRange = {}, customByRange = {} }) {
   const terms = aliasTermsOf(idx);
   const buyUnitFor = (foodId) => {
     for (const t of terms.get(foodId) ?? []) { const u = units?.buyUnits?.[t]; if (u && typeof u === 'object' && u.grams > 0) return u; }
@@ -125,7 +85,6 @@ export function buildShoppingList({ plan, recipesById, members = [], idx, units,
     ...r, items: [], pantry: [],
     // 自己加的項目跟著這張採買卡走（per-range），整理成乾淨的形狀；不參與任何克數計算
     custom: sanitizeCustom(customByRange[r.key]),
-    extra: { meat: Math.max(0, Math.floor(Number(extraByRange[r.key]?.meat) || 0)), veg: Math.max(0, Math.floor(Number(extraByRange[r.key]?.veg) || 0)) },
   }));
   for (const range of ranges) {
     const agg = new Map();     // foodId → item
@@ -135,7 +94,7 @@ export function buildShoppingList({ plan, recipesById, members = [], idx, units,
       for (const it of slot.items) {
         const r = recipesById.get(it.recipeId);
         if (!r) continue;
-        const scale = scaleWithGuests(r, members, extraByRange[range.key]);
+        const scale = scaleFor(r, members);
         for (const ing of r.ingredients) {
           const food = idx.byId.get(ing.food);
           // 使用者自己加的菜裡、食藥署查不到的食材（例如豬耳朵）：沒有分類也沒有採買單位，但還是要買 ——
@@ -207,17 +166,6 @@ export function sanitizeCustom(list) {
   return out;
 }
 
-/** 「多加 2 位吃葷」這種說明；沒加人回空字串。 */
-export function extraText(extra) {
-  const meat = Math.max(0, Math.floor(Number(extra?.meat) || 0));
-  const veg = Math.max(0, Math.floor(Number(extra?.veg) || 0));
-  if (!meat && !veg) return '';
-  const parts = [];
-  if (meat) parts.push(`${meat} 位吃葷`);
-  if (veg) parts.push(`${veg} 位吃素`);
-  return `多加 ${parts.join('、')}`;
-}
-
 /** 建議值（還沒被手改）的文字，用來告訴使用者「原本建議多少」。 */
 export function suggestedText(item) {
   const s = item?.suggested;
@@ -243,8 +191,6 @@ function fmtQty(q) { return Number.isInteger(q) ? String(q) : q.toFixed(1); }
 /** 純文字版（複製到 LINE 用）。 */
 export function listAsText(range, { checked = {}, have = {} } = {}) {
   const lines = [`【${range.label}】給 ${range.dates.map(fmtMD).join('、')}`];
-  // 調過份數卻沒留痕跡的話，貼到 LINE 的人對不起來為什麼要買這麼多
-  if (extraText(range.extra)) lines.push(`（這張清單${extraText(range.extra)}）`);
   for (const sec of SECTIONS) {
     const items = range.items.filter((it) => it.section === sec);
     if (!items.length) continue;

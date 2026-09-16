@@ -4,12 +4,12 @@
 //   · 腎臟病子項預設全不勾，說明寫「只勾醫師或營養師要你留意的」
 //   · 每日目標全部預設空字串、沒有任何帶數字的 placeholder；文案寫「App 只做加總對照，不會自己建議目標」
 
-import { h, chips, switchRow, toast, confirmDialog } from '../ui.js';
+import { h, chips, toast, confirmDialog } from '../ui.js';
 import { setTop, render } from '../shell.js';
 import { navigate } from '../router.js';
 import * as store from '../store.js';
 import {
-  newMember, AGE_GROUPS, AGE_LABELS, DIETS, DIET_LABELS, CONDITIONS, CONDITION_LABELS, CONDITION_HINTS,
+  newMember, AGE_GROUPS, AGE_LABELS, DIETS, DIET_LABELS, CONDITIONS, CONDITION_LABELS, CONDITION_HINTS, matchesCondition,
   KIDNEY_FIELDS, ALLERGENS, ALLERGEN_LABELS, MEMBER_TEXTURES, TARGET_FIELDS,
 } from '../members.js';
 import { TEXTURE_LABELS } from '../recipeschema.js';
@@ -17,9 +17,9 @@ import { NUTRIENT_LABELS } from '../foods.js';
 
 const DIET_HINTS = {
   omni: '什麼都吃',
-  lactoOvo: '不吃肉與海鮮，吃蛋與奶',
-  vegan: '不吃肉、海鮮、蛋、奶',
-  veganNoAllium: '全素，而且不吃蔥、蒜、韭、洋蔥等五辛',
+  lactoOvo: '不吃肉與海鮮，吃蛋、奶與蔥蒜',
+  vegan: '不吃肉、海鮮、蛋、奶，吃蔥、蒜、韭、洋蔥等五辛',
+  veganNoAllium: '不吃肉、海鮮、蛋、奶，也不吃蔥、蒜、韭、洋蔥等五辛',
 };
 
 export default async function memberView(id) {
@@ -48,17 +48,42 @@ export default async function memberView(id) {
       onChange: (v) => { m.kidneyWatch = v; },
     }),
   );
-  const conditionsBox = h('div', {});
+  // 慢性病清單長了（10 項）之後，一排開關會把整頁塞滿（使用者 2026-09-16 回報）：
+  // 改成打字搜尋、點一下加進去，選過的用 tag 呈現，tag 上的 × 拿掉。結果清單只在搜尋框有焦點時出現。
+  const tagBox = h('div', { class: 'tag-row', dataset: { field: 'condTags' } });
+  const condSearch = h('input', { class: 'field', type: 'search', placeholder: '搜尋慢性病，例如：高血壓', 'aria-label': '搜尋慢性病', dataset: { field: 'condSearch' } });
+  const condResults = h('div', { class: 'list picker-list', dataset: { list: 'condResults' }, hidden: true });
+  const condPicker = h('div', { class: 'cond-picker' }, condSearch, condResults);
+  let picking = false;
   function redrawConditions() {
-    conditionsBox.replaceChildren(...CONDITIONS.map((c) => switchRow({
-      label: CONDITION_LABELS[c], hint: CONDITION_HINTS[c], checked: m.conditions.includes(c), key: `cond-${c}`,
-      onChange: (on) => {
-        m.conditions = on ? [...new Set([...m.conditions, c])] : m.conditions.filter((x) => x !== c);
-        if (c === 'kidney') { kidneySub.hidden = !on; if (!on) m.kidneyWatch = []; }
+    tagBox.replaceChildren(...m.conditions.map((c) => h('span', { class: 'tag', dataset: { tag: c } },
+      CONDITION_LABELS[c],
+      h('button', { class: 'tag-x', type: 'button', 'aria-label': `拿掉 ${CONDITION_LABELS[c]}`, dataset: { removeCond: c },
+        onclick: () => {
+          m.conditions = m.conditions.filter((x) => x !== c);
+          if (c === 'kidney') m.kidneyWatch = [];
+          redrawConditions();
+        } }, '×'))));
+    const hits = CONDITIONS.filter((c) => !m.conditions.includes(c) && matchesCondition(c, condSearch.value));
+    condResults.replaceChildren(...hits.map((c) => h('button', {
+      class: 'picker-item', type: 'button', dataset: { cond: c },
+      onclick: () => {
+        m.conditions = [...m.conditions, c];
+        condSearch.value = '';
         redrawConditions();
+        condSearch.focus();
       },
-    })), kidneySub);
+    }, CONDITION_LABELS[c], h('span', { class: 'muted xs' }, ` ${CONDITION_HINTS[c]}`))));
+    condResults.hidden = !(picking && hits.length);
+    kidneySub.hidden = !m.conditions.includes('kidney');
   }
+  // 滑鼠按在結果清單上時不要讓搜尋框失焦：失焦會重畫清單，按鈕在 click 完成前就被換掉，那一下會點空。
+  condResults.addEventListener('mousedown', (e) => { e.preventDefault(); });
+  condSearch.addEventListener('input', redrawConditions);
+  condPicker.addEventListener('focusin', () => { picking = true; redrawConditions(); });
+  // 失焦時只把結果清單收起來，不要整個重畫 —— 重畫會把 tag 上的 × 換掉，按下去的那一下就掉了。
+  condPicker.addEventListener('focusout', (e) => { if (!condPicker.contains(e.relatedTarget)) { picking = false; condResults.hidden = true; } });
+  const conditionsBox = h('div', {}, tagBox, condPicker, kidneySub);
   redrawConditions();
 
   // ---- 每日目標（選填，預設空） ----

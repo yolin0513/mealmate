@@ -44,7 +44,7 @@ export default async function familyView() {
     h('h2', { class: 'card-title' }, '家人'),
     members.length
       ? h('div', { class: 'list' }, ...members.map(memberRow))
-      : h('p', { class: 'muted' }, '還沒有新增家人。先加一位：幾歲、吃葷或吃素、有沒有要留意的慢性病項目。'),
+      : h('p', { class: 'muted' }, '還沒有新增家人。'),
     h('a', { class: 'btn btn-primary', href: '#/family/new', dataset: { action: 'addMember' } }, '＋ 新增家人'),
   );
 
@@ -68,7 +68,6 @@ export default async function familyView() {
   drawDays();
   const daysCard = h('section', { class: 'card', dataset: { card: 'shoppingDays' } },
     h('h2', { class: 'card-title' }, '買菜日'),
-    h('p', { class: 'muted sm' }, '一週買幾次、星期幾買，可複選。'),
     daysWrap, daysText,
   );
 
@@ -94,7 +93,7 @@ export default async function familyView() {
       onChange: async (on) => { await prefs.set('avoid', { ...avoidNow(), [a.key]: on }); refresh(); },
     })),
     h('h3', { class: 'sub-title' }, '幾天內不重複'),
-    h('p', { class: 'muted sm' }, '排菜時會盡量隔這麼多天才再排同一道。符合條件的菜不夠時還是會重複，本週頁會寫出來是哪幾道。'),
+    h('p', { class: 'muted sm' }, '排菜時會盡量隔這麼多天才再排同一道；菜不夠時還是會重複，本週頁會寫出來。'),
     ...NO_REPEAT.map((n) => h('div', { class: 'pref-row' },
       h('div', { class: 'pref-main' }, h('p', { class: 'pref-label' }, n.label)),
       chips({
@@ -103,7 +102,6 @@ export default async function familyView() {
         onChange: async (v) => { await prefs.set('noRepeatDays', { ...noRepeatNow(), [n.key]: v }); refresh(); },
       }),
     )),
-    h('p', { class: 'muted xs' }, '早餐與主食不算不重複——白飯、稀飯本來就會天天出現。'),
     // 一週平衡（使用者 2026-09-14 確認）：把「一週排幾道豐盛的菜」的選擇權交給使用者。預設適中。
     h('h3', { class: 'sub-title' }, '一週豐盛程度'),
     h('p', { class: 'muted sm', dataset: { field: 'heartyHint' } }, `${HEARTY_HINT}${BALANCE_NOTE}`),
@@ -121,7 +119,7 @@ export default async function familyView() {
   // ---- 顯示 ----
   const displayCard = h('section', { class: 'card', dataset: { card: 'display' } },
     h('h2', { class: 'card-title' }, '顯示'),
-    h('p', { class: 'muted sm' }, '字級。看不清楚就往右調，按鈕與可以點的地方會跟著變大。'),
+    h('p', { class: 'muted sm' }, '字級'),
     chips({
       options: prefs.FONT_SCALES.map((s) => ({ value: s, label: prefs.FONT_SCALE_LABELS[s] })),
       value: prefs.get('fontScale'), name: 'fontScale',

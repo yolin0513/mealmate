@@ -34,7 +34,7 @@ try {
   await titleIs(page, '本週菜單');
   await page.waitForSelector('[data-card="weekEmpty"]');
   const emptyText = await textOf(page, '[data-card="weekEmpty"]');
-  ok(emptyText.includes('爸（葷）') && emptyText.includes('姊（全素不含五辛）'), '空狀態列出家人');
+  ok(emptyText.includes('爸（葷）') && emptyText.includes('姊（全素）'), '空狀態列出家人');
   await clickEl(page, '[data-action="generate"]');
   await page.waitForSelector('[data-card="weekHead"]');
   eq(await page.$$eval('.meal-block', (els) => els.length), 21, '21 個餐格');
@@ -54,11 +54,11 @@ try {
   everyOf(meatyPerMeal, (ids) => ids.some((id) => byId.get(id) && byId.get(id).vegMode !== 'nativeVeg'), '每個午晚餐都有一道葷的（可分流的算 —— 素食成員吃素版）');
   const items = await allItemIds(page);
   ok(items.length >= 50, `（母體）${items.length} 道菜`);
-  everyOf(items, (id) => byId.get(id) && versionFor(byId.get(id), 'lactoOvo') !== null && versionFor(byId.get(id), 'veganNoAllium') !== null, '每一道菜阿嬤（蛋奶素）與姊（全素不含五辛）都吃得了');
+  everyOf(items, (id) => byId.get(id) && versionFor(byId.get(id), 'lactoOvo') !== null && versionFor(byId.get(id), 'veganNoAllium') !== null, '每一道菜阿嬤（蛋奶素）與姊（全素（不吃五辛））都吃得了');
   const vegPerMeal = await page.$$eval('.meal-block', (els) => els.filter((e) => e.dataset.meal !== 'breakfast')
     .map((e) => [...e.querySelectorAll('.meal-item[data-item]')].map((x) => x.dataset.item)));
   everyOf(vegPerMeal, (ids) => ids.filter((id) => byId.get(id) && versionFor(byId.get(id), 'veganNoAllium') !== null).length >= 3,
-    '每個午晚餐，全素不含五辛的姊至少吃得到 3 道（素食保障優先於「每餐有葷」）');
+    '每個午晚餐，全素（不吃五辛）的姊至少吃得到 3 道（素食保障優先於「每餐有葷」）');
   noneOf(items, (id) => byId.get(id)?.vegMode === 'meatOnly', '這個家庭這一週沒有排到純葷的菜（靠可分流的菜就湊得出每餐有葷）');
   ok(items.some((id) => byId.get(id)?.vegMode === 'splittable'), '（對照）有可分流的菜，爸吃葷版');
   const pageText = await textOf(page, '#view');
@@ -76,7 +76,7 @@ try {
   const reasons = await page.$$eval('.modal-card [data-field="reasons"] li', (els) => els.map((e) => e.textContent.trim()));
   ok(reasons.length >= 2, `${reasons.length} 條理由`);
   noneOf(reasons, (t) => /建議|應該|適合|療效|治療|控制|改善/.test(t), '理由沒有建議語氣或療效字眼');
-  ok(reasons.some((t) => t.includes('姊（全素不含五辛）可吃')), '理由講出姊吃得了');
+  ok(reasons.some((t) => t.includes('姊（全素）可吃')), '理由講出姊吃得了');
   ok(reasons.some((t) => /估 碳水化合物（醣）/.test(t)), '阿嬤留意醣 → 理由有醣的估計值與中位數比較');
   const firstMainBefore = mains[0];
   await clickEl(page, '.modal-card .modal-actions .btn:nth-of-type(2)');
@@ -494,9 +494,77 @@ try {
     await page.evaluate(async () => { const prefs = await import('./js/prefs.js'); await prefs.set('heartyLevel', 'medium'); });
   }
 
+  section('加菜／減菜：這一餐自己加一道、拿掉一道，購物清單跟著變');
+  {
+    // 使用者 2026-09-16 要求：有時候某一餐的菜不是固定的。走真實路徑 ——
+    // 本週頁按「＋ 加一道」→ 小視窗挑菜 →（買菜頁）那道菜的食材真的出現在清單上。
+    // 挑的是「現在的菜單完全沒用到它任何一樣食材」的菜，清單的變化才歸得到它身上。
+    const target = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const byId = new Map(store.allRecipes().map((r) => [r.id, r]));
+      const used = new Set();
+      for (const s of plan.slots) for (const it of s.items ?? []) {
+        for (const ing of byId.get(it.recipeId)?.ingredients ?? []) if (!ing.pantry && ing.food) used.add(ing.food);
+      }
+      for (const r of store.allRecipes()) {
+        if (r.role !== 'side') continue;
+        const fresh = r.ingredients.filter((i) => !i.pantry && i.food && i.grams > 0 && !used.has(i.food));
+        if (fresh.length) return { id: r.id, name: r.name, food: fresh[0].food, foodName: fresh[0].label };
+      }
+      return null;
+    });
+    ok(target, `（前提）挑到一道菜單還沒用到它食材的配菜：「${target?.name}」（${target?.foodName}）`);
+    const lunchSel = '.meal-block[data-meal="lunch"][data-kind="cook"]';
+    const dishCount = () => page.$$eval(`${lunchSel} .meal-item[data-item]`, (els) => els.length);
+    const before = await dishCount();
+    await clickEl(page, `${lunchSel} [data-action="addDish"]`);
+    await page.waitForSelector('[data-field="pickerSearch"]');
+    await page.type('[data-field="pickerSearch"]', target.name);
+    await sleep(200);
+    await clickEl(page, `[data-pick="${target.id}"]`);
+    await waitToastGone(page).catch(() => {});
+    await page.waitForSelector(`${lunchSel} .meal-item[data-item="${target.id}"]`);
+    eq(await dishCount(), before + 1, `這一餐從 ${before} 道變成 ${before + 1} 道`);
+    eq(await page.$eval(`${lunchSel} .meal-item[data-item="${target.id}"]`, (el) => el.dataset.added), 'true', '自己加的那道標得出來');
+    ok(await page.$(`${lunchSel} .meal-item[data-item="${target.id}"] .lock`) != null, '自己加的預設鎖定（重新產生不會被洗掉）');
+
+    // 購物清單：那道菜的食材真的要買了
+    await goto(page, '#/shopping');
+    await titleIs(page, '買菜');
+    await page.waitForSelector('[data-card="shopRange"]');
+    ok(await page.$(`[data-buy="${target.food}"]`) != null, `買菜清單多了「${target.foodName}」`);
+
+    // 重新產生：鎖住的自己加的菜還在
+    await goto(page, '#/');
+    await titleIs(page, '本週菜單');
+    await page.waitForSelector('[data-action="regenerate"]');
+    await waitToastGone(page).catch(() => {});
+    await clickEl(page, '[data-action="regenerate"]');
+    await page.waitForFunction(() => { const t = document.getElementById('toast'); return t && !t.hidden && t.textContent.includes('已重新排好'); });
+    await sleep(500);
+    ok(await page.$(`${lunchSel} .meal-item[data-item="${target.id}"]`) != null, '重新產生之後，自己加的那道還在');
+
+    // 拿掉這道：清單也要跟著少買
+    // 道數跟「拿掉前」比：中間按過重新產生，沒鎖的菜會換（主菜換成本身含主食的，那一餐就少一格主食）
+    const beforeRemove = await dishCount();
+    await clickEl(page, `${lunchSel} .meal-item[data-item="${target.id}"] .item-menu`);
+    await page.waitForSelector('.modal-card .modal-actions');
+    await page.evaluate(() => { [...document.querySelectorAll('.modal-card .modal-actions .btn')].find((b) => b.textContent.includes('拿掉這道'))?.click(); });
+    await page.waitForFunction((sel, id) => !document.querySelector(`${sel} .meal-item[data-item="${id}"]`), {}, lunchSel, target.id);
+    eq(await dishCount(), beforeRemove - 1, `拿掉之後從 ${beforeRemove} 道變成 ${beforeRemove - 1} 道`);
+    await goto(page, '#/shopping');
+    await titleIs(page, '買菜');
+    await page.waitForSelector('[data-card="shopRange"]');
+    ok(await page.$(`[data-buy="${target.food}"]`) == null, `買菜清單也不再要買「${target.foodName}」`);
+    await goto(page, '#/');
+    await titleIs(page, '本週菜單');
+  }
+
   section('本週想吃：真的按「本週想吃」、真的按「重新產生」，每次都排進去；排不進去的照實講');
   {
-    // 2026-09-14 使用者回報：加了「滷雞腳」、按本週想吃，重新產生幾次都沒排進去。這個家有蛋奶素的阿嬤、全素不含五辛的姊。
+    // 2026-09-14 使用者回報：加了「滷雞腳」、按本週想吃，重新產生幾次都沒排進去。這個家有蛋奶素的阿嬤、全素（不吃五辛）的姊。
     // 走真實路徑（食譜頁的按鈕 → store → 本週頁的「重新產生」→ generateWeek），不是只測內層函式（「家裡有」那次的教訓）。
     const regen = async () => {
       await waitToastGone(page).catch(() => {});

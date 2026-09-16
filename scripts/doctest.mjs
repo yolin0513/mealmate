@@ -11,11 +11,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf } from './tap.mjs';
 import { FORBIDDEN } from './copyrules.mjs';
-import { CONDITION_FIELDS, DIETS, CONDITIONS, KIDNEY_FIELDS, BASE_DISPLAY_FIELDS } from '../js/members.js';
+import { CONDITION_FIELDS, DIETS, DIET_LABELS, CONDITIONS, KIDNEY_FIELDS, BASE_DISPLAY_FIELDS } from '../js/members.js';
 import { DEFAULTS, FONT_SCALES } from '../js/prefs.js';
 import { DEFAULT_RULES } from '../js/planner.js';
 import { MEAL_ROLES, VEG_MIN_DISHES } from '../js/planner.js';
 import { STORE_NAMES } from '../js/db.js';
+import { NUTRIENT_ORDER } from '../js/foods.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -35,7 +36,16 @@ ok(PLAN.includes('高血壓 → 鈉'), '（文件）PLAN 寫了高血壓對到�
 eq(CONDITION_FIELDS.hypertension, ['sodium'], '程式：高血壓＝鈉');
 ok(PLAN.includes('高血脂 → 飽和脂肪、膽固醇'), '（文件）PLAN 寫了高血脂對到哪兩項');
 eq(CONDITION_FIELDS.lipid, ['satFat', 'cholesterol'], '程式：高血脂＝飽和脂肪、膽固醇');
-eq(CONDITIONS, ['diabetes', 'hypertension', 'kidney', 'lipid'], '慢性病就這四種（PLAN：痛風不做）');
+ok(PLAN.includes('心血管疾病 | 飽和脂肪'), '（文件）PLAN 列了心血管疾病對到哪幾項');
+eq(CONDITION_FIELDS.cardio, ['satFat', 'cholesterol', 'sodium'], '程式：心血管疾病＝飽和脂肪、膽固醇、鈉');
+ok(PLAN.includes('骨質疏鬆 | 鈣'), '（文件）PLAN 列了骨質疏鬆對到鈣');
+eq(CONDITION_FIELDS.osteoporosis, ['calcium'], '程式：骨質疏鬆＝鈣');
+ok(PLAN.includes('沒有數字的病不放進清單'), '（文件）PLAN 寫了「沒有數字的病不放進清單」這條界線');
+everyOf(CONDITIONS.filter((c) => c !== 'kidney'), (c) => (CONDITION_FIELDS[c] ?? []).length > 0,
+  '程式：除了腎臟病以外，每一項慢性病都對得到至少一個欄位');
+everyOf(CONDITIONS.flatMap((c) => CONDITION_FIELDS[c] ?? []), (f) => NUTRIENT_ORDER.includes(f),
+  '程式：沒有任何一項指到食藥署資料庫沒有的欄位（普林、鐵都還沒有來源）');
+noneOf(CONDITIONS, (c) => ['gout', 'anemia'].includes(c), '痛風、貧血仍然不在清單裡');
 ok(PLAN.includes('痛風不做'), '（文件）PLAN 確實寫了痛風不做');
 
 section('PLAN §1.2 第 5 點：禁用詞清單');
@@ -49,8 +59,10 @@ const jsFiles = ['js', 'js/views'].flatMap((d) => fs.readdirSync(path.join(ROOT,
 noneOf(jsFiles, (f) => read(f).includes('無過敏原'), `程式裡沒有任何一處寫「無過敏原」（掃了 ${jsFiles.length} 個檔）`);
 
 section('PLAN §2 定案總表：數字對得上');
-eq(DIETS, ['omni', 'lactoOvo', 'vegan', 'veganNoAllium'], '飲食型態四種（葷／蛋奶素／全素／全素不含五辛）');
-ok(PLAN.includes('葷／蛋奶素／全素／全素不含五辛'), '（文件）PLAN 也是這四種');
+eq(DIETS, ['omni', 'lactoOvo', 'vegan', 'veganNoAllium'], '飲食型態四種（存的值不變）');
+ eq(DIET_LABELS.vegan, '五辛素', '2026-09-16 正名：vegan 本來就允許五辛 → 標籤叫「五辛素」');
+ eq(DIET_LABELS.veganNoAllium, '全素', '連五辛都不吃的才叫「全素」');
+ok(PLAN.includes('葷／蛋奶素／五辛素／全素'), '（文件）PLAN 也是這四種');
 ok(PLAN.includes('主菜 14 天內不重複、配菜 7 天、湯 7 天'), '（文件）PLAN 寫了不重複天數');
 eq([DEFAULTS.noRepeatDays.main, DEFAULTS.noRepeatDays.side, DEFAULTS.noRepeatDays.soup], [14, 7, 7], '程式的預設：主菜 14、配菜 7、湯 7');
 ok(PLAN.includes('早餐不納入不重複'), '（文件）PLAN 寫了早餐不納入不重複');

@@ -122,8 +122,8 @@ try {
     { name: '今日煮', hash: `#/today?d=${seeded.today.d}&meal=${seeded.today.meal}` },
     { name: '買菜', hash: '#/shopping' },
     { name: '買菜（改過數量）', hash: '#/shopping', manualQty: true },
-    // 「這次有客人？」展開（葷素兩格）＋自己加的項目（名稱與數量放到上限）
-    { name: '買菜（有客人＋自己加的）', hash: '#/shopping', guestsCustom: true },
+    // 自己加的項目（名稱與數量放到上限）
+    { name: '買菜（自己加的）', hash: '#/shopping', guestsCustom: true },
     // 某一區全部買齊 → 自動收合，標題只剩摘要
     { name: '買菜（買齊收合）', hash: '#/shopping', foldDone: true },
     { name: '食譜清單', hash: '#/recipes' },
@@ -236,6 +236,26 @@ try {
     return { overflow, overlaps, columns, docW, scrollW: document.documentElement.scrollWidth, leafCount: boxes.length,
       dayBodies, dayToggleMinH: Number.isFinite(dayToggleMinH) ? Math.round(dayToggleMinH) : 999,
       manualMarks: root.querySelectorAll('.qty-manual').length,
+      // 食譜頁的分段控制：格子要等寬、同一列對齊、每格按得到、永遠剛好一格是選中的
+      segmented: (() => {
+        const bar = root.querySelector('.segmented');
+        if (!bar) return null;
+        const segs = [...bar.querySelectorAll('.seg')];
+        if (!segs.length) return { n: 0 };
+        const r = segs.map((s) => s.getBoundingClientRect());
+        const rows = new Map();
+        for (const x of r) { const k = Math.round(x.top); rows.set(k, [...(rows.get(k) ?? []), x]); }
+        const widths = r.map((x) => Math.round(x.width));
+        return {
+          n: segs.length,
+          rows: rows.size,
+          widthSpread: Math.max(...widths) - Math.min(...widths),
+          minH: Math.round(Math.min(...r.map((x) => x.height))),
+          on: segs.filter((s) => s.getAttribute('aria-pressed') === 'true').length,
+          rowAligned: [...rows.values()].every((row) => row.every((x) => Math.abs(x.height - row[0].height) <= 1)),
+          insideBar: r.every((x) => x.right <= bar.getBoundingClientRect().right + 1),
+        };
+      })(),
       // 日期列：「一起煮」要跟日期在同一列、靠右（有沒有買菜日標籤都一樣）
       dayHeads: [...root.querySelectorAll('[data-card="day"]')].map((c) => {
         const btn = c.querySelector('[data-action="cookToday"]');
@@ -246,16 +266,7 @@ try {
         if (b.width === 0) return null;
         return { pill: !!tog.querySelector('.pill'), sameRow: b.top < t.bottom - 4, rightGap: Math.round(hd.right - b.right) };
       }).filter(Boolean),
-      // 「這次有客人？」展開時：說明在上、葷素兩格同一列並排
-      guest: (() => {
-        const d = root.querySelector('[data-field="extraRow"][open]');
-        if (!d) return null;
-        const desc = d.querySelector('[data-field="extraDesc"]')?.getBoundingClientRect();
-        const m = d.querySelector('[data-field="extraMeat"]')?.getBoundingClientRect();
-        const v = d.querySelector('[data-field="extraVeg"]')?.getBoundingClientRect();
-        if (!desc || !m || !v) return { aligned: false };
-        return { aligned: Math.abs(m.top - v.top) <= 2 && m.top >= desc.bottom - 1 && v.left >= m.right - 1 };
-      })(),
+      guestFields: root.querySelectorAll('[data-field="extraRow"], [data-field="extraMeat"], [data-field="extraVeg"]').length,
       customRows: root.querySelectorAll('.custom-row').length,
       // 設定列的標籤：每一行至少幾個字（被旁邊的長 chip 擠成「一欄一個字」時是 1）
       prefLabels: [...root.querySelectorAll('.pref-label')].filter((el) => el.getBoundingClientRect().height > 0).map((el) => {
@@ -353,7 +364,6 @@ try {
           const built = opt.foldDone ? buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days }) : null;
           for (const r of rangesOfPlan(plan, days)) {
             const row = await store.getShopping(r.key);
-            row.extra = opt.guestsCustom ? { meat: 2, veg: 1 } : { meat: 0, veg: 0 };
             row.custom = opt.guestsCustom ? [
               { id: 'c-long', name: '進口富士蘋果（要挑大顆一點不要太軟的）', qty: '一大袋約兩公斤' },
               { id: 'c-short', name: '香蕉', qty: '' },
@@ -449,11 +459,25 @@ try {
   everyOf(heads, (d) => d.rightGap <= 1, '而且一律靠右對齊',
     heads.filter((d) => d.rightGap > 1).slice(0, 3).map((d) => `${d.where} 離右緣 ${d.rightGap}px`).join(' ／ '));
 
-  section('買菜頁新狀態：客人欄直式、自己加的、買齊收合');
-  const guestPages = all.filter((p) => p.route === '買菜（有客人＋自己加的）');
-  ok(guestPages.length === SCALES.length * WIDTHS.length, `（母體）有客人＋自己加的買菜頁掃了 ${guestPages.length} 組`);
-  everyOf(guestPages, (p) => p.guest?.aligned === true, '三種字級 × 三種寬度：說明在上、葷素兩格在同一列並排');
+  section('食譜頁篩選：一條分段控制，等寬、對齊、按得到（三種字級 × 三種寬度）');
+  {
+    // 使用者 2026-09-16 回報原本那排篩選按鈕「太雜亂」。慣例 20：要守的是「整齊」就量整齊，
+    // 溢出與重疊抓不到「寬度參差、沒對齊」。
+    const segPages = all.filter((p) => p.route === '食譜清單' && p.segmented);
+    ok(segPages.length === SCALES.length * WIDTHS.length, `（母體）食譜清單掃了 ${segPages.length} 組`);
+    ok(segPages.every((p) => p.segmented.n >= 6), `分段控制有 ${segPages[0]?.segmented.n} 格（全部／素／可分流／葷／我的／收藏／本週想吃）`);
+    everyOf(segPages, (p) => p.segmented.widthSpread <= 1, '每一格等寬（最大差 ' + Math.max(...segPages.map((p) => p.segmented.widthSpread)) + 'px）');
+    everyOf(segPages, (p) => p.segmented.rowAligned, '同一列的格子高度一致');
+    everyOf(segPages, (p) => p.segmented.minH >= 44, `每一格都按得到（最小 ${Math.min(...segPages.map((p) => p.segmented.minH))}px）`);
+    everyOf(segPages, (p) => p.segmented.on === 1, '永遠剛好一格是選中的');
+    everyOf(segPages, (p) => p.segmented.insideBar, '每一格都在軌道裡（沒有被擠出去）');
+  }
+
+  section('買菜頁新狀態：自己加的、買齊收合');
+  const guestPages = all.filter((p) => p.route === '買菜（自己加的）');
+  ok(guestPages.length === SCALES.length * WIDTHS.length, `（母體）自己加的買菜頁掃了 ${guestPages.length} 組`);
   everyOf(guestPages, (p) => p.customRows >= 2, '自己加的項目有畫出來（名稱與數量放到上限的那項也在）');
+  everyOf(all.filter((p) => p.route.startsWith('買菜')), (p) => p.guestFields === 0, '買菜頁沒有客人數的欄位（功能已移除）');
   const foldPages = all.filter((p) => p.route === '買菜（買齊收合）');
   ok(foldPages.length === SCALES.length * WIDTHS.length, `（母體）買齊收合的買菜頁掃了 ${foldPages.length} 組`);
   everyOf(foldPages, (p) => p.foldedSections >= 1, '買齊的那一區收起來了（上面的溢出、重疊、橫向捲動斷言也涵蓋收合後的標題）');
@@ -463,7 +487,7 @@ try {
   // 使用者回報第五輪。為什麼這裡也要量：shoppingviewtest 只量 390／標準與 320／特大兩組，
   // 而三顆按鈕的排列、箭頭圖示的大小都跟字級與寬度一起變 —— 特大字級下「＋ 自己加一項」最寬，
   // 對齊一旦只靠 flex 換行就會在某些寬度散掉。溢出／重疊／橫向捲動抓不到「排得不整齊」（慣例 20），
-  // 所以直接量：兩顆同列等寬、第一顆佔滿一列、左右緣對齊。四種買菜狀態都掃（有客人＋自己加的那組才有「刪除」）。
+  // 所以直接量：兩顆同列等寬、第一顆佔滿一列、左右緣對齊。四種買菜狀態都掃（自己加的那組才有「刪除」）。
   const shopPages = all.filter((p) => p.route.startsWith('買菜'));
   ok(shopPages.length === 4 * SCALES.length * WIDTHS.length, `（母體）買菜頁四種狀態掃了 ${shopPages.length} 組`);
   everyOf(shopPages, (p) => p.linkish.length === 0, '沒有任何控制項長得像超連結（家裡有、刪除都是按鈕）',

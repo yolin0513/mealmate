@@ -93,7 +93,12 @@ try {
   await goto(page, '#/family/new');
   await titleIs(page, '新增家人');
   await page.type('[data-field="name"]', '阿嬤');
-  await clickEl(page, '[data-pref="cond-diabetes"]');
+  // 2026-09-16：慢性病改成搜尋式挑選
+  await page.focus('[data-field="condSearch"]');
+  await page.type('[data-field="condSearch"]', '糖尿病');
+  await sleep(200);
+  await clickEl(page, '[data-cond="diabetes"]');
+  await sleep(150);
   await clickEl(page, '[data-action="saveMember"]');
   await titleIs(page, '家人');
   const memberRow = await page.$$eval('[data-member]', (els) => els.map((e) => e.textContent.replace(/\s+/g, ' ')));

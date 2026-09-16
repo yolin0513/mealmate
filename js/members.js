@@ -11,23 +11,59 @@ export const AGE_GROUPS = ['child', 'adult', 'senior'];
 export const AGE_LABELS = { child: '小孩', adult: '成人', senior: '長輩' };
 
 export const DIETS = ['omni', 'lactoOvo', 'vegan', 'veganNoAllium'];
-export const DIET_LABELS = { omni: '葷', lactoOvo: '蛋奶素', vegan: '全素', veganNoAllium: '全素不含五辛' };
+// 「五辛素」＝不吃肉、海鮮、蛋、奶，但吃蔥蒜等五辛（vegan）；「全素」連五辛都不吃（veganNoAllium）。
+// 2026-09-16 正名：舊標籤把 vegan 叫「全素」，但它本來就允許五辛 —— 名稱與行為對不起來。存的值不變。
+export const DIET_LABELS = { omni: '葷', lactoOvo: '蛋奶素', vegan: '五辛素', veganNoAllium: '全素' };
 
-export const CONDITIONS = ['diabetes', 'hypertension', 'kidney', 'lipid'];
-export const CONDITION_LABELS = { diabetes: '糖尿病', hypertension: '高血壓', kidney: '腎臟病', lipid: '高血脂' };
+// 留意項目：**只收食藥署資料庫 12 個欄位撐得起數字的**。
+// 痛風（普林）、貧血（鐵）這些資料庫沒有的欄位，在拿到可引用的來源之前不放進清單 —— 放了也只能是個空標籤，
+// 使用者卻會以為 App 在替他看那一項（使用者 2026-09-16 指示：先不要把「沒有數字」的病加進清單）。
+export const CONDITIONS = ['diabetes', 'prediabetes', 'hypertension', 'lipid', 'cardio', 'heartFailure', 'kidney', 'fattyLiver', 'osteoporosis', 'constipation'];
+export const CONDITION_LABELS = {
+  diabetes: '糖尿病', prediabetes: '糖尿病前期', hypertension: '高血壓', lipid: '高血脂', cardio: '心血管疾病',
+  heartFailure: '心臟衰竭', kidney: '腎臟病', fattyLiver: '脂肪肝', osteoporosis: '骨質疏鬆', constipation: '腸道不順',
+};
+/** 搜尋用的別名（清單長了之後用打字找）。名稱本身一定比對，這裡只補口語說法。 */
+export const CONDITION_KEYWORDS = {
+  diabetes: ['糖尿', '血糖'], prediabetes: ['糖尿', '血糖', '前期'], hypertension: ['血壓'], lipid: ['血脂', '膽固醇', '三酸甘油'],
+  cardio: ['心臟', '心血管', '中風', '心肌梗塞', '冠心'], heartFailure: ['心臟', '心衰', '衰竭'], kidney: ['腎', '洗腎', '尿毒'],
+  fattyLiver: ['肝'], osteoporosis: ['骨質', '骨鬆', '骨頭'], constipation: ['便秘', '排便', '腸'],
+};
 /** 每個留意項目在畫面上帶出的欄位。腎臟病的欄位由使用者勾選，這裡是空的。 */
 export const CONDITION_FIELDS = {
   diabetes: ['carb', 'sugar', 'fiber'],
+  prediabetes: ['carb', 'sugar', 'fiber'],
   hypertension: ['sodium'],
-  kidney: [],
   lipid: ['satFat', 'cholesterol'],
+  cardio: ['satFat', 'cholesterol', 'sodium'],
+  heartFailure: ['sodium'],
+  kidney: [],
+  fattyLiver: ['sugar', 'satFat'],
+  osteoporosis: ['calcium'],
+  constipation: ['fiber'],
 };
 export const CONDITION_HINTS = {
   diabetes: '卡片會顯示估計的醣（碳水化合物）、糖、膳食纖維；排菜時高醣主食型的菜會往後排',
+  prediabetes: '卡片會顯示估計的醣（碳水化合物）、糖、膳食纖維',
   hypertension: '卡片會顯示估計的鈉；醃漬、加工肉會往後排',
-  kidney: '請勾醫師或營養師要你留意的項目；沒勾的不會顯示也不影響排序',
   lipid: '卡片會顯示估計的飽和脂肪、膽固醇；油炸、內臟、肥肉會往後排',
+  cardio: '卡片會顯示估計的飽和脂肪、膽固醇、鈉',
+  heartFailure: '卡片會顯示估計的鈉',
+  kidney: '請勾醫師或營養師要你留意的項目；沒勾的不會顯示也不影響排序',
+  fattyLiver: '卡片會顯示估計的糖、飽和脂肪',
+  osteoporosis: '卡片會顯示估計的鈣',
+  constipation: '卡片會顯示估計的膳食纖維',
 };
+
+/**
+ * 這一項慢性病符不符合搜尋字串（空字串＝全部）。
+ * 抽成純函式是為了讓 membertest 直接驗比對規則，畫面只負責畫。
+ */
+export function matchesCondition(key, query) {
+  const q = String(query ?? '').trim();
+  if (!q) return true;
+  return [CONDITION_LABELS[key] ?? '', ...(CONDITION_KEYWORDS[key] ?? [])].some((t) => t.includes(q));
+}
 export const KIDNEY_FIELDS = ['sodium', 'potassium', 'phosphorus', 'protein'];
 
 export const ALLERGENS = ['peanut', 'seafood', 'egg', 'dairy'];

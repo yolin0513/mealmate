@@ -39,7 +39,7 @@ export default async function recipeView(id) {
       r.source === 'user' ? pill('我的食譜', 'accent') : null,
     ),
     h('p', {}, `${r.servings} 人份${isSplit ? `（素 ${r.splitServings.veg}、葷 ${r.splitServings.meat}）` : ''} · ${timeText(r.time)} · 當季：${seasonText(r.season)}`),
-    r.alliumOptional ? h('p', { class: 'muted sm' }, '蔥蒜可以省略，全素不含五辛的家人也能吃。') : null,
+    r.alliumOptional ? h('p', { class: 'muted sm' }, '蔥蒜可以省略，全素的家人也能吃。') : null,
     isSplit ? h('p', { class: 'muted sm' }, '先一起煮共同的部分，盛出素食份之後兩鍋各自收尾；素版與葷版的營養分開估算，不會相加。') : null,
     ...members.map((m) => {
       const v = versionFor(r, m.diet);
@@ -155,7 +155,7 @@ export default async function recipeView(id) {
     h('h2', { class: 'card-title' }, '食材'),
     h('div', { class: 'row-actions' }, versionChips, step.node),
     h('table', { class: 'ing-table' }, ingBody),
-    h('p', { class: 'muted xs' }, '克數是估計，買菜時到「買菜」分頁看換算成幾顆、幾把。'),
+    h('p', { class: 'muted xs' }, '克數是估計。'),
   );
 
   const steps = h('section', { class: 'card', dataset: { card: 'recipeSteps' } },

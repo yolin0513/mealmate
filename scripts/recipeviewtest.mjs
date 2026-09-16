@@ -18,14 +18,21 @@ const { page, pageErrors, close } = await openApp();
 try {
   await acceptWelcome(page);
 
-  section('清單與篩選');
+  section('清單與篩選（種類是分段控制）');
   await goto(page, '#/recipes');
   await titleIs(page, '食譜');
   await page.waitForSelector('[data-list="recipes"] a.row');
   const all = await rowIds(page);
+  // 2026-09-16：種類篩選改成分段控制（一條軌道、等寬格子）。這裡驗的是「它還是同一個篩選」與選中狀態。
+  const segState = () => page.evaluate(() => [...document.querySelectorAll('[data-field="kindFilters"] .seg')]
+    .map((b) => ({ key: b.dataset.filter, on: b.getAttribute('aria-pressed') })));
+  const segs0 = await segState();
+  eq(segs0.map((s) => s.key), ['all', 'veg', 'split', 'meat', 'mine', 'fav', 'want'], '七格分段控制，順序固定');
+  eq(segs0.filter((s) => s.on === 'true').map((s) => s.key), ['all'], '預設選中「全部」');
   ok(all.length >= 36, `全部 ${all.length} 道`);
   await clickEl(page, '[data-filter="veg"]');
   await sleep(100);
+  eq((await segState()).filter((s) => s.on === 'true').map((s) => s.key), ['veg'], '按「素」→ 只有它是選中的（分段控制一次只選一格）');
   const vegRows = await rowIds(page);
   ok(vegRows.length >= 8 && vegRows.length < all.length, `（母體）素 ${vegRows.length} 道`);
   everyOf(vegRows, (id) => byId.get(id)?.vegMode === 'nativeVeg', '「素」篩選後每一道都是 nativeVeg');
@@ -38,13 +45,13 @@ try {
   await clickEl(page, '[data-filter="all"]');
   await sleep(100);
 
-  section('誰要吃：全素不含五辛');
+  section('誰要吃：全素（不吃五辛）');
   await page.select('[data-field="eater"]', 'diet:veganNoAllium');
   await sleep(150);
   const noAllium = await rowIds(page);
   const expected = recipes.filter((r) => fitsDiet(r, 'veganNoAllium')).map((r) => r.id).sort();
   ok(expected.length >= 5 && expected.length < recipes.length, `（母體）依資料應有 ${expected.length} 道可吃，池子共 ${recipes.length}`);
-  eq([...noAllium].sort(), expected, '清單剛好是資料算出來「全素不含五辛可吃」的那幾道');
+  eq([...noAllium].sort(), expected, '清單剛好是資料算出來「全素（不吃五辛）可吃」的那幾道');
   const tagged = recipes.filter((r) => (r.vegMode === 'splittable' ? r.vegTags : r.tags).some((t) => ['meat', 'seafood', 'egg', 'dairy', 'allium'].includes(t)) && !r.alliumOptional).map((r) => r.id);
   ok(tagged.length >= 15, `（對照母體）${tagged.length} 道帶葷／蛋／奶／五辛（不可省略）`);
   noneOf(tagged, (id) => noAllium.includes(id), '那些都不在清單裡');

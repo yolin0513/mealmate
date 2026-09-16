@@ -51,7 +51,7 @@ try {
     const slot = plan.slots.find((s) => s.kind === 'cook' && s.items.some((it) => byId2.get(it.recipeId)?.vegMode === 'splittable'));
     return { weekKey: weekKeyOf(mondayIso), today: { d: slot.date, meal: slot.meal } };
   });
-  ok(seeded.weekKey, `（前提）種了三位家人（高血壓、糖尿病、全素不含五辛）與一週菜單：${seeded.weekKey}`);
+  ok(seeded.weekKey, `（前提）種了三位家人（高血壓、糖尿病、全素（不吃五辛））與一週菜單：${seeded.weekKey}`);
 
   // 這個家庭的留意欄位：高血壓 → 鈉；糖尿病 → 醣、糖、膳食纖維
   const WATCH = ['carb', 'sugar', 'fiber', 'sodium'];

@@ -191,6 +191,32 @@ a.btn {
 }
 .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 
+/* 分段控制（食譜頁的「全部／素／可分流／葷／我的／收藏／本週想吃」）。
+   使用者 2026-09-16 回報原本一排圓角按鈕「太雜亂」：改成一條有底色的軌道，格子等寬、間距一致、
+   選中的那一格填色。窄畫面用 grid 自動換列（仍然等寬對齊），不用橫向捲動 —— 捲動會把選項藏起來。 */
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-card-2);
+}
+.seg {
+  appearance: none;
+  font: inherit;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+}
+.seg.on { background: var(--accent); color: #fff; font-weight: 600; }
+
 /* 小標籤 */
 .pill {
   display: inline-block;
@@ -489,6 +515,33 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 .target-line { margin: 0; color: var(--fg); }
 .picker-list { max-height: 50vh; overflow-y: auto; margin-top: 8px; }
 
+/* 選過的慢性病用 tag 呈現（清單太長時改成搜尋式挑選，2026-09-16）。 */
+.tag-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-row:empty { display: none; }
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--fg);
+}
+.tag-x {
+  appearance: none;
+  font: inherit;
+  line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.tag-x:active { background: var(--bg-card-2); }
+.cond-picker { margin-top: 8px; }
+
 /* 今日一起煮 */
 /* 日期列：左欄（收合鈕：日期＋標籤＋摘要）自己換行吃掉溢出，右欄「一起煮」自成一欄、永遠靠右不掉行。
    以前是 flex-wrap：有「買菜日」標籤的那天在 320px 放不下，按鈕就整個掉到下一行、跑到左邊，
@@ -526,14 +579,6 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 
 /* 買菜清單 */
 .shop-section { border-top: 1px solid var(--line); padding-top: 6px; }
-/* 「這張清單多幾個人吃」：兩個小數字框。輸入框本身守 44px（uikittest 盯著）。 */
-.extra-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-/* 「這次有客人？」：說明在上、葷素兩格並排對齊在下（使用者回報擠在一起）。
-   每一格是「字在上、框在下」，兩格各佔一半 —— 320px 特大字級也放得下。 */
-.extra-desc { margin: 8px 0; }
-.extra-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: end; max-width: 22em; }
-.extra-inputs .extra-field { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; }
-.extra-inputs .field-num { width: 100%; }
 /* 購物清單摺疊：整條標題就是開關、44px 高。
    使用者回報原本的小三角形不明顯、看不出是摺疊：箭頭改成一顆有底色的圓形圖示（收合 ▸、展開 ▾），
    分類標題列加淺底色，整條看起來就是一列可以點的東西。 */
@@ -600,7 +645,7 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 
 /* 印出：只留內容，白底；「家裡有」按鈕藏掉、改成數量後面一個字樣 */
 @media print {
-  #topbar, #tabbar, #toast, .update-bar, .btn, .btn-row, .chip-row, .chip, .item-menu, .no-print, .day-btn, summary::marker { display: none !important; }
+  #topbar, #tabbar, #toast, .update-bar, .btn, .btn-row, .chip-row, .chip, .segmented, .item-menu, .no-print, .day-btn, summary::marker { display: none !important; }
   html, body, #app { background: #fff; padding: 0; }
   .shop-row.have .shop-qty::after { content: "　家裡有"; font-weight: 400; }
   #view { max-width: none; padding: 0; gap: 8px; }

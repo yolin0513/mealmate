@@ -215,7 +215,7 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
       chips({ options: TEXTURES.map((v) => ({ value: v, label: TEXTURE_LABELS[v] })), value: d.texture, name: 'texture', onChange: (v) => { d.texture = v; } }),
       h('div', { class: 'row-actions' }, servingsStep.node),
       h('div', { class: 'row-actions' }, h('span', { class: 'muted sm' }, '烹法'), methodSel),
-      h('div', { class: 'row-actions' }, h('span', { class: 'muted sm' }, '約幾分鐘'), timeInput, h('span', { class: 'muted xs' }, '現成的填 0')),
+      h('div', { class: 'row-actions' }, h('span', { class: 'muted sm' }, '約幾分鐘'), timeInput),
       h('p', { class: 'field-label' }, '當季月份（都不選＝全年）'),
       chips({ options: MONTHS.map((m, i) => ({ value: i + 1, label: `${m}月` })), value: d.season, multi: true, name: 'season', onChange: (v) => { d.season = [...v].sort((a, b) => a - b); } }),
     ),
