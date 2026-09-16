@@ -98,6 +98,37 @@ try {
   everyOf(watchNums, (t) => /估 /.test(t) || t.includes('未估算'), '每一個都帶「估」字或寫「未估算」');
   noneOf(watchNums, (t) => /^碳水化合物（醣） 0(\.0)? g$/.test(t), '沒有任何一列是光禿禿的 0');
 
+  section('食量：每位成員各自設，設了看得到');
+  {
+    // 使用者 2026-09-16：家裡有成員食量特別小，購物清單要跟著他調。
+    // 上一節停在食譜清單，先回家人頁才抓得到成員列。
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    await page.waitForSelector('[data-member]');
+    const grandma = await page.$$eval('[data-member]', (els) => els.find((e) => e.textContent.includes('阿嬤'))?.getAttribute('href')?.split('/').pop());
+    ok(grandma, `（前提）找得到阿嬤那一列：${grandma}`);
+    await goto(page, `#/family/${grandma}`);
+    await titleIs(page, '編輯：阿嬤');
+    await page.waitForSelector(chipSel('appetite', 'small'));
+    eq(await page.$eval('[data-chips="appetite"] .chip.on', (el) => el.dataset.value), 'normal', '預設是普通');
+    await clickEl(page, chipSel('appetite', 'small'));
+    await sleep(150);
+    await clickEl(page, '[data-action="saveMember"]');
+    await titleIs(page, '家人');
+    await sleep(200);
+    const saved = await page.evaluate(async () => (await import('./js/store.js')).members().find((m) => m.name === '阿嬤')?.appetite);
+    eq(saved, 'small', '存得起來');
+    const row = await page.$$eval('[data-member]', (els) => els.find((e) => e.textContent.includes('阿嬤'))?.textContent.replace(/\s+/g, ' '));
+    ok(row.includes('食量小'), `家人卡片標出來：「${row}」`);
+    // 改回普通，後面幾段的期望值才不會被這裡動到
+    await goto(page, `#/family/${grandma}`);
+    await titleIs(page, '編輯：阿嬤');
+    await clickEl(page, chipSel('appetite', 'normal'));
+    await clickEl(page, '[data-action="saveMember"]');
+    await titleIs(page, '家人');
+    await sleep(200);
+  }
+
   section('買菜日');
   await goto(page, '#/family');
   await titleIs(page, '家人');

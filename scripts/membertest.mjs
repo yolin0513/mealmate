@@ -10,6 +10,7 @@ import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import {
   watchFields, familyWatchFields, validateMember, newMember, versionFor, fitsDiet, allergenHits, splitByDiet,
   KIDNEY_FIELDS, TARGET_FIELDS, CONDITION_FIELDS, CONDITIONS, CONDITION_LABELS, matchesCondition, DIETS, DIET_LABELS, displayFields,
+  APPETITES, APPETITE_FACTORS, appetiteOf,
 } from '../js/members.js';
 import { NUTRIENT_ORDER } from '../js/foods.js';
 
@@ -156,6 +157,23 @@ section('慢性病清單：只收資料庫撐得起數字的；搜尋比對名�
   eq(CONDITIONS.filter((c) => matchesCondition(c, '')), CONDITIONS, '沒打字 → 全部都在');
   eq(CONDITIONS.filter((c) => matchesCondition(c, '痛風')), [], '搜尋「痛風」查不到（沒有普林資料，清單裡本來就沒有）');
   eq(CONDITIONS.filter((c) => matchesCondition(c, '貧血')), [], '搜尋「貧血」也查不到（沒有鐵）');
+}
+
+section('食量：每個人各自設，舊資料當普通');
+{
+  // 使用者 2026-09-16：家裡有成員食量特別小 → 每位各自設，不是全家一個倍率。
+  eq(newMember().appetite, 'normal', '新成員預設普通');
+  eq(APPETITES, ['small', 'normal', 'big'], '三種：小／普通／大');
+  eq([APPETITE_FACTORS.small, APPETITE_FACTORS.normal, APPETITE_FACTORS.big], [0.8, 1, 1.25], '係數 0.8／1／1.25');
+  eq(appetiteOf({ appetite: 'small' }), 0.8, '小 → 0.8');
+  eq(appetiteOf({ appetite: 'big' }), 1.25, '大 → 1.25');
+  eq(appetiteOf({}), 1, '舊資料沒有這個欄位 → 當普通（匯進來的舊備份不該被當成食量 0）');
+  eq(appetiteOf(undefined), 1, '連成員都沒有 → 當普通');
+  const old = { ...newMember() };
+  delete old.appetite;
+  old.name = '舊備份的人';
+  eq(validateMember(old), [], '舊備份（沒有食量欄位）照樣驗得過');
+  ok(validateMember({ ...newMember(), name: 'x', appetite: '超大' }).some((e) => e.includes('食量')), '亂填的食量會被擋下');
 }
 
 done('membertest');

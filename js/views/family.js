@@ -7,7 +7,7 @@ import * as store from '../store.js';
 import * as prefs from '../prefs.js';
 import { eduNode } from '../edu.js';
 import { APP_VERSION } from '../version.js';
-import { AGE_LABELS, DIET_LABELS, CONDITION_LABELS, ALLERGEN_LABELS, watchFields } from '../members.js';
+import { AGE_LABELS, DIET_LABELS, CONDITION_LABELS, ALLERGEN_LABELS, APPETITE_LABELS, watchFields } from '../members.js';
 import { TEXTURE_LABELS } from '../recipeschema.js';
 import { HEARTY_LEVELS, HEARTY_LEVEL_LABELS, HEARTY_HINT, BALANCE_NOTE } from '../planner.js';
 import { NUTRIENT_LABELS } from '../foods.js';
@@ -27,6 +27,7 @@ function memberRow(m) {
         pill(DIET_LABELS[m.diet], m.diet === 'omni' ? '' : 'green'),
         ...m.conditions.map((c) => pill(CONDITION_LABELS[c], 'yellow')),
         m.texture !== 'normal' ? pill(`質地：${TEXTURE_LABELS[m.texture]}`) : null,
+        m.appetite && m.appetite !== 'normal' ? pill(`食量${APPETITE_LABELS[m.appetite]}`) : null,
         ...m.allergens.map((a) => pill(`${ALLERGEN_LABELS[a]}過敏`, 'accent')),
       ),
       fields.length ? h('p', { class: 'muted xs' }, `留意：${fields.map((k) => NUTRIENT_LABELS[k]).join('、')}`) : null,

@@ -9,7 +9,7 @@
 //   · 外食、不煮的格子不進清單
 //   · 換算成「約幾顆、幾把」用 units.js 的 toBuyQty（無條件進位到半個單位、不少買）；沒有採買單位的顯示克數
 
-import { versionFor } from './members.js';
+import { versionFor, appetiteOf } from './members.js';
 import { lastShoppingDayOnOrBefore, parseDate, DAY_LABELS } from './planner.js';
 import { toBuyQty } from './units.js';
 import { aliasTermsOf } from './foods.js';
@@ -30,19 +30,34 @@ export function sectionOf(food) {
   return CAT_SECTION[food.cat] ?? '調味與其他';
 }
 
-/** 這道菜每一軌要乘的倍數（依實際吃的人）。沒有家人 → 全部 1。 */
-export function scaleFor(recipe, members) {
+/**
+ * 這道菜每一軌要乘的倍數（依實際吃的人）。沒有家人 → 全部 1。
+ *
+ * 兩件事（使用者 2026-09-16 指定）：
+ *   · **食量**：每一位吃得到這道菜的成員貢獻自己的係數（小 0.8／普通 1／大 1.25），不是每人都算 1。
+ *     家裡有人食量特別小的時候，全家一個倍率對不上。
+ *   · **不少於一份**：既然這道菜排進菜單了，採買量至少要有食譜原份量 —— 3 位吃葷的人配 4 人份的食譜
+ *     本來會算成 0.75 份，五個人卻買不到一份看起來就是不夠。沒人吃的那一軌仍然是 0，不會被下限拉起來。
+ */
+export function scaleFor(recipe, members, { atLeastOne: floorOn = true } = {}) {
   if (!members || members.length === 0) return { base: 1, veg: 1, meat: 1 };
   let veg = 0; let meat = 0; let all = 0;
   for (const m of members) {
     const v = versionFor(recipe, m.diet);
-    if (v === 'veg') veg += 1;
-    else if (v === 'meat') meat += 1;
-    else if (v === 'all') all += 1;
+    const w = appetiteOf(m);
+    if (v === 'veg') veg += w;
+    else if (v === 'meat') meat += w;
+    else if (v === 'all') all += w;
   }
-  if (recipe.vegMode !== 'splittable') return { base: all / recipe.servings, veg: 0, meat: 0 };
+  // floorOn 預設開著；關掉只給測試單獨驗「純比例」用（真實呼叫端不會關）。
+  const atLeastOne = (x) => (x > 0 && floorOn ? Math.max(x, 1) : x);
+  if (recipe.vegMode !== 'splittable') return { base: atLeastOne(all / recipe.servings), veg: 0, meat: 0 };
   const eaters = veg + meat;
-  return { base: eaters / recipe.servings, veg: veg / recipe.splitServings.veg, meat: meat / recipe.splitServings.meat };
+  return {
+    base: atLeastOne(eaters / recipe.servings),
+    veg: atLeastOne(veg / recipe.splitServings.veg),
+    meat: atLeastOne(meat / recipe.splitServings.meat),
+  };
 }
 
 function fmtMD(iso) { const d = parseDate(iso); return `${d.getMonth() + 1}/${d.getDate()}`; }

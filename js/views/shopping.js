@@ -63,7 +63,7 @@ export default async function shoppingView(query = {}) {
     h('p', { class: 'muted sm' }, shoppingDays.length
       ? `買菜日：星期${[...shoppingDays].sort().map((d) => '日一二三四五六'[d]).join('、')}；每張清單涵蓋到下一個買菜日前一天。`
       : '還沒設定買菜日，整週一張清單。到「家人」分頁勾星期幾買菜，清單會分開、規劃時也會考慮食材放幾天。'),
-    h('p', { class: 'muted xs' }, `數量依${members.length ? `家裡 ${members.length} 位` : '食譜原份量'}縮放，是估計值。`),
+    h('p', { class: 'muted xs' }, `數量依${members.length ? `家裡 ${members.length} 位的食量` : '食譜原份量'}縮放、最少一份，是估計值。`),
   );
 
   const cards = [];

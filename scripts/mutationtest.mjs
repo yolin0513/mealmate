@@ -19,6 +19,55 @@ import { ok, eq, section, done, note } from './tap.mjs';
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const MUTATIONS = [
+  // ---- 2026-09-16 份數同步：每位成員的食量 ＋ 不少於一份 ----
+  {
+    name: "採買量不看食量（每個人都算一份）",
+    why: "使用者家裡有成員食量特別小，全家一個倍率對不上 —— 這正是他指定要 per-member 的原因。",
+    file: "js/shopping.js",
+    find: "    const w = appetiteOf(m);",
+    replace: "    const w = 1;",
+    test: "shoppingtest",
+  },
+  {
+    name: "拿掉「不少於一份」的下限",
+    why: "3 位吃葷配 4 人份的食譜會變回 0.75 份 —— 五個人卻買不到一份就是使用者回報的問題。",
+    file: "js/shopping.js",
+    find: "  const atLeastOne = (x) => (x > 0 && floorOn ? Math.max(x, 1) : x);",
+    replace: "  const atLeastOne = (x) => x;",
+    test: "shoppingtest",
+  },
+  {
+    name: "下限套到沒人吃的菜",
+    why: "全家吃素時純葷的菜會被補成一份 —— 買了沒人吃的東西。",
+    file: "js/shopping.js",
+    find: "  const atLeastOne = (x) => (x > 0 && floorOn ? Math.max(x, 1) : x);",
+    replace: "  const atLeastOne = (x) => (floorOn ? Math.max(x, 1) : x);",
+    test: "shoppingtest",
+  },
+  {
+    name: "家人表單沒有「食量」",
+    why: "設不了就等於沒做這個功能。",
+    file: "js/views/member.js",
+    find: "      chips({ options: APPETITES.map((v) => ({ value: v, label: APPETITE_LABELS[v] })), value: m.appetite ?? 'normal', name: 'appetite', onChange: (v) => { m.appetite = v; } }),",
+    replace: "      null,",
+    test: "familytest",
+  },
+  {
+    name: "新成員預設不是普通食量",
+    why: "預設值偏掉的話，整家的採買量會莫名其妙變多或變少。",
+    file: "js/members.js",
+    find: "    appetite: 'normal',",
+    replace: "    appetite: 'small',",
+    test: "membertest",
+  },
+  {
+    name: "營養估算沾到食量（紅線）",
+    why: "每日估算講的是「每人一份」；把食量乘進去等於偷改每個人的營養數字。",
+    file: "js/nutrition.js",
+    find: "export function estimate(recipe, idx, { version = 'all', servings = null } = {}) {",
+    replace: "export function estimate(recipe, idx, { version = 'all', servings = null, appetite = 1 } = {}) {\n  void appetite;",
+    test: "doctest",
+  },
   // ---- 2026-09-16 回報四項：目標欄位對齊、需求篩選、分組估算、加菜按鈕 ----
   {
     name: "每日估算不分組（每位成員各列一份）",
@@ -1455,16 +1504,16 @@ const MUTATIONS = [
     name: '共用軌不依人數縮放',
     why: '四人份食譜給三個人吃還是買四人份；數量是使用者會實際照著買的。',
     file: 'js/shopping.js',
-    find: '  return { base: eaters / recipe.servings, veg: veg / recipe.splitServings.veg, meat: meat / recipe.splitServings.meat };',
-    replace: '  return { base: 1, veg: veg / recipe.splitServings.veg, meat: meat / recipe.splitServings.meat };',
+    find: '    base: atLeastOne(eaters / recipe.servings),',
+    replace: '    base: 1,',
     test: 'shoppingtest',
   },
   {
     name: '素鍋軌不看吃素版的人數',
     why: '全家吃葷也會買一份素鍋的料。',
     file: 'js/shopping.js',
-    find: '  return { base: eaters / recipe.servings, veg: veg / recipe.splitServings.veg, meat: meat / recipe.splitServings.meat };',
-    replace: '  return { base: eaters / recipe.servings, veg: 1, meat: meat / recipe.splitServings.meat };',
+    find: '    veg: atLeastOne(veg / recipe.splitServings.veg),',
+    replace: '    veg: 1,',
     test: 'shoppingtest',
   },
   {

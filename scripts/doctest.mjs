@@ -48,6 +48,12 @@ everyOf(CONDITIONS.flatMap((c) => CONDITION_FIELDS[c] ?? []), (f) => NUTRIENT_OR
 noneOf(CONDITIONS, (c) => ['gout', 'anemia'].includes(c), '痛風、貧血仍然不在清單裡');
 ok(PLAN.includes('痛風不做'), '（文件）PLAN 確實寫了痛風不做');
 
+section('食量只影響採買，不碰營養（2026-09-16 份數同步）');
+ok(STATUS.includes('食量只影響採買'), '（文件）STATUS 寫了這條界線');
+noneOf(['js/nutrition.js', 'js/planner.js'], (f) => read(f).includes('appetite'),
+  '程式：營養估算與排菜器完全不認識食量 —— 它只走購物清單那條路');
+ok(read('js/shopping.js').includes('appetiteOf'), '（對照）購物清單那條路確實有用到食量');
+
 section('PLAN §1.2 第 5 點：禁用詞清單');
 const planWords = ['治療', '療效', '控制血糖', '降血糖', '降血壓', '改善腎功能', '糖尿病專用', '腎臟病專用', '減重', '瘦身', '排毒', '保證', '建議攝取', '應該吃'];
 everyOf(planWords, (w) => PLAN.includes(w), `（文件）PLAN 列的 ${planWords.length} 個禁用詞都還在文件裡`);

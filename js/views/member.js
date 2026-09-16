@@ -10,7 +10,7 @@ import { navigate } from '../router.js';
 import * as store from '../store.js';
 import {
   newMember, AGE_GROUPS, AGE_LABELS, DIETS, DIET_LABELS, CONDITIONS, CONDITION_LABELS, CONDITION_HINTS, matchesCondition,
-  KIDNEY_FIELDS, ALLERGENS, ALLERGEN_LABELS, MEMBER_TEXTURES, TARGET_FIELDS,
+  KIDNEY_FIELDS, ALLERGENS, ALLERGEN_LABELS, MEMBER_TEXTURES, APPETITES, APPETITE_LABELS, TARGET_FIELDS,
 } from '../members.js';
 import { TEXTURE_LABELS } from '../recipeschema.js';
 import { NUTRIENT_LABELS } from '../foods.js';
@@ -133,6 +133,9 @@ export default async function memberView(id) {
       chips({ options: DIETS.map((v) => ({ value: v, label: DIET_LABELS[v], hint: DIET_HINTS[v] })), value: m.diet, name: 'diet', onChange: (v) => { m.diet = v; } }),
       h('p', { class: 'field-label' }, '牙口／質地'),
       chips({ options: MEMBER_TEXTURES.map((v) => ({ value: v, label: TEXTURE_LABELS[v] })), value: m.texture, name: 'texture', onChange: (v) => { m.texture = v; } }),
+      h('p', { class: 'field-label' }, '食量'),
+      chips({ options: APPETITES.map((v) => ({ value: v, label: APPETITE_LABELS[v] })), value: m.appetite ?? 'normal', name: 'appetite', onChange: (v) => { m.appetite = v; } }),
+      h('p', { class: 'muted xs' }, '只影響購物清單要買多少，不影響營養估計。'),
       h('p', { class: 'muted xs' }, '軟質、需剁碎會讓排菜時優先挑好咬的菜，不是吞嚥評估。'),
     ),
     h('section', { class: 'card', dataset: { card: 'memberConditions' } },

@@ -14,6 +14,7 @@ import { indexFoods } from '../js/foods.js';
 import { newMember } from '../js/members.js';
 import { rangesOfPlan, buildShoppingList, scaleFor, suggestedText, manualUnitOf, sanitizeCustom, customKey, sectionOf, quantityText, listAsText, SECTIONS } from '../js/shopping.js';
 import { generateWeek } from '../js/planner.js';
+import { estimate } from '../js/nutrition.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const foods = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foods.json'), 'utf8'));
@@ -45,11 +46,13 @@ eq(rangesOfPlan(p1eat, [3, 6])[0].dates, ['2026-09-15'], '外食的那一天不�
 
 section('縮放倍數');
 const fam = [{ ...newMember(), name: 'a', diet: 'omni' }, { ...newMember(), name: 'b', diet: 'omni' }, { ...newMember(), name: 'c', diet: 'lactoOvo' }];
-eq(scaleFor(cabbagePork, fam), { base: 3 / 4, veg: 1 / 1, meat: 2 / 3 }, '2 葷 1 蛋奶素吃高麗菜炒肉片：共用 3/4、素鍋 1/1、葷鍋 2/3');
-eq(scaleFor(plainCabbage, fam), { base: 3 / 4, veg: 0, meat: 0 }, '不分流的菜：三個人都吃 → 3/4');
+// 這一段驗的是「分軌比例」，所以把下限關掉單獨看比例（下限本身在最後一節驗）。
+eq(scaleFor(cabbagePork, fam, { atLeastOne: false }), { base: 3 / 4, veg: 1 / 1, meat: 2 / 3 }, '2 葷 1 蛋奶素吃高麗菜炒肉片：共用 3/4、素鍋 1/1、葷鍋 2/3');
+eq(scaleFor(cabbagePork, fam).base, 1, '（同一家人，開著下限）3/4 份會補到一份 —— 五個人卻買不到一份是使用者回報的問題');
+eq(scaleFor(plainCabbage, fam, { atLeastOne: false }), { base: 3 / 4, veg: 0, meat: 0 }, '不分流的菜：三個人都吃 → 3/4');
 eq(scaleFor(cabbagePork, []), { base: 1, veg: 1, meat: 1 }, '沒有家人 → 照食譜原份量');
-eq(scaleFor(cabbagePork, [{ ...newMember(), name: 'a' }, { ...newMember(), name: 'b' }]), { base: 2 / 4, veg: 0, meat: 2 / 3 }, '全家吃葷 → 素鍋 0（不買乾香菇）');
-eq(scaleFor(cabbagePork, [{ ...newMember(), name: 'a', diet: 'vegan' }]), { base: 1 / 4, veg: 1, meat: 0 }, '只有一位全素 → 葷鍋 0（不買豬肉）');
+eq(scaleFor(cabbagePork, [{ ...newMember(), name: 'a' }, { ...newMember(), name: 'b' }], { atLeastOne: false }), { base: 2 / 4, veg: 0, meat: 2 / 3 }, '全家吃葷 → 素鍋 0（不買乾香菇）');
+eq(scaleFor(cabbagePork, [{ ...newMember(), name: 'a', diet: 'vegan' }], { atLeastOne: false }), { base: 1 / 4, veg: 1, meat: 0 }, '只有一位全素 → 葷鍋 0（不買豬肉）');
 eq(scaleFor(byId.get('r-steamed-fish'), [{ ...newMember(), name: 'a', diet: 'vegan' }]), { base: 0, veg: 0, meat: 0 }, '沒人吃得了的菜 → 全部 0');
 
 section('加總與換算：手算對照');
@@ -58,18 +61,19 @@ const list = buildShoppingList({ plan: p2, recipesById: byId, members: fam, idx,
 eq(list.ranges.length, 1, '週一、週二都歸上週六那個區間');
 const items = list.ranges[0].items;
 const cab = items.find((it) => it.foodId === CABBAGE);
-// 高麗菜炒肉片 500 × 3/4 ＝ 375；清炒高麗菜 450 × 3/4 ＝ 337.5；合計 712.5 → 713
-eq(cab.grams, 713, '高麗菜 500×3/4 ＋ 450×3/4 ＝ 712.5 → 713 g（跨兩餐加總）');
+// 三個人配 4 人份的食譜：比例是 3/4，但下限把它補到一份（使用者回報「五個人卻買不到一份」）。
+// 高麗菜炒肉片 500 × 1 ＝ 500；清炒高麗菜 450 × 1 ＝ 450；合計 950
+eq(cab.grams, 950, '高麗菜 500 ＋ 450 ＝ 950 g（跨兩餐加總，兩道都補到一份）');
 eq(cab.buy, { qty: 1, unit: '顆', grams: 1000 }, '換算成 1 顆（一顆約 1000 g，無條件進位到半顆，不少買）');
-eq(quantityText(cab), '約 1 顆（713 g）', '顯示文字');
+eq(quantityText(cab), '約 1 顆（950 g）', '顯示文字');
 eq(cab.uses.map((u) => u.recipe), ['高麗菜炒肉片', '清炒高麗菜'], '記得是哪兩道菜用到');
 const pork = items.find((it) => it.name === '豬大里肌');
-near(pork.grams, 200 * 2 / 3, 0.6, `豬肉片 200 × 2/3 ＝ 133 g（葷鍋只有兩個人吃）：${pork.grams}`);
+eq(pork.grams, 200, `豬肉片：葷鍋兩個人吃是 2/3 份，補到一份 → 200 g（${pork.grams}）`);
 const mush = items.find((it) => it.foodId === 'G08101');
 eq(mush.grams, 15, '乾香菇 15 × 1/1 ＝ 15 g（素鍋一個人吃、食譜素版就是 1 人份）');
 const egg = items.find((it) => it.foodId === 'K01001');
-eq(egg.grams, 165, '蒸蛋的雞蛋 220 × 3/4 ＝ 165 g');
-eq(egg.buy, { qty: 3, unit: '顆', grams: 165 }, '165 g 雞蛋（一顆 55 g）→ 3 顆');
+eq(egg.grams, 220, '蒸蛋的雞蛋：3/4 份補到一份 → 220 g');
+eq(egg.buy, { qty: 4, unit: '顆', grams: 220 }, '220 g 雞蛋（一顆 55 g）→ 4 顆');
 eq(cab.section, '蔬菜', '高麗菜在蔬菜區'); eq(pork.section, '肉', '豬肉在肉區'); eq(egg.section, '豆製品蛋奶', '雞蛋在豆製品蛋奶區');
 noneOf(items, (it) => ['P0300101', 'M1100101', 'P0700101'].includes(it.foodId), '鹽、油、醬油（常備品）不在主清單');
 const pantryIds = list.ranges[0].pantry.map((p) => p.foodId);
@@ -83,14 +87,14 @@ eq(list0.ranges[0].items.find((it) => it.foodId === CABBAGE).grams, 950, '沒有
 eq(list0.ranges[0].items.find((it) => it.name === '豬大里肌').grams, 200, '豬肉照原份量 200 g');
 const p3 = plan([slot(0, 'lunch', ['r-cabbage-pork-stirfry'], 'eatOut'), slot(0, 'dinner', ['r-stir-fried-cabbage'])]);
 const list3 = buildShoppingList({ plan: p3, recipesById: byId, members: fam, idx, units, shoppingDays: [3, 6] });
-eq(list3.ranges[0].items.find((it) => it.foodId === CABBAGE).grams, 338, '午餐外食：只剩晚餐的 450×3/4 ＝ 337.5 → 338 g');
+eq(list3.ranges[0].items.find((it) => it.foodId === CABBAGE).grams, 450, '午餐外食：只剩晚餐那道，補到一份 → 450 g');
 ok(!list3.ranges[0].items.some((it) => it.name === '豬大里肌'), '外食那餐的豬肉不買');
 
 section('全家吃葷 → 不買素鍋的料；全素 → 不買葷鍋的料');
 const omniOnly = [{ ...newMember(), name: 'a' }, { ...newMember(), name: 'b' }];
 const lo = buildShoppingList({ plan: plan([slot(0, 'dinner', ['r-cabbage-pork-stirfry'])]), recipesById: byId, members: omniOnly, idx, units, shoppingDays: [] });
 ok(!lo.ranges[0].items.some((it) => it.foodId === 'G08101'), '全家吃葷：乾香菇（素鍋）不買');
-near(lo.ranges[0].items.find((it) => it.name === '豬大里肌').grams, 200 * 2 / 3, 0.6, '豬肉 200 × 2/3');
+eq(lo.ranges[0].items.find((it) => it.name === '豬大里肌').grams, 200, '豬肉：葷鍋 2/3 份補到一份 → 200 g');
 const vg = buildShoppingList({ plan: plan([slot(0, 'dinner', ['r-cabbage-pork-stirfry'])]), recipesById: byId, members: [{ ...newMember(), name: 'v', diet: 'vegan' }], idx, units, shoppingDays: [] });
 ok(!vg.ranges[0].items.some((it) => it.name === '豬大里肌'), '只有全素成員：豬肉不買');
 eq(vg.ranges[0].items.find((it) => it.foodId === 'G08101').grams, 15, '乾香菇買 15 g');
@@ -128,7 +132,7 @@ section('逐項手改數量：建議 2 條、我要買 3 條');
   const key = base.ranges[0].key;
   const item0 = base.ranges[0].items.find((it) => it.foodId === CABBAGE);
   ok(item0, '（前提）清單裡有高麗菜');
-  eq(item0.buy.qty, 0.5, '（手算）建議 0.5 顆（375 g，一顆 1000 g，無條件進位到 0.5）');
+  eq(item0.buy.qty, 0.5, '（手算）建議 0.5 顆（500 g，一顆 1000 g，無條件進位到 0.5）');
   eq(item0.manual, undefined, '沒改過就沒有 manual 記號');
   eq(item0.suggested.buy.qty, 0.5, '建議值一併留著（才回得去、也才講得出「原本建議多少」）');
 
@@ -138,9 +142,9 @@ section('逐項手改數量：建議 2 條、我要買 3 條');
   eq(item1.buy.grams, 3000, '（手算）3 顆 × 1000 g ＝ 3000 g');
   eq(item1.manual, true, '標成手改過');
   eq(item1.suggested.buy.qty, 0.5, '建議值還在（原本 0.5 顆）');
-  eq(suggestedText(item1), '約 0.5 顆（375 g）', '「原本建議」的文字講得出來');
-  eq(quantityText(item1), '約 3 顆', '畫面上顯示的是改過的值，而且不再附「（375 g）」—— 那是食譜需要的量，不是她要買的量');
-  ok(quantityText(item0).includes('（375 g）'), `（對照）沒改過的仍然附需要的克數：${quantityText(item0)}`);
+  eq(suggestedText(item1), '約 0.5 顆（500 g）', '「原本建議」的文字講得出來');
+  eq(quantityText(item1), '約 3 顆', '畫面上顯示的是改過的值，而且不再附克數 —— 那是食譜需要的量，不是她要買的量');
+  ok(quantityText(item0).includes('（500 g）'), `（對照）沒改過的仍然附需要的克數：${quantityText(item0)}`);
 
   // 別的項目不受影響
   const others = edited.ranges[0].items.filter((it) => it.foodId !== CABBAGE);
@@ -242,6 +246,60 @@ section('使用者自己加的菜裡查不到的食材：照樣列進購物清�
   eq([item?.grams, item?.section, item?.unresolved], [300, '調味與其他', true], '克數照食譜、放在「調味與其他」、標記是查不到的');
   ok(l.ranges[0].items.some((it) => it.foodId === 'E23001'), '（對照）同一道菜查得到的青蔥照常列');
   ok(/豬耳朵/.test(listAsText(l.ranges[0], {})), '複製出去的文字也有');
+}
+
+section('份數同步：每位成員各自的食量 ＋ 不少於一份');
+{
+  // 使用者 2026-09-16：家裡 5 人，清單份量卻不夠。診斷出兩件事 ——
+  //   3 位吃葷配 4 人份的食譜會算成 0.75 份（五個人卻買不到一份）；而且家裡有人食量特別小，全家一個倍率對不上。
+  const who = (diet, appetite) => ({ ...newMember(), name: 'x', diet, appetite });
+  const main4 = recipes.find((r) => r.role === 'main' && r.vegMode === 'meatOnly' && r.servings === 4);
+  ok(main4, `（前提）挑一道 4 人份的純葷主菜：${main4?.name}`);
+
+  // B：不少於一份
+  eq(scaleFor(main4, [who('omni'), who('omni'), who('omni')]).base, 1, '3 位吃葷配 4 人份的食譜 → 不是 0.75 份，補到一份');
+  const five = [who('omni'), who('omni'), who('omni'), who('omni'), who('omni')];
+  eq(scaleFor(main4, five).base, 1.25, '（對照）5 位吃葷 → 1.25 份，下限不會把它壓回一份');
+  eq(scaleFor(main4, [who('veganNoAllium'), who('veganNoAllium')]).base, 0,
+    '全家吃素 → 純葷的菜一點都不買（下限不可以把沒人吃的菜也拉成一份）');
+
+  // C：每個人各自的食量
+  eq(scaleFor(main4, [who('omni', 'small'), who('omni', 'small'), who('omni', 'small')]).base, 1,
+    '三位小食量（0.8×3＝2.4 人份）→ 一樣補到一份');
+  eq(scaleFor(main4, [who('omni', 'big'), who('omni', 'big'), who('omni', 'big'), who('omni', 'big'), who('omni', 'big')]).base, 6.25 / 4,
+    '五位大食量 → 1.25×5＝6.25 人份 ÷ 4 人份的食譜');
+  const oneSmallOneBig = [who('omni', 'small'), who('omni'), who('omni'), who('omni'), who('omni', 'big')];
+  eq(scaleFor(main4, oneSmallOneBig).base, 5.05 / 4, '五位（一小一大）→ 0.8＋1＋1＋1＋1.25＝5.05 人份 ÷ 4');
+  ok(scaleFor(main4, oneSmallOneBig).base !== scaleFor(main4, five).base,
+    '（對照）跟「五位都普通」的倍率不一樣 —— 食量真的有進去，不是每人都算 1');
+
+  // 可分流的菜：兩軌各自算、各自套下限
+  const split4 = recipes.find((r) => r.vegMode === 'splittable' && r.servings === 4);
+  ok(split4, `（前提）挑一道 4 人份的可分流主菜：${split4?.name}`);
+  const mixedHouse = [who('lactoOvo', 'small'), who('omni'), who('omni'), who('omni'), who('omni')];
+  const sp = scaleFor(split4, mixedHouse);
+  eq(sp.veg, 1, '素鍋只有一位小食量 → 補到一份（素的人也要吃得飽）');
+  ok(sp.meat > 1, `葷鍋四位普通 → ${sp.meat.toFixed(2)} 份`);
+
+  // 真實路徑：整張購物清單的克數真的跟著食量走
+  const planFor = (members) => generateWeek({ recipes, members, idx, units, favorites: [], history: [],
+    mondayIso: MONDAY, seed: 'appetite', shoppingDays: [] }).plan;
+  const gramsOfList = (members) => {
+    const p = planFor(members);
+    const { ranges } = buildShoppingList({ plan: p, recipesById: byId, members, idx, units, shoppingDays: [] });
+    return ranges[0].items.reduce((n, it) => n + it.grams, 0);
+  };
+  const normalFive = gramsOfList([who('omni'), who('omni'), who('omni'), who('omni'), who('omni')]);
+  const smallFive = gramsOfList([who('omni', 'small'), who('omni', 'small'), who('omni', 'small'), who('omni', 'small'), who('omni', 'small')]);
+  const bigFive = gramsOfList([who('omni', 'big'), who('omni', 'big'), who('omni', 'big'), who('omni', 'big'), who('omni', 'big')]);
+  ok(smallFive < normalFive && normalFive < bigFive,
+    `整張清單的克數跟著食量走：小 ${smallFive} g ＜ 普通 ${normalFive} g ＜ 大 ${bigFive} g`);
+
+  // 紅線：食量只影響採買，不影響每人一份的營養估計
+  const per = estimate(main4, idx, { version: 'all' }).perServing;
+  ok(per.kcal > 0, `（對照母體）這道菜每人一份估 ${Math.round(per.kcal)} kcal`);
+  const fnSource = fs.readFileSync(path.join(ROOT, 'js/nutrition.js'), 'utf8');
+  ok(!fnSource.includes('appetite'), '營養估算的程式碼完全不認識食量（每日估算講的是「每人一份」）');
 }
 
 done('shoppingtest');

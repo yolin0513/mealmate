@@ -71,6 +71,14 @@ export const ALLERGEN_LABELS = { peanut: '花生', seafood: '海鮮', egg: '蛋'
 
 export const MEMBER_TEXTURES = ['normal', 'soft', 'minced'];
 
+// 食量：**只影響購物清單要買多少**，不影響任何營養數字（每日估算講的是「每人一份」）。
+// 使用者 2026-09-16：家裡有成員食量特別小，所以是每個人各自設，不是全家一個倍率。
+export const APPETITES = ['small', 'normal', 'big'];
+export const APPETITE_LABELS = { small: '小', normal: '普通', big: '大' };
+export const APPETITE_FACTORS = { small: 0.8, normal: 1, big: 1.25 };
+/** 這位成員的食量係數。沒設過（舊資料、舊備份）一律當普通。 */
+export function appetiteOf(member) { return APPETITE_FACTORS[member?.appetite] ?? APPETITE_FACTORS.normal; }
+
 /** 可填每日目標的欄位（由醫師或營養師給的數字；App 不提供任何預設）。 */
 export const TARGET_FIELDS = ['kcal', 'carb', 'protein', 'sodium', 'potassium', 'phosphorus', 'satFat'];
 
@@ -83,6 +91,7 @@ export function newMember() {
     conditions: [],
     kidneyWatch: [],
     texture: 'normal',
+    appetite: 'normal',
     allergens: [],
     targets: Object.fromEntries(TARGET_FIELDS.map((k) => [k, null])),
     createdAt: new Date().toISOString(),
@@ -138,6 +147,8 @@ export function validateMember(m) {
   if (!Array.isArray(m?.conditions) || m.conditions.some((c) => !CONDITIONS.includes(c))) errors.push('留意項目不正確');
   if (!Array.isArray(m?.kidneyWatch) || m.kidneyWatch.some((k) => !KIDNEY_FIELDS.includes(k))) errors.push('腎臟病留意欄位不正確');
   if (!MEMBER_TEXTURES.includes(m?.texture)) errors.push('質地不正確');
+  // 沒設過就是普通（舊備份匯進來不該被擋下）；設了就要是三種之一
+  if (m?.appetite != null && !APPETITES.includes(m.appetite)) errors.push('食量不正確');
   if (!Array.isArray(m?.allergens) || m.allergens.some((a) => !ALLERGENS.includes(a))) errors.push('過敏原不正確');
   const t = m?.targets ?? {};
   for (const [k, v] of Object.entries(t)) {

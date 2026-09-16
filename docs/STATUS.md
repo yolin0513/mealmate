@@ -36,12 +36,13 @@
 | 回報三項：步驟可以不寫、「本週想吃」不再連帶收藏、「本週想吃」一定排到（排不進去照實講） | ✅ 修好（2026-09-14） | `mealmate-v0.19.0` |
 | 回報六項：慢性病可搜尋＋擴充、加菜／減菜、五辛素正名、提示精簡、篩選分段控制、買菜頁移除客人 | ✅ 完成（2026-09-16） | `mealmate-v0.20.0` |
 | 回報四項：每日目標欄位對齊、食譜頁上方精簡、每日估算依葷素分組、加菜按鈕看不到（根因是舊版快取） | ✅ 完成（2026-09-16） | `mealmate-v0.21.0` |
+| 份數同步：購物量依「每位成員的食量」換算，而且不少於食譜原份量 | ✅ 完成（2026-09-16） | `mealmate-v0.22.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 122、membertest 70、nutritiontest 147、plannertest 277、shoppingtest 99、timelinetest 71、doctest 91；
-瀏覽器端（puppeteer）：shelltest 106、familytest 61、recipeviewtest 93、backuptest 30、weekviewtest 126、shoppingviewtest 138、todaytest 41、racetest 16、versionmixtest 41、layouttest 92（117 組版面掃描 ＋ 桌機七欄）、uikittest 28、pwatest 35、redlinetest 28、scenariotest 39。
+Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 122、membertest 79、nutritiontest 147、plannertest 277、shoppingtest 114、timelinetest 71、doctest 94；
+瀏覽器端（puppeteer）：shelltest 106、familytest 65、recipeviewtest 93、backuptest 30、weekviewtest 126、shoppingviewtest 138、todaytest 41、racetest 16、versionmixtest 41、layouttest 92（117 組版面掃描 ＋ 桌機七欄）、uikittest 28、pwatest 35、redlinetest 28、scenariotest 39。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **234 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
+`mutationtest` 共 **240 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
 
 食譜現況：**217 道**（主菜 102、配菜 56、湯 34、早餐 19、主食 6）。
 
@@ -68,6 +69,38 @@ Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、
 5. **完整突變套件**：105 條全跑一次**全綠**（24 個基準先過，再逐條改壞、確認會紅、還原）。
 
 檢測期間**沒有動任何產品程式碼**（js／css／data 零改動），改的都是測試與工具。
+
+### 份數同步：食量（每人各自）＋不少於一份（2026-09-16，v0.22.0）
+
+使用者回報「家裡 5 人，但有些食譜是 2 人份，清單份量不夠吃」。**先診斷再動手** ——
+把「食譜克數 → 倍率 → 清單克數 → 要買多少」整條攤開對照，結論是**倍率本身沒有壞**：
+5 人全葷配 4 人份的食譜是 1.25 倍、配 2 人份的早餐是 2.5 倍，三種情境的算式全部對得上。
+真正會讓份量偏少的是三件事：(1) 沒有設家人時倍率固定 1.0；(2) 有素食成員時純葷的菜只算吃葷的人數 ——
+3 位吃葷配 4 人份的食譜＝0.75 份，五個人卻買不到一份；(3) 食譜本身每人份量偏小（螞蟻上樹每人只有 60 g）。
+另外兩件事先排除了：`toBuyQty` 是無條件進位、不會少買；2 人份的食譜只有 7 道且全是早餐（209 道是 4 人份）。
+
+Yolin 選 B＋C 兩項都做：
+
+1. **B：不少於一份**。既然這道菜排進菜單了，採買量至少是食譜原份量（倍率下限 1.0），再往上依實際吃的人放大。
+   **沒人吃的那一軌仍然是 0**（全家吃素時純葷的菜一點都不買），下限不會把它拉起來 —— 這條有專門的斷言與突變。
+   · 副作用要講清楚：**人少於食譜份數的家庭會買滿一份**。3 人配 4 人份＝買 4 人份、1 位素食配共用軌＝買滿一份。
+     既有的手算測試就是 1～3 人的 fixture，期望值因此全部改過（改成新規則下的正確值，說明也改寫成「下限在這裡做了什麼」）。
+2. **C：每位成員各自的食量**（小 ×0.8／普通 ×1／大 ×1.25，預設普通）。使用者指定要 per-member ——
+   家裡有成員食量特別小，全家一個倍率對不上。採買倍率＝「吃得到這道菜的每一位，各自的係數加總 ÷ 食譜份數」，再套 B 的下限。
+   家人表單多一組「食量」；家人卡片只在不是普通時標「食量小／食量大」（沿用精簡原則）。
+   舊資料、舊備份沒有這個欄位 → 一律當普通（`appetiteOf` 用 `?? 1`，`validateMember` 允許沒設）。
+
+**紅線：食量只影響採買量，不碰任何營養數字** —— 每日估算講的是「每人一份」，`estimate()` 根本不認識家人。
+`doctest` 有結構斷言：`js/nutrition.js` 與 `js/planner.js` 不出現 `appetite`，而 `js/shopping.js` 確實有用到（對照組）。
+
+**與手動調整相容**：自動換算（含食量與下限）只是「建議值」，使用者手改過的那一項仍顯示手動值、標「已改」，
+並且講得出「原本建議多少」（既有行為，測試沿用）。
+
+**測試**：`shoppingtest` 下限（補到一份／沒人吃仍是 0／不會把 1.25 壓回 1）、食量加權（三位小食量、五位大食量、一小一大的組合）、
+可分流兩軌各自套下限、整張清單的克數跟著食量走（小 ＜ 普通 ＜ 大，走 `buildShoppingList` 真實路徑）；
+`membertest` 預設普通、係數、舊備份相容；`familytest` 走真實表單設食量並確認家人卡片標出來；`doctest` 紅線結構斷言。
+既有的分軌比例測試改用 `scaleFor(..., { atLeastOne: false })` 單獨驗比例（跟排菜器 `rules.balance:false` 同一套路：
+只給測試比較用，真實呼叫端永遠是預設）。6 條新突變。
 
 ### 回報四項：目標欄位對齊、食譜頁上方、分組估算、加菜按鈕（2026-09-16，v0.21.0）
 
