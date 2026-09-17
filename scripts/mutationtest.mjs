@@ -19,6 +19,56 @@ import { ok, eq, section, done, note } from './tap.mjs';
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const MUTATIONS = [
+  // ---- 2026-09-17 回報兩項：加菜列的「⋯」跑版、滷雞腳填成配菜就排不進去 ----
+  {
+    name: "加菜格只收主菜（回到改版前）",
+    why: "滷雞腳這類菜使用者多半填成配菜；只收主菜的話它哪一格都進不去，本週頁只能說「排不進去」。實測 0／8 週。",
+    file: "js/planner.js",
+    find: "export const EXTRA_MEAT_ROLES = ['main', 'side'];",
+    replace: "export const EXTRA_MEAT_ROLES = ['main'];",
+    test: "plannertest",
+  },
+  {
+    name: "加菜格只收主菜（真實畫面）",
+    why: "同一條，走食譜頁的「本週想吃」按鈕與本週頁的「重新產生」。",
+    file: "js/planner.js",
+    find: "export const EXTRA_MEAT_ROLES = ['main', 'side'];",
+    replace: "export const EXTRA_MEAT_ROLES = ['main'];",
+    test: "weekviewtest",
+  },
+  {
+    name: "加菜的角色一律寫成主菜",
+    why: "角色是一週平衡與每日估算的分類依據；配菜被記成主菜，豐盛配額與紅肉統計都會算錯。",
+    file: "js/planner.js",
+    find: "        items.push({ recipeId: extra.recipe.id, role: extra.recipe.role, pos, locked: false, extraMeat: true, method: extra.recipe.method,",
+    replace: "        items.push({ recipeId: extra.recipe.id, role: 'main', pos, locked: false, extraMeat: true, method: extra.recipe.method,",
+    test: "plannertest",
+  },
+  {
+    name: "「為什麼沒排進去」自己寫死一份「只有主菜」",
+    why: "排菜器與畫面的判斷一旦漂開，使用者會看到一個跟實際原因不同的解釋（這次回報的就是這種）。",
+    file: "js/planner.js",
+    find: "  const viaExtra = EXTRA_MEAT_ROLES.includes(recipe.role) && recipe.vegMode === 'meatOnly'",
+    replace: "  const viaExtra = recipe.role === 'main' && recipe.vegMode === 'meatOnly'",
+    test: "doctest",
+  },
+  {
+    name: "菜列的標籤不收在同一格（回到改版前）",
+    why: "標籤各佔一欄時，「自己加的 ＋ 🔒」就是第五個子元素，「⋯」被排到隱含的第二列 —— 使用者回報的跑版。",
+    file: "js/views/week.js",
+    find: "      h('div', { class: 'meal-badges', dataset: { field: 'itemBadges' } },\n        it.extraMeat ? pill('僅葷食成員', 'accent') : null,\n        it.added ? pill('自己加的') : null,\n        it.locked ? h('span', { class: 'lock', title: '已鎖定', 'aria-label': '已鎖定' }, '🔒') : null),",
+    replace: "      it.extraMeat ? pill('僅葷食成員', 'accent') : null,\n      it.added ? pill('自己加的') : null,\n      it.locked ? h('span', { class: 'lock', title: '已鎖定', 'aria-label': '已鎖定' }, '🔒') : null,",
+    test: "layouttest",
+  },
+  {
+    name: "「⋯」不釘在最後一欄",
+    why: "沒有標籤的那幾列只有三個子元素，「⋯」會跟在菜名後面而不是靠右 —— 每一列的位置對不齊。",
+    file: "css/style.css",
+    find: ".meal-item > .item-menu { grid-column: 4; justify-self: end; }",
+    replace: ".meal-item > .item-menu { min-width: 44px; }",
+    test: "layouttest",
+  },
+
   // ---- 2026-09-17 自主優化一輪：錯誤處理、無障礙、PWA、買菜頁順序 ----
   {
     name: "寫入不經過通報口（回到改版前）",
@@ -202,7 +252,7 @@ const MUTATIONS = [
     name: "加菜不寫「勉強重複」的診斷",
     why: "純葷池不夠時加菜會在 14 天內重複，不記的話本週頁少報，使用者不知道要補食譜。",
     file: "js/planner.js",
-    find: "        recordPick({ role: 'main', pos, recipe: extra.recipe, relaxed: extra.relaxed, wanted });",
+    find: "        recordPick({ role: extra.recipe.role, pos, recipe: extra.recipe, relaxed: extra.relaxed, wanted });",
     replace: "        void wanted;",
     test: "plannertest",
   },
@@ -543,16 +593,16 @@ const MUTATIONS = [
     name: "有素食家人時，純葷的本週想吃不走加菜位置",
     why: "使用者回報的根因：滷雞腳重新產生幾次都排不進去。",
     file: "js/planner.js",
-    find: "      if (wantMeatOnly.length) tries.push(",
-    replace: "      if (false) tries.push(",
+    find: "        tries.push({ wanted: true, pick: () => pickForSlot(ctx, state, slotInfo, wantRole, rng, { meatOnlyExtra: true, strict: true, exclude: onlyThese(list) }) });",
+    replace: "        void list;",
     test: "plannertest",
   },
   {
     name: "有素食家人時，純葷的本週想吃不走加菜位置（真實的重新產生路徑）",
     why: "同一條，走食譜頁按鈕 → 本週頁「重新產生」。",
     file: "js/planner.js",
-    find: "      if (wantMeatOnly.length) tries.push(",
-    replace: "      if (false) tries.push(",
+    find: "        tries.push({ wanted: true, pick: () => pickForSlot(ctx, state, slotInfo, wantRole, rng, { meatOnlyExtra: true, strict: true, exclude: onlyThese(list) }) });",
+    replace: "        void list;",
     test: "weekviewtest",
   },
   {

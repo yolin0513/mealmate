@@ -40,12 +40,13 @@
 | 排菜葷素比例：混合家庭每個午晚餐放一道純葷加菜（`SPEC_排菜葷素比例.md`） | ✅ 完成（2026-09-16） | `mealmate-v0.23.0` |
 | 個資稽核：repo、git 歷史、資料流、線上內容 | ✅ 完成（2026-09-17） | 未動程式碼 |
 | 自主優化一輪：寫入失敗要講、開機失敗要講、換頁播報、減少動態、主畫面捷徑、`noreferrer`、買菜頁順序 | ✅ 完成（2026-09-17） | `mealmate-v0.24.0` |
+| 回報兩項：加菜列的「⋯」跑版、滷雞腳填成配菜就排不進去 | ✅ 完成（2026-09-17） | `mealmate-v0.25.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 122、membertest 79、nutritiontest 147、plannertest 324、shoppingtest 130、timelinetest 71、doctest 119；
-瀏覽器端（puppeteer）：shelltest 146、familytest 65、recipeviewtest 93、backuptest 30、weekviewtest 161、shoppingviewtest 151、todaytest 41、racetest 16、versionmixtest 41、layouttest 92（117 組版面掃描 ＋ 桌機七欄）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
+Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 122、membertest 79、nutritiontest 147、plannertest 334、shoppingtest 130、timelinetest 71、doctest 124；
+瀏覽器端（puppeteer）：shelltest 146、familytest 65、recipeviewtest 93、backuptest 30、weekviewtest 168、shoppingviewtest 151、todaytest 41、racetest 16、versionmixtest 41、layouttest 100（117 組版面掃描 ＋ 桌機七欄）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **267 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
+`mutationtest` 共 **273 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
 
 食譜現況：**217 道**（主菜 102、配菜 56、湯 34、早餐 19、主食 6）。
 
@@ -72,6 +73,49 @@ Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、
 5. **完整突變套件**：105 條全跑一次**全綠**（24 個基準先過，再逐條改壞、確認會紅、還原）。
 
 檢測期間**沒有動任何產品程式碼**（js／css／data 零改動），改的都是測試與工具。
+
+### 回報兩項：加菜列的「⋯」跑版、滷雞腳填成配菜就排不進去（2026-09-17，v0.25.0）
+
+**1. 本週頁「⋯」被擠到下一行。** 使用者截圖：手動加的那一道（標「自己加的」＋🔒）右邊的三個點掉到第二行。
+
+根因：`.meal-item` 是 grid，欄數寫死四欄（角色標籤｜菜名｜max-content｜max-content），
+**而子元素個數會變**：一般列 3 個、加菜列 4 個，但「自己加的 ＋ 🔒」或「加菜 ＋ 🔒」是 **5 個** ——
+第五個（就是「⋯」）被排到隱含的第二列。溢出、重疊、橫向捲動三種既有掃描都抓不到它（它好好地包在卡片裡，只是換了行）。
+
+修法：所有標籤收進 `.meal-badges` 一格（自己會換行），「⋯」用 `grid-column: 4; justify-self: end` 釘在最後一欄 ——
+掛幾個標籤都不會被擠掉。`layouttest` 新增一節直接量（慣例 20）：三種字級 × 三種寬度、954 列，
+每一列的「⋯」都與菜名同列、離列右緣 0px、≥44px、不溢出；母體裡刻意種了「自己加的＋🔒」與「加菜＋🔒」兩種最擠的列。
+
+**2. 勾了「本週想吃」的滷雞腳還是排不進去。** 畫面寫「這道只有吃葷的人能吃，奶奶吃素」。
+
+根因：**加菜格以前只從 `role === 'main'` 的菜裡挑**（`pendingWant('main', …)` 與 `pickForSlot(…, 'main', …)`），
+而滷雞腳、雞翅這類菜使用者多半填成**配菜**。於是它一般格被飲食型態擋（純葷）、加菜格又不收配菜 ——
+哪一格都進不去，只能在本週頁誠實說「排不進去」。實測（8 個種子、混合家庭、滷雞腳填成配菜）：
+**修之前 0／8 週排進去**，理由字串與截圖一字不差；**修之後 8／8**。
+
+修法：新增 `EXTRA_MEAT_ROLES = ['main', 'side']`。**只有「本週想吃」那一輪放寬到配菜**；
+一般的加菜照舊只挑主菜（動它每一份菜單都會變樣）。放進去的 item 角色照那道菜自己的（配菜就是配菜，
+一週平衡與每日估算靠這個欄位分類）。`wantMissReason` 判斷「能不能走加菜」也改用同一份清單 ——
+兩邊各寫各的，畫面就會講一個跟排菜器不同的原因，`doctest` 有結構斷言盯著它們不漂開。
+素食保障完全沒動：實測 8 週 112 個午晚餐，素食成員每一餐仍吃得到 ≥ 3 道。
+
+**測試**：`plannertest` P14（8 種子全排進去、走加菜格、角色記成配菜、一餐仍只有一道加菜、素食保障、不進 `wantMissed`；
+對照組：同一道菜沒勾想吃時 8 週一次都沒排進來，而那 8 週照樣有 104 道加菜、且全是主菜）；
+`weekviewtest`（真的新增一道配菜版滷雞腳、真的按「本週想吃」與「重新產生」，畫面標「加菜」「僅葷食成員」、
+誠實卡不再提它、那一餐阿嬤與姊各吃得到 3 道）；`layouttest`（上面那一節）；`doctest`（兩邊同一份清單）。
+**5 條新突變**。
+
+### 色彩對比：量過了，Yolin 決定不改（2026-09-17）
+
+自主優化那一輪順手量了畫面上每一個有文字的元素的實際對比度（前景色 vs 最近一層非透明底色，
+九頁 × 兩種字級）。**18 種組合沒到 WCAG AA**，全部來自四個色票：白字／`--accent` 2.82、
+`--accent-strong` 當文字 2.99–3.65、`--green` 當文字 2.91–3.04、`--danger` 當文字 4.38；
+另外控制項外框 `--line` 對白底只有 1.30（非文字要 3.0）。
+
+出了一張改前／改後對照圖（`docs/contrast-before-after.png`，色票各調深一階、色相不動），
+**Yolin 看過之後決定維持原本的顏色** —— 原色票比較好看，這一項不做。
+所以 `--accent`／`--accent-strong`／`--green`／`--yellow`／`--danger` 一律維持原值，也沒有加對比掃描測試。
+**這一段留著是為了不要再被重新提一次**：數字已經量過，取捨是使用者做的，不是沒注意到。
 
 ### 個資稽核（2026-09-17，Yolin 交辦）
 

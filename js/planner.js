@@ -34,6 +34,16 @@ export const MEAL_ROLES = {
 
 /** 有素食成員時，每一餐至少要有這麼多道是**每位素食成員都吃得到**的。 */
 export const VEG_MIN_DISHES = 3;
+
+/**
+ * 加菜格（僅葷食成員）收得下哪些角色的菜。
+ *
+ * 一般的加菜照舊只挑主菜 —— 那是 SPEC_排菜葷素比例 定的，動它會讓每一份菜單都變樣。
+ * 但**勾了「本週想吃」的純葷菜不限主菜**：滷雞腳、雞翅這類菜使用者多半填成配菜，
+ * 以前加菜格只從主菜裡挑，它就哪一格都進不去（一般格被飲食型態擋、加菜格又不收配菜），
+ * 最後只能在本週頁說「排不進去」。2026-09-17 使用者回報的就是這件事。
+ */
+export const EXTRA_MEAT_ROLES = ['main', 'side'];
 /** 吃葷的人能吃到肉的菜：純葷，或可分流（素食成員吃素版，同一鍋分兩邊）。 */
 export function isMeaty(recipe) { return !!recipe && recipe.vegMode !== 'nativeVeg'; }
 
@@ -590,7 +600,8 @@ const AVOID_TEXT = { sweet: '含精緻糖的菜', processed: '用到加工肉或
 export function wantMissReason(recipe, slots, ctx) {
   const open = slots.filter((s) => s.kind === 'cook' && (MEAL_ROLES[s.meal] ?? []).includes(recipe.role));
   if (!open.length) return '這週排得進這道菜的餐都設成外食或不煮';
-  const viaExtra = recipe.role === 'main' && recipe.vegMode === 'meatOnly' && ctx.vegetarians.length > 0 && ctx.hasOmni;
+  // 跟 fillMeal 的加菜格用同一份角色清單 —— 兩邊若不一致，畫面會講一個跟排菜器不同的原因。
+  const viaExtra = EXTRA_MEAT_ROLES.includes(recipe.role) && recipe.vegMode === 'meatOnly' && ctx.vegetarians.length > 0 && ctx.hasOmni;
   const blank = { slotItems: [], dayRecipes: () => new Set(), lastServed: () => null };
   const codes = open.map((s) => hardBlock(recipe, { role: recipe.role, meal: s.meal, date: s.date }, ctx, blank, { meatOnlyExtra: viaExtra }));
   if (codes.every(Boolean)) {
@@ -692,20 +703,30 @@ export function fillMeal(ctx, state, slotInfo, { lockedItems = [], rng, diagnost
     // 素食保障是唯一的硬門檻：放之前一定先算 vegDishesAfter >= VEG_MIN_DISHES，算不到就不放、照常排配菜。
     if (wantsMeat && role === 'side' && pos === lastSidePos) {
       const mainMeaty = items.some((it) => isMeaty(state.byId.get(it.recipeId)));
-      const wantMeatOnly = ctx.vegetarians.length ? pendingWant('main', day).filter((r) => r.vegMode === 'meatOnly') : [];
+      // 勾了「本週想吃」的純葷菜先挑，而且**不限主菜**（EXTRA_MEAT_ROLES）——
+      // 使用者把滷雞腳填成配菜，以前它進不了加菜格，本週頁只能說「排不進去」。
+      const wantMeatOnly = ctx.vegetarians.length
+        ? EXTRA_MEAT_ROLES.flatMap((r) => pendingWant(r, day)).filter((r) => r.vegMode === 'meatOnly')
+        : [];
       const openExtra = !mainMeaty || ctx.mixedHome;
       const tries = [];
-      if (wantMeatOnly.length) tries.push(() => pickForSlot(ctx, state, slotInfo, 'main', rng, { meatOnlyExtra: true, strict: true, exclude: onlyThese(wantMeatOnly) }));
-      if (openExtra) tries.push(() => pickForSlot(ctx, state, slotInfo, 'main', rng, { meatOnlyExtra: true }));
+      for (const wantRole of EXTRA_MEAT_ROLES) {
+        const list = wantMeatOnly.filter((r) => r.role === wantRole);
+        if (!list.length) continue;
+        tries.push({ wanted: true, pick: () => pickForSlot(ctx, state, slotInfo, wantRole, rng, { meatOnlyExtra: true, strict: true, exclude: onlyThese(list) }) });
+      }
+      // 一般的加菜照舊只挑主菜（SPEC_排菜葷素比例），不然每一份菜單都會變樣。
+      if (openExtra) tries.push({ wanted: false, pick: () => pickForSlot(ctx, state, slotInfo, 'main', rng, { meatOnlyExtra: true }) });
       let skipWhy = null;
-      for (const [i, tryPick] of tries.entries()) {
-        const extra = tryPick();
+      for (const t of tries) {
+        const extra = t.pick();
         if (!extra) { skipWhy = skipWhy ?? 'noCandidate'; continue; }
         if (vegDishesAfter(extra.recipe, pos) < VEG_MIN_DISHES) { skipWhy = 'vegGuarantee'; continue; }
-        const wanted = i === 0 && wantMeatOnly.length > 0;
-        items.push({ recipeId: extra.recipe.id, role: 'main', pos, locked: false, extraMeat: true, method: extra.recipe.method,
+        const wanted = t.wanted;
+        // 角色照那道菜自己的（配菜就是配菜）—— 一週平衡、每日估算都靠這個欄位分類。
+        items.push({ recipeId: extra.recipe.id, role: extra.recipe.role, pos, locked: false, extraMeat: true, method: extra.recipe.method,
           reasons: [...extra.reasons, mainMeaty ? '這道是給吃葷的人的加菜（素食家人吃這一餐其他的菜）' : '這一餐的主菜是素的，這道是給吃葷的人的加菜'] });
-        recordPick({ role: 'main', pos, recipe: extra.recipe, relaxed: extra.relaxed, wanted });
+        recordPick({ role: extra.recipe.role, pos, recipe: extra.recipe, relaxed: extra.relaxed, wanted });
         state.place(extra.recipe, slotInfo);
         return;
       }

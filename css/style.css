@@ -513,7 +513,15 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
    這些每天會按的地方，看起來小不代表可以按不到（StockDiary 的 .btn-sm 踩過 36px）。 */
 .chip-sm { padding: 6px 12px; min-height: 44px; font-size: 0.85em; }
 .meal-items { display: flex; flex-direction: column; gap: 4px; }
-.meal-item { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content max-content; gap: 8px; align-items: center; min-height: 44px; }
+/* 四欄固定：角色標籤｜菜名｜其他標籤｜「⋯」。
+   欄數以前跟子元素個數綁在一起，「自己加的」＋🔒 那一列就變成五個子元素，
+   多出來的「⋯」被排到隱含的第二列（使用者回報「三個點跑到下一行」）。
+   現在標籤全部收在 .meal-badges 那一欄，「⋯」用 grid-column 釘在最後一欄，掛幾個標籤都不會被擠掉。 */
+.meal-item { display: grid; grid-template-columns: max-content minmax(0, 1fr) minmax(0, max-content) max-content; gap: 8px; align-items: center; min-height: 44px; }
+.meal-item > .item-menu { grid-column: 4; justify-self: end; }
+/* 窄螢幕＋特大字級時標籤自己換行（它們在自己的欄裡換，不會把「⋯」推走）。 */
+.meal-badges { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
+.meal-badges:empty { display: none; }
 .meal-item.empty { color: var(--fg-muted); }
 /* 菜名是本週頁最常按的連結（點進去看食譜）。整列 44px 不夠，**連結自己**要 44px。 */
 .meal-name { color: inherit; text-decoration: none; font-weight: 600; overflow-wrap: anywhere; display: flex; align-items: center; min-height: 44px; }

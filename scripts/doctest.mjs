@@ -64,6 +64,20 @@ noneOf(['js/nutrition.js', 'js/planner.js'], (f) => read(f).includes('appetite')
   '程式：營養估算與排菜器完全不認識食量 —— 它只走購物清單那條路');
 ok(read('js/shopping.js').includes('appetiteOf'), '（對照）購物清單那條路確實有用到食量');
 
+section('加菜格收得下哪些角色：排菜器與「為什麼沒排進去」必須用同一份清單');
+{
+  // 兩邊各寫各的，畫面就會講一個跟排菜器不同的原因（使用者 2026-09-17 看到的
+  // 「這道只有吃葷的人能吃，奶奶吃素」正是這種漂開的結果）。
+  const src = read('js/planner.js');
+  ok(STATUS.includes('EXTRA_MEAT_ROLES'), '（文件）STATUS 寫了這份清單的名字');
+  ok(/export const EXTRA_MEAT_ROLES = \['main', 'side'\]/.test(src), '程式：清單是主菜與配菜');
+  const uses = [...src.matchAll(/EXTRA_MEAT_ROLES/g)].length;
+  ok(uses >= 4, `程式：一共被引用 ${uses} 次（宣告、fillMeal 的想吃清單、挑選迴圈、wantMissReason）`);
+  const reasonFn = src.slice(src.indexOf('export function wantMissReason'), src.indexOf('export function pickForSlot'));
+  ok(/EXTRA_MEAT_ROLES\.includes\(recipe\.role\)/.test(reasonFn), '程式：wantMissReason 判斷「能不能走加菜」時用的就是這份清單');
+  ok(!/recipe\.role === 'main'/.test(reasonFn), '程式：它沒有另外寫死一份「只有主菜」的判斷');
+}
+
 section('自主優化一輪（2026-09-17）：文件宣稱的每一條都對得到程式');
 {
   const dbSrc = read('js/db.js');

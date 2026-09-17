@@ -83,6 +83,14 @@ try {
     const bIdx = plan.slots.findIndex((s) => s.meal === 'breakfast' && s.day === 1);
     plan.slots[bIdx] = { ...plan.slots[bIdx], kind: 'skip', items: [] };
     plan.slots.find((s) => s.kind === 'cook' && s.items.length).items[0].locked = true;
+    // 本週頁最擠的兩種列（使用者 2026-09-17 回報「⋯」被擠到下一行的就是第一種）：
+    //   · 自己加的 ＋ 🔒 → 角色標籤、菜名、「自己加的」、🔒、「⋯」
+    //   · 加菜 ＋ 🔒 → 角色標籤、菜名、「僅葷食成員」、🔒、「⋯」
+    const busy = plan.slots.find((s) => s.kind === 'cook' && s.meal === 'lunch' && s.items.some((it) => it.extraMeat));
+    if (busy) {
+      busy.items.push({ recipeId: 'r-basil-eggplant', role: 'side', pos: Math.max(...busy.items.map((it) => it.pos)) + 1, locked: true, added: true, reasons: ['你自己加的，已鎖定'] });
+      busy.items.find((it) => it.extraMeat).locked = true;
+    }
     await store.savePlan({ ...plan, diagnostics });
 
     // 購物清單：勾幾項「買了」「家裡有」
@@ -233,8 +241,33 @@ try {
       const btn = card.querySelector('[data-action="toggleDay"]');
       if (btn) dayToggleMinH = Math.min(dayToggleMinH, btn.getBoundingClientRect().height);
     }
+    // 本週頁的菜列：「⋯」一定要跟菜名同一列、靠在列的最右邊、不溢出。
+    // 使用者 2026-09-17 回報「自己加的」那一列（標籤＋🔒）把「⋯」擠到下一行 ——
+    // 溢出與重疊都抓不到那件事（它包在卡片裡、只是換了行），所以直接量（慣例 20）。
+    const mealRows = [...root.querySelectorAll('.meal-item')].map((el) => {
+      const menu = el.querySelector('.item-menu');
+      const label = el.querySelector('.meal-name') ?? el.querySelector('.muted');
+      if (!menu || !label) return null;
+      const row = el.getBoundingClientRect();
+      const m = menu.getBoundingClientRect();
+      const n = label.getBoundingClientRect();
+      // 收起來的那幾天，裡面的菜列是 0×0（看不見）。量它們只會量到 0，不是版面壞了。
+      if (row.width < 1 || row.height < 1) return null;
+      return {
+        added: el.dataset.added === 'true',
+        extra: el.dataset.extra === 'meat',
+        empty: el.classList.contains('empty'),
+        badges: el.querySelectorAll('.meal-badges > *').length,
+        // 同一列＝兩者在垂直方向真的有重疊（不是靠 top 差多少猜的）
+        sameRow: Math.min(m.bottom, n.bottom) - Math.max(m.top, n.top) > 2,
+        gapToRight: Math.round(row.right - m.right),
+        overflows: m.right > docW + 1 || row.right > docW + 1,
+        menuW: Math.round(m.width), menuH: Math.round(m.height),
+      };
+    }).filter(Boolean);
     return { overflow, overlaps, columns, docW, scrollW: document.documentElement.scrollWidth, leafCount: boxes.length,
       dayBodies, dayToggleMinH: Number.isFinite(dayToggleMinH) ? Math.round(dayToggleMinH) : 999,
+      mealRows,
       manualMarks: root.querySelectorAll('.qty-manual').length,
       // 「＋ 加一道」：使用者 2026-09-16 回報看不到它（根因是舊版快取，不是版面）——
       // 加一條量測把「看得到、按得到、跟餐別同一列」釘住，以後真的被擠掉就會紅。
@@ -524,6 +557,26 @@ try {
     everyOf(addPages, (p) => p.addDish.minH >= 44, `每一顆都按得到（最小 ${Math.min(...addPages.map((p) => p.addDish.minH))}px）`);
     everyOf(addPages, (p) => p.addDish.allInside, '沒有一顆被擠出畫面');
     everyOf(addPages, (p) => p.addDish.allSameRow, '跟餐別名稱在同一列（不會掉到下一行找不到）');
+  }
+
+  section('本週頁菜列：「⋯」永遠跟菜名同一列、釘在最右邊（標籤再多也一樣）');
+  {
+    // 2026-09-17 使用者回報：手動加的那一道（「自己加的」標籤 ＋ 🔒）把「⋯」擠到下一行。
+    // 根因是 .meal-item 的欄數跟子元素個數綁在一起，第五個子元素就被排到隱含的第二列。
+    // 溢出／重疊／橫向捲動都抓不到這件事（它好好地包在卡片裡，只是換了行）—— 慣例 20：要守什麼就量什麼。
+    const rows = all.filter((p) => p.route.startsWith('本週')).flatMap((p) => p.mealRows.map((r) => ({ ...r, where: where(p) })));
+    ok(rows.length >= 200, `（母體）本週頁的菜列一共量了 ${rows.length} 列`);
+    const withAdded = rows.filter((r) => r.added);
+    const withExtra = rows.filter((r) => r.extra);
+    ok(withAdded.length >= SCALES.length * WIDTHS.length, `（前提）其中「自己加的」列 ${withAdded.length} 列 —— 就是使用者回報的那一種`);
+    ok(withExtra.length >= SCALES.length * WIDTHS.length, `（前提）「加菜」列 ${withExtra.length} 列`);
+    ok(rows.some((r) => r.badges >= 2), `（前提）有 ${rows.filter((r) => r.badges >= 2).length} 列同時掛了兩個以上的標籤（標籤＋🔒）`);
+    everyOf(rows, (r) => r.sameRow, '每一列的「⋯」都跟菜名在同一列',
+      rows.filter((r) => !r.sameRow).slice(0, 3).map((r) => `${r.where}（標籤 ${r.badges} 個）`).join(' ／ '));
+    everyOf(rows, (r) => r.gapToRight <= 2, `每一列的「⋯」都靠在最右邊（最遠 ${Math.max(...rows.map((r) => r.gapToRight))}px）`,
+      rows.filter((r) => r.gapToRight > 2).slice(0, 3).map((r) => `${r.where} 離右緣 ${r.gapToRight}px`).join(' ／ '));
+    noneOf(rows, (r) => r.overflows, '沒有任何一列的「⋯」被推出畫面');
+    everyOf(rows, (r) => r.menuW >= 44 && r.menuH >= 44, `每一顆「⋯」都按得到（最小 ${Math.min(...rows.map((r) => r.menuW))}×${Math.min(...rows.map((r) => r.menuH))}px）`);
   }
 
   section('每日目標：名稱／輸入框／單位三欄對齊（三種字級 × 三種寬度）');

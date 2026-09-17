@@ -683,6 +683,62 @@ try {
     ok(!missedText.includes('滷雞腳'), '（對照）排進去的滷雞腳不在這張卡上');
     eq(await page.$$eval('.meal-item[data-item]', (els, id) => els.filter((e) => e.dataset.item === id).length, feetId), 1, '（對照）滷雞腳這次也排進去了');
     noneOf(['健康', '降', '控制', '療效', '治療'], (w) => missedText.includes(w), '沒有療效字眼');
+
+    // 2026-09-17 使用者回報：同一道滷雞腳**填成配菜**時又排不進去了，本週頁寫
+    // 「這道只有吃葷的人能吃，奶奶吃素」。根因是加菜格以前只從主菜裡挑。
+    const sideId = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const { recipe, errors } = await store.saveUserRecipe({ id: store.newUserRecipeId(), name: '滷雞腳（配菜版）', role: 'side', servings: 4, time: 30, method: 'braise', vegMode: 'meatOnly', vegModeConfirmed: true, texture: 'normal', season: [], source: 'user',
+        ingredients: [{ food: '', label: '雞腳', grams: 400, track: 'base' }], steps: [{ stage: 'base', type: 'cook', text: '滷 30 分鐘' }] });
+      if (errors.length) throw new Error(errors.join('；'));
+      await store.setWantThisWeek(recipe.id, true);
+      return recipe.id;
+    });
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    await goto(page, '#/');
+    await page.waitForSelector('[data-action="regenerate"]');
+    await regen();
+    const sideRows = await page.$$eval('.meal-item[data-item]', (els, id) => els.filter((e) => e.dataset.item === id).map((e) => ({
+      extra: e.dataset.extra ?? null,
+      role: e.dataset.role,
+      pills: [...e.querySelectorAll('.pill')].map((p) => p.textContent.trim()),
+      meal: e.closest('.meal-block')?.dataset.meal ?? null,
+    })), sideId);
+    eq(sideRows.length, 1, '填成配菜的滷雞腳也排進去了，剛好一次');
+    eq(sideRows[0].extra, 'meat', '走的是「加菜」那一格');
+    ok(sideRows[0].pills.includes('加菜') && sideRows[0].pills.includes('僅葷食成員'), `畫面上標了 ${JSON.stringify(sideRows[0].pills)}`);
+    ok(sideRows[0].meal !== 'breakfast', `排在${sideRows[0].meal === 'lunch' ? '午餐' : '晚餐'}，不是早餐`);
+    const missed2 = (await page.$('[data-card="wantMissed"]')) ? await textOf(page, '[data-card="wantMissed"]') : '';
+    ok(!missed2.includes('滷雞腳（配菜版）'), '本週頁不再說它「排不進去」');
+    ok(missed2.includes('慢燉牛腱'), '（對照）真的排不進去的那道還在卡片上 —— 上面那條不是因為整張卡不見了');
+    // 紅線：那一餐兩位素食成員照樣吃得到 3 道
+    const vegOk = await page.evaluate(async (id) => {
+      const store = await import('./js/store.js');
+      const { versionFor } = await import('./js/members.js');
+      const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const all = new Map(store.allRecipes().map((r) => [r.id, r]));
+      const slot = plan.slots.find((s) => (s.items ?? []).some((it) => it.recipeId === id));
+      const vegs = store.members().filter((m) => m.diet !== 'omni');
+      return {
+        names: vegs.map((m) => m.name),
+        counts: vegs.map((m) => slot.items.filter((it) => versionFor(all.get(it.recipeId), m.diet) !== null).length),
+      };
+    }, sideId);
+    everyOf(vegOk.counts, (n) => n >= 3, `那一餐 ${vegOk.names.join('、')} 仍各吃得到 ≥ 3 道（${vegOk.counts.join('、')}）`);
+
+    // 收尾：把這道菜撤掉，後面幾節的母體維持原樣
+    await page.evaluate(async (id) => {
+      const store = await import('./js/store.js');
+      await store.setWantThisWeek(id, false);
+      await store.deleteUserRecipe(id);
+    }, sideId);
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    await goto(page, '#/');
+    await page.waitForSelector('[data-action="regenerate"]');
+    await regen();
   }
 
   section('排菜葷素比例：混合家庭每個午晚餐一道純葷加菜（走真實畫面與按鈕）');

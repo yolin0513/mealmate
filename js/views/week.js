@@ -296,9 +296,13 @@ function mealBlock({ slot, slotIndex, plan, mondayIso, recipesById, members }) {
     return h('div', { class: 'meal-item', dataset: { slot: String(slotIndex), role: it.role, pos: String(pos), item: it.recipeId, ...(it.extraMeat ? { extra: 'meat' } : {}), ...(it.added ? { added: 'true' } : {}) } },
       pill(it.extraMeat ? '加菜' : ROLE_LABELS[it.role]),
       h('a', { class: 'meal-name', href: `#/recipes/${it.recipeId}` }, r?.name ?? it.recipeId),
-      it.extraMeat ? pill('僅葷食成員', 'accent') : null,
-      it.added ? pill('自己加的') : null,
-      it.locked ? h('span', { class: 'lock', title: '已鎖定', 'aria-label': '已鎖定' }, '🔒') : null,
+      // 標籤全部收在同一個格子裡。以前它們各佔一欄，而 .meal-item 只有四欄 ——
+      // 「自己加的」＋🔒 或「僅葷食成員」＋🔒 就變成第五個子元素，「⋯」被擠到下一行（使用者回報）。
+      // 現在不管掛幾個標籤，「⋯」永遠是最後一欄。
+      h('div', { class: 'meal-badges', dataset: { field: 'itemBadges' } },
+        it.extraMeat ? pill('僅葷食成員', 'accent') : null,
+        it.added ? pill('自己加的') : null,
+        it.locked ? h('span', { class: 'lock', title: '已鎖定', 'aria-label': '已鎖定' }, '🔒') : null),
       itemMenuBtn({ slot, slotIndex, pos, role: it.role, item: it, plan, mondayIso, recipesById, members }),
     );
   };

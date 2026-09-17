@@ -1130,6 +1130,45 @@ section('排菜葷素比例：混合家庭每個午晚餐放一道純葷加菜�
   const twiceA = gen({ members: omniFam, seed: 'stable' });
   const twiceB = gen({ members: omniFam, seed: 'stable' });
   eq(JSON.stringify(twiceA.plan.slots), JSON.stringify(twiceB.plan.slots), '全葷家庭同種子同輸出');
+
+  // P14（2026-09-17 使用者回報）本週想吃的純葷菜**填成配菜**時也要排得進加菜格。
+  //
+  // 根因：加菜格以前只從 role==='main' 的菜裡挑，而滷雞腳、雞翅這類菜使用者多半填成配菜 ——
+  // 一般格被飲食型態擋（純葷）、加菜格又不收配菜，於是哪一格都進不去，本週頁只能說「排不進去」。
+  // 實測修之前 8 個種子 0 次排進去，理由就是畫面上那句「這道只有吃葷的人能吃，奶奶吃素」。
+  const feetSide = {
+    ...recipes.find((r) => r.role === 'side' && r.vegMode !== 'meatOnly'),
+    id: 'r-user-feet-side', name: '滷雞腳（自己加的配菜）', role: 'side', vegMode: 'meatOnly', time: 30, source: 'user',
+    ingredients: [{ food: 'I0420801', label: '雞腳', grams: 400 }],
+  };
+  const sideWantRuns = SEEDS8.map((seed) => gen({
+    members: mixed, recipes: [...recipes, feetSide],
+    favorites: [{ recipeId: feetSide.id, wantThisWeek: true }], seed,
+  }));
+  const placedWeeks = sideWantRuns.filter((r) => cookSlots(r.plan).some((s) => s.items.some((it) => it.recipeId === feetSide.id)));
+  // 量餘裕：不綁哪一餐、也不綁哪一週，看的是「8 週裡有幾週排進去」（慣例 22）
+  eq(placedWeeks.length, SEEDS8.length, `8 個種子每一週都排進去（${placedWeeks.length}／${SEEDS8.length}）—— 修之前是 0／8`);
+  const sidePlacements = sideWantRuns.flatMap((r) => cookSlots(r.plan).flatMap((s) => s.items.filter((it) => it.recipeId === feetSide.id).map((it) => ({ it, s }))));
+  everyOf(sidePlacements, (x) => x.it.extraMeat === true, '每一次都是走「加菜（僅葷食成員）」那一格進來的');
+  everyOf(sidePlacements, (x) => x.it.role === 'side', '它的角色記成配菜（照那道菜自己的角色，不是硬寫成主菜）');
+  everyOf(sidePlacements, (x) => x.s.meal !== 'breakfast', '只會排在午餐或晚餐');
+  everyOf(sidePlacements, (x) => x.s.items.filter((it) => it.extraMeat).length === 1, '那一餐仍然只有一道加菜');
+  // 紅線：素食成員那一餐照樣吃得到 VEG_MIN_DISHES 道
+  const sideVegCounts = sideWantRuns.flatMap((r) => cookSlots(r.plan).filter((s) => s.meal !== 'breakfast'))
+    .map((s) => s.items.filter((it) => versionFor(byId.get(it.recipeId) ?? feetSide, 'lactoOvo') !== null).length);
+  everyOf(sideVegCounts, (n) => n >= VEG_MIN_DISHES, `媽每一個午晚餐仍吃得到 ≥ ${VEG_MIN_DISHES} 道（最少 ${Math.min(...sideVegCounts)} 道）`);
+  // 排進去了就不該再出現「沒排進去」的誠實卡
+  eq(sideWantRuns.flatMap((r) => r.diagnostics.wantMissed).filter((w) => w.recipeId === feetSide.id).length, 0,
+    '沒有任何一週把它記進 wantMissed（本週頁不會再說「排不進去」）');
+
+  // （對照）沒勾「本週想吃」的純葷配菜**不會**被當成一般加菜排進來 ——
+  // 一般的加菜照舊只挑主菜（SPEC_排菜葷素比例），上面那幾條不是因為把整個加菜格放寬了。
+  const quietRuns = SEEDS8.map((seed) => gen({ members: mixed, recipes: [...recipes, feetSide], seed }));
+  const quietHits = quietRuns.flatMap((r) => cookSlots(r.plan).flatMap((s) => s.items.filter((it) => it.recipeId === feetSide.id)));
+  eq(quietHits.length, 0, '（對照）同一道菜沒勾「本週想吃」時，8 週一次都沒被排進來');
+  const quietExtras = quietRuns.flatMap((r) => cookSlots(r.plan).flatMap((s) => s.items.filter((it) => it.extraMeat)));
+  ok(quietExtras.length >= 80, `（對照母體）那 8 週照樣有 ${quietExtras.length} 道加菜 —— 上面那條不是因為加菜整個壞掉`);
+  everyOf(quietExtras, (it) => byId.get(it.recipeId).role === 'main', '（對照）沒勾想吃時，加菜一律還是主菜');
 }
 
 done('plannertest');
