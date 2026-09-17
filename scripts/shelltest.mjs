@@ -241,6 +241,39 @@ const nonEntryModules = ['sw.js', ...jsFiles].filter((f) => f !== 'js/app.js');
 noneOf(nonEntryModules, (f) => importsOf(read(f)).some((spec) => spec.split('?')[0].endsWith('/app.js')),
   '沒有任何模組 import app.js（view 要的東西在 js/shell.js）');
 
+section('開機看門狗：整張 module 圖載不到時不可以停在空白');
+{
+  // Yolin 2026-09-17 回報：按「更新」之後只剩最上面的標題列、下面整片空白，只能把 App 滑掉重開。
+  // 那個畫面的意思是 **app.js 整張 module 圖根本沒執行**（連 renderLoading 的轉圈圈都沒有）。
+  const guard = read('js/bootguard.js');
+  const htmlSrc = read('index.html');
+  ok(guard.length > 400, `（母體）看門狗有 ${guard.length} 個字元`);
+  ok(!/import|export/.test(stripComments(guard)), '它自己沒有任何 import／export —— 是普通 script，不跟著 module 圖一起死');
+  ok(/<script src="\.\/js\/bootguard\.js"><\/script>/.test(htmlSrc), 'index.html 用普通 script 載它（不是 type="module"）');
+  const guardAt = htmlSrc.indexOf('js/bootguard.js');
+  const appAt = htmlSrc.indexOf('type="module" src="./js/app.js');
+  ok(guardAt > 0 && appAt > 0 && guardAt < appAt, '而且排在 app.js 前面');
+  ok(swSource.includes("'./js/bootguard.js'"), 'SHELL 預快取包含它（離線也要有）');
+  ok(/data-card', 'bootStuck'|'bootStuck'/.test(guard), '它畫出來的卡片有 data-card="bootStuck"，測得到');
+  ok(/bootRetry/.test(guard) && /bootHardReset/.test(guard), '而且給了兩條出路：重新載入、清掉快取再載入');
+  const appSrc2 = stripComments(read('js/app.js'));
+  ok(/document\.documentElement\.dataset\.booted = '1'/.test(appSrc2), 'app.js 開機成功會標 data-booted，看門狗才知道不用出手');
+}
+
+section('按「更新」不可以先 unregister（那正是空白畫面的根因）');
+{
+  // 取消註冊之後這一頁就沒有 Service Worker 了：重載時每個檔案只能走網路，
+  // 手機網路一不穩，整張 module 圖就載不齊，而且連快取都沒得退。
+  const appSrc3 = stripComments(read('js/app.js'));
+  const from = appSrc3.indexOf('function applyNow(');
+  const to = appSrc3.indexOf('const ready = (worker)');
+  ok(from > 0 && to > from, `（母體）找得到 applyNow 這一段（${to - from} 個字元）`);
+  const body = appSrc3.slice(from, to);
+  ok(!/unregister/.test(body), 'applyNow 裡沒有 unregister');
+  ok(/reload\(\)/.test(body), '（對照）它還是會重載 —— 上面那條不是因為整段被刪掉了');
+  ok(/unregister/.test(appSrc3), '（對照）App 其他地方仍留著 unregister（「需要更新」那張卡的強制更新），所以不是全域搜不到');
+}
+
 section('「家裡有」已經整個移除（2026-09-17，Yolin 決定）');
 {
   // 移掉的理由：它不扣採買量、也沒有跨餐或跨週的追蹤，只是排菜時一個最多 +9 的小加分，

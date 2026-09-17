@@ -42,6 +42,8 @@ function makeServer(state) {
     const url = new URL(req.url, 'http://localhost');
     let rel = decodeURIComponent(url.pathname).replace(/^\//, '');
     if (rel === '' || rel.endsWith('/')) rel += 'index.html';
+    // state.missing：讓某個檔案 404，做出「整張 module 圖載不到」的處境（換版時網路不穩就是這樣）
+    if (state.missing && state.missing.has(rel)) { res.writeHead(404); res.end('gone'); return; }
     let body = null;
     if (state.oldFiles.has(rel)) body = fromRev(OLD_REV, rel);
     else {
@@ -66,7 +68,7 @@ ok(newApp.includes("route('/today'"), '新版 app.js 有 /today 路由');
 ok(!oldWeek.includes('cookToday'), '舊版本週頁沒有「一起煮」按鈕');
 ok(newWeek.includes('cookToday'), '新版本週頁有「一起煮」按鈕');
 
-const state = { oldFiles: new Set() };
+const state = { oldFiles: new Set(), missing: new Set() };
 const srv = makeServer(state);
 await new Promise((r) => srv.listen(0, r));
 const PORT = srv.address().port;
@@ -311,6 +313,69 @@ try {
     await page.waitForSelector('#view .card', { timeout: 60000 });
     eq(await page.evaluate(() => window.__beforeReload === undefined), true, '按下「點一下更新」之後真的重載了');
     eq(await page.$('#updateBar'), null, '重載之後提示列不見了');
+    // Yolin 2026-09-17 回報：按了更新之後只剩標題列、下面整片空白，只能把 App 滑掉重開。
+    // 所以「有沒有重載」不夠，要驗**重載完是一個可用的畫面**。
+    const after = await page.evaluate(() => ({
+      booted: document.documentElement.dataset.booted ?? null,
+      title: document.getElementById('topTitle').textContent,
+      cards: document.querySelectorAll('#view .card').length,
+      viewLen: document.getElementById('view').textContent.trim().length,
+      tabs: document.querySelectorAll('#tabbar .tab').length,
+      stuck: !!document.querySelector('[data-card="bootStuck"]'),
+    }));
+    eq(after.booted, '1', '更新後 app.js 整張 module 圖真的跑起來了（data-booted）');
+    ok(after.cards >= 1 && after.viewLen > 20, `畫面上有東西，不是一片空白（${after.cards} 張卡、${after.viewLen} 個字）`);
+    eq(after.tabs, 4, '底部四個分頁都在');
+    ok(after.title !== 'MealMate', `頂列標題是那一頁的名字（「${after.title}」），不是 index.html 的預設值`);
+    eq(after.stuck, false, '（對照）沒有落到看門狗那張「載入卡住了」—— 正常路徑就該是正常的');
+    await ctx.close();
+  }
+
+  section('整張 module 圖載不到時：講清楚並給出路，不是一片空白');
+  // 這就是 Yolin 看到的畫面：只有最上面的標題列、下面全空。成因是 app.js 那張 module 圖
+  // 有檔案拿不到（換版當下網路不穩最容易踩到），連 renderLoading 的轉圈圈都不會出現。
+  state.oldFiles = new Set();
+  state.missing = new Set(['js/app.js']);
+  {
+    const { ctx, page } = await freshPage();
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+    await new Promise((r) => setTimeout(r, 1200));
+    const blank = await page.evaluate(() => ({
+      title: document.getElementById('topTitle').textContent,
+      booted: document.documentElement.dataset.booted ?? null,
+      tabs: document.querySelectorAll('#tabbar .tab').length,
+    }));
+    eq(blank.booted, null, '（前提）app.js 真的沒跑起來');
+    eq(blank.tabs, 0, '（前提）連底部分頁都還沒畫 —— 這正是使用者回報的那個畫面');
+    await page.waitForSelector('[data-card="bootStuck"]', { timeout: 30000 });
+    const card = await page.evaluate(() => {
+      const c = document.querySelector('[data-card="bootStuck"]');
+      const btns = [...c.querySelectorAll('button')].map((b) => ({ label: b.textContent.trim(), action: b.dataset.action, h: Math.round(b.getBoundingClientRect().height) }));
+      return { text: c.textContent.replace(/\s+/g, ' ').trim(), btns };
+    });
+    ok(/載入卡住了/.test(card.text), `看門狗補上一張看得懂的卡：「${card.text.slice(0, 20)}…」`);
+    ok(/剛更新完/.test(card.text), '講出最常見的原因（剛更新完、檔案還沒抓齊）');
+    ok(/資料不會因為這樣不見/.test(card.text), '而且先讓人放心：資料不會不見');
+    eq(card.btns.map((b) => b.action), ['bootRetry', 'bootHardReset'], `兩條出路：${card.btns.map((b) => b.label).join('、')}`);
+    everyOf(card.btns, (b) => b.h >= 44, `兩顆都按得到（${card.btns.map((b) => b.h).join('、')}px）`);
+
+    // 檔案回來之後，按「重新載入」要真的回到可用的畫面
+    state.missing = new Set();
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }),
+      page.evaluate(() => document.querySelector('[data-action="bootRetry"]').click()),
+    ]);
+    await page.waitForSelector('#view .card', { timeout: 60000 });
+    const fixed = await page.evaluate(() => ({
+      booted: document.documentElement.dataset.booted ?? null,
+      stuck: !!document.querySelector('[data-card="bootStuck"]'),
+      tabs: document.querySelectorAll('#tabbar .tab').length,
+      cards: document.querySelectorAll('#view .card').length,
+    }));
+    eq(fixed.booted, '1', '按「重新載入」之後 App 正常開起來了');
+    eq(fixed.stuck, false, '那張「載入卡住了」也不見了');
+    eq(fixed.tabs, 4, '底部四個分頁回來了');
+    ok(fixed.cards >= 1, `畫面上有 ${fixed.cards} 張卡`);
     await ctx.close();
   }
 

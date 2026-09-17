@@ -150,6 +150,8 @@ function showStorageBlocked(error) {
   startRouter();
   renderTabs();
   void currentRoute;
+  // 告訴看門狗（js/bootguard.js）：module 圖整張跑起來了，不必補說明卡。
+  document.documentElement.dataset.booted = '1';
 
   // 資料只在本機；瀏覽器在空間不足時可能清掉。請求持久化（拒絕也沒關係，匯出備份是另一條路）。
   try { navigator.storage?.persist?.().catch(() => {}); } catch { /* noop */ }
@@ -202,16 +204,13 @@ function setupUpdates(reg) {
         const r = await navigator.serviceWorker.getRegistration();
         if (r && r.waiting) r.waiting.postMessage('SKIP_WAITING');
       } catch { /* noop */ }
-      setTimeout(async () => {
-        if (reloading) return;
-        if (navigator.onLine) {
-          try {
-            const r = await navigator.serviceWorker.getRegistration();
-            if (r) await r.unregister();
-          } catch { /* noop */ }
-        }
-        reload();
-      }, 1500);
+      // **這裡以前會先 unregister 再 reload。不可以。**
+      // 取消註冊之後這一頁就沒有 Service Worker 了：重載時每一個檔案都只能走網路，
+      // 手機網路一不穩，整張 module 圖就載不齊 —— 畫面變成「只有標題列、下面全空」，
+      // 而且連快取都沒得退（Yolin 2026-09-17 回報的就是這個畫面）。
+      // 新版 SW 早就 skipWaiting 過了，直接重載就好；就算它還沒接手，舊的 SW 仍然供得出整組舊版，
+      // 畫面至少是完整可用的，下次再換。
+      setTimeout(() => { reload(); }, 1500);
     }, 2500);
   }
 

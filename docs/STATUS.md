@@ -42,12 +42,13 @@
 | 自主優化一輪：寫入失敗要講、開機失敗要講、換頁播報、減少動態、主畫面捷徑、`noreferrer`、買菜頁順序 | ✅ 完成（2026-09-17） | `mealmate-v0.24.0` |
 | 回報兩項：加菜列的「⋯」跑版、滷雞腳填成配菜就排不進去 | ✅ 完成（2026-09-17） | `mealmate-v0.25.0` |
 | 移除「家裡有」（Yolin 決定：冰箱裡的剩菜用「自己指定菜」處理） | ✅ 完成（2026-09-17） | `mealmate-v0.26.0` |
+| 按「更新」之後停在空白：拿掉更新流程裡的 `unregister`，加開機看門狗 | ✅ 完成（2026-09-17） | `mealmate-v0.27.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
 Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 122、membertest 79、nutritiontest 147、plannertest 324、shoppingtest 130、timelinetest 71、doctest 124；
-瀏覽器端（puppeteer）：shelltest 149、familytest 65、recipeviewtest 93、backuptest 30、weekviewtest 161、shoppingviewtest 147、todaytest 41、racetest 16、versionmixtest 46、layouttest 100（117 組版面掃描 ＋ 桌機七欄）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
+瀏覽器端（puppeteer）：shelltest 161、familytest 65、recipeviewtest 93、backuptest 30、weekviewtest 161、shoppingviewtest 147、todaytest 41、racetest 16、versionmixtest 62、layouttest 100（117 組版面掃描 ＋ 桌機七欄）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **270 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
+`mutationtest` 共 **274 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
 
 食譜現況：**217 道**（主菜 102、配菜 56、湯 34、早餐 19、主食 6）。
 
@@ -74,6 +75,49 @@ Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、
 5. **完整突變套件**：105 條全跑一次**全綠**（24 個基準先過，再逐條改壞、確認會紅、還原）。
 
 檢測期間**沒有動任何產品程式碼**（js／css／data 零改動），改的都是測試與工具。
+
+### 按「更新」之後停在空白（2026-09-17，v0.27.0）
+
+Yolin 回報：點畫面下方「有新版本 → 點一下更新」之後，**只剩最上面的 MealMate 標題列、下面整片空白**，
+只能把 App 從多工列滑掉重開才恢復。
+
+**先讀畫面推斷**：那個標題是 `index.html` 裡寫死的預設值 `MealMate`（App 一跑起來就會被 `setTop()` 換成頁名），
+而且**連 `renderLoading()` 的轉圈圈都沒有**、底部分頁也沒畫。這三件事合起來只有一個解釋 ——
+**`js/app.js` 那張 module 圖整個沒有執行**。不是 render 沒被叫、不是路由跑到空頁，是程式根本沒跑到。
+
+**根因**：更新流程的最後一段會**先 `unregister()` 再 `location.reload()`**：
+
+```js
+if (navigator.onLine) { const r = await navigator.serviceWorker.getRegistration(); if (r) await r.unregister(); }
+reload();
+```
+
+取消註冊之後這一頁就沒有 Service Worker 了 —— 重載時**每一個檔案都只能走網路**，而 `index.html` 要載的是
+一張二十幾個檔的 module 圖，**其中任何一個拿不到，整張圖就不執行**，而且連快取都沒得退。
+手機在剛切回 App、網路還沒穩的那幾秒按更新，正好踩中。
+（`navigator.onLine` 只表示「有連上某個網路」，不保證連得到伺服器，擋不住這件事。）
+
+**兩件修正**：
+
+1. **更新流程不再 `unregister`**，只 `skipWaiting` ＋ 重載。新版 SW 早就準備好了；就算它還沒接手，
+   舊的 SW 仍然供得出**整組**舊版，畫面至少是完整可用的，下次再換。
+   （`unregister` 只留在「需要更新」那張卡的強制更新，那是使用者已經卡住時的逃生門。）
+2. **新增開機看門狗 `js/bootguard.js`** —— 刻意是一支**普通 script、沒有任何 import**，所以它不會跟著 module 圖一起死。
+   開機超過 12 秒（或偵測到 script／link 載入失敗）還沒有人把 `<html data-booted="1">` 標起來，
+   它就把一張看得懂的卡片畫上去：講原因、給「重新載入」與「清掉快取再載入」兩顆按鈕、
+   並先講「你存的資料不會因為這樣不見」。**它只在畫面還空著（或還在轉圈圈）時出手**，不會蓋掉正常畫面。
+
+**實測**：用一台會把 `js/app.js` 打成 404 的伺服器做出那個畫面（`title` 是預設的 `MealMate`、`data-booted` 是 null、
+分頁列 0 個）—— 看門狗在 1.2 秒內補上卡片；把檔案放回去後按「重新載入」，App 正常開起來（分頁列 4 個、`data-booted=1`）。
+
+**給 StockDiary 對照**：同一個形狀 —— 只要更新流程裡有「`unregister()` 之後 `reload()`」，
+而首頁載入的是一張 ES module 圖，就會有這個破口；救法也一樣（不要 unregister ＋ 一支沒有相依的看門狗）。
+判斷是不是同一個病：看空白畫面上的 `<title>`／頂列是不是還停在 HTML 的預設值 —— 是的話就是「JS 整個沒跑」，不是 render 的問題。
+
+**測試**：`shelltest` 靜態守住（看門狗沒有 import、排在 app.js 之前、進了 SHELL 預快取、`applyNow` 裡沒有 `unregister`，
+並有對照組確認別處仍留著 `unregister`）；`versionmixtest` 走真實瀏覽器（把 `js/app.js` 打成 404 → 先確認真的空白 →
+看門狗補卡 → 檔案回來後按「重新載入」回到可用畫面），另外把「按下更新」那一節補上**更新後畫面必須可用**的斷言
+（`data-booted`、卡片數、分頁 4 個、標題不是預設值）。**4 條新突變**全部驗過會紅。
 
 ### 移除「家裡有」（2026-09-17，v0.26.0）
 

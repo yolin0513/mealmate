@@ -5,7 +5,7 @@
  *
  * 每次改動任何 SHELL 檔案都要 bump VERSION，否則使用者拿到的還是舊程式。
  */
-const VERSION = 'mealmate-v0.26.0';
+const VERSION = 'mealmate-v0.27.0';
 const SHELL = `${VERSION}-shell`;
 
 const SHELL_ASSETS = [
@@ -13,6 +13,7 @@ const SHELL_ASSETS = [
   './index.html',
   './manifest.webmanifest',
   './css/style.css',
+  './js/bootguard.js',
   './js/app.js',
   './js/router.js',
   './js/store.js',

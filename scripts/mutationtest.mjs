@@ -19,6 +19,39 @@ import { ok, eq, section, done, note } from './tap.mjs';
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const MUTATIONS = [
+  // ---- 2026-09-17 按「更新」之後停在空白（Yolin 回報）----
+  {
+    name: "index.html 不載開機看門狗",
+    why: "module 圖載不到時畫面會停在「只有標題列、下面全空」，使用者只能把 App 滑掉重開。",
+    file: "index.html",
+    find: "  <script src=\"./js/bootguard.js\"></script>\n",
+    replace: "",
+    test: "versionmixtest",
+  },
+  {
+    name: "看門狗判斷「畫面還是空的」永遠回 false",
+    why: "等於整支看門狗失效 —— 該補的說明卡永遠不會出現。",
+    file: "js/bootguard.js",
+    find: "    return text.length === 0 || !!view.querySelector('.spinner');",
+    replace: "    return false;",
+    test: "versionmixtest",
+  },
+  {
+    name: "開機成功不標 data-booted",
+    why: "看門狗分不出「還沒好」與「好了」，換版後的正常畫面也可能被它蓋掉。",
+    file: "js/app.js",
+    find: "  document.documentElement.dataset.booted = '1';",
+    replace: "  void 0;",
+    test: "versionmixtest",
+  },
+  {
+    name: "按「更新」又先 unregister 再重載（回到出事的版本）",
+    why: "取消註冊之後這一頁就沒有 Service Worker：重載時每個檔案只能走網路，手機網路一不穩整張 module 圖就載不齊，連快取都沒得退。",
+    file: "js/app.js",
+    find: "      setTimeout(() => { reload(); }, 1500);",
+    replace: "      setTimeout(async () => {\n        if (reloading) return;\n        if (navigator.onLine) {\n          try {\n            const r = await navigator.serviceWorker.getRegistration();\n            if (r) await r.unregister();\n          } catch { /* noop */ }\n        }\n        reload();\n      }, 1500);",
+    test: "shelltest",
+  },
   // ---- 2026-09-17 移除「家裡有」（Yolin 決定：冰箱裡的剩菜用「自己指定菜」處理就好）----
   {
     name: "「家裡有」的判斷偷偷留在買菜頁",
