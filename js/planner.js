@@ -152,7 +152,7 @@ export function medianOf(values) {
  * @param rules   DEFAULT_RULES 的形狀（可部分覆寫）
  * @param favorites [{recipeId, wantThisWeek}]
  */
-export function buildContext({ recipes, members = [], idx, units, rules = {}, favorites = [], shoppingDays = [], haveFoods = new Set() }) {
+export function buildContext({ recipes, members = [], idx, units, rules = {}, favorites = [], shoppingDays = [] }) {
   const r = {
     noRepeatDays: { ...DEFAULT_RULES.noRepeatDays, ...(rules.noRepeatDays ?? {}) },
     timeCaps: { weekday: { ...DEFAULT_RULES.timeCaps.weekday, ...(rules.timeCaps?.weekday ?? {}) }, weekend: { ...DEFAULT_RULES.timeCaps.weekend, ...(rules.timeCaps?.weekend ?? {}) } },
@@ -271,7 +271,7 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
 
   // 混合家庭：同時有吃葷與吃素的人。hasOmni 在「還沒新增家人」時也是 true，但那時 vegetarians 是空的，所以不算。
   const mixedHome = vegetarians.length > 0 && hasOmni;
-  return { recipes, members, idx, units, rules: r, vegetarians, hasOmni, mixedHome, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, haveFoods: new Set(haveFoods), refPerServing, heartyOf, isLight };
+  return { recipes, members, idx, units, rules: r, vegetarians, hasOmni, mixedHome, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, refPerServing, heartyOf, isLight };
 }
 
 // ---------- 保存期限 ----------
@@ -452,11 +452,6 @@ export function scoreSoft(recipe, { role, meal, date, day }, ctx, state, rng) {
   if (lastShop) {
     const already = recipe.ingredients.filter((ing) => !ing.pantry && state.rangeHas(lastShop, ing.food));
     if (already.length) { score += Math.min(12, already.length * 3); reasons.push(`${already.slice(0, 2).map((i) => i.label.replace(/（.*?）/g, '')).join('、')}這幾天已經會買`); }
-  }
-  // 購物清單勾了「家裡有」的食材
-  if (ctx.haveFoods.size) {
-    const have = recipe.ingredients.filter((ing) => !ing.pantry && ctx.haveFoods.has(ing.food));
-    if (have.length) { score += Math.min(9, have.length * 3); reasons.push(`${have.slice(0, 2).map((i) => i.label.replace(/（.*?）/g, '')).join('、')}你勾了家裡有`); }
   }
 
   reasons.push(`約 ${recipe.time} 分鐘，${METHOD_LABELS[recipe.method]}`);
@@ -757,10 +752,10 @@ export function fillMeal(ctx, state, slotInfo, { lockedItems = [], rng, diagnost
  * 產生一週。prevPlan 裡 kind 不是 cook 的格子與 locked 的菜會原樣保留。
  * @returns {{ plan, diagnostics }}
  */
-export function generateWeek({ recipes, members = [], idx, units, rules = {}, favorites = [], history = [], mondayIso, seed, prevPlan = null, shoppingDays = [], haveFoods = new Set() }) {
+export function generateWeek({ recipes, members = [], idx, units, rules = {}, favorites = [], history = [], mondayIso, seed, prevPlan = null, shoppingDays = [] }) {
   const monday = mondayOf(mondayIso);
   const dates = weekDates(monday);
-  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays, haveFoods });
+  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays });
   const rng = makeRng(`${seed}|${monday}`);
   // 這一週自己的歷史不算（重新產生時舊格子會被換掉）；只帶這週之前 28 天內的
   const past = history.filter((h) => h.date < monday && daysBetween(h.date, monday) <= 28);
@@ -865,9 +860,9 @@ export function balanceSentence(b) {
  * 以前這裡是逐格呼叫 swapItem，那條路永遠補配菜、不會有加菜，同一條規則在兩個入口行為不同。
  * @returns {{ items, diagnostics }} items 已經剝掉 method、依位置排好
  */
-export function refillSlot({ plan, slotIndex, recipes, members = [], idx, units, rules = {}, favorites = [], history = [], shoppingDays = [], seed, haveFoods = new Set() }) {
+export function refillSlot({ plan, slotIndex, recipes, members = [], idx, units, rules = {}, favorites = [], history = [], shoppingDays = [], seed }) {
   const slot = plan.slots[slotIndex];
-  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays, haveFoods });
+  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays });
   const past = history.filter((h) => h.date < plan.monday && daysBetween(h.date, plan.monday) <= 28);
   const state = makeState(past, ctx, plan.monday);
   // 這一週其他格子的菜都算「已排」（這一格自己要重填，所以不算）
@@ -887,9 +882,9 @@ export function refillSlot({ plan, slotIndex, recipes, members = [], idx, units,
 }
 
 /** 把一格裡某個角色換一道（排除現在這道）。回新的 item 或 null。 */
-export function swapItem({ plan, slotIndex, pos, recipes, members, idx, units, rules, favorites, history, shoppingDays, seed, haveFoods = new Set() }) {
+export function swapItem({ plan, slotIndex, pos, recipes, members, idx, units, rules, favorites, history, shoppingDays, seed }) {
   const slot = plan.slots[slotIndex];
-  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays, haveFoods });
+  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays });
   const past = history.filter((h) => daysBetween(h.date, plan.monday) <= 28 && h.date < plan.monday);
   const state = makeState(past, ctx, plan.monday);
   // 這一週其他格子的菜都算「已排」

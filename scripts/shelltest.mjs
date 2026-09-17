@@ -241,6 +241,20 @@ const nonEntryModules = ['sw.js', ...jsFiles].filter((f) => f !== 'js/app.js');
 noneOf(nonEntryModules, (f) => importsOf(read(f)).some((spec) => spec.split('?')[0].endsWith('/app.js')),
   '沒有任何模組 import app.js（view 要的東西在 js/shell.js）');
 
+section('「家裡有」已經整個移除（2026-09-17，Yolin 決定）');
+{
+  // 移掉的理由：它不扣採買量、也沒有跨餐或跨週的追蹤，只是排菜時一個最多 +9 的小加分，
+  // 而且只在「重新產生同一週」時才生效 —— 冰箱裡的剩菜用本週頁的「自己指定菜」處理更直接。
+  // 這一條盯的是**移乾淨**：半套的移除最難發現（畫面沒有按鈕了，程式裡還留著半條路，
+  // 下一個接手的人會以為功能還在）。
+  const files = ['js/planner.js', 'js/store.js', 'js/shopping.js', 'js/views/shopping.js', 'js/views/week.js', 'js/views/weekops.js', 'css/style.css'];
+  const marks = ['haveFoods', 'row.have', 'usedHave', '你勾了家裡有', 'data-action="have"', "action: 'have'", 'haveBtn'];
+  const hits = files.flatMap((f) => { const src = read(f); return marks.filter((m) => src.includes(m)).map((m) => `${f} 還有「${m}」`); });
+  ok(files.length === 7 && marks.length === 7, `（母體）掃 ${files.length} 個檔 × ${marks.length} 種殘留形狀`);
+  ok(read('js/views/shopping.js').includes('shop-row') && read('js/planner.js').includes('scoreSoft'), '（對照）這幾個檔真的讀進來了，不是空字串');
+  eq(hits, [], '產品程式碼裡一個殘留都沒有');
+}
+
 section('外部連結不把來源網址送出去');
 {
   const eduSrc = read('js/edu.js');

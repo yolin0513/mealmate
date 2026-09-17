@@ -75,7 +75,7 @@ try {
     const { plan, diagnostics } = generateWeek({
       recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
       rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid') },
-      favorites: store.favoritesList(), history: [], mondayIso, seed: 'layout', shoppingDays: [1, 4], haveFoods: new Set(),
+      favorites: store.favoritesList(), history: [], mondayIso, seed: 'layout', shoppingDays: [1, 4],
     });
     // 一格外食、一格不煮：本週頁三種狀態都要掃到
     const lunchIdx = plan.slots.findIndex((s) => s.meal === 'lunch');
@@ -93,11 +93,11 @@ try {
     }
     await store.savePlan({ ...plan, diagnostics });
 
-    // 購物清單：勾幾項「買了」「家裡有」
+    // 購物清單：勾幾項「買了」
     const recipesById = new Map(store.allRecipes().map((r) => [r.id, r]));
     const { ranges } = buildShoppingList({ plan, recipesById, members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: [1, 4] });
     const r0 = ranges[0];
-    await store.saveShopping({ rangeKey: r0.key, weekKey: plan.weekKey, checked: { [r0.items[0].foodId]: true }, have: { [r0.items[1].foodId]: true } });
+    await store.saveShopping({ rangeKey: r0.key, weekKey: plan.weekKey, checked: { [r0.items[0].foodId]: true } });
 
     // 今日煮：挑**菜名最長**的那一餐（那一頁的 pill 是「家常麻婆豆腐（可分素葷）（主菜約 25 分）」
     // 這種長度，是全 App 最寬的一塊；隨便挑一餐的話樣本裡就沒有最寬的組合，等於沒掃）。
@@ -632,7 +632,7 @@ try {
   // 所以直接量：兩顆同列等寬、第一顆佔滿一列、左右緣對齊。四種買菜狀態都掃（自己加的那組才有「刪除」）。
   const shopPages = all.filter((p) => p.route.startsWith('買菜'));
   ok(shopPages.length === 4 * SCALES.length * WIDTHS.length, `（母體）買菜頁四種狀態掃了 ${shopPages.length} 組`);
-  everyOf(shopPages, (p) => p.linkish.length === 0, '沒有任何控制項長得像超連結（家裡有、刪除都是按鈕）',
+  everyOf(shopPages, (p) => p.linkish.length === 0, '沒有任何控制項長得像超連結（刪除、摺疊標題都是按鈕）',
     shopPages.filter((p) => p.linkish.length).slice(0, 3).map((p) => `${where(p)}：${p.linkish.slice(0, 3).join('、')}`).join(' ／ '));
   const acts = shopPages.flatMap((p) => p.actions.map((a) => ({ ...a, where: where(p) })));
   ok(acts.length >= shopPages.length * 2, `（前提）每一組的每張採買卡都量到底下三顆按鈕（共 ${acts.length} 張卡）`);
@@ -665,8 +665,8 @@ try {
   everyOf(withList, (p) => p.columns.every((c) => c.rows >= 2), '每一區都至少兩列可以互相比對');
   noneOf(withList, (p) => p.columns.some((c) => c.rightSpread > 2), '同一區裡數量欄的右緣對齊（差 ≤ 2px）',
     withList.filter((p) => p.columns.some((c) => c.rightSpread > 2)).slice(0, 3).map((p) => `${where(p)}：${Math.max(...p.columns.map((c) => c.rightSpread))}px`).join(' ／ '));
-  // 「一律不准換行」在 320px／特大下做不到：「豬里肌肉片」＋「約 0.5 斤（133 g）」＋「家裡有」
-  // 加起來就是比一行寬。硬寫成那樣只會變成一條永遠紅、或被放寬到沒有意義的斷言。
+  // 「一律不准換行」在 320px／特大下做不到：「豬里肌肉片」＋「約 0.5 斤（133 g）」加起來就是比一行寬。
+  // 硬寫成那樣只會變成一條永遠紅、或被放寬到沒有意義的斷言。
   // 真正的規則是：**放得下的那些列，一定要在同一行**；放不下的才准換到自己那一行（仍然靠右）。
   const totalFitting = withList.reduce((n, p) => n + p.columns.reduce((m, c) => m + c.fitting, 0), 0);
   const totalWrapped = withList.reduce((n, p) => n + p.columns.reduce((m, c) => m + c.wrapped, 0), 0);

@@ -86,7 +86,7 @@ GitHub Pages（yolin0513.github.io/mealmate）
 | `favorites` | `recipeId` | addedAt、wantThisWeek（布林，最多 7 道為真） |
 | `plans` | `weekKey`（ISO 週） | slots[21]：{day, meal, kind(cook／eatOut／skip), items[{recipeId, role(main／side／soup／staple), locked}], reasons[]} |
 | `history` | `[date+recipeId]` | 用來算「N 天內不重複」；跨週；早餐也記，但 `noRepeatDays.breakfast` 為 0 所以不扣分 |
-| `shopping` | `rangeKey`（採買區間起訖） | items[{foodId, grams, buyQty, buyUnit, section, checked, have}]、pantry[] |
+| `shopping` | `rangeKey`（採買區間起訖） | items[{foodId, grams, buyQty, buyUnit, section, checked}]、pantry[]（`have` 欄位 2026-09-17 隨「家裡有」一起移除；舊備份留著不理） |
 | `recipeNotes` | `recipeId` | 使用者對某道菜的備註（「爸爸不吃香菜」）、自訂份量 |
 
 匯出／匯入：全部 store 一個 JSON（沿用 StockDiary `backup.js` 的 round-trip 與逐列先驗證再 clear 的做法）。**沒有金鑰 store**（v1 無 AI）。
@@ -206,7 +206,7 @@ GitHub Pages（yolin0513.github.io/mealmate）
 - 每個區間一張清單：把區間內所有格子的食材依 `food` 加總克數 → 用 `buyUnit`／`unitWeight` 換成「約 1 顆／半斤／1 盒」（顯示「約」）→ 依賣場分區排：蔬菜、水果、肉、魚貝、豆製品蛋奶、乾貨雜糧、調味。
   （原本還列了 `wasteRate`（廢棄率），App 從來沒用到，M5 瘦身 `foods.json` 時刪掉了，`datatest` 盯著它不會回來。）
 - `pantry:true` 的（油、鹽、醬油、米、糖）**不列入主清單**，另一段「常備品，用完再勾」。
-- 每項可勾「買了」「家裡有」；「家裡有」會在下次產生時當作已有食材加分。
+- 每項可勾「買了」。（2026-09-17 移除「家裡有」：它不扣採買量、也沒有跨餐追蹤，只是一個小加分；冰箱裡的剩菜用「自己指定菜」處理更直接。）
 - **清單的順序**（2026-09-17）：還有餐要煮的清單排前面，**整個過去的**（它涵蓋的每一天都過了）排到後面、
   預設收起來、標「已過」，但打得開補買。注意「過去了」看的是它給哪幾餐，不是買菜日本身 ——
   星期四那天，星期三那張的買菜日雖然過了，買的卻正是今晚要煮的菜。
@@ -356,7 +356,7 @@ M0 資料與骨架 → M1 家人與食譜瀏覽 → M2 週計畫 → M3 買菜 �
 | 每道菜預標營養數字 | 手動加菜、改份量就沒數字；不可追溯 |
 | 只用「過濾葷素」處理素食 | 使用者要的是「先煮素再加葷」，那是食譜結構問題；過濾只會讓有素食成員的家庭池子剩一半 |
 | 腎臟病一律限鉀 | 衛教明確：限鉀只在血鉀高或醫囑時；一律限會誤導 |
-| 完整冰箱庫存管理 | 維護負擔高、多數人一週內放棄；用購物清單的「家裡有」勾選取代 |
+| 完整冰箱庫存管理 | 維護負擔高、多數人一週內放棄；冰箱裡有什麼要用掉，直接用本週頁的「自己指定菜」排進去 |
 | 菜色照片 | 沒有合法來源、體積大；用分類插圖／色塊 |
 | 深色模式（v1） | 家庭廚房場景多白天、明亮主題是需求；先不花這個成本 |
 | 後端／帳號／雲端同步 | 沒有需求需要它；健康資料上雲是風險不是價值 |

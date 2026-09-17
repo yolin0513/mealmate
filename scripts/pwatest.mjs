@@ -110,7 +110,7 @@ try {
     const { plan, diagnostics } = generateWeek({
       recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
       rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid') },
-      favorites: [], history: [], mondayIso: mondayOf(isoDate(new Date())), seed: 'pwa', shoppingDays: [1, 4], haveFoods: new Set(),
+      favorites: [], history: [], mondayIso: mondayOf(isoDate(new Date())), seed: 'pwa', shoppingDays: [1, 4],
     });
     await store.savePlan({ ...plan, diagnostics });
   });

@@ -41,12 +41,13 @@
 | 個資稽核：repo、git 歷史、資料流、線上內容 | ✅ 完成（2026-09-17） | 未動程式碼 |
 | 自主優化一輪：寫入失敗要講、開機失敗要講、換頁播報、減少動態、主畫面捷徑、`noreferrer`、買菜頁順序 | ✅ 完成（2026-09-17） | `mealmate-v0.24.0` |
 | 回報兩項：加菜列的「⋯」跑版、滷雞腳填成配菜就排不進去 | ✅ 完成（2026-09-17） | `mealmate-v0.25.0` |
+| 移除「家裡有」（Yolin 決定：冰箱裡的剩菜用「自己指定菜」處理） | ✅ 完成（2026-09-17） | `mealmate-v0.26.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 122、membertest 79、nutritiontest 147、plannertest 334、shoppingtest 130、timelinetest 71、doctest 124；
-瀏覽器端（puppeteer）：shelltest 146、familytest 65、recipeviewtest 93、backuptest 30、weekviewtest 168、shoppingviewtest 151、todaytest 41、racetest 16、versionmixtest 41、layouttest 100（117 組版面掃描 ＋ 桌機七欄）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
+Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 122、membertest 79、nutritiontest 147、plannertest 324、shoppingtest 130、timelinetest 71、doctest 124；
+瀏覽器端（puppeteer）：shelltest 149、familytest 65、recipeviewtest 93、backuptest 30、weekviewtest 161、shoppingviewtest 147、todaytest 41、racetest 16、versionmixtest 46、layouttest 100（117 組版面掃描 ＋ 桌機七欄）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **273 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
+`mutationtest` 共 **270 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
 
 食譜現況：**217 道**（主菜 102、配菜 56、湯 34、早餐 19、主食 6）。
 
@@ -73,6 +74,42 @@ Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、
 5. **完整突變套件**：105 條全跑一次**全綠**（24 個基準先過，再逐條改壞、確認會紅、還原）。
 
 檢測期間**沒有動任何產品程式碼**（js／css／data 零改動），改的都是測試與工具。
+
+### 移除「家裡有」（2026-09-17，v0.26.0）
+
+Yolin 問「這個按鈕到底有什麼用、是不是多餘」。**先只讀查清楚、量過再給選項**，結論如下。
+
+**它實際做的事**（查證，不是推測）：
+- **對購物清單只有記號、不扣任何份量** —— `buildShoppingList()` 根本沒有 `have` 這個參數。
+  那一項照樣留在清單上、克數一模一樣，只是數量變灰、算進「這一區處理掉了」（會自動收合）、
+  進度列另開一欄「家裡有 N」、複製的文字把 `□` 換成 `（家裡有）`、印出時數量後面加四個字。
+- **對排菜是一個小加分**：每有一樣被勾的非常備品食材 +3，最多 +9（對照：本週想吃 +40、收藏 +12、14 天內重複 −100）。
+  而且 `haveFoodsForWeek(weekKey)` 依週過濾，**只有「重新產生同一週」時才生效**，產生下一週完全看不到。
+
+**量到的數字**（8 個種子 × 3 樣食材，24 組）：
+- 勾一樣食材後，它一週被用到 **2.42 → 3.67 次**（平均多用 1.25 次），24 組裡 **0 組變少** —— 功能是有效的。
+- 但**勾了反而要買更多**：整週要買那樣食材的量 **761 → 974 g**（多排了用到它的菜，清單又不扣量）。
+- 而且**勾一樣就重排 42.5%** 的菜（加分會連鎖影響後面每一格），看起來像隨機。
+
+**Yolin 的兩個疑慮都成立**：(a) 份量不一定夠 → 不是「整項不買」，是**完全不扣量**；
+(b) 留不到下一餐 → **沒有任何數量追蹤**，沒有扣減、沒有結轉、沒有到期，跨週也不繼承。
+
+**三個選項給他選（維持／改進成填數量扣差額／移除），Yolin 選移除**，理由：冰箱有剩菜可以用「自己指定菜」解決。
+
+**移掉的東西**：買菜頁的按鈕與 `row.have`、`store.haveFoodsForWeek`、`planner` 的 `haveFoods` 參數（`buildContext`／
+`generateWeek`／`refillSlot`／`swapItem`）與 `scoreSoft` 那段加分、本週頁「有先用到你說『家裡有』的東西」那張卡與
+`usedHaveDishes`、`listAsText` 的 `have`、三條 CSS（含 320px 那條為它讓位的規則）。
+**舊備份留著不理**：`shopping` 列裡殘留的 `have` 欄位沒有人讀，`validateImport` 只看 store 名稱與主鍵，不會報錯。
+
+**移除時發現的一件事**（`versionmixtest` 抓到）：拿掉一個 `store` 的匯出之後，瀏覽器手上那份十分鐘前的
+`js/views/week.js` 按「產生」會呼叫一個已經不存在的函式。這不是新的破口 —— 那一版的 `week.js` 自己有 try/catch，
+使用者會看到「排不出來：store.haveFoodsForWeek is not a function」，SW 整組換版之後就正常。
+新增一節把這件事釘住（按下去一定要出聲，不是沒反應），並把那一節的前提改成直接把菜單寫進 IndexedDB
+（不經舊版畫面）—— 它量的是「SW 換版是整組的」，不是「舊版本週頁能不能產生菜單」。
+
+**測試**：刪掉 `plannertest` 兩節、`weekviewtest` 一節、`shoppingviewtest` 的相關斷言與 6 條突變；
+新增 `shelltest`「移乾淨」的結構斷言（7 個檔 × 7 種殘留形狀）與 `shoppingviewtest`「畫面上一顆都沒有、
+進度列只剩『已買 N／M』」；**3 條新突變**（把判斷偷留在買菜頁、排菜器又收回 `haveFoods`、買菜頁又長出那顆按鈕）。
 
 ### 回報兩項：加菜列的「⋯」跑版、滷雞腳填成配菜就排不進去（2026-09-17，v0.25.0）
 
@@ -557,6 +594,8 @@ v0.11.0 明確放寬過前兩條，這是回歸。**實測查到的根因**（�
 買齊不收合、手動展開被收回、家裡有不算買齊、只改外觀不用 hidden），逐條驗證會紅。
 
 ### 「家裡有」降為次選項，並讓它自己解釋自己（2026-09-13）
+
+> **這個功能 2026-09-17 已整個移除**，見上方「移除『家裡有』」那一節。以下保留當時的判斷與那個真 bug 的紀錄。
 
 使用者問「家裡有」是不是多餘（打勾也是不用再買）。**沒有合併**，採降級：
 

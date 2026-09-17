@@ -98,6 +98,30 @@ async function bootWithPlan(page) {
   await page.waitForSelector('[data-card="weekHead"]', { timeout: 60000 });
 }
 
+/**
+ * 開起來、按掉首次說明，然後**直接把菜單寫進 IndexedDB**（不經畫面）。
+ *
+ * 為什麼不走「產生」按鈕：這一節刻意讓伺服器送舊版的 `js/views/week.js`，而舊版的它會呼叫
+ * 早就移除的 `store.haveFoodsForWeek`（2026-09-17 隨「家裡有」一起拿掉）—— 那一頁根本畫不出來。
+ * 資料層（planner／store）送的是新版，所以繞過畫面自己排一週就好；
+ * 「舊 view 畫不出來時使用者看到什麼」由下面那條斷言負責。
+ */
+async function bootAndSeedPlan(page) {
+  await page.goto(BASE, { waitUntil: 'networkidle0' });
+  await page.waitForSelector('[data-action="acceptDisclaimer"]');
+  await page.click('[data-action="acceptDisclaimer"]');
+  await page.waitForSelector('#view .card');
+  await page.evaluate(async () => {
+    const store = await import('./js/store.js');
+    const { generateWeek, mondayOf, isoDate } = await import('./js/planner.js');
+    const { plan, diagnostics } = generateWeek({
+      recipes: store.allRecipes(), members: [], idx: store.foodsIndex(), units: store.units(),
+      favorites: [], history: [], mondayIso: mondayOf(isoDate(new Date())), seed: 'versionmix', shoppingDays: [],
+    });
+    await store.savePlan({ ...plan, diagnostics });
+  });
+}
+
 /** 按下「一起煮」，回報按完之後的狀態。 */
 async function clickCookToday(page) {
   const found = await page.evaluate(() => {
@@ -176,9 +200,9 @@ try {
   state.oldFiles = new Set(['js/app.js', 'js/views/week.js', 'js/views/today.js', 'sw.js', 'index.html']);
   {
     const { ctx, page } = await freshPage();
-    // 先在舊版底下把資料準備好（同意說明、產生菜單）。放到換版之後才做的話，
+    // 先在舊版底下把資料準備好（同意說明、菜單直接寫進 IndexedDB）。放到換版之後才做的話，
     // 那一步會跟自動換版的重載搶同一個瞬間，偶發卡在「還沒畫出菜單」（實際踩過）。
-    await bootWithPlan(page);
+    await bootAndSeedPlan(page);
     const controlled = await page.evaluate(async () => {
       await navigator.serviceWorker.ready;
       for (let i = 0; i < 50 && !navigator.serviceWorker.controller; i += 1) await new Promise((r) => setTimeout(r, 100));
@@ -187,7 +211,7 @@ try {
     ok(controlled, 'SW 已經接手這個頁面');
     const before = await page.evaluate(async () => (await import('./js/router.js')).routePatterns());
     ok(!before.includes('/today'), `舊版 SW 之下看到的路由沒有 /today（${before.length} 條）`);
-    eq(await page.$('[data-action="cookToday"]'), null, '（前提）舊版的本週頁上沒有「一起煮」按鈕');
+    eq(await page.$('[data-action="cookToday"]'), null, '（前提）舊版之下沒有「一起煮」按鈕');
 
     // 伺服器整個換成新版（模擬部署），重載 —— 舊的 SW 還在管這個頁面
     state.oldFiles = new Set();
@@ -210,6 +234,29 @@ try {
       const routes = await page.evaluate(async () => (await import('./js/router.js')).routePatterns());
       ok(!routes.includes('/today'), '沒有按鈕的話，路由表裡也不該有 /today —— 兩者一致');
     }
+    await ctx.close();
+  }
+
+  section('舊的畫面配新的程式：按下去不會沒有反應');
+  // 2026-09-17 移除「家裡有」時確認的：拿掉一個 store 的匯出之後，瀏覽器手上那份十分鐘前的
+  // `js/views/week.js` 按「產生」時會呼叫一個已經不存在的函式。那是在按鈕的處理函式裡丟的例外，
+  // 不在 router 的 try 裡 —— 接住它的是 v0.24.0 那道 unhandledrejection 安全網。
+  // 使用者至少會看到一句話，而不是按了完全沒反應。SW 接手之後整組換成新版就正常了。
+  state.oldFiles = new Set(['js/views/week.js']);
+  {
+    const { ctx, page } = await freshPage();
+    await page.goto(BASE, { waitUntil: 'networkidle0' });
+    await page.waitForSelector('[data-action="acceptDisclaimer"]');
+    await page.click('[data-action="acceptDisclaimer"]');
+    await page.waitForSelector('[data-action="generate"]', { timeout: 30000 });
+    eq(await page.evaluate(() => document.getElementById('toast').hidden), true, '（前提）按下去之前沒有任何提示');
+    await page.$eval('[data-action="generate"]', (el) => el.click());
+    await page.waitForFunction(() => { const t = document.getElementById('toast'); return t && !t.hidden && t.textContent.length > 0; }, { timeout: 30000 });
+    const toast = await page.$eval('#toast', (el) => el.textContent.trim());
+    ok(/排不出來|沒有完成/.test(toast), `舊畫面按下去會出聲，而且講得出出了什麼事：「${toast}」`);
+    ok(toast.length >= 6, `訊息不是空的（${toast.length} 個字）`);
+    eq(await page.$('[data-card="weekHead"]'), null, '（對照）菜單真的沒排出來 —— 上面那句不是多餘的');
+    eq((await page.$$('#tabbar .tab')).length, 4, '底部分頁還在，沒有把使用者困住');
     await ctx.close();
   }
 

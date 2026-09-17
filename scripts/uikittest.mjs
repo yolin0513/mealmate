@@ -69,7 +69,7 @@ try {
     const { plan, diagnostics } = generateWeek({
       recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
       rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid') },
-      favorites: store.favoritesList(), history: [], mondayIso, seed: 'uikit', shoppingDays: [1, 4], haveFoods: new Set(),
+      favorites: store.favoritesList(), history: [], mondayIso, seed: 'uikit', shoppingDays: [1, 4],
     });
     await store.savePlan({ ...plan, diagnostics });
     const slot = plan.slots.find((s) => s.kind === 'cook' && s.items.length > 1);

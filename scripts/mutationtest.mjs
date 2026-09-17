@@ -19,6 +19,31 @@ import { ok, eq, section, done, note } from './tap.mjs';
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const MUTATIONS = [
+  // ---- 2026-09-17 移除「家裡有」（Yolin 決定：冰箱裡的剩菜用「自己指定菜」處理就好）----
+  {
+    name: "「家裡有」的判斷偷偷留在買菜頁",
+    why: "半套的移除最難發現：畫面上沒有按鈕了，程式裡卻還留著半條路，下一個人看到會以為功能還在。",
+    file: "js/views/shopping.js",
+    find: "    const isDone = (k) => !!row.checked?.[k];",
+    replace: "    const isDone = (k) => !!row.checked?.[k] || !!row.have?.[k];",
+    test: "shelltest",
+  },
+  {
+    name: "排菜器又收回 haveFoods",
+    why: "同上，另一半：排菜器只要還認得這個參數，就會有人以為勾了會有用。",
+    file: "js/planner.js",
+    find: "shoppingDays, refPerServing, heartyOf, isLight };",
+    replace: "shoppingDays, haveFoods: new Set(), refPerServing, heartyOf, isLight };",
+    test: "shelltest",
+  },
+  {
+    name: "買菜頁又長出「家裡有」按鈕",
+    why: "移除的是使用者看得到的那顆按鈕；它如果回來了，測試要紅。",
+    file: "js/views/shopping.js",
+    find: "                h('span', { class: 'muted xs shop-uses' },\n                  h('span', { class: 'shop-uses-text' },",
+    replace: "                h('span', { class: 'muted xs shop-uses' },\n                  h('button', { class: 'btn btn-sm btn-quiet', type: 'button', dataset: { action: 'have', food: it.foodId } }, '家裡有'),\n                  h('span', { class: 'shop-uses-text' },",
+    test: "shoppingviewtest",
+  },
   // ---- 2026-09-17 回報兩項：加菜列的「⋯」跑版、滷雞腳填成配菜就排不進去 ----
   {
     name: "加菜格只收主菜（回到改版前）",
@@ -924,8 +949,8 @@ const MUTATIONS = [
     name: "本週頁沒有「一週平衡」那張卡",
     why: "平衡要誠實講出來，不是偷偷調。",
     file: "js/views/week.js",
-    find: "  render(head, wantCard, diagCard, balanceCard, haveCard, h('div', { class: 'week-grid' }, ...dayCards), noticeFooter());",
-    replace: "  render(head, wantCard, diagCard, haveCard, h('div', { class: 'week-grid' }, ...dayCards), noticeFooter());",
+    find: "  render(head, wantCard, diagCard, balanceCard, h('div', { class: 'week-grid' }, ...dayCards), noticeFooter());",
+    replace: "  render(head, wantCard, diagCard, h('div', { class: 'week-grid' }, ...dayCards), noticeFooter());",
     test: "weekviewtest",
   },
   {
@@ -1001,22 +1026,6 @@ const MUTATIONS = [
     find: ".shop-actions > .btn { padding-inline: 8px; }",
     replace: ".shop-actions > .btn { }",
     test: "layouttest",
-  },
-  {
-    name: "「家裡有」退回超連結樣式",
-    why: "使用者回報橘色帶底線的「家裡有」看起來像超連結，不像可以按的東西。",
-    file: "js/views/shopping.js",
-    find: "          const haveBtn = h('button', { class: 'btn btn-sm btn-quiet have-btn' + (row.have?.[it.foodId] ? ' on' : ''),",
-    replace: "          const haveBtn = h('button', { class: 'linklike have-link' + (row.have?.[it.foodId] ? ' on' : ''),",
-    test: "shoppingviewtest",
-  },
-  {
-    name: "「家裡有」變成跟主動作一樣搶眼的按鈕",
-    why: "「家裡有」是刻意降級的次要動作；改成實心主色按鈕會跟「買了」的勾選搶，又回到兩個並排看起來重複。",
-    file: "js/views/shopping.js",
-    find: "          const haveBtn = h('button', { class: 'btn btn-sm btn-quiet have-btn' + (row.have?.[it.foodId] ? ' on' : ''),",
-    replace: "          const haveBtn = h('button', { class: 'btn btn-sm btn-primary have-btn' + (row.have?.[it.foodId] ? ' on' : ''),",
-    test: "shoppingviewtest",
   },
   {
     name: "自己加的「刪除」退回超連結樣式",
@@ -1140,37 +1149,12 @@ const MUTATIONS = [
     test: "shoppingviewtest",
   },
   {
-    name: "「家裡有」不算買齊",
-    why: "使用者說「家裡有也等同於已購買」；只看「買了」的話，勾了家裡有的區塊永遠收不起來。",
-    file: "js/views/shopping.js",
-    find: "    const isDone = (k) => !!row.checked?.[k] || !!row.have?.[k];",
-    replace: "    const isDone = (k) => !!row.checked?.[k];",
-    test: "shoppingviewtest",
-  },
-  {
     name: "收合只改外觀，不用 hidden 移出版面",
     why: "看起來收了，但版面還被佔著、螢幕閱讀器仍然念整區 —— 跟本週頁摺疊同一個要求。",
     file: "js/views/shopping.js",
     find: "        f.body.hidden = !open;",
     replace: "        f.body.style.opacity = open ? '1' : '0.4';",
     test: "shoppingviewtest",
-  },
-  // ---- 「家裡有」降級並自己解釋自己 ----
-  {
-    name: "generateWeek 不把 haveFoods 接下去",
-    why: "本週頁傳進來的「家裡有」被靜默丟掉，冰箱裡的東西不會被優先吃掉。這是實際踩過的 bug：scoreSoft 是對的，少接一個參數就整個功能沒作用，而且畫面上看不出來。",
-    file: "js/planner.js",
-    find: "  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays, haveFoods });\n  const rng = makeRng(`${seed}|${monday}`);",
-    replace: "  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays });\n  const rng = makeRng(`${seed}|${monday}`);",
-    test: "plannertest",
-  },
-  {
-    name: "本週頁不講「家裡有」讓哪幾道菜被選上",
-    why: "使用者覺得「家裡有」跟「買了」重複，就是因為看不到它的作用。不講的話這個功能永遠自己解釋不了自己。",
-    file: "js/views/week.js",
-    find: "  const haveCard = haveUsed.count ? h('section', { class: 'card', dataset: { card: 'usedHave' } },",
-    replace: "  const haveCard = false ? h('section', { class: 'card', dataset: { card: 'usedHave' } },",
-    test: "weekviewtest",
   },
   // ---- 使用者實測回報的四項 ----
   {
@@ -1816,14 +1800,6 @@ const MUTATIONS = [
     find: '      item.buy = u ? toBuyQty(item.grams, u) : null;',
     replace: '      item.buy = null;',
     test: 'shoppingtest',
-  },
-  {
-    name: '「家裡有」不加分',
-    why: 'PLAN §4.3：勾了家裡有的食材下次產生要優先用掉。',
-    file: 'js/planner.js',
-    find: '    if (have.length) { score += Math.min(9, have.length * 3);',
-    replace: '    if (false) { score += Math.min(9, have.length * 3);',
-    test: 'plannertest',
   },
   {
     name: '「避開」開關預設全開',

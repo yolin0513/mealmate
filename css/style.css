@@ -667,13 +667,11 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 .shop-row:not(.custom-row) .shop-uses { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; }
 .shop-uses-text { flex: 1 1 10em; min-width: 0; }
 .shop-row.done .shop-name, .shop-row.done .shop-qty { text-decoration: line-through; color: var(--fg-muted); font-weight: 400; }
-.shop-row.have .shop-qty { color: var(--fg-muted); }
 
-/* 印出：只留內容，白底；「家裡有」按鈕藏掉、改成數量後面一個字樣 */
+/* 印出：只留內容，白底 */
 @media print {
   #topbar, #tabbar, #toast, .update-bar, .btn, .btn-row, .chip-row, .chip, .segmented, .item-menu, .no-print, .day-btn, summary::marker { display: none !important; }
   html, body, #app { background: #fff; padding: 0; }
-  .shop-row.have .shop-qty::after { content: "　家裡有"; font-weight: 400; }
   #view { max-width: none; padding: 0; gap: 8px; }
   .card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
   details.how { display: block; }
@@ -702,12 +700,6 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
   #view { max-width: 1400px; }
   .week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: start; }
   .day-card .nutri-grid { grid-template-columns: 1fr; }
-}
-/* 很窄的手機（iPhone SE 這種 320px）：「家裡有」佔掉的那 70px 會把數量擠到名稱下一行。
-   讓它自己一列、靠右，名稱與數量就留在同一行 —— 站在菜攤前要一眼看到「買幾顆」。 */
-@media (max-width: 360px) {
-  .shop-row { grid-template-columns: minmax(0, 1fr); }
-  .shop-row > [data-action="have"] { justify-self: end; }
 }
 @media (max-width: 420px) {
   .nutri-grid { grid-template-columns: 1fr; }

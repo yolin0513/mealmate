@@ -13,8 +13,6 @@ async function planArgs(plan) {
     recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
     rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid'), heartyLevel: prefs.get('heartyLevel') },
     favorites: store.favoritesList(), shoppingDays: prefs.get('shoppingDays') ?? [], seed: prefs.get('planSeed') ?? 'mealmate',
-    // 換一道也要考慮冰箱裡已經有什麼（跟「產生」走同一套），不然換完的那道菜會忽略「家裡有」。
-    haveFoods: plan ? await store.haveFoodsForWeek(plan.weekKey) : new Set(),
   };
 }
 

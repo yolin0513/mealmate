@@ -230,14 +230,14 @@ export function quantityText(item) {
 function fmtQty(q) { return Number.isInteger(q) ? String(q) : q.toFixed(1); }
 
 /** 純文字版（複製到 LINE 用）。 */
-export function listAsText(range, { checked = {}, have = {} } = {}) {
+export function listAsText(range, { checked = {} } = {}) {
   const lines = [`【${range.label}】給 ${range.dates.map(fmtMD).join('、')}`];
   for (const sec of SECTIONS) {
     const items = range.items.filter((it) => it.section === sec);
     if (!items.length) continue;
     lines.push(`— ${sec} —`);
     for (const it of items) {
-      const mark = checked[it.foodId] ? '✓' : have[it.foodId] ? '（家裡有）' : '□';
+      const mark = checked[it.foodId] ? '✓' : '□';
       lines.push(`${mark} ${it.labels[0] ?? it.name}　${quantityText(it)}${it.manual ? '（已改）' : ''}`);
     }
   }

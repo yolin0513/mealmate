@@ -1,4 +1,4 @@
-// 買菜：依採買區間分卡、賣場分區、勾「買了」「家裡有」、常備品另列、複製成文字、印出。
+// 買菜：依採買區間分卡、賣場分區、勾「買了」、常備品另列、複製成文字、印出。
 
 import { h, pill, chips, toast, modal } from '../ui.js';
 import { setTop, render } from '../shell.js';
@@ -78,11 +78,11 @@ export default async function shoppingView(query = {}) {
     // 規則（使用者要求，照這個做）：
     //   · 手動操作過的區塊 → 照手動（row.fold[key] = 'open' | 'closed'）。
     //     手動展開一個已經買齊的區塊，不會再被自動收回去 —— 手動意圖優先。
-    //   · 沒操作過 → 裡面每一項都勾了「買了」或「家裡有」就收合，還有沒買的就展開。
+    //   · 沒操作過 → 裡面每一項都勾了「買了」就收合，還有沒買的就展開。
     // 收合用 hidden 真的移出版面（螢幕閱讀器也讀不到），標題留一行摘要，
     // 讓她知道那一區是「買齊了」不是「不見了」。
     const cardIdx = cards.length;
-    const isDone = (k) => !!row.checked?.[k] || !!row.have?.[k];
+    const isDone = (k) => !!row.checked?.[k];
     const folds = [];
     const applyFolds = () => {
       for (const f of folds) {
@@ -122,20 +122,13 @@ export default async function shoppingView(query = {}) {
       const total = range.items.length + range.custom.length;
       const bought = range.items.filter((it) => row.checked?.[it.foodId]).length
         + range.custom.filter((c) => row.checked?.[customKey(c.id)]).length;
-      const have = range.items.filter((it) => !row.checked?.[it.foodId] && row.have?.[it.foodId]).length;
-      progress.textContent = `已買 ${bought}／${total}${have ? `，家裡有 ${have}` : ''}`;
+      progress.textContent = `已買 ${bought}／${total}`;
     };
     const sections = SECTIONS.map((sec) => {
       const items = range.items.filter((it) => it.section === sec);
       if (!items.length) return null;
       const f = makeFold({ key: sec, label: sec, extraNodes: [' ', pill(String(items.length))], itemKeys: items.map((it) => it.foodId), headingTag: 'h3', headingClass: 'shop-section-title', bodyNodes: items.map((it) => {
           const cb = h('input', { type: 'checkbox', checked: !!row.checked?.[it.foodId], 'aria-label': `買了 ${it.labels[0] ?? it.name}` });
-          // 「打勾」是主動作，「家裡有」降到第二行（使用者回報兩個並排看起來重複）。
-          // 原本是小連結，使用者又回報看起來像超連結 —— 改成外框、淺字的小按鈕：看得出可以按、44px 高，
-          // 但沒有底色、不加粗，不跟「買了」搶。
-          // 沒有合併成一個勾：兩者對排菜器的意義不同 —— 勾「家裡有」的食材，下次用到它的菜會加分，
-          // 目的是先把冰箱裡的東西吃掉；「買了」只是這一趟的採買紀錄，合併會靜默失去那個訊號。
-          const haveBtn = h('button', { class: 'btn btn-sm btn-quiet have-btn' + (row.have?.[it.foodId] ? ' on' : ''), type: 'button', 'aria-pressed': row.have?.[it.foodId] ? 'true' : 'false', dataset: { action: 'have', food: it.foodId } }, row.have?.[it.foodId] ? '家裡有 ✓' : '家裡有');
           // 數量本身就是按鈕：站在菜攤前看到「建議 2 條」但想買 3 條，點一下就改。
           // 改過的用「已改」標出來，並且講得出原本建議多少 —— 不然她下次看不懂這個數字哪來的。
           const unit = manualUnitOf(it);
@@ -166,7 +159,7 @@ export default async function shoppingView(query = {}) {
             await save();
             refresh();
           });
-          const line = h('div', { class: 'shop-row' + (row.checked?.[it.foodId] ? ' done' : '') + (row.have?.[it.foodId] ? ' have' : '') + (it.manual ? ' manual' : ''), dataset: { buy: it.foodId, manual: it.manual ? 'true' : 'false' } },
+          const line = h('div', { class: 'shop-row' + (row.checked?.[it.foodId] ? ' done' : '') + (it.manual ? ' manual' : ''), dataset: { buy: it.foodId, manual: it.manual ? 'true' : 'false' } },
             h('label', { class: 'check shop-check', 'aria-label': `買了 ${it.labels[0] ?? it.name}` }, cb,
               h('span', { class: 'shop-main' },
                 // 第一行只留「名稱＋數量」：別名（薑絲／老薑／薑片）擠在名稱後面會把數量推到下一行，
@@ -174,29 +167,22 @@ export default async function shoppingView(query = {}) {
                 h('span', { class: 'shop-line1' },
                   h('span', { class: 'shop-name' }, it.labels[0] ?? it.name),
                   qtyBtn),
-                // 第二行：左邊「家裡有」按鈕、右邊說明文字自成一欄 —— 按鈕變成 44px 高的外框之後，
-                // 文字接在後面換行會繞到按鈕底下，看起來很亂。
+                // 第二行：這道食材的別名、有沒有改過數量、用在哪幾餐。
                 h('span', { class: 'muted xs shop-uses' },
-                  haveBtn, h('span', { class: 'shop-uses-text' },
+                  h('span', { class: 'shop-uses-text' },
                   it.manual ? h('span', { class: 'qty-manual' }, '已改') : null,
                   it.manual ? '；' : '',
                   it.labels.length > 1 ? `也叫${it.labels.slice(1, 3).join('、')}；` : '',
                   `用在：${it.uses.slice(0, 2).map((u) => `${fmtMD(u.date)} ${u.recipe}`).join('、')}${it.uses.length > 2 ? ` 等 ${it.uses.length} 餐` : ''}`)))),
           );
           cb.addEventListener('change', async () => { row.checked = { ...(row.checked ?? {}), [it.foodId]: cb.checked }; line.classList.toggle('done', cb.checked); await save(); drawProgress(); applyFolds(); });
-          haveBtn.addEventListener('click', async () => {
-            const on = !row.have?.[it.foodId];
-            row.have = { ...(row.have ?? {}), [it.foodId]: on };
-            haveBtn.classList.toggle('on', on); haveBtn.setAttribute('aria-pressed', on ? 'true' : 'false'); line.classList.toggle('have', on);
-            await save(); drawProgress(); applyFolds();
-          });
           return line;
         }) });
       return h('div', { class: 'shop-section', dataset: { section: sec } }, f.heading, f.body);
     });
     drawProgress();
     const copyBtn = h('button', { class: 'btn', type: 'button', dataset: { action: 'copyList' } }, '複製清單');
-    copyBtn.addEventListener('click', () => copyText(listAsText(range, { checked: row.checked ?? {}, have: row.have ?? {} })));
+    copyBtn.addEventListener('click', () => copyText(listAsText(range, { checked: row.checked ?? {} })));
     const printBtn = h('button', { class: 'btn', type: 'button', dataset: { action: 'print' } }, '印出');
     printBtn.addEventListener('click', () => window.print());
     // ---- 自己加的項目（例如飯後水果）----

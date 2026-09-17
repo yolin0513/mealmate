@@ -1,4 +1,4 @@
-// 買菜頁（npm run shoppingviewtest，puppeteer）：區間卡、數量與 Node 端手算一致、勾買了／家裡有並保存、複製、印出、常備品。
+// 買菜頁（npm run shoppingviewtest，puppeteer）：區間卡、數量與 Node 端手算一致、勾「買了」並保存、複製、印出、常備品。
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -78,24 +78,30 @@ try {
   ok(!/\b(null|undefined|NaN)\b/.test(pageText), '沒有漏出 null／undefined／NaN');
   noneOf(['建議攝取', '應該吃'], (w) => pageText.includes(w), '沒有處方式的字');
 
-  section('勾「買了」「家裡有」並保存');
+  section('勾「買了」並保存');
   const firstKey = rangeKeys[0];
   const firstFood = await page.$eval(`[data-card="shopRange"][data-range="${firstKey}"] .shop-row`, (el) => el.dataset.buy);
   await clickEl(page, `[data-card="shopRange"][data-range="${firstKey}"] .shop-row[data-buy="${firstFood}"] input[type="checkbox"]`);
   await sleep(200);
   const progress1 = await textOf(page, `[data-card="shopRange"][data-range="${firstKey}"] [data-field="progress"]`);
   ok(/^已買 1／\d+/.test(progress1), `進度：${progress1}`);
-  const secondFood = await page.$$eval(`[data-card="shopRange"][data-range="${firstKey}"] .shop-row`, (els) => els[1]?.dataset.buy);
-  await clickEl(page, `[data-card="shopRange"][data-range="${firstKey}"] [data-action="have"][data-food="${secondFood}"]`);
-  await sleep(200);
-  eq(await page.$eval(`[data-card="shopRange"][data-range="${firstKey}"] [data-action="have"][data-food="${secondFood}"]`, (el) => el.getAttribute('aria-pressed')), 'true', '家裡有 → 按下');
   await page.reload({ waitUntil: 'networkidle0' });
   await titleIs(page, '買菜');
   await page.waitForSelector('[data-card="shopRange"]');
   eq(await page.$eval(`[data-card="shopRange"][data-range="${firstKey}"] .shop-row[data-buy="${firstFood}"] input`, (el) => el.checked), true, '重新載入後「買了」還在');
-  eq(await page.$eval(`[data-card="shopRange"][data-range="${firstKey}"] [data-action="have"][data-food="${secondFood}"]`, (el) => el.getAttribute('aria-pressed')), 'true', '重新載入後「家裡有」還在');
-  const haveSet = await page.evaluate(async () => { const store = await import('./js/store.js'); const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js'); return [...await store.haveFoodsForWeek(weekKeyOf(mondayOf(isoDate(new Date()))))]; });
-  eq(haveSet, [secondFood], '「家裡有」進到下次產生要用的集合');
+
+  section('「家裡有」已經移除（2026-09-17）：畫面上沒有那顆按鈕，進度列也只講買了幾項');
+  {
+    // Yolin 決定移除：它不扣採買量、也沒有跨餐追蹤，冰箱裡的剩菜用「自己指定菜」排進去更直接。
+    const rows = await page.$$eval('#view .shop-row', (els) => els.length);
+    ok(rows >= 10, `（母體）畫面上有 ${rows} 列食材 —— 有東西可以長出那顆按鈕`);
+    eq(await page.$$eval('#view [data-action="have"]', (els) => els.length), 0, '整頁一顆「家裡有」都沒有');
+    const prog = await textOf(page, `[data-card="shopRange"][data-range="${firstKey}"] [data-field="progress"]`);
+    ok(/^已買 \d+／\d+$/.test(prog), `進度列只剩「已買 N／M」，沒有「家裡有 N」那一欄：「${prog}」`);
+    const uses = await page.$$eval('#view .shop-uses', (els) => els.map((e) => e.textContent.trim()));
+    ok(uses.length >= 10, `（母體）第二行掃了 ${uses.length} 列`);
+    noneOf(uses, (t) => t.includes('家裡有'), '每一列的第二行也沒有「家裡有」這幾個字');
+  }
 
   section('複製與印出');
   await page.evaluate(() => {
@@ -158,7 +164,7 @@ try {
       return { manual: r.dataset.manual, qty: btn.textContent.trim(), aria: btn.getAttribute('aria-label'), mark: r.querySelector('.qty-manual')?.textContent?.trim() ?? '' };
     }, sel);
     eq(after.manual, 'true', '這一項標成手改過');
-    eq(after.mark, '已改', '第二行出現「已改」（原本建議多少留在點開的對話框裡，不然特大字級下會蓋到「家裡有」）');
+    eq(after.mark, '已改', '第二行出現「已改」（原本建議多少留在點開的對話框裡，特大字級下才不會蓋到說明文字）');
     ok(!after.qty.includes('已改'), `第一行只留名稱＋數量（站在菜攤前要一眼看到買幾顆）：${after.qty}`);
     ok(after.qty.includes(typed.replace(/\.0$/, '')), `顯示的就是我打的數字 ${typed}：${after.qty}`);
     ok(/點一下可以改/.test(after.aria), '讀螢幕的人也知道這個數字可以改');
@@ -340,7 +346,7 @@ try {
   {
     const cardKey = await page.$eval('[data-card="shopRange"]', (el) => el.dataset.range);
     const card = `[data-card="shopRange"][data-range="${cardKey}"]`;
-    await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.have = {}; row.fold = {}; row.custom = []; await store.saveShopping(row); }, cardKey);
+    await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.fold = {}; row.custom = []; await store.saveShopping(row); }, cardKey);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForSelector(`${card} .shop-section`);
     await sleep(300);
@@ -367,17 +373,16 @@ try {
     everyOf(initial, (s) => s.controls, 'aria-controls 指到它控制的那一塊');
 
     const target = [...sections].filter((s) => s.n >= 2).sort((a, b) => a.n - b.n)[0];
-    ok(target, `（前提）挑一區至少兩項的：「${target?.sec}」${target?.n} 項 —— 一半勾「買了」、一半勾「家裡有」，兩種都要算數`);
+    ok(target, `（前提）挑一區至少兩項的：「${target?.sec}」${target?.n} 項`);
     const other = sections.find((s) => s.sec !== target.sec);
     const tRows = initial[sections.indexOf(target)].rows;
-    for (const [i, id] of tRows.entries()) {
-      if (i % 2 === 0) await click(`${card} .shop-row[data-buy="${id}"] input[type="checkbox"]`);
-      else await click(`${card} .shop-row[data-buy="${id}"] [data-action="have"]`);
+    for (const id of tRows) {
+      await click(`${card} .shop-row[data-buy="${id}"] input[type="checkbox"]`);
       await sleep(250);
     }
     await sleep(300);
     const done1 = await secState(target.sec);
-    eq(done1.open, 'false', `「${target.sec}」每一項都勾了買了或家裡有 → 自動收合`);
+    eq(done1.open, 'false', `「${target.sec}」每一項都勾了「買了」→ 自動收合`);
     eq(done1.hidden, true, '內容用 hidden 真的移出版面');
     eq(done1.h, 0, '收起來不佔高度');
     ok(done1.summary.includes(`${tRows.length} 項全買齊`), `標題留摘要，讓她知道是買齊了不是不見了：「${done1.summary}」`);
@@ -418,7 +423,7 @@ try {
       const r = ranges.find((x) => x.key === key);
       const row = await store.getShopping(key);
       row.checked = Object.fromEntries(r.items.map((it) => [it.foodId, true]));
-      row.have = {}; row.fold = {}; row.custom = [];
+      row.fold = {}; row.custom = [];
       await store.saveShopping(row);
     }, cardKey);
     await reloadCard();
@@ -435,12 +440,12 @@ try {
     // 2026-09-16 使用者要求主畫面只留日期與進度：三顆按鈕收進日期的摺疊裡，所以收合時它們也跟著收起來。
     eq(cs.addH, 0, '整張卡收合 → 「自己加一項」也跟著收起來');
 
-    await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.have = {}; row.fold = {}; await store.saveShopping(row); }, cardKey);
+    await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.fold = {}; await store.saveShopping(row); }, cardKey);
   }
 
   section('買菜頁控制項：沒有超連結樣式、摺疊有明顯箭頭、常備品同一套摺疊、底下三顆按鈕對齊');
   {
-    // 使用者回報三項：橘色帶底線的「家裡有」「刪除」看起來像超連結；摺疊的小三角形不明顯、
+    // 使用者回報三項：橘色帶底線的「刪除」看起來像超連結；摺疊的小三角形不明顯、
     // 常備品只是一行標題跟其他分類不一致；底下「自己加一項」「複製清單」「印出」寬度排列不一致。
     const vp0 = page.viewport();
     const alphaOf = (col) => { const m = /rgba?\(([^)]+)\)/.exec(col ?? ''); if (!m) return 1; const p = m[1].split(',').map((x) => Number(x.trim())); return p.length === 4 ? p[3] : 1; };
@@ -448,7 +453,7 @@ try {
     const card = `[data-card="shopRange"][data-range="${cardKey}"]`;
     const reloadCard = async () => { await page.reload({ waitUntil: 'domcontentloaded' }); await page.waitForSelector(`${card} .shop-section`); await sleep(300); };
     // 放一項自己加的（才量得到「刪除」）；其他狀態清乾淨
-    await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.have = {}; row.fold = {}; row.custom = [{ id: 'c-look', name: '蘋果', qty: '3 顆' }]; await store.saveShopping(row); }, cardKey);
+    await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.fold = {}; row.custom = [{ id: 'c-look', name: '蘋果', qty: '3 顆' }]; await store.saveShopping(row); }, cardKey);
     await reloadCard();
 
     const looks = () => page.evaluate((c) => {
@@ -465,29 +470,16 @@ try {
         .filter((b) => b.getBoundingClientRect().height > 0 && b.dataset.action !== 'editQty')
         .filter((b) => getComputedStyle(b).textDecorationLine.includes('underline') || b.classList.contains('linklike'))
         .map((b) => b.textContent.trim().slice(0, 12));
-      return { have: [...el.querySelectorAll('[data-action="have"]')].map(look), del: [...el.querySelectorAll('[data-action="deleteCustom"]')].map(look), linkish };
+      return { scanned: document.querySelectorAll('#view button, #view a, #view summary').length, del: [...el.querySelectorAll('[data-action="deleteCustom"]')].map(look), linkish };
     }, card);
     const l1 = await looks();
-    ok(l1.have.length >= 5, `（母體）量了 ${l1.have.length} 顆「家裡有」`);
-    everyOf(l1.have, (b) => b.tag === 'BUTTON' && b.btn, '「家裡有」是按鈕（button＋.btn），不是超連結樣式');
-    everyOf(l1.have, (b) => !b.underline && b.border, '沒有底線、有外框 —— 看得出是一顆可以按的按鈕');
-    everyOf(l1.have, (b) => alphaOf(b.bg) === 0 && b.weight <= 500, '但仍然是次要的：透明底、字不加粗，不跟「買了」的勾選搶');
-    everyOf(l1.have, (b) => b.h >= 44, `「家裡有」按得到（最小 ${Math.min(...l1.have.map((b) => b.h))}px ≥ 44）`);
+    ok(l1.scanned >= 20, `（母體）整頁掃了 ${l1.scanned} 個可點的東西`);
     eq(l1.del.length, 1, '（前提）自己加的那一項有「刪除」可以量');
     everyOf(l1.del, (b) => b.tag === 'BUTTON' && b.btn && !b.underline && b.border, '「刪除」也是有外框的小按鈕，不是超連結樣式');
     everyOf(l1.del, (b) => alphaOf(b.bg) === 0 && b.color !== 'rgb(214, 69, 69)', `「刪除」是低調的危險色（透明底、字色 ${l1.del[0]?.color}，不是整顆大紅）`);
     everyOf(l1.del, (b) => b.h >= 44, '「刪除」按得到（≥ 44px）');
     eq(l1.linkish, [], '整頁沒有其他長得像超連結的控制項（「數量」那顆除外，見上面說明）');
 
-    // 按下「家裡有」之後要看得出按下了（不是只有 aria）
-    const food = l1.have[0].food;
-    await page.evaluate((c, f) => document.querySelector(`${c} [data-action="have"][data-food="${f}"]`).click(), card, food);
-    await sleep(300);
-    const on = (await looks()).have.find((b) => b.food === food);
-    eq(on.pressed, 'true', '（前提）按下之後 aria-pressed＝true');
-    ok(alphaOf(on.bg) > 0, `按下之後有底色（${on.bg}），一眼看得出「這項家裡有」`);
-    await page.evaluate((c, f) => document.querySelector(`${c} [data-action="have"][data-food="${f}"]`).click(), card, food);
-    await sleep(300);
 
     // 摺疊標題：每一個都有箭頭圖示、跟狀態一致、夠大、有底色；分類標題整條有淺底
     const folds = await page.evaluate((c) => [...document.querySelectorAll(`${c} [data-action="fold"]`)].map((t) => {
@@ -561,7 +553,7 @@ try {
     ok(Math.max(d.a.w, d.c.w, d.p.w) - Math.min(d.a.w, d.c.w, d.p.w) <= 2, `桌機 1024px：三顆一樣寬（${[d.a.w, d.c.w, d.p.w].map(Math.round).join('／')}px）`);
     await page.setViewport(vp0);
 
-    await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.have = {}; row.fold = {}; row.custom = []; await store.saveShopping(row); }, cardKey);
+    await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.fold = {}; row.custom = []; await store.saveShopping(row); }, cardKey);
   }
 
   section('已經過去的那張清單：排到後面、預設收起來，但打得開（補買）');
