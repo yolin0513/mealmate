@@ -52,7 +52,9 @@ export default async function shoppingView(query = {}) {
     manualByRange[r.key] = saved.manual ?? {};
     customByRange[r.key] = saved.custom ?? [];
   }
-  const { ranges } = buildShoppingList({ plan, recipesById, members, idx, units: store.units(), shoppingDays, manualByRange, customByRange });
+  // 還沒到的買菜日排前面；已經過去的排後面、預設收合。跨今天的那一張只算今天以後的餐（fromDate）。
+  const todayIso = isoDate(new Date());
+  const { ranges } = buildShoppingList({ plan, recipesById, members, idx, units: store.units(), shoppingDays, manualByRange, customByRange, fromDate: todayIso });
   if (!ranges.length) {
     render(h('section', { class: 'card', dataset: { card: 'shoppingEmpty' } }, h('div', { class: 'row-actions' }, weekChips), h('h2', { class: 'card-title' }, '這週沒有自己煮的餐'), h('p', { class: 'muted' }, '菜單裡每一餐都是外食或不煮，所以沒有東西要買。')));
     return;
@@ -66,8 +68,6 @@ export default async function shoppingView(query = {}) {
     h('p', { class: 'muted xs' }, `數量依${members.length ? `家裡 ${members.length} 位的食量` : '食譜原份量'}縮放、最少一份，是估計值。`),
   );
 
-  // 還沒到的買菜日排前面；已經過去的排後面、預設收合（仍然打得開，因為常常要補買）。
-  const todayIso = isoDate(new Date());
   const cards = [];
   for (const range of orderRangesForToday(ranges, todayIso)) {
     const past = rangeIsPast(range, todayIso);

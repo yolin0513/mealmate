@@ -1,9 +1,10 @@
-// 本週頁的操作：換一道、指定、鎖定、把一格重排。跟畫面分開，好測、好讀。
+// 本週頁的操作：指定、鎖定、加一道、拿掉一道、把一格重排。跟畫面分開，好測、好讀。
+// 「換一道」2026-09-18 依使用者要求移除（要換就自己指定）。
 
 import { h, modal } from '../ui.js';
 import * as store from '../store.js';
 import * as prefs from '../prefs.js';
-import { swapItem, assignItem, refillSlot, daysBetween, MEAL_ROLES, MEAL_LABELS } from '../planner.js';
+import { assignItem, refillSlot, daysBetween, MEAL_ROLES, MEAL_LABELS } from '../planner.js';
 import { ROLE_LABELS, timeText } from '../recipeschema.js';
 import { versionFor, DIET_LABELS } from '../members.js';
 import { matchesQuery } from './recipes.js';
@@ -20,16 +21,6 @@ async function pastHistory(plan) {
   return (await store.history()).filter((row) => row.date < plan.monday && daysBetween(row.date, plan.monday) <= 28);
 }
 
-/** 換一道：排除現在這道，用同一套規則再挑一道。回 true 表示有換到。 */
-export async function swapSlotItem({ plan, slotIndex, pos }) {
-  const next = swapItem({ plan, slotIndex, pos, history: await pastHistory(plan), ...(await planArgs(plan)) });
-  if (!next) return false;
-  const slot = plan.slots[slotIndex];
-  slot.items = [...slot.items.filter((it) => it.pos !== pos), next].sort((a, b) => a.pos - b.pos);
-  await store.savePlan(plan);
-  return true;
-}
-
 export async function toggleLock({ plan, slotIndex, pos }) {
   const slot = plan.slots[slotIndex];
   const it = slot.items.find((x) => x.pos === pos);
@@ -43,25 +34,39 @@ export async function toggleLock({ plan, slotIndex, pos }) {
  * 挑一道菜的小視窗（「我來指定」與「加一道」共用）。
  * 共用的理由：兩邊都要能搜尋、都要標出「誰吃不了這道」—— 各寫一份的話，提醒遲早只剩一邊有。
  */
-async function pickRecipe({ title, pool, members }) {
+/**
+ * 挑一道菜的對話框。
+ * @param note   對話框頂端的一句說明（為什麼清單長這樣），沒有就不顯示。
+ * @param roleHint 這一格原本的角色：清單先列同角色的，其他角色接在後面並標出角色 ——
+ *   2026-09-18 使用者回報「換素菜時選不到葷食，以為搜尋壞了」：以前這裡只列同角色的菜，
+ *   指定「配菜」位置時池子裡只有 56 道配菜，三杯雞、蔥爆牛肉那些主菜根本不在裡面，搜「雞」自然是空的。
+ *   素食成員吃不了的照樣標出來，決定權在使用者（App 不擋）。
+ */
+async function pickRecipe({ title, pool, members, note = null, roleHint = null }) {
   const list = h('div', { class: 'list picker-list', dataset: { list: 'assignPicker' } });
   const input = h('input', { class: 'field', type: 'search', placeholder: '找菜名或食材', 'aria-label': '搜尋', dataset: { field: 'pickerSearch' } });
   let close = null;
   const draw = () => {
-    const rows = pool.filter((r) => matchesQuery(r, input.value)).slice(0, 40);
-    list.replaceChildren(...rows.map((r) => {
+    const hits = pool.filter((r) => matchesQuery(r, input.value));
+    // 同角色的排前面，其他角色接在後面（各自維持原本的順序）
+    const rows = roleHint ? [...hits.filter((r) => r.role === roleHint), ...hits.filter((r) => r.role !== roleHint)] : hits;
+    list.replaceChildren(...rows.slice(0, 60).map((r) => {
       const cannot = members.filter((m) => versionFor(r, m.diet) === null);
+      const otherRole = roleHint && r.role !== roleHint;
       return h('button', {
-        class: 'picker-item', type: 'button', dataset: { pick: r.id },
+        class: 'picker-item', type: 'button', dataset: { pick: r.id, role: r.role },
         onclick: () => close?.(r.id),
       }, r.name, h('span', { class: 'muted xs' }, ` ${timeText(r.time, { short: true })}`),
+      otherRole ? h('span', { class: 'pill picker-role', dataset: { field: 'pickerRole' } }, ROLE_LABELS[r.role]) : null,
       cannot.length ? h('span', { class: 'warn xs' }, ` ${cannot.map((m) => `${m.name}（${DIET_LABELS[m.diet]}）`).join('、')}吃不了`) : null);
     }));
+    if (!rows.length) list.replaceChildren(h('p', { class: 'muted sm' }, '沒有符合的菜。'));
   };
   input.addEventListener('input', draw);
   draw();
   const picked = await modal({
-    title, body: h('div', {}, input, list), closeX: true,
+    title, closeX: true,
+    body: h('div', {}, note ? h('p', { class: 'muted sm', dataset: { field: 'pickerNote' } }, note) : null, input, list),
     actions: [{ label: '取消', value: null }],
     bind: (fn) => { close = fn; },
   });
@@ -100,8 +105,13 @@ export async function removeSlotItem({ plan, slotIndex, pos }) {
 export async function assignSlotItem({ plan, slotIndex, pos, recipesById, members }) {
   const slotForRole = plan.slots[slotIndex];
   const role = slotForRole.items.find((it) => it.pos === pos)?.role ?? MEAL_ROLES[slotForRole.meal]?.[pos] ?? 'main';
-  const pool = [...recipesById.values()].filter((r) => r.role === role);
-  const picked = await pickRecipe({ title: `指定${ROLE_LABELS[role]}`, pool, members });
+  // 池子是**所有**食譜：同角色的排前面，其他角色接在後面（標出角色）。以前只列同角色的，
+  // 使用者在配菜位置搜不到主菜就以為搜尋壞了（2026-09-18）。
+  const pool = [...recipesById.values()];
+  const vegNames = members.filter((m) => m.diet !== 'omni').map((m) => m.name);
+  const note = `這一格原本是${ROLE_LABELS[role]}的位置，所以先列${ROLE_LABELS[role]}，其他種類的菜接在後面（會標出是主菜還是湯）。`
+    + (vegNames.length ? `${vegNames.join('、')}吃不了的菜會標出來，要不要換還是由你決定。` : '');
+  const picked = await pickRecipe({ title: `指定${ROLE_LABELS[role]}`, pool, members, note, roleHint: role });
   if (!picked || !recipesById.has(picked)) return false;
   assignItem(plan, slotIndex, pos, recipesById.get(picked));
   await store.savePlan(plan);

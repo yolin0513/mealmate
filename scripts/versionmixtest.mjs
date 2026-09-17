@@ -239,26 +239,41 @@ try {
     await ctx.close();
   }
 
-  section('舊的畫面配新的程式：按下去不會沒有反應');
-  // 2026-09-17 移除「家裡有」時確認的：拿掉一個 store 的匯出之後，瀏覽器手上那份十分鐘前的
-  // `js/views/week.js` 按「產生」時會呼叫一個已經不存在的函式。那是在按鈕的處理函式裡丟的例外，
-  // 不在 router 的 try 裡 —— 接住它的是 v0.24.0 那道 unhandledrejection 安全網。
-  // 使用者至少會看到一句話，而不是按了完全沒反應。SW 接手之後整組換成新版就正常了。
+  section('舊的畫面配新的程式：那一頁畫不出來時走「需要更新」卡，不是停在轉圈圈');
+  // 瀏覽器手上那份十分鐘前的 `js/views/week.js` 配上剛抓下來的其他模組。這一批（2026-09-18）拿掉了
+  // weekops 的 `swapSlotItem`，而舊版 week.js 正好 `import { swapSlotItem }` —— `import()` 在 link 階段就 reject，
+  // 那一頁一個字都畫不出來（不是按下去沒反應，是根本沒有按鈕可以按）。
+  // 以前 router 只 console.error、畫面停在「載入中…」；現在 router.setRenderError 把它交給「需要更新」那張卡。
+  // （2026-09-17 之前那一版舊 week.js 還載得起來、只在按「產生」時炸 —— 那個處境現在做不出來了，因為它連 link 都過不了。）
   state.oldFiles = new Set(['js/views/week.js']);
   {
     const { ctx, page } = await freshPage();
     await page.goto(BASE, { waitUntil: 'networkidle0' });
     await page.waitForSelector('[data-action="acceptDisclaimer"]');
     await page.click('[data-action="acceptDisclaimer"]');
-    await page.waitForSelector('[data-action="generate"]', { timeout: 30000 });
-    eq(await page.evaluate(() => document.getElementById('toast').hidden), true, '（前提）按下去之前沒有任何提示');
-    await page.$eval('[data-action="generate"]', (el) => el.click());
-    await page.waitForFunction(() => { const t = document.getElementById('toast'); return t && !t.hidden && t.textContent.length > 0; }, { timeout: 30000 });
-    const toast = await page.$eval('#toast', (el) => el.textContent.trim());
-    ok(/排不出來|沒有完成/.test(toast), `舊畫面按下去會出聲，而且講得出出了什麼事：「${toast}」`);
-    ok(toast.length >= 6, `訊息不是空的（${toast.length} 個字）`);
-    eq(await page.$('[data-card="weekHead"]'), null, '（對照）菜單真的沒排出來 —— 上面那句不是多餘的');
-    eq((await page.$$('#tabbar .tab')).length, 4, '底部分頁還在，沒有把使用者困住');
+    await page.waitForSelector('[data-card="versionMismatch"]', { timeout: 20000 });
+    const card = await page.evaluate(() => {
+      const el = document.querySelector('[data-card="versionMismatch"]');
+      return {
+        text: el.textContent.replace(/\s+/g, ' ').trim(),
+        err: el.querySelector('[data-field="renderError"]')?.textContent ?? '',
+        update: [...el.querySelectorAll('button')].some((b) => b.textContent.includes('更新到最新版')),
+        generate: !!document.querySelector('[data-action="generate"]'),
+        spinner: !!document.querySelector('#view .spinner'),
+        booted: document.documentElement.dataset.booted ?? null,
+        tabs: document.querySelectorAll('#tabbar .tab').length,
+        title: document.getElementById('topTitle').textContent,
+      };
+    });
+    eq(card.generate, false, '（前提）舊的本週頁連「產生」按鈕都畫不出來 —— 它 import 了一個已經不存在的匯出');
+    eq(card.booted, '1', '（前提）但 App 本身是開起來的 —— 不是 index.html 那種整片空白，看門狗不會出手，要靠 router');
+    eq(card.spinner, false, '沒有停在「載入中…」的轉圈圈');
+    ok(/混在一起/.test(card.text), `講清楚原因：「${card.text.slice(0, 40)}…」`);
+    ok(/swapSlotItem|does not provide an export|SyntaxError/.test(card.err), `附上原始錯誤，遠端支援問得出是哪個匯出：「${card.err.slice(0, 70)}」`);
+    ok(card.update, '給得出「更新到最新版」這條路');
+    eq(card.title, '需要更新', '頂列標題也換成「需要更新」');
+    eq(card.tabs, 4, '底部分頁在，使用者沒有被困住');
+    eq(await page.$('[data-card="weekHead"]'), null, '（對照）菜單真的沒畫出來 —— 上面那張卡不是多餘的');
     await ctx.close();
   }
 

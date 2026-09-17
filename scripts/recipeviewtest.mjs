@@ -33,6 +33,13 @@ try {
   eq(await page.$$eval('[data-field="eater"]', (els) => els.length), 0, '「誰要吃」的下拉已經不在畫面上');
   eq(await page.$$eval('[data-field="needFilters"] .chip', (els) => els.map((e) => e.dataset.filter)), ['quick', 'soft', 'season', 'lowCarb', 'lowSodium'],
     '需求篩選還是那五顆（20 分內／軟質／當季／醣較低／鈉較低）');
+  // 2026-09-18：五顆收進「更多選項」，預設收起；勾了才自動展開並在標題寫出已選幾項
+  const more0 = await page.evaluate(() => { const d = document.querySelector('[data-field="moreFilters"]'); return { open: d.open, summary: d.querySelector('summary').textContent, chipVisible: d.querySelector('.chip').checkVisibility() }; });
+  eq(more0.open, false, '「更多選項」預設收起');
+  eq(more0.chipVisible, false, '收起時五顆 chip 真的看不到');
+  eq(more0.summary, '更多選項', '標題就是「更多選項」');
+  await page.evaluate(() => { document.querySelector('[data-field="moreFilters"]').open = true; });
+  await sleep(100);
   ok(all.length >= 36, `全部 ${all.length} 道`);
   await clickEl(page, '[data-filter="veg"]');
   await sleep(100);
@@ -42,6 +49,7 @@ try {
   everyOf(vegRows, (id) => byId.get(id)?.vegMode === 'nativeVeg', '「素」篩選後每一道都是 nativeVeg');
   await clickEl(page, '[data-filter="quick"]');
   await sleep(100);
+  eq(await page.$eval('[data-field="moreFilters"] summary', (el) => el.textContent), '更多選項（已選 1 項）', '勾了一項之後標題寫出「已選 1 項」');
   const quickVeg = await rowIds(page);
   ok(quickVeg.length >= 3, `（母體）素＋20 分內 ${quickVeg.length} 道`);
   everyOf(quickVeg, (id) => byId.get(id).vegMode === 'nativeVeg' && byId.get(id).time <= 20, '兩個篩選是 AND');

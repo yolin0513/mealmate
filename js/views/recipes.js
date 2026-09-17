@@ -87,6 +87,10 @@ export default async function recipesView(query = {}) {
   const input = h('input', { class: 'field', type: 'search', placeholder: '找菜名或食材，例如：豆腐', value: q, 'aria-label': '搜尋食譜' });
   const kindChips = h('div', { class: 'segmented', role: 'group', 'aria-label': '種類', dataset: { field: 'kindFilters' } });
   const needChips = h('div', { class: 'filter-grid', role: 'group', 'aria-label': '需求', dataset: { field: 'needFilters' } });
+  // 2026-09-18 使用者回報：五顆需求篩選加上七格分段控制，資訊太多、大字級下換好幾行。
+  // 收進「更多選項」，預設收起；有勾到任何一項時才預設展開（不然使用者看不到自己勾了什麼）。
+  const moreSummary = h('summary', { class: 'more-summary' }, '更多選項');
+  const more = h('details', { class: 'more-filters', dataset: { field: 'moreFilters' } }, moreSummary, needChips);
   const list = h('div', { class: 'list', dataset: { list: 'recipes' } });
   const count = h('p', { class: 'muted sm', dataset: { field: 'recipeCount' } });
 
@@ -97,6 +101,8 @@ export default async function recipesView(query = {}) {
       + (needs.has('lowCarb') && ctx.medians.carb != null ? `；醣較低＝每份低於 ${Math.round(ctx.medians.carb)} g（這個池子的中位數）` : '')
       + (needs.has('lowSodium') && ctx.medians.sodium != null ? `；鈉較低＝每份低於 ${Math.round(ctx.medians.sodium)} mg（中位數）` : '');
     list.replaceChildren(...(rows.length ? rows.map((r) => rowFor(r, watch, per(r), idx)) : [h('p', { class: 'muted' }, '沒有符合的食譜。')]));
+    moreSummary.textContent = needs.size ? `更多選項（已選 ${needs.size} 項）` : '更多選項';
+    if (needs.size) more.open = true;
     kindChips.replaceChildren(...KIND_FILTERS.map((f) => h('button', {
       class: 'seg' + (f === kind ? ' on' : ''), type: 'button', 'aria-pressed': f === kind ? 'true' : 'false', dataset: { filter: f.key },
       onclick: () => { kind = f; draw(); },
@@ -110,7 +116,7 @@ export default async function recipesView(query = {}) {
   draw();
 
   render(
-    h('section', { class: 'card', dataset: { card: 'recipeSearch' } }, input, kindChips, needChips, count),
+    h('section', { class: 'card', dataset: { card: 'recipeSearch' } }, input, kindChips, more, count),
     h('section', { class: 'card', dataset: { card: 'recipeList' } }, list),
   );
 }

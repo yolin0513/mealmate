@@ -43,12 +43,13 @@
 | 回報兩項：加菜列的「⋯」跑版、滷雞腳填成配菜就排不進去 | ✅ 完成（2026-09-17） | `mealmate-v0.25.0` |
 | 移除「家裡有」（Yolin 決定：冰箱裡的剩菜用「自己指定菜」處理） | ✅ 完成（2026-09-17） | `mealmate-v0.26.0` |
 | 按「更新」之後停在空白：拿掉更新流程裡的 `unregister`，加開機看門狗 | ✅ 完成（2026-09-17） | `mealmate-v0.27.0` |
+| 九項調整第一批：菜色選項卡重做、移「換一道」、篩選收進「更多選項」、「我來指定」放寬並說明、過去的日子收合／清單只算今天以後 | ✅ 完成（2026-09-18） | `mealmate-v0.28.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 122、membertest 79、nutritiontest 147、plannertest 324、shoppingtest 130、timelinetest 71、doctest 124；
-瀏覽器端（puppeteer）：shelltest 161、familytest 65、recipeviewtest 93、backuptest 30、weekviewtest 161、shoppingviewtest 147、todaytest 41、racetest 16、versionmixtest 62、layouttest 100（117 組版面掃描 ＋ 桌機七欄）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
+Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 122、membertest 79、nutritiontest 147、plannertest 328、shoppingtest 140、timelinetest 71、doctest 124；
+瀏覽器端（puppeteer）：shelltest 161、familytest 65、recipeviewtest 97、backuptest 30、weekviewtest 182、shoppingviewtest 147、todaytest 41、racetest 16、versionmixtest 66、layouttest 110（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **274 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
+`mutationtest` 共 **287 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
 
 食譜現況：**217 道**（主菜 102、配菜 56、湯 34、早餐 19、主食 6）。
 
@@ -75,6 +76,49 @@ Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、
 5. **完整突變套件**：105 條全跑一次**全綠**（24 個基準先過，再逐條改壞、確認會紅、還原）。
 
 檢測期間**沒有動任何產品程式碼**（js／css／data 零改動），改的都是測試與工具。
+
+### 九項調整第一批（2026-09-18，v0.28.0）：第 1、2、3、4、7 項
+
+Yolin 一次交辦九項，先出風險最低、不碰資料與紅線的五項。要拍板的三題（素食三個勾、食材簡化與單位、米的種類）Yolin 已回「都照建議」，排第二、三批。
+
+**1. 菜色選項卡跑版＋營養一長串。** 那一長串不是營養卡，是「為什麼選這道」的理由句：家裡設高血壓＋糖尿病時每道菜多出
+「估 鈉 466 mg／份，不高於主菜池子的中位數 485」「估 碳水化合物（醣）…」「估 糖…」「估 膳食纖維…」四行。
+· 新增純函式 `planner.plainReasons()`：**含「估」或「中位數」的理由一句都不印在這張卡**（留意欄位照樣影響排序，`scoreSoft` 沒動；
+  營養數字要看就進食譜頁、每日估算也還在）。
+· 卡片重做：菜名（右邊「看食譜 ›」同一行）→ 一行簡單資訊（時間、烹法、當季、誰吃得了／吃不了）→ 加菜提示 →
+  其餘理由收進預設收起的「為什麼選這道」→ 下方三顆等寬按鈕（`.modal-actions-grid`，放不下就整齊換列）。
+· 跑版根因兩個：`.modal-actions` 是 flex-wrap、六顆不同寬的按鈕換行參差；`.modal-x` 絕對定位在右上角、長標題會壓到它底下
+  （`.modal-title` 補 `padding-right: 44px`）。`layouttest` 新增一節：三種字級 × 三種寬度各開一次量（不溢出、✕ 不壓標題、三顆等寬 ≥44px、
+  「看食譜」同一行、沒有估算數字）。
+
+**2. 移除「換一道」。** 按鈕、`weekops.swapSlotItem`、`planner.swapItem` 一起拿掉（沒人走的第二條挑菜路徑，慣例 21）。
+空格子的選項只剩「我來指定」。
+
+**3. 食譜頁需求篩選收進「更多選項」**（`<details>` 預設收起；勾了任何一項就自動展開並在標題寫「已選 N 項」）。
+
+**4. 「我來指定」選不到葷菜的真正原因：不是素食保障，是只列同角色的菜。** 指定「配菜」位置時池子裡只有 56 道配菜，
+三杯雞、蔥爆牛肉這些主菜根本不在裡面，搜「雞」自然是空的 —— 使用者以為搜尋壞了。改成：池子是全部食譜，**同角色排前面、
+其他角色接在後面並標角色**；對話框頂端一句說明；素食成員吃不了的照樣標出來，**App 不擋，決定權在使用者**。
+
+**7. 依今天日期。** 本週頁：**今天之前的日子預設收起來、標「已過」**（點一下仍看得到那天煮了什麼，不是拿掉），今天標「今天」；
+手動展開過就記住（`prefs.collapsedDays` 從「只記收起來的陣列」改成每一天記 `open`／`closed`，舊陣列格式照樣讀）。
+買菜頁：**跨今天的那一張只算今天（含）以後的餐**（`buildShoppingList` 新參數 `fromDate`；整個過去的那張不動，留著補買）。
+
+**版本混搭的連帶發現**（`versionmixtest` 抓到）：拿掉 `weekops.swapSlotItem` 之後，瀏覽器手上十分鐘前的舊 `week.js`
+（它 `import { swapSlotItem }`）**連 link 都過不了**，`import()` 直接 reject，那一頁一個字都畫不出來。這比 v0.26.0 那次
+（按下去才炸）更早失敗，而且 v0.27.0 的看門狗**接不到**它 —— app.js 已經跑完（`data-booted=1`），看門狗只管「整張 module 圖沒執行」。
+以前 router 對 handler 的例外只 `console.error`，畫面就停在「載入中…」的轉圈圈。
+這一版補上 `router.setRenderError`：view 載入或畫到一半失敗，交給既有的「需要更新」卡（標題改成「這一頁畫不出來」、
+附原始錯誤、有「更新到最新版」）。v0.26.0 時我曾加過同一個機制又因為沒有測試走到而還原；現在 `versionmixtest` 用
+舊 `week.js` ＋ 新 `weekops.js` 真的做出這個處境，所以這次留下來，並有突變守著。
+**通則**：拿掉任何一個 `export` 都會讓還沒換版的舊 view 在 link 時失敗；router 的通報卡是這類情況的網，SW 換版之後就正常。
+
+**測試**：`plannertest` 324→328（`plainReasons`：樣本九句留六句、真實菜單每道過濾後仍 ≥1 句且無估算數字）；
+`weekviewtest` 161→182（菜色選項卡、空格子只剩指定、指定清單的說明與角色標籤、搜「三杯」搜得到主菜；
+已過／今天：固定在「本週四」的假日期分頁，週一到週三收起標已過、週四標今天、點開會記住、下週頁沒有已過）；
+`layouttest` 101→110（菜色選項卡 9 組；「更多選項」預設收起）；`recipeviewtest` 93→97；`shoppingtest` 130→140（`fromDate`）；
+`shoppingviewtest` 比對改帶 `fromDate`；`versionmixtest` 62→66。**13 條新突變**，2 條因格式改變過期的 find 更新。
+這一批所有依賴「今天星期幾」的斷言都改成明確設定摺疊或用固定假日期（慣例 19）。
 
 ### 按「更新」之後停在空白（2026-09-17，v0.27.0）
 

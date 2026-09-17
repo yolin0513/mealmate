@@ -1,4 +1,4 @@
-// 本週頁（npm run weekviewtest，puppeteer）：產生、素食成員都吃得了、為什麼選這道、換一道、鎖定後重新產生、外食、每日估計與目標對照。
+// 本週頁（npm run weekviewtest，puppeteer）：產生、素食成員都吃得了、菜色選項卡、指定、鎖定後重新產生、外食、每日估計與目標對照。
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,7 +14,7 @@ const byId = new Map(recipes.map((r) => [r.id, r]));
 const mainIds = (page) => page.$$eval('.meal-item[data-pos="0"][data-role="main"]', (els) => els.map((e) => e.dataset.item));
 const allItemIds = (page) => page.$$eval('.meal-item[data-item]', (els) => els.map((e) => e.dataset.item));
 
-const { page, pageErrors, close } = await openApp();
+const { page, browser, port, pageErrors, close } = await openApp();
 try {
   await acceptWelcome(page);
   await page.evaluate(async () => {
@@ -37,6 +37,20 @@ try {
   ok(emptyText.includes('爸（葷）') && emptyText.includes('姊（全素）'), '空狀態列出家人');
   await clickEl(page, '[data-action="generate"]');
   await page.waitForSelector('[data-card="weekHead"]');
+  // 2026-09-18 起「今天之前的日子預設收起來」。這支測試會點每一天的「⋯」，所以先把七天都手動設成展開 ——
+  // 不能靠跑測試當天是星期幾（慣例 19）。預設收合本身另有一節，用固定的假日期驗。
+  const openAllDays = async () => {
+    await page.evaluate(async () => {
+      const prefs = await import('./js/prefs.js');
+      const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+      const wk = weekKeyOf(mondayOf(isoDate(new Date())));
+      await prefs.set('collapsedDays', { [wk]: Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((d) => [d, 'open'])) });
+    });
+    await goto(page, '#/family'); await titleIs(page, '家人');
+    await goto(page, '#/'); await page.waitForSelector('[data-card="weekHead"]');
+    await sleep(200);
+  };
+  await openAllDays();
   eq(await page.$$eval('.meal-block', (els) => els.length), 21, '21 個餐格');
   const mains = await mainIds(page);
   eq(mains.length, 14, '14 個午晚餐都有主菜');
@@ -77,20 +91,83 @@ try {
     ok(/因為符合條件的菜不夠|排不出菜|放寬/.test(t), `有勉強排的地方就講清楚：${t.slice(0, 80)}`);
   } else note('這週沒有勉強排的地方，所以沒有 diagnostics 卡片 —— 這是說明，不是斷言');
 
-  section('為什麼選這道');
-  await clickEl(page, '.meal-item[data-role="main"] .item-menu');
-  await page.waitForSelector('.modal-card [data-field="reasons"] li');
-  const reasons = await page.$$eval('.modal-card [data-field="reasons"] li', (els) => els.map((e) => e.textContent.trim()));
-  ok(reasons.length >= 2, `${reasons.length} 條理由`);
-  noneOf(reasons, (t) => /建議|應該|適合|療效|治療|控制|改善/.test(t), '理由沒有建議語氣或療效字眼');
-  ok(reasons.some((t) => t.includes('姊（全素）可吃')), '理由講出姊吃得了');
-  ok(reasons.some((t) => /估 碳水化合物（醣）/.test(t)), '阿嬤留意醣 → 理由有醣的估計值與中位數比較');
-  const firstMainBefore = mains[0];
-  await clickEl(page, '.modal-card .modal-actions .btn:nth-of-type(2)');
-  await waitToastGone(page).catch(() => {});
-  await page.waitForFunction((prev) => document.querySelector('.meal-item[data-role="main"]')?.dataset.item !== prev, {}, firstMainBefore);
-  const firstMainAfter = (await mainIds(page))[0];
-  ok(firstMainAfter !== firstMainBefore && byId.get(firstMainAfter)?.role === 'main', `換一道：${byId.get(firstMainBefore)?.name} → ${byId.get(firstMainAfter)?.name}`);
+  section('菜色選項卡：菜名旁就是看食譜、一行簡單資訊、沒有估算數字、三顆按鈕');
+  // 2026-09-18 使用者回報：這張卡在別支手機上跑版，而且「估 鈉…中位數…」那一長串一般人看不懂。
+  // 這一家有阿嬤（留意醣），以前每道菜都會多出四行估算句 —— 現在一句都不能出現。
+  {
+    await clickEl(page, '.meal-item[data-role="main"] .item-menu');
+    await page.waitForSelector('.modal-card .modal-actions .btn');
+    const card = await page.evaluate(() => {
+      const c = document.querySelector('.modal-card');
+      const r = (sel) => c.querySelector(sel)?.getBoundingClientRect() ?? null;
+      const name = r('.menu-name'); const open = r('.menu-open');
+      return {
+        bodyText: c.querySelector('.modal-body').textContent.replace(/\s+/g, ' ').trim(),
+        actions: [...c.querySelectorAll('.modal-actions .btn')].map((b) => b.textContent.trim()),
+        openHref: c.querySelector('[data-action="openRecipe"]')?.getAttribute('href') ?? null,
+        openSameRow: name && open ? Math.abs(name.top - open.top) < Math.max(name.height, open.height) : false,
+        meta: c.querySelector('[data-field="menuMeta"]')?.textContent ?? '',
+        detailsClosed: c.querySelector('details[data-field="reasons"]') ? !c.querySelector('details[data-field="reasons"]').open : null,
+        reasonLis: [...c.querySelectorAll('[data-field="reasons"] li')].map((e) => e.textContent.trim()),
+        itemId: document.querySelector('.meal-item[data-role="main"]').dataset.item,
+      };
+    });
+    ok(!/估|中位數/.test(card.bodyText), `卡上沒有任何估算數字（${card.bodyText.slice(0, 60)}…）`);
+    ok(card.reasonLis.length >= 1, `（對照）「為什麼選這道」裡仍有 ${card.reasonLis.length} 句非數字的理由 —— 不是整段理由都被砍掉`);
+    noneOf(card.reasonLis, (t) => /建議|應該|適合|療效|治療|控制|改善/.test(t), '理由沒有建議語氣或療效字眼');
+    eq(card.detailsClosed, true, '「為什麼選這道」預設收起（卡片才不會被撐長）');
+    eq(card.openHref, `#/recipes/${card.itemId}`, '「看食譜」是連到這道菜的連結');
+    ok(card.openSameRow, '「看食譜」跟菜名同一行');
+    ok(/約 \d+ 分鐘/.test(card.meta), `資訊列有時間：「${card.meta}」`);
+    ok(/姊（全素）/.test(card.meta), '資訊列講出姊吃得了或吃不了');
+    eq(card.actions, ['鎖定這道', '我來指定…', '拿掉這道'], '下方剛好三顆：鎖定、指定、拿掉（「換一道」已移除）');
+    await page.evaluate(() => document.querySelector('.modal-x').click());
+    await sleep(200);
+
+    // 空格子：只剩「我來指定」
+    await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const slot = plan.slots.find((s) => s.kind === 'cook' && s.meal === 'dinner');
+      slot.items = slot.items.filter((it) => it.pos !== 1);
+      await store.savePlan(plan);
+    });
+    await goto(page, '#/family'); await titleIs(page, '家人');
+    await goto(page, '#/'); await page.waitForSelector('.meal-item.empty');
+    await clickEl(page, '.meal-item.empty .item-menu');
+    await page.waitForSelector('.modal-card .modal-actions .btn');
+    eq(await page.$$eval('.modal-card .modal-actions .btn', (els) => els.map((b) => b.textContent.trim())), ['我來指定…'], '空格子的選項只有「我來指定」');
+
+    // 我來指定：說明字、同角色排前面、其他角色標出來、搜得到主菜（2026-09-18 使用者以為搜尋壞了）
+    await page.evaluate(() => [...document.querySelectorAll('.modal-card .modal-actions .btn')].find((b) => b.textContent.includes('我來指定')).click());
+    await page.waitForSelector('[data-list="assignPicker"] .picker-item');
+    const picker = await page.evaluate(() => {
+      const items = [...document.querySelectorAll('[data-list="assignPicker"] .picker-item')];
+      return {
+        note: document.querySelector('[data-field="pickerNote"]')?.textContent ?? '',
+        roles: items.map((b) => b.dataset.role),
+        pills: items.map((b) => b.querySelector('[data-field="pickerRole"]')?.textContent ?? ''),
+      };
+    });
+    ok(/原本是配菜的位置/.test(picker.note) && /由你決定/.test(picker.note), `頂端講清楚為什麼清單長這樣：「${picker.note.slice(0, 40)}…」`);
+    const firstOther = picker.roles.findIndex((r) => r !== 'side');
+    ok(firstOther > 5, `同角色（配菜）排在前面，其他角色從第 ${firstOther + 1} 筆開始`);
+    ok(picker.roles.includes('main'), '主菜也在清單裡（以前只列配菜，搜「雞」永遠是空的）');
+    everyOf(picker.roles.map((r, i) => ({ r, pill: picker.pills[i] })), (x) => (x.r === 'side' ? x.pill === '' : x.pill.length > 0), '同角色的不標、其他角色標出是主菜／湯／早餐');
+    await page.type('[data-field="pickerSearch"]', '三杯');
+    await sleep(200);
+    const hit = await page.$$eval('[data-list="assignPicker"] .picker-item', (els) => els.map((b) => b.textContent.trim().slice(0, 12)));
+    ok(hit.some((t) => t.includes('三杯')), `搜「三杯」搜得到主菜：${hit.join('、')}`);
+    await page.evaluate(() => document.querySelector('.modal-x').click());
+    await sleep(200);
+    // 把那一格補回來，後面的斷言母體才不會少一道
+    await goto(page, '#/family'); await titleIs(page, '家人');
+    await goto(page, '#/'); await page.waitForSelector('[data-action="regenerate"]');
+    await clickEl(page, '[data-action="regenerate"]');
+    await page.waitForFunction(() => { const t = document.getElementById('toast'); return t && !t.hidden && t.textContent.includes('已重新排好'); });
+    await sleep(400);
+  }
 
   section('鎖定後重新產生');
   await clickEl(page, '.meal-item[data-role="main"] .item-menu');
@@ -355,6 +432,8 @@ try {
 
   section('每一天可以摺疊：真的移出版面，而且記得住');
   {
+    // 這一節驗的是手動摺疊本身：七天先全部手動設成展開（產生菜單時已設過；這裡再設一次，前面幾節可能動過）
+    await openAllDays();
     // 先回到一個有計畫的狀態
     await goto(page, '#/family');
     await titleIs(page, '家人');
@@ -436,6 +515,57 @@ try {
     ok(Object.keys(stored.all).length <= 4, `只留最近幾週（現在存了 ${Object.keys(stored.all).length} 週）`);
   }
 
+
+  section('今天之前的日子預設收起來、標「已過」；今天標「今天」；點開會記住');
+  // 2026-09-18 使用者：「今天已經週四，就不要再攤開週一到週三」。收起來不是拿掉：點一下仍看得到那天煮了什麼。
+  // 「今天星期幾」不能靠跑測試的當下（慣例 19）—— 開一個把 new Date() 固定在「本週四 10:00」的分頁。
+  {
+    const { mondayOf, addDays, isoDate } = await import('../js/planner.js');
+    const thu = addDays(mondayOf(isoDate(new Date())), 3);
+    await page.evaluate(async () => { const prefs = await import('./js/prefs.js'); await prefs.set('collapsedDays', {}); });
+    const p2 = await browser.newPage();
+    p2.setDefaultTimeout(60000);
+    try {
+      await p2.evaluateOnNewDocument((now) => {
+        const Real = Date;
+        const Fake = function Fake(...a) { return a.length ? new Real(...a) : new Real(now); };
+        Fake.now = () => now; Fake.parse = Real.parse; Fake.UTC = Real.UTC; Fake.prototype = Real.prototype;
+        window.Date = Fake;
+      }, new Date(`${thu}T10:00:00`).getTime());
+      await p2.goto(`http://localhost:${port}/#/`, { waitUntil: 'networkidle0' });
+      await p2.waitForSelector('[data-card="day"][data-day="6"]');
+      await sleep(300);
+      const days = await p2.$$eval('[data-card="day"]', (els) => els.map((e) => ({
+        day: Number(e.dataset.day), open: e.dataset.open, past: e.dataset.past, today: e.dataset.today,
+        pills: [...e.querySelectorAll('.day-toggle .pill')].map((p) => p.textContent),
+        bodyH: Math.round(e.querySelector('[data-field="dayBody"]').getBoundingClientRect().height),
+      })));
+      eq(days.length, 7, '（母體）七天都在畫面上，一天都沒有被拿掉');
+      everyOf(days.filter((d) => d.day < 3), (d) => d.open === 'false' && d.bodyH === 0, '週一到週三預設收起來（內容真的不佔版面）');
+      everyOf(days.filter((d) => d.day < 3), (d) => d.pills.includes('已過'), '而且標「已過」');
+      eq(days[3].open, 'true', '今天（週四）是展開的');
+      ok(days[3].pills.includes('今天') && !days[3].pills.includes('已過'), '今天標「今天」、不標「已過」');
+      everyOf(days.filter((d) => d.day > 3), (d) => d.open === 'true' && !d.pills.includes('已過') && !d.pills.includes('今天'), '週五到週日展開、沒有標籤');
+      // 點開過去的一天 → 看得到那天的菜；重載之後還是開的（手動意圖優先）
+      await p2.$eval('[data-card="day"][data-day="0"] [data-action="toggleDay"]', (el) => el.click());
+      await sleep(300);
+      const opened = await p2.$eval('[data-card="day"][data-day="0"]', (e) => ({ open: e.dataset.open, meals: [...e.querySelectorAll('.meal-block')].filter((m) => m.getBoundingClientRect().height > 0).length }));
+      eq(opened.open, 'true', '點一下就打開');
+      eq(opened.meals, 3, '看得到週一的三餐（收起來不是拿掉）');
+      await p2.reload({ waitUntil: 'networkidle0' });
+      await p2.waitForSelector('[data-card="day"][data-day="0"]');
+      eq(await p2.$eval('[data-card="day"][data-day="0"]', (e) => e.dataset.open), 'true', '重載之後週一還是開的 —— 手動展開過就不再自動收回去');
+      eq(await p2.$eval('[data-card="day"][data-day="1"]', (e) => e.dataset.open), 'false', '（對照）沒動過的週二仍然是收的');
+      // 下週頁：一天都不算過去
+      await p2.evaluate(() => { location.hash = '#/?w=next'; });
+      await sleep(600);
+      const nextPast = await p2.$$eval('[data-card="day"], [data-card="weekEmpty"]', (els) => els.filter((e) => e.dataset.past === 'true').length);
+      eq(nextPast, 0, '下週頁沒有任何一天標「已過」');
+    } finally {
+      await p2.close();
+      await openAllDays();   // 後面幾節還要點每一天的「⋯」
+    }
+  }
 
   section('一週平衡：本週頁講出這週排了幾道比較豐盛的主菜，並帶那句說明');
   {
@@ -736,23 +866,24 @@ try {
       everyOf(meals, (m) => m.vegEatable >= 3, `第 ${round} 次：每一餐姊仍吃得到 ≥ 3 道（最少 ${Math.min(...meals.map((m) => m.vegEatable))} 道）`);
     }
 
-    // W2：在加菜上「換一道」→ 仍是純葷、仍標加菜
+    // W2：加菜的選項卡 —— 有加菜說明、沒有「換一道」（2026-09-18 移除）、沒有估算數字
     const mealsNow = await readMeals();
     const firstExtra = mealsNow.find((m) => m.extras.length === 1);
     ok(firstExtra, '（前提）找得到一餐有加菜');
     await clickEl(page, `.meal-item[data-extra="meat"][data-item="${firstExtra.extras[0].id}"] .item-menu`);
     await page.waitForSelector('.modal-card .modal-actions');
-    await page.evaluate(() => { [...document.querySelectorAll('.modal-card .modal-actions .btn')].find((b) => b.textContent.includes('換一道'))?.click(); });
-    await waitToastGone(page).catch(() => {});
-    await sleep(700);
-    const afterSwap = await readMeals();
-    const swapped = afterSwap.find((m) => m.meal === firstExtra.meal && m.extras.length === 1);
-    ok(swapped, '換一道之後那一餐仍有加菜');
-    eq(swapped.extras[0].vegMode, 'meatOnly', '換到的還是純葷的菜');
-    ok(swapped.extras[0].pills.includes('僅葷食成員'), '仍然標「僅葷食成員」');
+    const extraCard = await page.evaluate(() => ({
+      body: document.querySelector('.modal-card .modal-body').textContent.replace(/\s+/g, ' '),
+      actions: [...document.querySelectorAll('.modal-card .modal-actions .btn')].map((b) => b.textContent.trim()),
+    }));
+    ok(extraCard.body.includes('給吃葷的人的加菜'), '加菜的選項卡講明這道是加菜');
+    ok(!/估|中位數/.test(extraCard.body), '加菜的選項卡也沒有估算數字');
+    ok(!extraCard.actions.includes('換一道'), '沒有「換一道」');
+    await page.evaluate(() => document.querySelector('.modal-x').click());
+    await sleep(300);
 
     // W3：把加菜拿掉 → 那一格變空的（角色是配菜，加菜佔的本來就是配菜的位置）
-    await clickEl(page, `.meal-item[data-extra="meat"][data-item="${swapped.extras[0].id}"] .item-menu`);
+    await clickEl(page, `.meal-item[data-extra="meat"][data-item="${firstExtra.extras[0].id}"] .item-menu`);
     await page.waitForSelector('.modal-card .modal-actions');
     await page.evaluate(() => { [...document.querySelectorAll('.modal-card .modal-actions .btn')].find((b) => b.textContent.includes('拿掉這道'))?.click(); });
     await waitToastGone(page).catch(() => {});

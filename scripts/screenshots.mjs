@@ -51,7 +51,8 @@ try {
   await page.waitForSelector('[data-action="generate"]');
   await page.$eval('[data-action="generate"]', (el) => el.click());
   await page.waitForSelector('[data-card="weekHead"]');
-  await page.$eval('[data-card="day"][data-day="0"] [data-field="dayEstimate"] summary', (el) => el.click());
+  // 2026-09-18 起今天之前的日子預設收起，所以點第一個展開的那一天（今天）的估算
+  await page.$eval('[data-card="day"][data-open="true"] [data-field="dayEstimate"] summary', (el) => el.click());
   await sleep(300);
   await page.screenshot({ path: path.join(OUT, 'week-plan.png'), fullPage: true });
   console.log('week-plan.png');

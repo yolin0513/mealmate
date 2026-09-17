@@ -1,4 +1,5 @@
-// 本週菜單（首頁）：產生／重新產生、一天一卡、換一道、指定、鎖定、外食、為什麼選這道、每日估計。
+// 本週菜單（首頁）：產生／重新產生、一天一卡、指定、鎖定、外食、為什麼選這道、每日估計。
+// 「換一道」2026-09-18 依使用者要求移除（要換就自己指定）。
 
 import { h, pill, chips, toast, modal, confirmDialog, fmtNutrient } from '../ui.js';
 import { setTop, render } from '../shell.js';
@@ -7,13 +8,14 @@ import * as store from '../store.js';
 import * as prefs from '../prefs.js';
 import { eduNode } from '../edu.js';
 import { DIET_LABELS, displayFields, familyWatchFields } from '../members.js';
-import { ROLE_LABELS } from '../recipeschema.js';
+import { ROLE_LABELS, METHOD_LABELS } from '../recipeschema.js';
 import { NUTRIENT_LABELS } from '../foods.js';
 import {
   generateWeek, dailyEstimates, mondayOf, weekKeyOf, weekDates, addDays, isoDate, parseDate,
-  MEALS, MEAL_LABELS, MEAL_ROLES, DAY_LABELS, RELAXABLE, weekBalance, balanceSentence, groupEstimates,
+  MEALS, MEAL_LABELS, MEAL_ROLES, DAY_LABELS, RELAXABLE, weekBalance, balanceSentence, groupEstimates, plainReasons,
 } from '../planner.js';
-import { swapSlotItem, assignSlotItem, addSlotItem, removeSlotItem, toggleLock, regenerateSlot } from './weekops.js';
+import { versionFor } from '../members.js';
+import { assignSlotItem, addSlotItem, removeSlotItem, toggleLock, regenerateSlot } from './weekops.js';
 
 const KIND_LABELS = { cook: '自己煮', eatOut: '外食', skip: '不煮' };
 
@@ -43,7 +45,12 @@ export default async function weekView(query = {}) {
   const plan = await store.getPlan(weekKey);
   const wants = store.wantThisWeekIds();
   const shoppingDays = prefs.get('shoppingDays') ?? [];
-  const collapsed = new Set(prefs.collapsedDaysFor(weekKey));
+  // 每一天收不收：手動設過的照手動；沒設過的 —— **今天之前的收起來（已過）、其餘展開**。
+  // 使用者 2026-09-18：「今天已經週四，就不要再攤開週一到週三」。收起來不是拿掉：點一下仍看得到那天煮了什麼。
+  const todayIso = isoDate(new Date());
+  const folds = prefs.dayFoldsFor(weekKey);
+  const isPastDay = (date) => date < todayIso;
+  const dayIsOpen = (day, date) => (folds[day] ? folds[day] === 'open' : !isPastDay(date));
 
   const weekChips = chips({
     options: [{ value: 'this', label: '本週' }, { value: 'next', label: '下週' }], value: offset ? 'next' : 'this', name: 'week',
@@ -135,7 +142,9 @@ export default async function weekView(query = {}) {
       return mealBlock({ slot, slotIndex, plan, mondayIso, recipesById, members });
     });
     const anyCook = daySlots.some((s) => s.kind === 'cook' && s.items.length);
-    const isOpen = !collapsed.has(day);
+    const isOpen = dayIsOpen(day, date);
+    const past = isPastDay(date);
+    const isToday = date === todayIso;
     // 收起來的內容用 hidden：它會真的從版面消失（CSS 有 [hidden]{display:none!important}），
     // 螢幕閱讀器也讀不到。只把高度壓成 0 或改個顏色的話，讀螢幕的人還是會念到整天的菜。
     const body = h('div', { class: 'day-body', dataset: { field: 'dayBody', day: String(day) } },
@@ -151,9 +160,11 @@ export default async function weekView(query = {}) {
       class: 'day-toggle', type: 'button', 'aria-expanded': isOpen ? 'true' : 'false',
       'aria-controls': `dayBody-${day}`, dataset: { action: 'toggleDay', day: String(day) },
     }, caret, h('span', { class: 'card-title' }, `週${DAY_LABELS[day]} ${fmtMD(date)}`),
+    isToday ? pill('今天', 'accent') : null,
+    past ? pill('已過') : null,
     isShop ? pill('買菜日', 'green') : null, summary);
     body.id = `dayBody-${day}`;
-    const card = h('section', { class: 'card day-card' + (isOpen ? '' : ' collapsed'), dataset: { card: 'day', day: String(day), open: isOpen ? 'true' : 'false' } },
+    const card = h('section', { class: 'card day-card' + (isOpen ? '' : ' collapsed'), dataset: { card: 'day', day: String(day), open: isOpen ? 'true' : 'false', past: past ? 'true' : 'false', today: isToday ? 'true' : 'false' } },
       h('div', { class: 'day-head' }, toggle,
         anyCook ? h('a', { class: 'btn btn-sm no-print', href: `#/today?d=${date}`, dataset: { action: 'cookToday', day: String(day) } }, '一起煮 ›') : null),
       body,
@@ -306,27 +317,46 @@ function itemMenuBtn({ slot, slotIndex, pos, role, item, plan, mondayIso, recipe
   const btn = h('button', { class: 'icon-btn item-menu', type: 'button', 'aria-label': `${MEAL_LABELS[slot.meal]}${ROLE_LABELS[role]}的選項`, dataset: { action: 'itemMenu', slot: String(slotIndex), role, pos: String(pos) } }, '⋯');
   btn.addEventListener('click', async () => {
     const r = item ? recipesById.get(item.recipeId) : null;
-    const reasons = item?.reasons ?? [];
-    const body = h('div', {},
-      r ? h('p', { class: 'row-title' }, r.name) : h('p', { class: 'muted' }, '這個位置目前沒有菜'),
+    // 2026-09-18 使用者回報：這張卡在別支手機上跑版，而且「估 鈉…中位數…」那一長串一般人看不懂。
+    // 重做成：菜名（同一行右邊「看食譜」）→ 一行簡單資訊（時間、烹法、當季、誰吃得了）→
+    // 其餘理由收進預設收起的「為什麼選這道」；**帶估算數字的理由一句都不印**（plainReasons）。
+    // 營養數字要看就進食譜頁；留意欄位照樣影響排序，只是不印在這裡。
+    const month = new Date().getMonth() + 1;
+    const meta = [];
+    if (r) {
+      meta.push(`約 ${r.time} 分鐘`);
+      if (METHOD_LABELS[r.method]) meta.push(METHOD_LABELS[r.method]);
+      if (r.season?.length && r.season.includes(month)) meta.push(`當季（${month} 月）`);
+      for (const m of members) {
+        const v = versionFor(r, m.diet);
+        if (m.diet === 'omni') continue;
+        meta.push(v ? `${m.name}（${DIET_LABELS[m.diet]}）可吃${v === 'veg' ? '素版' : ''}` : `${m.name}（${DIET_LABELS[m.diet]}）吃不了`);
+      }
+    }
+    const others = plainReasons(item?.reasons).filter((t) => !/^約 \d+ 分鐘/.test(t) && !/可吃/.test(t));
+    const body = h('div', { class: 'menu-body' },
+      r
+        ? h('div', { class: 'menu-head' },
+          h('p', { class: 'row-title menu-name' }, r.name),
+          h('a', { class: 'btn btn-sm menu-open', href: `#/recipes/${r.id}`, dataset: { action: 'openRecipe' } }, '看食譜 ›'))
+        : h('p', { class: 'muted' }, '這個位置目前沒有菜'),
+      meta.length ? h('p', { class: 'muted sm menu-meta', dataset: { field: 'menuMeta' } }, meta.join(' · ')) : null,
       item?.extraMeat ? h('p', { class: 'muted sm' }, '這道是給吃葷的人的加菜，素食成員吃不了；同一餐其他幾道他們吃得到。') : null,
-      reasons.length ? h('div', { class: 'reasons', dataset: { field: 'reasons' } }, h('p', { class: 'muted xs' }, '為什麼選這道'), h('ul', { class: 'reason-list' }, ...reasons.map((t) => h('li', {}, t)))) : null,
+      others.length ? h('details', { class: 'reasons', dataset: { field: 'reasons' } },
+        h('summary', { class: 'muted xs' }, '為什麼選這道'),
+        h('ul', { class: 'reason-list' }, ...others.map((t) => h('li', {}, t)))) : null,
     );
     const choice = await modal({
-      title: `${MEAL_LABELS[slot.meal]} · ${ROLE_LABELS[role]}`, body, closeX: true,
+      title: `${MEAL_LABELS[slot.meal]} · ${ROLE_LABELS[role]}`, body, closeX: true, actionsClass: 'modal-actions-grid',
       actions: [
         ...(item ? [{ label: item.locked ? '解除鎖定' : '鎖定這道', value: 'lock' }] : []),
-        { label: '換一道', value: 'swap' },
         { label: '我來指定…', value: 'assign' },
         ...(item ? [{ label: '拿掉這道', value: 'remove', danger: true }] : []),
-        ...(r ? [{ label: '看食譜', value: 'open' }] : []),
       ],
     });
     if (!choice) return;
-    if (choice === 'open') { location.hash = `#/recipes/${item.recipeId}`; return; }
     if (choice === 'lock') { await toggleLock({ plan, slotIndex, pos }); refresh(); return; }
     if (choice === 'remove') { const gone = await removeSlotItem({ plan, slotIndex, pos }); toast(gone ? '已拿掉這道' : '這格本來就沒有菜'); refresh(); return; }
-    if (choice === 'swap') { const ok = await swapSlotItem({ plan, slotIndex, pos }); toast(ok ? '換好了' : '沒有別的菜可以換了', 2600); refresh(); return; }
     if (choice === 'assign') { const done = await assignSlotItem({ plan, slotIndex, pos, recipesById, members }); if (done) { toast('已指定並鎖定'); refresh(); } }
   });
   return btn;

@@ -19,7 +19,7 @@ import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { indexFoods } from '../js/foods.js';
 import { newMember } from '../js/members.js';
 import {
-  generateWeek, swapItem, buildContext, scoreSoft, hardBlock, makeRng, hashSeed, weekKeyOf, mondayOf, addDays,
+  generateWeek, plainReasons, buildContext, scoreSoft, hardBlock, makeRng, hashSeed, weekKeyOf, mondayOf, addDays,
   lastShoppingDayOnOrBefore, historyRowsOf, dailyEstimates, medianOf, MEALS, isMeaty, VEG_MIN_DISHES, withPositions,
   actualRelaxations, shelfBlocker, RELAXABLE, FREEZABLE_CATS, daysBetween, MEAL_ROLES, refillSlot,
   weekBalance, balanceSentence, assignItem, HEARTY_LEVELS, WEEK_CAPS, BALANCE_NOTE, HEARTY_HINT, HEARTY_TOP_SHARE, groupEstimates,
@@ -246,14 +246,36 @@ eq(again.plan.slots[3].kind, 'eatOut', '外食格保留');
 eq(again.plan.slots[3].items, [], '外食格沒有菜');
 ok(again.plan.slots.filter((s) => s.kind === 'cook').some((s, i) => JSON.stringify(s.items) !== JSON.stringify(first.plan.slots.filter((x) => x.kind === 'cook')[i]?.items)), '（對照）沒鎖的格子有變（seed 不同）');
 
-section('換一道');
-const base = gen();
-const si = base.plan.slots.findIndex((s) => s.meal === 'lunch');
-const before = base.plan.slots[si].items.find((it) => it.role === 'main').recipeId;
-const swapped = swapItem({ plan: base.plan, slotIndex: si, role: 'main', recipes, members: [], idx, units, favorites: [], history: [], shoppingDays: [3, 6], seed: 'test' });
-ok(swapped && swapped.recipeId !== before, `換一道之後不是原本那道（${before} → ${swapped?.recipeId}）`);
-ok(swapped && byId.get(swapped.recipeId).role === 'main', '換到的還是主菜');
-ok(swapped && swapped.reasons.length >= 2, '換到的也有理由');
+section('菜色選項卡上的理由：帶估算數字的一句都不印（plainReasons）');
+{
+  // 2026-09-18 使用者回報：家裡設高血壓＋糖尿病後，每道菜的選單卡多出四行「估 鈉…中位數…」，一般人看不懂。
+  // 留意欄位照樣影響排序（scoreSoft 沒動），只是那幾句不印在卡上。
+  const sample = [
+    '14 天內沒出現過',
+    '蛋白質來源：雞',
+    '媽（蛋奶素）可吃素版',
+    '估 鈉 466 mg／份，不高於主菜池子的中位數 485',
+    '估 碳水化合物（醣） 6 g／份，不高於主菜池子的中位數 8',
+    '比較豐盛：估每份熱量、飽和脂肪在主菜裡偏高；這週第 1 道豐盛的主菜，在一週 4 道內',
+    '老薑、蒜頭這幾天已經會買',
+    '約 30 分鐘，滷／燉',
+    '你勾了「本週想吃」',
+  ];
+  const kept = plainReasons(sample);
+  eq(kept, ['14 天內沒出現過', '蛋白質來源：雞', '媽（蛋奶素）可吃素版', '老薑、蒜頭這幾天已經會買', '約 30 分鐘，滷／燉', '你勾了「本週想吃」'],
+    '留下不帶估算數字的六句；三句帶「估」或「中位數」的拿掉');
+  noneOf(kept, (t) => /估|中位數/.test(t), '留下來的沒有一句含「估」或「中位數」');
+  eq(plainReasons(undefined), [], '沒有理由就回空陣列（不會炸）');
+  // 真實菜單：留意欄位最多的家庭，每一道菜過濾後仍至少留一句（不會變成一張空卡）
+  const watchers = [{ ...newMember(), name: '阿公', conditions: ['hypertension', 'diabetes', 'lipid', 'osteoporosis'] }];
+  const wp = gen({ members: watchers, seed: 'plain' });
+  const allItems = cookSlots(wp.plan).flatMap((s) => s.items);
+  ok(allItems.length >= 40, `（母體）${allItems.length} 道菜`);
+  const rawWithEst = allItems.filter((it) => (it.reasons ?? []).some((t) => /估/.test(t))).length;
+  ok(rawWithEst >= 30, `（前提）這個家庭 ${rawWithEst} 道菜的原始理由裡有「估 …」—— 過濾才有東西可過濾`);
+  everyOf(allItems, (it) => plainReasons(it.reasons).length >= 1, '每一道過濾後仍至少留一句');
+  everyOf(allItems, (it) => plainReasons(it.reasons).every((t) => !/估|中位數/.test(t)), '每一道過濾後都沒有估算數字');
+}
 
 section('理由是事實，不是建議');
 const allReasons = cookSlots(a.plan).flatMap((s) => s.items.flatMap((it) => it.reasons));

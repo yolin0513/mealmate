@@ -410,11 +410,12 @@ try {
         prefs.applyFontScale(s);
       }, scale);
       for (const route of ROUTES) {
+        // 每一天都**明確**設成展開或收起（2026-09-18 起沒設的天會依今天收合，不能靠跑測試當天是星期幾）
         await page.evaluate(async (days) => {
           const prefs = await import('./js/prefs.js');
           const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
           const wk = weekKeyOf(mondayOf(isoDate(new Date())));
-          await prefs.set('collapsedDays', days.length ? { [wk]: days } : {});
+          await prefs.set('collapsedDays', { [wk]: Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((d) => [d, days.includes(d) ? 'closed' : 'open'])) });
         }, route.collapse ?? []);
         // 每一個 route 前面都把「手改過的數量」設成它要的樣子，否則狀態會互相污染
         await page.evaluate(async (on) => {
@@ -472,10 +473,74 @@ try {
         await page.evaluate((h) => { location.hash = h; }, route.hash);
         await page.waitForFunction(() => document.querySelector('#view')?.textContent?.trim().length > 20, { timeout: 60000 });
         await new Promise((r) => setTimeout(r, 320));
-        all.push({ width, scale, route: route.name, ...(await scan()) });
+        // 食譜頁的需求篩選 2026-09-18 收進「更多選項」（預設收起）。量它們之前先打開；收起時的狀態另外記。
+        const moreClosed = await page.evaluate(() => {
+          const d = document.querySelector('[data-field="moreFilters"]');
+          if (!d) return null;
+          const wasClosed = !d.open;
+          d.open = true;
+          return wasClosed;
+        });
+        await new Promise((r) => setTimeout(r, 120));
+        all.push({ width, scale, route: route.name, moreClosed, ...(await scan()) });
       }
     }
   }
+
+  // ---- 菜色選項卡（modal）：三種字級 × 三種寬度各開一次量 ----
+  // 2026-09-18 使用者回報：這張卡在別支手機上跑版（下方按鈕、關閉圖示都跑掉）。
+  // 它是 modal，主掃描掃不到，所以另外開一次量：不溢出、✕ 在卡片裡且不壓到標題文字、
+  // 三顆按鈕等寬且 ≥44px、「看食譜」跟菜名同一行、卡上沒有估算數字。
+  const menuCards = [];
+  for (const width of WIDTHS) {
+    await page.setViewport({ width, height: 844 });
+    for (const scale of SCALES) {
+      await page.evaluate(async (s) => { const prefs = await import('./js/prefs.js'); await prefs.set('fontScale', s); prefs.applyFontScale(s); }, scale);
+      await page.evaluate(async () => {
+        const prefs = await import('./js/prefs.js');
+        const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
+        await prefs.set('collapsedDays', { [weekKeyOf(mondayOf(isoDate(new Date())))]: Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((d) => [d, 'open'])) });
+      });
+      await page.evaluate(() => { location.hash = '#/family/new'; });
+      await new Promise((r) => setTimeout(r, 180));
+      await page.evaluate(() => { location.hash = '#/'; });
+      await page.waitForSelector('.meal-item[data-extra="meat"] .item-menu', { timeout: 60000 });
+      await new Promise((r) => setTimeout(r, 250));
+      // 挑一道加菜：它的理由最多、卡片最容易被撐爆
+      await page.$eval('.meal-item[data-extra="meat"] .item-menu', (el) => el.click());
+      await page.waitForSelector('.modal-card .modal-actions .btn', { timeout: 30000 });
+      await new Promise((r) => setTimeout(r, 200));
+      menuCards.push({ width, scale, ...(await page.evaluate(() => {
+        const c = document.querySelector('.modal-card');
+        const cr = c.getBoundingClientRect();
+        const docW = document.documentElement.clientWidth;
+        const x = c.querySelector('.modal-x').getBoundingClientRect();
+        const t = c.querySelector('.modal-title');
+        const tr = t.getBoundingClientRect();
+        const tPad = parseFloat(getComputedStyle(t).paddingRight);
+        const btns = [...c.querySelectorAll('.modal-actions .btn')].map((b) => { const r = b.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), right: r.right, left: r.left }; });
+        const name = c.querySelector('.menu-name')?.getBoundingClientRect();
+        const open = c.querySelector('.menu-open')?.getBoundingClientRect();
+        const inside = [...c.querySelectorAll('*')].every((e) => { const r = e.getBoundingClientRect(); return r.width === 0 || (r.right <= cr.right + 1 && r.left >= cr.left - 1); });
+        return {
+          cardInDoc: cr.right <= docW + 1 && cr.left >= -1,
+          allInside: inside,
+          xInside: x.right <= cr.right + 1 && x.top >= cr.top - 1,
+          titleClearOfX: (tr.right - tPad) <= x.left + 1,
+          btns,
+          sameWidth: Math.max(...btns.map((b) => b.w)) - Math.min(...btns.map((b) => b.w)) <= 2,
+          minBtnH: Math.min(...btns.map((b) => b.h)),
+          openSameRow: name && open ? Math.abs(name.top - open.top) < Math.max(name.height, open.height) : false,
+          hasEst: /估|中位數/.test(c.querySelector('.modal-body').textContent),
+          docScrollW: document.documentElement.scrollWidth, docW,
+        };
+      })) });
+      await page.evaluate(() => document.querySelector('.modal-x').click());
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
+  await page.setViewport({ width: 390, height: 844 });
+
   await page.evaluate(async () => {
     const prefs = await import('./js/prefs.js');
     await prefs.set('fontScale', 'md');
@@ -559,6 +624,20 @@ try {
     everyOf(addPages, (p) => p.addDish.allSameRow, '跟餐別名稱在同一列（不會掉到下一行找不到）');
   }
 
+  section('菜色選項卡：各字級 × 寬度都不跑版（三種字級 × 三種寬度）');
+  {
+    ok(menuCards.length === SCALES.length * WIDTHS.length, `（母體）開了 ${menuCards.length} 次菜色選項卡`);
+    const mw = (p) => `${p.width}px/${p.scale}`;
+    everyOf(menuCards, (p) => p.cardInDoc && p.docScrollW <= p.docW + 1, '卡片在畫面裡，沒有橫向捲動');
+    everyOf(menuCards, (p) => p.allInside, '卡片裡的每一個元素都沒有超出卡片邊緣', menuCards.filter((p) => !p.allInside).map(mw).join(' ／ '));
+    everyOf(menuCards, (p) => p.xInside && p.titleClearOfX, '關閉的 ✕ 在卡片右上角，而且不壓到標題文字', menuCards.filter((p) => !(p.xInside && p.titleClearOfX)).map(mw).join(' ／ '));
+    everyOf(menuCards, (p) => p.btns.length === 3, '下方剛好三顆按鈕（鎖定、我來指定、拿掉）');
+    everyOf(menuCards, (p) => p.sameWidth, `三顆按鈕等寬（差 ≤ 2px）`, menuCards.filter((p) => !p.sameWidth).map((p) => `${mw(p)} ${p.btns.map((b) => b.w).join('/')}`).join(' ／ '));
+    everyOf(menuCards, (p) => p.minBtnH >= 44, `每一顆都按得到（最小 ${Math.min(...menuCards.map((p) => p.minBtnH))}px）`);
+    everyOf(menuCards, (p) => p.openSameRow, '「看食譜」跟菜名同一行', menuCards.filter((p) => !p.openSameRow).map(mw).join(' ／ '));
+    noneOf(menuCards, (p) => p.hasEst, '卡上沒有任何估算數字（每一種字級與寬度都一樣）');
+  }
+
   section('本週頁菜列：「⋯」永遠跟菜名同一列、釘在最右邊（標籤再多也一樣）');
   {
     // 2026-09-17 使用者回報：手動加的那一道（「自己加的」標籤 ＋ 🔒）把「⋯」擠到下一行。
@@ -595,7 +674,8 @@ try {
   {
     const nPages = all.filter((p) => p.route === '食譜清單' && p.needFilters);
     ok(nPages.length === SCALES.length * WIDTHS.length, `（母體）食譜清單掃了 ${nPages.length} 組`);
-    ok(nPages.every((p) => p.needFilters.n === 5), `需求篩選 ${nPages[0]?.needFilters.n} 顆`);
+    everyOf(nPages, (p) => p.moreClosed === true, '「更多選項」一開始是收起來的（大字級下才不會換好幾行）');
+    ok(nPages.every((p) => p.needFilters.n === 5), `打開之後需求篩選 ${nPages[0]?.needFilters.n} 顆`);
     everyOf(nPages, (p) => p.needFilters.widthSpread <= 1, '每一顆等寬');
     everyOf(nPages, (p) => p.needFilters.rowAligned, '同一列的高度一致（換行也對齊）');
     everyOf(nPages, (p) => p.needFilters.minH >= 44, '每一顆都按得到');
@@ -687,7 +767,7 @@ try {
         const prefs = await import('./js/prefs.js');
         await prefs.set('fontScale', s2); prefs.applyFontScale(s2);
         const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
-        await prefs.set('collapsedDays', { [weekKeyOf(mondayOf(isoDate(new Date())))]: [0, 3, 6] });
+        await prefs.set('collapsedDays', { [weekKeyOf(mondayOf(isoDate(new Date())))]: { 0: 'closed', 1: 'open', 2: 'open', 3: 'closed', 4: 'open', 5: 'open', 6: 'closed' } });
       }, scale);
       await page.evaluate(() => { location.hash = '#/family/new'; });
       await new Promise((r) => setTimeout(r, 200));

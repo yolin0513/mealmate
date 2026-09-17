@@ -5,7 +5,7 @@
 // 瀏覽器會當成另一個網址再求值一次 —— boot() 跑兩次、路由註冊兩次。view 要用的東西在 js/shell.js。
 // shelltest 有靜態稽核擋這件事。
 
-import { route, setNotFound, startRouter, currentRoute, navigate, setSlowIndicator } from './router.js';
+import { route, setNotFound, startRouter, currentRoute, navigate, setSlowIndicator, setRenderError } from './router.js';
 import * as store from './store.js';
 import * as prefs from './prefs.js';
 import * as db from './db.js';
@@ -39,7 +39,13 @@ setNotFound(({ path }) => {
   showVersionMismatch(path);
 });
 
-function showVersionMismatch(rawPath) {
+// 某一頁載入或畫到一半失敗：最常見的成因也是版本混搭（舊的 view 配新的模組，import 一個已經移除的匯出）。
+// 以前只會 console.error、畫面停在轉圈圈。走同一張卡，並把原始錯誤寫出來（遠端支援時問得出來）。
+setRenderError((error, path) => {
+  showVersionMismatch(path, error);
+});
+
+function showVersionMismatch(rawPath, error = null) {
   let path = rawPath;
   try { path = decodeURIComponent(rawPath); } catch { /* 編碼壞掉就顯示原樣 */ }
   setTop({ title: '需要更新', back: true });
@@ -53,12 +59,15 @@ function showVersionMismatch(rawPath) {
 
   render(
     h('section', { class: 'card', dataset: { card: 'versionMismatch' } },
-      h('h2', { class: 'card-title' }, '這個畫面在你目前的版本裡還沒有'),
-      h('p', {}, `「${path}」這一頁需要比較新的版本才打得開。`),
+      h('h2', { class: 'card-title' }, error ? '這一頁畫不出來' : '這個畫面在你目前的版本裡還沒有'),
+      h('p', {}, error
+        ? `「${path}」這一頁畫不出來，多半是新舊版的程式混在一起了。`
+        : `「${path}」這一頁需要比較新的版本才打得開。`),
       h('p', { class: 'muted sm' },
         '你看到的按鈕來自新版的畫面，但正在執行的程式還是舊的 —— ' +
         '通常是剛更新過、瀏覽器手上還留著一份十分鐘內的舊檔案造成的。'),
       h('p', { class: 'muted sm' }, `目前執行的版本：${APP_VERSION}`),
+      error ? h('p', { class: 'muted xs', dataset: { field: 'renderError' } }, `錯誤：${String(error?.message || error).slice(0, 160)}`) : null,
       btn,
       h('a', { class: 'btn', href: '#/' }, '先回本週'),
       h('p', { class: 'muted sm' },

@@ -9,6 +9,14 @@ let current = null;
 let slowIndicator = null;
 export function setSlowIndicator(fn) { slowIndicator = fn; }
 
+// 某一頁自己失敗時要有人接（2026-09-18）。最常見的成因是**版本混搭**：瀏覽器手上還留著十分鐘前的 app.js
+// （它 import 的是舊版的 view），配上剛抓下來的其他模組；舊 view import 一個已經被移除的匯出，
+// `import()` 在 link 階段就 reject —— 以前這裡只有 console.error，畫面停在「載入中…」的轉圈圈，
+// 使用者連一顆按鈕都沒有。這跟「走到不認得的路由」是同一件事，交給同一張「需要更新」的卡。
+// versionmixtest 用舊版 week.js ＋ 新版 weekops.js 真的做出這個處境。
+let renderError = null;
+export function setRenderError(fn) { renderError = fn; }
+
 let depth = 0;
 const trail = [];
 const scrollMemory = new Map();
@@ -113,7 +121,10 @@ async function renderOnce() {
     current = { path, params, query, pattern: r.pattern };
     if (restore == null) window.scrollTo(0, 0);
     try { await r.handler({ params, query, path, fresh: true }); }
-    catch (e) { console.error(e); }
+    catch (e) {
+      console.error(e);
+      if (renderError && my === gen) { try { renderError(e, path); } catch (e2) { console.error(e2); } }
+    }
     if (my !== gen) return;
     if (restore != null) {
       window.scrollTo(0, restore);

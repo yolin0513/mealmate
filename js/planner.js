@@ -36,6 +36,19 @@ export const MEAL_ROLES = {
 export const VEG_MIN_DISHES = 3;
 
 /**
+ * 「菜色選項」卡上要顯示的理由：**把帶估算數字的那幾句拿掉**。
+ *
+ * 2026-09-18 使用者回報：家裡設了高血壓＋糖尿病之後，每道菜的選單卡都多出「估 鈉 466 mg／份，不高於主菜池子的
+ * 中位數 485」「估 碳水化合物（醣）…」「估 糖…」「估 膳食纖維…」四行，一般人看不懂，畫面也被撐爆。
+ * 那些句子是排菜器**排序**時的依據，留意欄位照樣影響排序 —— 這裡只是不把它印在卡上。
+ * 要看營養數字：食譜頁的營養卡、本週頁的每日估算都還在。
+ * 判準：含「估」字（含「比較豐盛：估每份熱量…」那句）或「中位數」的就是營養敘述。
+ */
+export function plainReasons(reasons) {
+  return (reasons ?? []).filter((t) => !/估|中位數/.test(String(t)));
+}
+
+/**
  * 加菜格（僅葷食成員）收得下哪些角色的菜。
  *
  * 一般的加菜照舊只挑主菜 —— 那是 SPEC_排菜葷素比例 定的，動它會讓每一份菜單都變樣。
@@ -881,31 +894,6 @@ export function refillSlot({ plan, slotIndex, recipes, members = [], idx, units,
   return { items: items.map(({ method, ...it }) => it).sort((a, b) => a.pos - b.pos), diagnostics };
 }
 
-/** 把一格裡某個角色換一道（排除現在這道）。回新的 item 或 null。 */
-export function swapItem({ plan, slotIndex, pos, recipes, members, idx, units, rules, favorites, history, shoppingDays, seed }) {
-  const slot = plan.slots[slotIndex];
-  const ctx = buildContext({ recipes, members, idx, units, rules, favorites, shoppingDays });
-  const past = history.filter((h) => daysBetween(h.date, plan.monday) <= 28 && h.date < plan.monday);
-  const state = makeState(past, ctx, plan.monday);
-  // 這一週其他格子的菜都算「已排」
-  for (const s of plan.slots) {
-    if (s.kind !== 'cook') continue;
-    for (const it of s.items) {
-      if (s === slot && it.pos === pos) continue;
-      const r = state.byId.get(it.recipeId);
-      if (r) state.place(r, { day: s.day, meal: s.meal, date: s.date });
-    }
-  }
-  state.slotItems = slot.items.filter((it) => it.pos !== pos).map((it) => ({ ...it, method: state.byId.get(it.recipeId)?.method }));
-  const current = slot.items.find((it) => it.pos === pos);
-  const role = current?.role ?? MEAL_ROLES[slot.meal]?.[pos] ?? 'main';
-  const extraMeat = !!current?.extraMeat;
-  const rng = makeRng(`${seed}|swap|${slotIndex}|${pos}|${Date.now()}`);
-  const picked = pickForSlot(ctx, state, { day: slot.day, meal: slot.meal, date: slot.date }, role, rng,
-    { exclude: new Set(current ? [current.recipeId] : []), meatOnlyExtra: extraMeat });
-  if (!picked) return null;
-  return { recipeId: picked.recipe.id, role, pos, locked: false, reasons: picked.reasons, ...(extraMeat ? { extraMeat: true } : {}) };
-}
 
 /** 直接指定一道菜到某格的某個位置（使用者手選）。理由寫「你指定的」。 */
 export function assignItem(plan, slotIndex, pos, recipe) {

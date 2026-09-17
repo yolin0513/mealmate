@@ -48,7 +48,9 @@ try {
     return store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
   });
   ok(plan && plan.slots.length === 21, '（前提）計畫存在');
-  const expected = buildShoppingList({ plan, recipesById: byId, members, idx, units, shoppingDays: [1, 4] });
+  // 2026-09-18 起畫面只算今天（含）以後的餐（fromDate），Node 端要算一樣的東西才比得出來
+  const todayIso0 = isoDate(new Date());
+  const expected = buildShoppingList({ plan, recipesById: byId, members, idx, units, shoppingDays: [1, 4], fromDate: todayIso0 });
   const expectedRanges = rangesOfPlan(plan, [1, 4]);
   await goto(page, '#/shopping');
   await titleIs(page, '買菜');
@@ -195,7 +197,7 @@ try {
         const row = await store.getShopping(r.key);
         manualByRange[r.key] = row.manual ?? {};
       }
-      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days, manualByRange });
+      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days, manualByRange, fromDate: isoDate(new Date()) });
       return ranges.map((r) => listAsText(r, {})).join('\n');
     });
     ok(/（已改）/.test(copied), '複製出去的文字帶著「（已改）」');
@@ -286,7 +288,7 @@ try {
         customByRange[r.key] = row.custom ?? [];
         if (r.key === key) mine = row;
       }
-      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days, manualByRange, customByRange });
+      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: days, manualByRange, customByRange, fromDate: isoDate(new Date()) });
       return listAsText(ranges.find((r) => r.key === key), { checked: mine.checked ?? {}, have: mine.have ?? {} });
     }, cardKey);
     ok(/✓ 蘋果　3 顆（自己加的）/.test(text), '複製出去的文字帶名稱、數量、勾選狀態，並標「自己加的」');
@@ -419,7 +421,7 @@ try {
       const { buildShoppingList } = await import('./js/shopping.js');
       const { weekKeyOf, mondayOf, isoDate } = await import('./js/planner.js');
       const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
-      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: prefs.get('shoppingDays') ?? [] });
+      const { ranges } = buildShoppingList({ plan, recipesById: new Map(store.allRecipes().map((x) => [x.id, x])), members: store.members(), idx: store.foodsIndex(), units: store.units(), shoppingDays: prefs.get('shoppingDays') ?? [], fromDate: isoDate(new Date()) });
       const r = ranges.find((x) => x.key === key);
       const row = await store.getShopping(key);
       row.checked = Object.fromEntries(r.items.map((it) => [it.foodId, true]));

@@ -66,6 +66,28 @@ section('買菜頁的順序：還有餐要煮的排前面，整個過去的排�
   eq(rangeIsPast(ranges[0], null), false, '不知道今天是哪天就不判任何一張是過去的');
 }
 
+section('清單只算今天（含）以後的餐（fromDate）；整個過去的那張不動');
+// 2026-09-18 使用者：「購物清單只列今天以後還要買／煮的」。週三買、給週三到週五的清單，週四打開時
+// 週三已經煮完的食材就不再列。整個過去的清單（每一天都過了）不動 —— 它留著是為了補買。
+{
+  // 7 天每天晚餐一道清炒高麗菜；週三、週六買 → 9/12（給 9/14、15）、9/16（給 9/16–18）、9/19（給 9/19、20）
+  const cabbageEvery = plan(dates.map((_, d) => slot(d, 'dinner', ['r-stir-fried-cabbage'])));
+  const full = buildShoppingList({ plan: cabbageEvery, recipesById: byId, members: [], idx, units, shoppingDays: [3, 6] });
+  const thu = buildShoppingList({ plan: cabbageEvery, recipesById: byId, members: [], idx, units, shoppingDays: [3, 6], fromDate: '2026-09-17' });
+  const cab = (list, key) => list.ranges.find((r) => r.key === key).items.find((it) => it.foodId === CABBAGE)?.grams ?? 0;
+  eq(full.ranges.find((r) => r.key === '2026-09-16').dates, ['2026-09-16', '2026-09-17', '2026-09-18'], '（對照）沒給 fromDate：9/16 那張給三天');
+  eq(thu.ranges.find((r) => r.key === '2026-09-16').dates, ['2026-09-17', '2026-09-18'], '9/17 站在這裡：9/16 那張只剩 9/17、9/18');
+  eq(thu.ranges.find((r) => r.key === '2026-09-16').allDates, ['2026-09-16', '2026-09-17', '2026-09-18'], '原本涵蓋哪幾天仍記在 allDates');
+  eq(cab(full, '2026-09-16'), 450 * 3, '（對照）三天 → 450 × 3 g');
+  eq(cab(thu, '2026-09-16'), 450 * 2, '剩兩天 → 450 × 2 g（週三那一餐煮完了就不再列）');
+  eq(cab(thu, '2026-09-19'), cab(full, '2026-09-19'), '還沒到的那張（9/19）一樣多');
+  eq(cab(thu, '2026-09-12'), cab(full, '2026-09-12'), '整個過去的那張（9/12，給 9/14、15）一克都沒少 —— 留著補買');
+  eq(thu.ranges.find((r) => r.key === '2026-09-12').dates, ['2026-09-14', '2026-09-15'], '過去那張的 dates 也不動');
+  eq(thu.ranges.length, full.ranges.length, '張數不變（只是內容變少，不會把清單弄丟）');
+  const mon = buildShoppingList({ plan: cabbageEvery, recipesById: byId, members: [], idx, units, shoppingDays: [3, 6], fromDate: '2026-09-14' });
+  eq(mon.ranges.map((r) => cab(mon, r.key)), full.ranges.map((r) => cab(full, r.key)), '（對照）週一站在這裡：什麼都還沒過，三張跟沒給 fromDate 一模一樣');
+}
+
 section('縮放倍數');
 const fam = [{ ...newMember(), name: 'a', diet: 'omni' }, { ...newMember(), name: 'b', diet: 'omni' }, { ...newMember(), name: 'c', diet: 'lactoOvo' }];
 // 這一段驗的是「分軌比例」，所以把下限關掉單獨看比例（下限本身在最後一節驗）。

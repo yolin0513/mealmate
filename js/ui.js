@@ -49,7 +49,7 @@ export function toast(msg, ms = 2400) {
 /**
  * 對話框。actions 按了就用它的 value 關閉；bind(close) 讓 body 裡的元素（例如選單列）也能關閉並回傳值。
  */
-export function modal({ title, body, actions, closeX = false, bind = null }) {
+export function modal({ title, body, actions, closeX = false, bind = null, actionsClass = '' }) {
   const root = document.getElementById('modalRoot');
   return new Promise((resolve) => {
     const close = (val) => { overlay.remove(); document.removeEventListener('keydown', onKey); resolve(val); };
@@ -59,7 +59,7 @@ export function modal({ title, body, actions, closeX = false, bind = null }) {
       closeX ? h('button', { class: 'modal-x', 'aria-label': '關閉', onclick: () => close(null) }, '✕') : null,
       title ? h('h2', { class: 'modal-title' }, title) : null,
       h('div', { class: 'modal-body' }, body),
-      h('div', { class: 'modal-actions' },
+      h('div', { class: 'modal-actions' + (actionsClass ? ` ${actionsClass}` : '') },
         ...(actions || [{ label: '好', value: true, primary: true }]).map((a) =>
           h('button', {
             class: 'btn' + (a.primary ? ' btn-primary' : '') + (a.danger ? ' btn-danger' : ''),

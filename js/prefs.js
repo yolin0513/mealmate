@@ -19,26 +19,38 @@ export const DEFAULTS = {
   heartyLevel: 'medium',
   // 這週用的亂數種子；「重新產生」會換一個
   planSeed: null,
-  // 本週頁把哪幾天收起來了。**依週存**：{ '2026-W38': [5, 6] }。
-  // 存成全域的「星期六日一律收起來」也行，但實際用法多半是「這幾天已經煮過了，收起來」——
-  // 那是這一週的事，下一週不該還是收的。只留最近幾週，免得無限長大。
+  // 本週頁每一天是收起來還是展開。**依週存**：{ '2026-W38': { 0: 'closed', 3: 'open' } }。
+  // 沒記到的那幾天照預設：**今天之前的收起來（已過）、其餘展開**（2026-09-18 使用者要求「過了的日子不要再攤開」）。
+  // 所以手動展開也要記（值是 'open'），不然過去的日子點開之後一重畫又收回去。
+  // 舊資料是陣列 [5, 6]（只記收起來的），讀的時候當成 { 5: 'closed', 6: 'closed' }。
+  // 存成全域的「星期六日一律收起來」也行，但實際用法多半是這一週的事；只留最近幾週，免得無限長大。
   collapsedDays: {},
 };
 
-/** 這一週有哪幾天是收起來的（0 = 週一）。 */
-export function collapsedDaysFor(weekKey) {
+/**
+ * 這一週每一天**手動**設成什麼：{ 0: 'closed', 3: 'open' }（0 = 週一）。沒設的天不在裡面（由畫面決定預設）。
+ * 舊格式是陣列 [5, 6]（只記收起來的）→ 當成 { 5: 'closed', 6: 'closed' }。
+ */
+export function dayFoldsFor(weekKey) {
   const all = get('collapsedDays') ?? {};
-  return Array.isArray(all[weekKey]) ? all[weekKey] : [];
+  const v = all[weekKey];
+  if (Array.isArray(v)) return Object.fromEntries(v.map((d) => [d, 'closed']));
+  if (v && typeof v === 'object') return { ...v };
+  return {};
+}
+
+/** 這一週有哪幾天是手動收起來的（0 = 週一）。留著給舊的呼叫端與測試用。 */
+export function collapsedDaysFor(weekKey) {
+  return Object.entries(dayFoldsFor(weekKey)).filter(([, v]) => v === 'closed').map(([d]) => Number(d)).sort((a, b) => a - b);
 }
 
 /** 只保留最近幾週的摺疊狀態（weekKey 是 '2026-W38' 這種，字串排序＝時間排序）。 */
 const KEEP_WEEKS = 4;
 export async function setCollapsedDay(weekKey, day, on) {
   const all = { ...(get('collapsedDays') ?? {}) };
-  const cur = new Set(collapsedDaysFor(weekKey));
-  if (on) cur.add(day); else cur.delete(day);
-  if (cur.size) all[weekKey] = [...cur].sort((a, b) => a - b);
-  else delete all[weekKey];
+  const cur = dayFoldsFor(weekKey);
+  cur[day] = on ? 'closed' : 'open';
+  all[weekKey] = cur;
   for (const k of Object.keys(all).sort().slice(0, -KEEP_WEEKS)) delete all[k];
   await set('collapsedDays', all);
 }

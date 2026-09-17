@@ -113,20 +113,30 @@ export function orderRangesForToday(ranges, todayIso) {
 
 /**
  * 產生購物清單。
- * @returns {{ ranges: [{ key, label, dates, items: [...], pantry: [...] }] }}
+ * @returns {{ ranges: [{ key, label, dates, allDates, items: [...], pantry: [...] }] }}
  *   item：{ foodId, name, labels: string[], grams, buy: {qty, unit, grams}|null, section, uses: [{date, meal, recipe}] }
+ * @param fromDate 今天（ISO）。給了的話，**跨今天的那一張清單只算今天（含）以後的餐** ——
+ *   週三買、給週三到週五的清單，週四打開時週三已經煮完的食材就不再列（2026-09-18 使用者要求）。
+ *   **整個過去的清單不動**（它涵蓋的每一天都過了，留著是為了補買，見 rangeIsPast）。
  */
-export function buildShoppingList({ plan, recipesById, members = [], idx, units, shoppingDays = [], manualByRange = {}, customByRange = {} }) {
+export function buildShoppingList({ plan, recipesById, members = [], idx, units, shoppingDays = [], manualByRange = {}, customByRange = {}, fromDate = null }) {
   const terms = aliasTermsOf(idx);
   const buyUnitFor = (foodId) => {
     for (const t of terms.get(foodId) ?? []) { const u = units?.buyUnits?.[t]; if (u && typeof u === 'object' && u.grams > 0) return u; }
     return null;
   };
-  const ranges = rangesOfPlan(plan, shoppingDays).map((r) => ({
-    ...r, items: [], pantry: [],
-    // 自己加的項目跟著這張採買卡走（per-range），整理成乾淨的形狀；不參與任何克數計算
-    custom: sanitizeCustom(customByRange[r.key]),
-  }));
+  const ranges = rangesOfPlan(plan, shoppingDays).map((r) => {
+    // 先用原本的 dates 判斷「整個過去了嗎」，再決定要不要把今天之前的日子剔掉
+    const trim = fromDate && !rangeIsPast(r, fromDate);
+    return {
+      ...r,
+      dates: trim ? r.dates.filter((d) => d >= fromDate) : r.dates,
+      allDates: r.dates,
+      items: [], pantry: [],
+      // 自己加的項目跟著這張採買卡走（per-range），整理成乾淨的形狀；不參與任何克數計算
+      custom: sanitizeCustom(customByRange[r.key]),
+    };
+  });
   for (const range of ranges) {
     const agg = new Map();     // foodId → item
     const pantry = new Map();  // foodId → { foodId, name, labels }
