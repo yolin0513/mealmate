@@ -214,13 +214,19 @@ try {
   await clickEl(page, '[data-ingredient="0"] .picker-item');
   await sleep(100);
   ok((await textOf(page, '[data-ingredient="0"] [data-field="pickedFood"]')).includes('青江菜'), '選到青江菜的條目');
-  // 預設只給 1 步：現成的菜可能就「盛盤上桌」一步，不該逼使用者湊滿 3 步（使用者實測回報）。
-  eq((await page.$$('[data-list="steps"] textarea')).length, 1, '預設 1 步（要幾步自己加）');
+  // 2026-09-18 Yolin：步驟預設 0 步，要才按「新增步驟」（之前是預設 1 步）。
+  eq((await page.$$('[data-list="steps"] textarea')).length, 0, '預設 0 步：沒有任何步驟輸入框');
+  ok((await textOf(page, '[data-field="noSteps"]')).includes('還沒有步驟'), '0 步時講一句「還沒有步驟」，不是一塊空白');
+  eq((await textOf(page, '[data-action="addStep"]')).trim(), '＋ 新增步驟', '按鈕叫「＋ 新增步驟」');
+  await clickEl(page, '[data-action="addStep"]');
+  await sleep(120);
+  eq((await page.$$('[data-list="steps"] textarea')).length, 1, '按一下 → 出現第一個步驟框');
+  eq(await page.$$('[data-field="noSteps"]').then((x) => x.length), 0, '有步驟之後「還沒有步驟」那句不見了');
   await clickEl(page, '[data-action="addStep"]');
   await clickEl(page, '[data-action="addStep"]');
   await sleep(120);
   const stepAreas = await page.$$('[data-list="steps"] textarea');
-  eq(stepAreas.length, 3, '按兩下「加一步」變成三步');
+  eq(stepAreas.length, 3, '再按兩下變成三步');
   for (const [i, ta] of stepAreas.entries()) await ta.type(`第${i + 1}步：洗、燙、盛盤。`);
   await waitToastGone(page);
   await clickEl(page, '[data-action="saveRecipe"]');
@@ -338,6 +344,7 @@ try {
     await sleep(60);
     eq(await val(3, 'ingQty'), '300', '切回克 → 數量換成 300（克數不變）');
 
+    await clickEl(page, '[data-action="addStep"]'); await sleep(80);
     await page.type('[data-list="steps"] textarea', '全部炒熟');
     await waitToastGone(page);
     await clickEl(page, '[data-action="saveRecipe"]');
@@ -419,6 +426,7 @@ try {
     await clickEl(page, '[data-action="addIngredient"]');
     await sleep(150);
     await page.type('[data-ingredient="1"] [data-field="foodSearch"]', '青蔥');   // 打在搜尋框，但沒點清單
+    await clickEl(page, '[data-action="addStep"]'); await sleep(80);
     await page.type('[data-list="steps"] textarea', '加熱');
     await waitToastGone(page);
     await clickEl(page, '[data-action="saveRecipe"]');
@@ -446,7 +454,7 @@ try {
     await page.$eval('[data-field="time"]', (el) => { el.value = '0'; el.dispatchEvent(new Event('input', { bubbles: true })); });
     await page.type('[data-ingredient="0"] [data-field="ingLabel"]', '雞腳');
     await sleep(150);
-    eq(await page.$$eval('[data-list="steps"] textarea', (els) => els.map((el) => el.value)), [''], '（前提）只有表單預設的那一步，一個字都沒打');
+    eq(await page.$$eval('[data-list="steps"] textarea', (els) => els.length), 0, '（前提）預設 0 步，一步都沒加');
     await waitToastGone(page);
     await clickEl(page, '[data-action="saveRecipe"]');
     await page.waitForFunction(() => document.getElementById('topTitle')?.textContent === '滷雞腳不寫步驟' || document.querySelector('[data-field="errors"]')?.hidden === false);
@@ -463,6 +471,7 @@ try {
     await page.waitForSelector('[data-field="recipeName"]');
     await page.type('[data-field="recipeName"]', '神祕小菜');
     await page.type('[data-ingredient="0"] [data-field="ingLabel"]', '豬耳朵絲');
+    await clickEl(page, '[data-action="addStep"]'); await sleep(80);
     await page.type('[data-list="steps"] textarea', '上桌');
     await waitToastGone(page);
     await clickEl(page, '[data-action="saveRecipe"]');
@@ -501,6 +510,7 @@ try {
     // 加一個食材會整排重畫：第一列的提示不可以變回「尚未選食材」（線上實測抓到過）
     const hintAfterAdd = await textOf(page, '[data-ingredient="0"] [data-field="pickedFood"]');
     ok(hintAfterAdd.includes('查不到「豬耳朵」'), `加了第二個食材（整排重畫）之後，第一列的提示還在：「${hintAfterAdd}」`);
+    await clickEl(page, '[data-action="addStep"]'); await sleep(80);
     await page.type('[data-list="steps"] textarea', '切片上桌');
     await waitToastGone(page);
     await clickEl(page, '[data-action="saveRecipe"]');

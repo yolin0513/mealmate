@@ -74,9 +74,10 @@ export const DEFAULT_RULES = {
 
 export const RICE_KINDS = ['white', 'brown', 'multigrain'];
 export const RICE_KIND_LABELS = { white: '白米', brown: '糙米', multigrain: '五穀米' };
-/** 設定的米種只有 1／2 道飯時，飯類主食的加分（亂數是 0～3 分；plannertest 量麵條的頻率）。 */
-const RICE_SCARCE_BONUS = { 1: 0.9, 2: 0.4 };
-export const RICE_KIND_HINT = '飯類主食只排這一種米（白米會在白飯、地瓜飯、芋頭飯之間輪流）；麵條照常會排到。';
+// 2026-09-18 Yolin：設了哪一種米，**主食格一律是那種米**，不再排白麵條或其他主食。
+// （v0.29.0 時讓沒有米的主食照常通過 —— 設五穀米還會出現白麵條，就是這條。）麵類當主菜的菜（炒米粉這類）不受影響：
+// 它們本身含主食，那一餐的主食格直接略過。
+export const RICE_KIND_HINT = '主食格只排這一種米（白米會在白飯、地瓜飯、芋頭飯之間輪流）；麵類的主菜不受影響。';
 /**
  * 一樣食材是哪一種米；不是米回 null。看食藥署的名稱，所以使用者自己加的主食也適用。
  * 米粉、米胚芽、糯米不算「煮飯的米」。
@@ -326,10 +327,8 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
     if (!riceCache.has(recipe.id)) riceCache.set(recipe.id, riceKindOf(recipe, idx));
     return riceCache.get(recipe.id);
   };
-  // 「麵條不受影響」：白米有白飯、地瓜飯、芋頭飯三道對一道麵，麵大約四餐一次；
-  // 糙米、五穀米各只有一道飯，不補的話就變成飯麵各半。飯的道數少於三道時給飯一點加分，把麵拉回差不多的頻率。
+  // 設定的米種有幾道飯：只有一道（糙米、五穀米）時，飯類主食不套「同一天不排同一道」（hardBlock 的 riceAllDay）
   const riceDishes = recipes.filter((x) => x.role === 'staple' && riceOf(x) === r.riceKind).length;
-  const riceBonus = RICE_SCARCE_BONUS[riceDishes] ?? 0;
   const estCache = new Map();
   const perServing = (recipe, version) => {
     const key = `${recipe.id}|${version}`;
@@ -425,7 +424,7 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
   // 混合家庭：同時有吃葷與吃素的人。hasOmni 在「還沒新增家人」時也是 true，但那時 vegetarians 是空的，所以不算。
   const mixedHome = vegetarians.length > 0 && hasOmni;
   const recipeById = new Map(recipes.map((x) => [x.id, x]));
-  return { recipeById, proteinFor, starsOf, riceOf, riceBonus, riceDishes, recipes, members, idx, units, rules: r, vegetarians, hasOmni, mixedHome, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, refPerServing, heartyOf, isLight };
+  return { recipeById, proteinFor, starsOf, riceOf, riceDishes, recipes, members, idx, units, rules: r, vegetarians, hasOmni, mixedHome, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, refPerServing, heartyOf, isLight };
 }
 
 // ---------- 保存期限 ----------
@@ -437,6 +436,28 @@ export const FREEZABLE_CATS = new Set(['肉類', '魚貝類']);
  * 抽出來是為了讓 hardBlock 與「為什麼選這道」的理由用**同一份計算** ——
  * 理由自己再算一次的話，兩邊會各自漂開，畫面上說的食材可能根本不是擋住的那一個。
  */
+/**
+ * 這道菜在這一天**所有**放不住的食材（shelfBlocker 只回第一樣）。
+ * 2026-09-18 抓到：只有週一買菜時，週日晚餐放寬保存期限，挑到「沙茶牛肉空心菜」——
+ * 第一樣過期的是牛肉（可以冷凍），空心菜放了 6 天卻沒人看。放寬時要分得出「只要冷凍」跟「真的放不住」。
+ */
+export function shelfOverdue(recipe, date, ctx) {
+  const lastShop = lastShoppingDayOnOrBefore(date, ctx.shoppingDays);
+  if (!lastShop || !ctx.idx) return [];
+  const since = daysBetween(lastShop, date);
+  const out = [];
+  for (const ing of recipe.ingredients) {
+    if (ing.pantry) continue;
+    const food = ctx.idx.byId.get(ing.food);
+    if (!food) continue;
+    const days = shelfDaysFor({ aliases: ctx.aliasesById.get(food.id) ?? [], cat: food.cat }, ctx.units);
+    if (days != null && since > days) out.push({ label: ing.label, cat: food.cat, days, since });
+  }
+  return out;
+}
+/** 放寬保存期限時，每一樣不能冷凍又放不住的食材扣這麼多（肉魚冷凍就好，不扣）。 */
+export const SHELF_FRESH_PENALTY = 60;
+
 export function shelfBlocker(recipe, date, ctx) {
   const lastShop = lastShoppingDayOnOrBefore(date, ctx.shoppingDays);
   if (!lastShop || !ctx.idx) return null;
@@ -464,10 +485,10 @@ export function hardBlock(recipe, { role, meal, date }, ctx, state, { relaxTime 
   if (rules.avoid.sweet && recipe.tags.includes('sweet')) return 'avoid:sweet';
   if (rules.avoid.processed && recipe.tags.includes('processed')) return 'avoid:processed';
   if (rules.avoid.fried && recipe.method === 'deepfry') return 'avoid:fried';
-  // 主食的米：不是設定的那一種就不排（麵條沒有米 → riceOf 是 null → 不受影響）
+  // 主食的米：不是設定的那一種就不排 —— 沒有米的主食（白麵條）也不排（riceOf 是 null ≠ 設定）
   if (role === 'staple') {
     const kind = ctx.riceOf ? ctx.riceOf(recipe) : riceKindOf(recipe, ctx.idx);
-    if (kind && kind !== rules.riceKind) return 'rice';
+    if (kind !== rules.riceKind) return 'rice';
   }
   if (meatOnlyExtra) {
     // 「僅葷食成員」的加菜：這一格刻意排素食成員吃不到的菜，所以跳過飲食型態的過濾，
@@ -593,7 +614,6 @@ export function scoreSoft(recipe, { role, meal, date, day }, ctx, state, rng) {
     if (role === 'staple' && recipe.tags.includes('wholegrain')) { score += 12; reasons.push('全穀雜糧主食（家中有留意醣的成員）'); }
     if (recipe.tags.includes('sweet')) { score -= 15; reasons.push('含精緻糖（家中有留意醣的成員）'); }
   }
-  if (role === 'staple' && ctx.riceBonus && ctx.riceOf?.(recipe)) score += ctx.riceBonus;
   if (role === 'staple' && !(ctx.hasDiabetes && recipe.tags.includes('wholegrain'))) {
     reasons.push(recipe.tags.includes('wholegrain') ? '全穀雜糧主食' : '一般主食（白米或麵）');
   }
@@ -639,6 +659,13 @@ export function scoreSoft(recipe, { role, meal, date, day }, ctx, state, rng) {
       score += (later >= 1 ? VEG_PROTEIN_EARLY_BONUS : VEG_PROTEIN_BONUS) * (gives.length / lacking.length);
       reasons.push(`${gives.map((m) => m.name).join('、')}這一餐吃得到的${VEG_PROTEIN_LABEL}的菜`);
     }
+  }
+
+  // 保存期限：正常情況 hardBlock 已經擋掉放不住的；會走到這裡的是「放寬保存期限」那一輪。
+  // 那一輪裡，只有肉魚過期（冷凍就好）的菜要排在葉菜也過期的菜前面。
+  if (ctx.shoppingDays?.length) {
+    const fresh = shelfOverdue(recipe, date, ctx).filter((b) => !FREEZABLE_CATS.has(b.cat));
+    if (fresh.length) score -= SHELF_FRESH_PENALTY * fresh.length;
   }
 
   // 採買效率：同一個採買區間已經會買的食材
@@ -777,12 +804,17 @@ export function relaxReason(key, recipe, { meal, date }, ctx) {
     return `約 ${recipe.time} 分鐘，超過這一餐的 ${caps[meal]} 分鐘上限，因為符合條件的菜不夠`;
   }
   if (key === 'relaxShelf') {
-    const b = shelfBlocker(recipe, date, ctx);
-    if (!b) return null;
+    // 每一樣放不住的都講（以前只講第一樣：牛肉要冷凍講了，空心菜放 6 天沒講）
+    const all = shelfOverdue(recipe, date, ctx);
+    if (!all.length) return null;
+    const since = all[0].since;
     // 肉魚才講冷凍：叫人把九層塔、青江菜冷凍是錯的。
-    return FREEZABLE_CATS.has(b.cat)
-      ? `離上次買菜 ${b.since} 天，${b.label}冷藏大約放 ${b.days} 天，這道的肉要先冷凍`
-      : `離上次買菜 ${b.since} 天，${b.label}大約只放 ${b.days} 天，不耐放`;
+    const frozen = all.filter((b) => FREEZABLE_CATS.has(b.cat));
+    const fresh = all.filter((b) => !FREEZABLE_CATS.has(b.cat));
+    const parts = [];
+    if (frozen.length) parts.push(`${frozen.map((b) => `${b.label}冷藏大約放 ${b.days} 天`).join('、')}，這道的肉要先冷凍`);
+    if (fresh.length) parts.push(`${fresh.map((b) => `${b.label}大約只放 ${b.days} 天`).join('、')}，不耐放`);
+    return `離上次買菜 ${since} 天，${parts.join('；')}`;
   }
   if (key === 'relaxBreakfast') return '昨天早餐也是這道，因為家裡吃得到的早餐不夠多';
   if (key === 'relaxMethod') return `同一餐已經有一道${METHOD_LABELS[recipe.method]}的菜，因為符合條件的菜不夠`;

@@ -250,7 +250,7 @@ try {
     eq(await page.$$eval('[data-chips="riceKind"] .chip', (els) => els.map((e) => e.textContent.trim())), ['白米', '糙米', '五穀米'], '三種：白米、糙米、五穀米');
     eq(await page.$eval('[data-chips="riceKind"] .chip.on', (el) => el.dataset.value), 'white', '預設白米（家裡有人留意醣也一樣，不自動換）');
     const hint = await textOf(page, '[data-field="riceHint"]');
-    ok(hint.includes('麵條照常'), `說明講了麵條照常：「${hint}」`);
+    ok(hint.includes('主食格只排這一種米') && hint.includes('麵類的主菜不受影響'), `說明講清楚主食格只排這種米、麵類主菜不受影響：「${hint}」`);
     noneOf(['健康', '降', '控制', '療效', '治療', '建議', '應該', '比較好', '血糖'], (w) => hint.includes(w), '說明是中性的（沒有哪一種米比較好的字眼）');
     await clickEl(page, chipSel('riceKind', 'brown'));
     await sleep(300);
@@ -272,7 +272,7 @@ try {
     eq(staplesRun.used, 'brown', '這週真的是用「糙米」排的（排菜器記下的設定）');
     const staples = staplesRun.names;
     ok(staples.length >= 10, `（母體）這週排了 ${staples.length} 個主食`);
-    everyOf(staples, (n) => n === '糙米飯' || n === '白麵條', `設糙米之後，主食只有糙米飯（或麵條）：${[...new Set(staples)].join('、')}`);
+    everyOf(staples, (n) => n === '糙米飯', `設糙米之後，主食格只有糙米飯（沒有白麵條）：${[...new Set(staples)].join('、')}`);
     ok(staples.includes('糙米飯'), '而且真的排到糙米飯');
     await goto(page, '#/family');
     await titleIs(page, '家人');

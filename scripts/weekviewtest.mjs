@@ -944,7 +944,7 @@ try {
       return out;
     });
     ok(allStaples.length >= 8, `（母體）整週重排出 ${allStaples.length} 個主食`);
-    everyOf(allStaples, (n) => n === '糙米飯' || n === '白麵條', `整週逐餐重排：主食只有糙米飯或麵條（${[...new Set(allStaples)].join('、')}）`);
+    everyOf(allStaples, (n) => n === '糙米飯', `整週逐餐重排：主食格只有糙米飯（沒有白麵條）（${[...new Set(allStaples)].join('、')}）`);
     ok(allStaples.includes('糙米飯'), '而且真的排到糙米飯');
     await page.evaluate(async () => (await import('./js/prefs.js')).set('riceKind', 'white'));
   }

@@ -31,7 +31,8 @@ function newDraft() {
   return {
     id: store.newUserRecipeId(), name: '', role: 'main', servings: 4, splitServings: { veg: 1, meat: 3 }, time: 20, method: 'stirfry',
     vegMode: 'nativeVeg', vegModeConfirmed: false, texture: 'normal', season: [], alliumOptional: false,
-    ingredients: [blankIngredient()], steps: [blankStep()],
+    // 2026-09-18 Yolin：步驟預設 0 步，要才按「新增步驟」。一步都沒寫的照舊存成「現成的，加熱或直接盛盤即可」。
+    ingredients: [blankIngredient()], steps: [],
   };
 }
 
@@ -211,7 +212,10 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
     const remove = h('button', { class: 'btn btn-danger btn-sm', type: 'button', 'aria-label': `移除步驟 ${i + 1}`, onclick: () => { d.steps.splice(i, 1); drawSteps(); } }, '移除');
     return h('div', { class: 'edit-row', dataset: { step: String(i) } }, h('div', { class: 'edit-row-head' }, h('strong', {}, `步驟 ${i + 1}`), remove), stageChips, ta);
   }
-  function drawSteps() { stepList.replaceChildren(...d.steps.map(stepRow)); }
+  function drawSteps() {
+    stepList.replaceChildren(...(d.steps.length ? d.steps.map(stepRow)
+      : [h('p', { class: 'muted sm', dataset: { field: 'noSteps' } }, '還沒有步驟。現成的菜可以不寫，需要時按「＋ 新增步驟」。')]));
+  }
   drawSteps();
 
   // 素葷：使用者點過就算「自己選過」。有查不到的食材時這件事是紅線（素食家人不能被系統猜的結果排到）。
@@ -277,7 +281,7 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
     h('section', { class: 'card', dataset: { card: 'editSteps' } },
       h('h2', { class: 'card-title' }, '步驟'),
       stepList,
-      h('button', { class: 'btn', type: 'button', dataset: { action: 'addStep' }, onclick: () => { d.steps.push(blankStep()); drawSteps(); } }, '＋ 加一步'),
+      h('button', { class: 'btn', type: 'button', dataset: { action: 'addStep' }, onclick: () => { d.steps.push(blankStep()); drawSteps(); } }, '＋ 新增步驟'),
     ),
     errBox,
     h('section', { class: 'card' }, h('div', { class: 'btn-row' }, saveBtn, h('a', { class: 'btn', href: id ? `#/recipes/${id}` : '#/recipes' }, '取消'))),
