@@ -2626,6 +2626,63 @@ const MUTATIONS = [
     replace: '  .week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: start; }',
     test: 'weekviewtest',
   },
+  // ---- 2026-09-18 再提五項第 4 項：主角食材短期不要太常出現 ----
+  {
+    name: '主角食材重複不扣分（回到只擋同一道菜）',
+    why: 'Yolin 實測三天內午晚餐出現四道杏鮑菇。',
+    file: 'js/planner.js',
+    find: "  if (rules.starSpacing && meal !== 'breakfast' && ['main', 'side', 'soup'].includes(role) && ctx.starsOf && state.starCount) {",
+    replace: "  if (false) {",
+    test: 'plannertest',
+  },
+  {
+    name: '主角食材的扣分太輕（重複兩次只扣 12）',
+    why: '扣得不夠重，採買共用食材的加分（最多 12）就把它抵掉，照樣三天四道。',
+    file: 'js/planner.js',
+    find: 'export const STAR_PENALTY = [0, 12, 45, 90];',
+    replace: 'export const STAR_PENALTY = [0, 12, 12, 12];',
+    test: 'plannertest',
+  },
+  {
+    name: '排進去的菜沒記下主角食材',
+    why: '同一週裡排過幾道都不知道，規則等於沒有。',
+    file: 'js/planner.js',
+    find: '      add(recipe.id, date);\n      addStars(recipe, meal, date);',
+    replace: '      add(recipe.id, date);',
+    test: 'plannertest',
+  },
+  {
+    name: '上週的紀錄不算主角食材',
+    why: '週日吃了兩道杏鮑菇，週一又排杏鮑菇 —— 連續三天跨週一樣算。',
+    file: 'js/planner.js',
+    find: '  for (const h of history) { add(h.recipeId, h.date); addStars(byIdEarly.get(h.recipeId), h.meal, h.date); }',
+    replace: '  for (const h of history) { add(h.recipeId, h.date); }',
+    test: 'plannertest',
+  },
+  {
+    name: '主角食材不分家人吃哪個版本',
+    why: '全家吃葷的，吃三杯雞也被當成吃了一次杏鮑菇，葷菜被無故往後排。',
+    file: 'js/planner.js',
+    find: "        ? [...(vegetarians.length ? ['veg'] : []), ...(hasOmni ? ['meat'] : [])]",
+    replace: "        ? ['veg', 'meat']",
+    test: 'plannertest',
+  },
+  {
+    name: '蔥蒜薑也算主角食材',
+    why: '幾乎每道菜都有蔥蒜，全部互相扣分，規則失去意義。',
+    file: 'js/planner.js',
+    find: "    if (!f || STAR_AROMA_RX.test(f.name) || /調味|油脂|糖/.test(f.cat)) continue;",
+    replace: "    if (!f || /調味|油脂|糖/.test(f.cat)) continue;",
+    test: 'plannertest',
+  },
+  {
+    name: '配角也算主角（份量門檻拿掉）',
+    why: '燉肉裡的幾塊胡蘿蔔也被當成一次胡蘿蔔，扣分亂掉。',
+    file: 'js/planner.js',
+    find: '  return [...new Set(cand.filter((c) => c.per >= top * STAR_SHARE && c.per >= STAR_MIN_GRAMS).sort((a, b) => b.per - a.per).map((c) => c.key))].slice(0, 2);',
+    replace: '  return [...new Set(cand.sort((a, b) => b.per - a.per).map((c) => c.key))].slice(0, 2);',
+    test: 'plannertest',
+  },
 ];
 
 const only = (() => {

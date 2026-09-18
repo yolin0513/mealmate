@@ -13,7 +13,7 @@
 import { estimate } from './nutrition.js';
 import { versionFor, watchFields, DIET_LABELS } from './members.js';
 import { shelfDaysFor } from './units.js';
-import { NUTRIENT_LABELS } from './foods.js';
+import { NUTRIENT_LABELS, foodFamilies, displayNameOf } from './foods.js';
 import { ROLE_LABELS, METHOD_LABELS } from './recipeschema.js';
 
 export const MEALS = ['breakfast', 'lunch', 'dinner'];
@@ -96,6 +96,38 @@ export function riceKindOf(recipe, idx) {
     if (k) return k;
   }
   return null;
+}
+
+// ---------- 主角食材短期不要太常出現（2026-09-18 Yolin：三天內午晚餐出現四道杏鮑菇）----------
+// 「幾天內不重複」只看同一道菜；三杯杏鮑菇、薑燒杏鮑菇、醬燒杏鮑菇是三道不同的菜，擋不到。
+// 主角食材＝這道菜（家人實際吃的那個版本）裡份量最大的一兩樣：非常備品、不是蔥薑蒜辣椒這類配料、不是調味料，
+// 份量至少是最大宗那樣的一半、每人至少 25 克。胡蘿蔔絲、燉肉裡的幾塊馬鈴薯是配角，不算。
+// 同一家族算同一樣（杏鮑菇大中小都是杏鮑菇）。只看午晚餐的主菜、配菜、湯；早餐、主食不算。
+// 規則是**扣分、不排除**：真的排不開時照樣排得進去。
+export const STAR_WINDOW_DAYS = 2;          // 這一天往前往後各 2 天（連續三天的任何一段都看得到）
+export const STAR_PENALTY = [0, 12, 45, 90]; // 這段期間同一樣主角食材已經排了 0／1／2／3 次以上時扣的分
+const STAR_AROMA_RX = /蔥|蒜|薑|辣椒|九層塔|香菜|芹菜|紅蔥|檸檬/;
+const STAR_MIN_GRAMS = 25;
+const STAR_SHARE = 0.5;
+/** 一道菜某個版本的主角食材（家族代表的編號，最多兩樣）。version：'veg' | 'meat' | 'all'。 */
+export function starFoods(recipe, version, idx) {
+  if (!recipe || !idx) return [];
+  const fam = foodFamilies(idx);
+  const tracks = version === 'veg' ? ['base', 'veg'] : version === 'meat' ? ['base', 'meat'] : ['base', 'veg', 'meat'];
+  const sideServ = version === 'veg' ? (recipe.splitServings?.veg ?? 1) : (recipe.splitServings?.meat ?? recipe.servings);
+  const cand = [];
+  for (const ing of recipe.ingredients ?? []) {
+    const track = ing.track ?? 'base';
+    if (!tracks.includes(track) || ing.pantry || !ing.food || !(ing.grams > 0)) continue;
+    const f = idx.byId.get(ing.food);
+    if (!f || STAR_AROMA_RX.test(f.name) || /調味|油脂|糖/.test(f.cat)) continue;
+    // 共用那一鍋是全部人份；素食那鍋、葷食那鍋各自是那一邊的人份
+    const per = ing.grams / (track === 'base' ? recipe.servings : sideServ);
+    cand.push({ key: fam.parent.get(f.id) ?? f.id, per });
+  }
+  if (!cand.length) return [];
+  const top = Math.max(...cand.map((c) => c.per));
+  return [...new Set(cand.filter((c) => c.per >= top * STAR_SHARE && c.per >= STAR_MIN_GRAMS).sort((a, b) => b.per - a.per).map((c) => c.key))].slice(0, 2);
 }
 
 const NO_REPEAT_PENALTY = { main: 100, side: 60, soup: 60, breakfast: 0, staple: 0 };
@@ -204,6 +236,8 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
     riceKind: RICE_KINDS.includes(rules.riceKind) ? rules.riceKind : DEFAULT_RULES.riceKind,
     // 對照用：false 時完全不做一週平衡的加減分。**不在畫面上給使用者**，只給測試比較「有平衡／沒平衡」。
     balance: rules.balance !== false,
+    // 對照用：false 時不做「主角食材短期不要太常出現」的扣分。同樣**不在畫面上給使用者**。
+    starSpacing: rules.starSpacing !== false,
   };
   const vegetarians = members.filter((m) => m.diet !== 'omni');
   const hasOmni = members.some((m) => m.diet === 'omni') || members.length === 0;
@@ -220,6 +254,17 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
   const aliasesById = new Map();
   for (const [term, id] of idx?.aliasMap ?? []) { if (!aliasesById.has(id)) aliasesById.set(id, []); aliasesById.get(id).push(term); }
 
+  // 家人實際吃到的主角食材：有素食成員看素版、有吃葷的（或沒設家人）看葷版；不分流的菜就是那一版
+  const starCache = new Map();
+  const starsOf = (recipe) => {
+    if (!starCache.has(recipe.id)) {
+      const vs = recipe.vegMode === 'splittable'
+        ? [...(vegetarians.length ? ['veg'] : []), ...(hasOmni ? ['meat'] : [])]
+        : ['all'];
+      starCache.set(recipe.id, [...new Set(vs.flatMap((v) => starFoods(recipe, v, idx)))]);
+    }
+    return starCache.get(recipe.id);
+  };
   const riceCache = new Map();
   const riceOf = (recipe) => {
     if (!riceCache.has(recipe.id)) riceCache.set(recipe.id, riceKindOf(recipe, idx));
@@ -323,7 +368,7 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
 
   // 混合家庭：同時有吃葷與吃素的人。hasOmni 在「還沒新增家人」時也是 true，但那時 vegetarians 是空的，所以不算。
   const mixedHome = vegetarians.length > 0 && hasOmni;
-  return { riceOf, riceBonus, riceDishes, recipes, members, idx, units, rules: r, vegetarians, hasOmni, mixedHome, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, refPerServing, heartyOf, isLight };
+  return { starsOf, riceOf, riceBonus, riceDishes, recipes, members, idx, units, rules: r, vegetarians, hasOmni, mixedHome, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, refPerServing, heartyOf, isLight };
 }
 
 // ---------- 保存期限 ----------
@@ -508,6 +553,16 @@ export function scoreSoft(recipe, { role, meal, date, day }, ctx, state, rng) {
   // 質地
   if (ctx.needsSoft && (role === 'main' || role === 'side') && recipe.texture !== 'normal') { score += 8; reasons.push('軟質，家裡有需要好咬的成員'); }
 
+  // 主角食材短期不要太常出現（見 STAR_PENALTY）。取這道菜幾樣主角裡最常出現的那一樣。
+  if (rules.starSpacing && meal !== 'breakfast' && ['main', 'side', 'soup'].includes(role) && ctx.starsOf && state.starCount) {
+    let worst = null;
+    for (const k of ctx.starsOf(recipe)) { const c = state.starCount(k, date); if (!worst || c > worst.c) worst = { k, c }; }
+    if (worst && worst.c > 0) {
+      score -= STAR_PENALTY[Math.min(worst.c, STAR_PENALTY.length - 1)];
+      reasons.push(`${displayNameOf(ctx.idx?.byId.get(worst.k), ctx.idx)}前後幾天已經排了 ${worst.c} 道`);
+    }
+  }
+
   // 採買效率：同一個採買區間已經會買的食材
   const lastShop = lastShoppingDayOnOrBefore(date, ctx.shoppingDays);
   if (lastShop) {
@@ -524,7 +579,15 @@ export function scoreSoft(recipe, { role, meal, date, day }, ctx, state, rng) {
 function makeState(history, ctx, monday) {
   const served = new Map(); // recipeId → [dates]
   const add = (id, date) => { if (!served.has(id)) served.set(id, []); served.get(id).push(date); };
-  for (const h of history) add(h.recipeId, h.date);
+  // 主角食材 → 排到的日期（午晚餐的主菜、配菜、湯；一道菜算一次）
+  const starDates = new Map();
+  const STAR_ROLES = ['main', 'side', 'soup'];
+  const addStars = (recipe, meal, date) => {
+    if (!recipe || meal === 'breakfast' || !STAR_ROLES.includes(recipe.role) || !ctx.starsOf) return;
+    for (const k of ctx.starsOf(recipe)) { if (!starDates.has(k)) starDates.set(k, []); starDates.get(k).push(date); }
+  };
+  const byIdEarly = new Map(ctx.recipes.map((r) => [r.id, r]));
+  for (const h of history) { add(h.recipeId, h.date); addStars(byIdEarly.get(h.recipeId), h.meal, h.date); }
   const proteinsByDay = new Map();    // `${day}` → Set
   const mainProteinsByDayMeal = new Map(); // `${day}|${meal}` → Set
   const rangeFoods = new Map();       // lastShopDate → Set(foodId)
@@ -564,9 +627,12 @@ function makeState(history, ctx, monday) {
       return avg > 0 && prev > avg * SODIUM_TILT_RATIO;
     },
     rangeHas(lastShop, foodId) { return rangeFoods.get(lastShop)?.has(foodId) ?? false; },
+    /** 這樣主角食材在 date 前後 STAR_WINDOW_DAYS 天內已經排了幾道。 */
+    starCount(key, date) { return (starDates.get(key) ?? []).filter((d) => Math.abs(daysBetween(d, date)) <= STAR_WINDOW_DAYS).length; },
     /** 把一道菜記進這一週的狀態。 */
     place(recipe, { day, meal, date }) {
       add(recipe.id, date);
+      addStars(recipe, meal, date);
       if (recipe.role === 'main' && meal !== 'breakfast' && ctx.heartyOf) {
         const info = ctx.heartyOf(recipe);
         if (info.hearty) { balance.load += info.weight; balance.count += 1; heartySlots.set(`${day}|${meal}`, recipe.name.split('／')[0].replace(/（.*?）/g, '')); }

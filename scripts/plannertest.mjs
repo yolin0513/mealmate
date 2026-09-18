@@ -24,7 +24,10 @@ import {
   actualRelaxations, shelfBlocker, RELAXABLE, FREEZABLE_CATS, daysBetween, MEAL_ROLES, refillSlot,
   weekBalance, balanceSentence, assignItem, HEARTY_LEVELS, WEEK_CAPS, BALANCE_NOTE, HEARTY_HINT, HEARTY_TOP_SHARE, groupEstimates,
   riceKindOf, riceKindOfFood, RICE_KINDS, RICE_KIND_LABELS, RICE_KIND_HINT, DEFAULT_RULES, wantMissReason,
+  starFoods, STAR_PENALTY, STAR_WINDOW_DAYS, historyRowsOf as rowsOf,
 } from '../js/planner.js';
+import { displayNameOf } from '../js/foods.js';
+import { versionFor as vFor } from '../js/members.js';
 import { FORBIDDEN } from './copyrules.mjs';
 import { shelfDaysFor } from '../js/units.js';
 import { versionFor } from '../js/members.js';
@@ -492,6 +495,113 @@ section('主食的米（2026-09-18 第 9 項）：照家裡的設定排，預設
   const { plan: wp } = gen({});
   const why = wantMissReason(byId.get('r-brown-rice'), wp.slots, ctxW);
   ok(why.includes('主食的米用白米'), `勾了「本週想吃」糙米飯但設定白米：本週頁講得出原因（${why}）`);
+}
+
+section('主角食材短期不要太常出現（2026-09-18 Yolin：三天內午晚餐出現四道杏鮑菇）');
+{
+  const nameOf = (k) => displayNameOf(idx.byId.get(k), idx);
+  const stars = (id, v) => starFoods(byId.get(id), v, idx).map(nameOf);
+  eq(stars('r-three-cup-split', 'veg'), ['杏鮑菇'], '三杯杏鮑菇（素版）的主角是杏鮑菇');
+  ok(!stars('r-three-cup-split', 'meat').includes('杏鮑菇'), `三杯雞（葷版）的主角不含杏鮑菇：${stars('r-three-cup-split', 'meat').join('、')}`);
+  const potatoPork = recipes.find((r) => r.name.startsWith('馬鈴薯燉肉'));
+  ok(!starFoods(potatoPork, 'meat', idx).map(nameOf).includes('胡蘿蔔'), '馬鈴薯燉肉裡的胡蘿蔔是配角，不算主角');
+  noneOf(recipes.flatMap((r) => ['veg', 'meat', 'all'].flatMap((v) => starFoods(r, v, idx))), (k) => /蔥|蒜|薑|辣椒|九層塔/.test(idx.byId.get(k).name), '蔥蒜薑辣椒九層塔從來不算主角');
+  everyOf(recipes, (r) => ['veg', 'meat', 'all'].every((v) => starFoods(r, v, idx).length <= 2), '每一道每個版本最多兩樣主角');
+  // 家人吃哪個版本就看哪個版本：葷食家庭吃三杯雞，杏鮑菇不算
+  const omniCtx = buildContext({ recipes, members: [{ ...newMember(), name: '爸' }], idx, units });
+  const vegCtx = buildContext({ recipes, members: [{ ...newMember(), name: '爸' }, { ...newMember(), name: '姊', diet: 'lactoOvo' }], idx, units });
+  const cup = byId.get('r-three-cup-split');
+  ok(!omniCtx.starsOf(cup).map(nameOf).includes('杏鮑菇'), '全家吃葷：三杯雞不算一次杏鮑菇');
+  ok(vegCtx.starsOf(cup).map(nameOf).includes('杏鮑菇'), '家裡有吃素的：三杯（素版杏鮑菇）算一次杏鮑菇');
+
+  // 扣分直接驗：同一道三杯，前後幾天已經排了 0／1／2 道杏鮑菇
+  const kCup = starFoods(cup, 'veg', idx)[0];
+  const at = { role: 'main', meal: 'dinner', date: '2026-09-16', day: 2 };
+  const st = (n) => ({ slotItems: [], dayRecipes: () => new Set(), lastServed: () => null, timesServedWithin: () => 0, dayProteins: () => new Set(), prevDayMealProteins: () => new Set(), fishCount: () => 0, rangeHas: () => false, placedWant: new Set(), starCount: (k) => (k === kCup ? n : 0) });
+  const sc = (n) => scoreSoft(cup, at, vegCtx, st(n), () => 0);
+  eq([sc(1).score - sc(0).score, sc(2).score - sc(0).score, sc(3).score - sc(0).score].map(Math.round), [-12, -45, -90], '前後幾天已有 1／2／3 道杏鮑菇 → 扣 12／45／90 分');
+  ok(sc(2).reasons.includes('杏鮑菇前後幾天已經排了 2 道'), '「為什麼選這道」照實講（沒有數字估算，所以會印在卡上）');
+  ok(!sc(0).reasons.some((t) => t.includes('前後幾天已經排了')), '（對照）沒排過就沒有這一句');
+  eq(STAR_WINDOW_DAYS, 2, '看前後各 2 天（連續三天的任何一段都涵蓋）');
+
+  // 統計：三種家庭 × 12 組種子 × 連排 3 週，數每一段連續三天午晚餐的主角食材。
+  // 2026-09-18 實測（沒有這條規則 → 有）：出現 4 次以上的段落 17／48／39 → 0／0／0；出現 3 次的 61／159／153 → 0／21／43。
+  const FAMS = {
+    葷食: [{ ...newMember(), name: '爸' }, { ...newMember(), name: '媽' }],
+    有蛋奶素: [{ ...newMember(), name: '爸' }, { ...newMember(), name: '媽' }, { ...newMember(), name: '姊', diet: 'lactoOvo' }],
+    有全素: [{ ...newMember(), name: '爸' }, { ...newMember(), name: '姊', diet: 'veganNoAllium' }],
+  };
+  const measure = (members, starSpacing) => {
+    const ctx = buildContext({ recipes, members, idx, units });
+    const out = { windows: 0, ge3: 0, ge4: 0, worst: 0, empty: 0, dishes: new Set(), vegMin: 99, ex: '' };
+    for (let sd = 0; sd < 12; sd += 1) {
+      let history = [];
+      for (let w = 0; w < 3; w += 1) {
+        const { plan, diagnostics } = generateWeek({ recipes, members, idx, units, rules: { starSpacing }, favorites: [], history, mondayIso: addDays(MONDAY, 7 * w), seed: `star${sd}`, shoppingDays: [3, 6] });
+        history = [...history, ...rowsOf(plan)];
+        out.empty += diagnostics.empty.length;
+        const byDate = new Map();
+        for (const sl of plan.slots) {
+          if (sl.kind !== 'cook' || sl.meal === 'breakfast') continue;
+          const veg = members.find((m) => m.diet !== 'omni');
+          if (veg) out.vegMin = Math.min(out.vegMin, sl.items.filter((it) => vFor(byId.get(it.recipeId), veg.diet)).length);
+          for (const it of sl.items) {
+            out.dishes.add(it.recipeId);
+            const r = byId.get(it.recipeId);
+            if (['main', 'side', 'soup'].includes(r.role)) { if (!byDate.has(sl.date)) byDate.set(sl.date, []); byDate.get(sl.date).push(r); }
+          }
+        }
+        const dates = [...byDate.keys()].sort();
+        for (let i = 0; i + 2 < dates.length; i += 1) {
+          const cnt = new Map();
+          for (const d of dates.slice(i, i + 3)) for (const r of byDate.get(d)) for (const k of ctx.starsOf(r)) cnt.set(k, (cnt.get(k) ?? 0) + 1);
+          const mx = Math.max(0, ...cnt.values());
+          out.windows += 1; if (mx >= 3) out.ge3 += 1; if (mx >= 4) out.ge4 += 1;
+          if (mx > out.worst) { out.worst = mx; out.ex = [...cnt].filter(([, n]) => n === mx).map(([k]) => nameOf(k)).join('、'); }
+        }
+      }
+    }
+    return out;
+  };
+  for (const [fname, members] of Object.entries(FAMS)) {
+    const on = measure(members, true);
+    const off = measure(members, false);
+    ok(on.windows >= 150, `（母體）${fname}：${on.windows} 段連續三天`);
+    ok(off.ge4 >= 10, `（對照）${fname}：沒有這條規則時，同一樣主角食材三天內出現 4 次以上的有 ${off.ge4} 段（最多 ${off.worst} 次，${off.ex}）`);
+    eq(on.ge4, 0, `${fname}：有這條規則，三天內同一樣主角食材沒有任何一段出現 4 次以上（最多 ${on.worst} 次）`);
+    ok(on.ge3 <= 0.4 * off.ge3, `${fname}：出現 3 次的段落 ${off.ge3} → ${on.ge3}（≤ 四成；實測最多約三成）`);
+    eq(on.empty, 0, `${fname}：沒有因此排出空格（是扣分，不是排除）`);
+    ok(on.dishes.size >= 0.9 * off.dishes.size, `${fname}：菜色種類沒有被壓掉（${off.dishes.size} → ${on.dishes.size} 道，≥ 九成）`);
+    if (members.some((m) => m.diet !== 'omni')) ok(on.vegMin >= 3, `${fname}：素食成員每一餐仍吃得到 ≥ 3 道（最少 ${on.vegMin}）`);
+  }
+  // 跨週：上週六、日排了三道杏鮑菇（歷史紀錄），這週一的午晚餐要避開。一位蛋奶素的家庭，60 組種子。
+  {
+    const vegOnly = [{ ...newMember(), name: '姊', diet: 'lactoOvo' }];
+    const vctx = buildContext({ recipes, members: vegOnly, idx, units });
+    const eryngii = recipes.filter((r) => ['main', 'side'].includes(r.role) && vctx.starsOf(r).includes(kCup)).map((r) => r.id);
+    ok(eryngii.length >= 5, `（母體）主角是杏鮑菇的主菜配菜 ${eryngii.length} 道`);
+    const picked = new Set();
+    const monHits = (history) => {
+      let n = 0;
+      for (let sd = 0; sd < 60; sd += 1) {
+        const { plan } = generateWeek({ recipes, members: vegOnly, idx, units, favorites: [], history, mondayIso: MONDAY, seed: `wk${sd}`, shoppingDays: [] });
+        for (const sl of plan.slots.filter((x) => x.date === MONDAY && x.meal !== 'breakfast')) {
+          const hit = sl.items.filter((it) => vctx.starsOf(byId.get(it.recipeId)).includes(kCup));
+          if (hit.length) n += 1;
+          if (!history.length) for (const it of hit) picked.add(it.recipeId);
+        }
+      }
+      return n;
+    };
+    const base = monHits([]);
+    // 歷史裡放的是「基準裡週一從沒被排到」的杏鮑菇菜 —— 不然週一少排，也可能只是「同一道 14 天不重複」擋的，不是這條規則
+    const others = eryngii.filter((id) => !picked.has(id));
+    ok(others.length >= 3, `（前提）有 ${others.length} 道杏鮑菇菜在基準裡週一沒被排到，拿來當上週的紀錄`);
+    const hist = [{ date: addDays(MONDAY, -2), recipeId: others[0], meal: 'dinner', role: 'main' }, { date: addDays(MONDAY, -1), recipeId: others[1], meal: 'lunch', role: 'main' }, { date: addDays(MONDAY, -1), recipeId: others[2], meal: 'dinner', role: 'side' }];
+    const after = monHits(hist);
+    ok(base >= 3, `（對照）上週沒吃杏鮑菇時，60 組裡週一午晚餐排到杏鮑菇 ${base} 次`);
+    eq(after, 0, `上週六、日已經吃了三道杏鮑菇 → 週一午晚餐 120 餐一次都沒排到（上週的紀錄有算進來）`);
+  }
 }
 
 section('舊版計畫沒有位置欄位 → 讀出來時補上（相容轉換）');
