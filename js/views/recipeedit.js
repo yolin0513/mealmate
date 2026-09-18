@@ -5,19 +5,20 @@ import { h, chips, stepper, toast } from '../ui.js';
 import { setTop, render } from '../shell.js';
 import { navigate } from '../router.js';
 import * as store from '../store.js';
-import { searchFoods } from '../foods.js';
+import { searchFoods, displayNameOf, aliasTermsOf } from '../foods.js';
+import { entryUnitsFor, entryToGrams, gramsToEntry } from '../units.js';
 import { validateRecipe, ROLES, ROLE_LABELS, VEG_MODES, VEG_MODE_LABELS, METHODS, METHOD_LABELS, TEXTURES, TEXTURE_LABELS, TRACKS, TRACK_LABELS, STAGES, STAGE_LABELS } from '../recipeschema.js';
 
 const MONTHS = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
 
-function blankIngredient(track = 'base') { return { food: '', foodName: '', label: '', grams: null, track, pantry: false }; }
+function blankIngredient(track = 'base') { return { food: '', foodName: '', label: '', autoLabel: '', grams: null, entry: null, track, pantry: false }; }
 function blankStep(stage = 'base') { return { stage, type: 'cook', text: '' }; }
 
 function draftFrom(recipe, { copy = false } = {}) {
   const idx = store.foodsIndex();
   const d = JSON.parse(JSON.stringify(recipe));
   if (copy) { d.id = store.newUserRecipeId(); d.name = `${recipe.name}（我的版本）`; }
-  d.ingredients = d.ingredients.map((ing) => ({ food: ing.food, foodName: idx?.byId.get(ing.food)?.name ?? '', label: ing.label, grams: ing.grams ?? null, track: ing.track ?? 'base', pantry: !!ing.pantry }));
+  d.ingredients = d.ingredients.map((ing) => ({ food: ing.food, foodName: idx ? displayNameOf(idx.byId.get(ing.food), idx) : '', label: ing.label, autoLabel: '', grams: ing.grams ?? null, entry: ing.entry ?? null, track: ing.track ?? 'base', pantry: !!ing.pantry }));
   d.steps = d.steps.map((st) => ({ stage: st.stage ?? 'base', type: st.type ?? 'cook', text: st.text }));
   d.splitServings = d.splitServings ?? { veg: 1, meat: Math.max(1, (d.servings ?? 4) - 1) };
   d.season = d.season ?? [];
@@ -46,6 +47,8 @@ export function toRecipe(d) {
     ingredients: d.ingredients.map((ing) => ({
       food: ing.food, label: ing.label.trim() || ing.foodName || String(ing.query ?? '').trim(), grams: ing.grams == null || ing.grams === '' ? null : Number(ing.grams),
       track: split ? ing.track : 'base', ...(ing.pantry ? { pantry: true } : {}),
+      // 用顆／把／大匙填的：記下原本怎麼填（下次編輯照樣顯示），克數仍然是唯一算營養、算採買的數字
+      ...(ing.entry && ing.entry.unit !== '克' && ing.grams > 0 ? { entry: { qty: ing.entry.qty, unit: ing.entry.unit } } : {}),
     })),
     steps: d.steps.map((st) => ({ stage: split ? st.stage : 'base', type: st.type ?? 'cook', text: st.text.trim() })),
   };
@@ -102,7 +105,7 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
       const typed = String(ing.label ?? '').trim();
       if (!typed) return '尚未選食材';
       const hit = store.recipeCtx().resolve(typed);
-      return hit ? `→ 依名稱對到 ${hit.name}（${hit.cat}）` : `→ 資料庫裡查不到「${typed}」：可以照樣存，這個食材的營養會寫「未估算」`;
+      return hit ? `→ 依名稱對到 ${displayNameOf(hit, idx)}（${hit.cat}）` : `→ 資料庫裡查不到「${typed}」：可以照樣存，這個食材的營養會寫「未估算」`;
     };
     const picked = h('p', { class: 'sm picked', dataset: { field: 'pickedFood' } }, pickedText());
     const search = h('input', { class: 'field', type: 'search', placeholder: '找食材，例如：板豆腐', 'aria-label': `食材 ${i + 1} 搜尋`, dataset: { field: 'foodSearch' } });
@@ -111,40 +114,87 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
       const q = search.value.trim();
       ing.query = q;   // 打在搜尋框、沒點清單也算數（存的時候用這個名稱解析）
       updateVegConfirm();
-      const hits = q && idx ? searchFoods(q, idx, 8) : [];
+      // 2026-09-18 第 6 項 (a)：只列平均值那一筆、顯示簡名（杏鮑菇不再分大中小、稉米不再列九個品種）
+      const hits = q && idx ? searchFoods(q, idx, 8, { collapse: true }) : [];
       results.hidden = hits.length === 0;
-      results.replaceChildren(...hits.map(({ food }) => h('button', {
+      results.replaceChildren(...hits.map(({ food, display, alias }) => h('button', {
         class: 'picker-item', type: 'button', dataset: { food: food.id },
         onclick: () => {
-          ing.food = food.id; ing.foodName = food.name; ing.query = '';
+          // 換成另一樣食材：用「根、顆」填的數量對新食材沒有意義（2 根杏鮑菇換成高麗菜不是 0.14 顆），清掉重填；用克填的保留
+          if (ing.food && ing.food !== food.id && ing.entry && ing.entry.unit !== '克') { ing.grams = null; ing.entry = null; }
+          ing.food = food.id; ing.foodName = display; ing.query = '';
           updateVegConfirm();
-          if (!ing.label.trim()) { ing.label = q; labelInput.value = q; }
-          picked.textContent = `→ ${food.name}（${food.cat}）`;
+          // 2026-09-18 第 6 項 (b)：以前只有名稱欄是空的才帶入 —— 選了杏鮑菇再改選高麗菜，下面的名稱還停在杏鮑菇。
+          // 現在：名稱是空的、或還是上次自動帶入的，就換成這次選的；使用者自己改過的名稱不動。
+          const name = alias && alias === q ? q : display;
+          if (!ing.label.trim() || ing.label === ing.autoLabel) { ing.label = name; ing.autoLabel = name; labelInput.value = name; }
+          picked.textContent = `→ ${display}（${food.cat}）`;
           results.hidden = true; search.value = '';
+          drawUnits({ keepGrams: true });
         },
-      }, `${food.name}${food.state ? `〔${food.state}〕` : ''}`, h('span', { class: 'muted xs' }, ` ${food.cat}`))));
+      }, display, h('span', { class: 'muted xs' }, ` ${food.cat}${alias && alias !== display ? `・也叫${alias}` : ''}`))));
     });
     const labelInput = h('input', { class: 'field', type: 'text', value: ing.label, placeholder: '顯示名稱（例如：豆腐切塊）', 'aria-label': `食材 ${i + 1} 名稱`, dataset: { field: 'ingLabel' } });
     labelInput.addEventListener('input', () => {
       ing.label = labelInput.value;
       // 沒點清單、直接打名稱也可以：名稱剛好是資料庫認得的叫法（雞腳、高麗菜…）就自動對到，這裡先講出來
       if (!ing.food) {
-        const hit = labelInput.value.trim() ? store.recipeCtx().resolve(labelInput.value) : null;
-        picked.textContent = hit ? `→ 依名稱對到 ${hit.name}（${hit.cat}）` : '尚未選食材';
-        if (!hit && labelInput.value.trim()) picked.textContent = `→ 資料庫裡查不到「${labelInput.value.trim()}」：可以照樣存，這個食材的營養會寫「未估算」`;
+        picked.textContent = pickedText();
+        drawUnits({ keepGrams: true });
       }
       updateVegConfirm();
     });
-    const gramsInput = h('input', { class: 'field field-inline', type: 'number', inputMode: 'decimal', min: '0', step: 'any', value: ing.grams == null ? '' : String(ing.grams), placeholder: '克數，可不填', 'aria-label': `食材 ${i + 1} 克數`, dataset: { field: 'ingGrams' } });
-    gramsInput.addEventListener('input', () => { ing.grams = gramsInput.value.trim() === '' ? null : Number(gramsInput.value); });
+
+    // ---- 數量＋單位（2026-09-18 第 6 項 (c)）：選完食材自動換成「顆、把、大匙…」，可以切回克；存的是克 ----
+    const foodForUnits = () => (ing.food ? idx?.byId.get(ing.food) : (String(ing.label ?? '').trim() ? store.recipeCtx().resolve(ing.label) : null));
+    let unitDefs = [];
+    const qtyInput = h('input', { class: 'field field-inline', type: 'number', inputMode: 'decimal', min: '0', step: 'any', placeholder: '數量，可不填', 'aria-label': `食材 ${i + 1} 數量`, dataset: { field: 'ingQty' } });
+    const unitSelect = h('select', { class: 'field field-inline', 'aria-label': `食材 ${i + 1} 單位`, dataset: { field: 'ingUnit' } });
+    const gramsHint = h('span', { class: 'muted sm', dataset: { field: 'ingGramsHint' } });
+    const unitNow = () => unitDefs.find((u) => u.unit === unitSelect.value) ?? unitDefs[unitDefs.length - 1];
+    const showHint = () => {
+      const u = unitNow();
+      gramsHint.textContent = u.unit === '克' ? '' : (ing.grams > 0 ? `≈ ${ing.grams} 克` : `（1 ${u.unit} ≈ ${u.grams} 克）`);
+    };
+    function drawUnits({ keepGrams }) {
+      const food = foodForUnits();
+      const terms = food && idx ? (aliasTermsOf(idx).get(food.id) ?? []) : [];
+      unitDefs = entryUnitsFor(food, { terms: [...terms, String(ing.label ?? '').trim()].filter(Boolean), units: store.units() });
+      // 用哪個單位：之前用這個單位填過就沿用；否則這樣食材的預設（第一個）
+      const want = ing.entry && unitDefs.some((u) => u.unit === ing.entry.unit) ? ing.entry.unit : unitDefs[0].unit;
+      unitSelect.replaceChildren(...unitDefs.map((u) => h('option', { value: u.unit, selected: u.unit === want }, u.unit)));
+      unitSelect.value = want;
+      const u = unitNow();
+      if (keepGrams && ing.grams > 0) {
+        const q = ing.entry && ing.entry.unit === u.unit ? ing.entry.qty : gramsToEntry(ing.grams, u);
+        qtyInput.value = String(q);
+        ing.entry = { qty: q, unit: u.unit };
+      } else if (!(ing.grams > 0)) qtyInput.value = '';
+      showHint();
+    }
+    qtyInput.addEventListener('input', () => {
+      const u = unitNow();
+      const raw = qtyInput.value.trim();
+      ing.grams = raw === '' ? null : entryToGrams(raw, u);
+      ing.entry = ing.grams ? { qty: Number(raw), unit: u.unit } : null;
+      showHint();
+    });
+    // 換單位：克數不變，數量換算成新單位（1 顆番茄切成克 → 150）
+    unitSelect.addEventListener('change', () => {
+      const u = unitNow();
+      if (ing.grams > 0) { const q = gramsToEntry(ing.grams, u); qtyInput.value = String(q); ing.entry = { qty: q, unit: u.unit }; }
+      showHint();
+    });
+    if (ing.grams > 0 && !ing.entry) ing.entry = { qty: ing.grams, unit: '克' };  // 舊資料（只存克）就用克顯示
+    drawUnits({ keepGrams: true });
     const pantry = h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: ing.pantry, onchange: (e) => { ing.pantry = e.target.checked; } }), ' 常備品（油鹽醬油這類）');
     const trackChips = split ? chips({ options: TRACKS.map((t) => ({ value: t, label: TRACK_LABELS[t] })), value: ing.track, name: `track-${i}`, onChange: (v) => { ing.track = v; } }) : null;
     const remove = h('button', { class: 'btn btn-danger btn-sm', type: 'button', 'aria-label': `移除食材 ${i + 1}`, onclick: () => { d.ingredients.splice(i, 1); drawIngredients(); } }, '移除');
     return h('div', { class: 'edit-row', dataset: { ingredient: String(i) } },
       h('div', { class: 'edit-row-head' }, h('strong', {}, `食材 ${i + 1}`), remove),
       search, results, picked, labelInput,
-      h('div', { class: 'row-actions' }, gramsInput, h('span', { class: 'muted sm' }, 'g')),
-      h('p', { class: 'muted xs' }, '沒填克數的食材，營養標示會寫「未估算」，不會當成 0。'),
+      h('div', { class: 'row-actions qty-row' }, qtyInput, unitSelect, gramsHint),
+      h('p', { class: 'muted xs' }, '沒填數量的食材，營養標示會寫「未估算」，不會當成 0。'),
       trackChips, pantry,
     );
   }

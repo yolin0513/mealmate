@@ -196,6 +196,9 @@ export function validateRecipe(recipe, ctx) {
       if (track !== 'meat') vegTags.add('unresolved');
       if (track !== 'veg') meatTags.add('unresolved');
     }
+    // entry：使用者當初用什麼單位填（2 顆、1 大匙）。只給下次編輯顯示；克數才是算營養、算採買的數字。
+    const entryOk = ing?.entry != null && isPosNum(ing.entry.qty) && typeof ing.entry.unit === 'string' && ing.entry.unit.length >= 1 && ing.entry.unit.length <= 4;
+    if (ing?.entry != null && !entryOk) err(`${where} 填的數量或單位不對`);
     if (ing?.buy != null) {
       if (!isPosNum(ing.buy.qty) || typeof ing.buy.unit !== 'string' || !ing.buy.unit) err(`${where} buy 要是 {qty>0, unit}`);
     }
@@ -207,6 +210,7 @@ export function validateRecipe(recipe, ctx) {
       ...(unresolvedHere ? { unresolved: true } : {}),
       ...(ing?.pantry ? { pantry: true } : {}),
       ...(ing?.buy ? { buy: { qty: ing.buy.qty, unit: ing.buy.unit } } : {}),
+      ...(entryOk ? { entry: { qty: ing.entry.qty, unit: ing.entry.unit } } : {}),
       ...(ing?.note ? { note: String(ing.note) } : {}),
     };
   });

@@ -6,8 +6,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ok, eq, section, done, everyOf, detects } from './tap.mjs';
-import { toBuyQty, spoonToGrams, shelfDaysFor } from '../js/units.js';
+import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
+import { toBuyQty, spoonToGrams, shelfDaysFor, entryUnitsFor, entryToGrams, gramsToEntry, JIN_GRAMS } from '../js/units.js';
+import { indexFoods, searchFoods, foodFamilies, displayNameOf, aliasTermsOf, resolveFood } from '../js/foods.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const units = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/units.json'), 'utf8'));
@@ -82,5 +83,53 @@ eq(shelfDaysFor({ aliases: ['高麗菜', '文蛤'], cat: '蔬菜類' }, units), 
 eq(shelfDaysFor({ aliases: [], cat: '肉類' }, units), 4, '空的別名清單 → 分類預設');
 eq(shelfDaysFor({ cat: '肉類' }, units), 4, '完全沒給別名 → 分類預設');
 eq(shelfDaysFor({ alias: '高麗菜', cat: '蔬菜類' }, units), 10, '舊的單一 alias 寫法還是通（呼叫端還有人用）');
+
+section('找食材只列平均值那一筆、顯示簡名（2026-09-18 第 6 項 (a)）');
+{
+  const idx = indexFoods(foods, aliases);
+  const fam = foodFamilies(idx);
+  const avgCount = idx.list.filter((f) => f.name.includes('平均值')).length;
+  eq(fam.display.size, avgCount, `每一筆「平均值」都有簡名（${avgCount} 筆）`);
+  ok(fam.hidden.size >= 150, `收起來的細分 ${fam.hidden.size} 筆（≥ 150）`);
+  eq(idx.list.length, 2151, '資料一筆都沒刪（2151 筆）');
+  noneOf([...fam.hidden], (id) => idx.byId.get(id).name.includes('平均值'), '收起來的沒有任何一筆是平均值本身');
+  everyOf([...fam.hidden], (id) => { const f = idx.byId.get(id); return [...fam.display].some(([pid, name]) => { const p = idx.byId.get(pid); return p.cat === f.cat && f.name.startsWith(p.name.slice(0, p.name.indexOf('平均值'))); }); }, '每一筆收起來的都有同類別、同名字開頭的平均值可以代表');
+  eq(displayNameOf(idx.byId.get('G13002'), idx), '杏鮑菇', '杏鮑菇平均值 → 杏鮑菇');
+  eq(displayNameOf(idx.byId.get('G1300201'), idx), '杏鮑菇(大)', '舊食譜用到的細分照樣顯示原名');
+  const names = (q) => searchFoods(q, idx, 8, { collapse: true }).map((x) => x.display);
+  eq(names('杏鮑菇'), ['杏鮑菇'], '搜「杏鮑菇」只有一筆');
+  ok(!names('香菇').some((n, i, a) => a.indexOf(n) !== i), `搜「香菇」沒有兩筆同名（乾香菇平均值旁邊那筆「乾香菇」也收起來）：${names('香菇').join('、')}`);
+  const melons = names('西瓜').filter((n) => n.startsWith('西瓜（'));
+  eq(melons.length, 2, `同一個名字有兩筆平均值時保留括號裡的區別：${melons.join('、')}`);
+  eq(searchFoods('稉米(台稉9號)', idx, 3, { collapse: true })[0]?.display, '稉米', '精確打出某個品種 → 換成它的平均值那一筆');
+  eq(searchFoods('杏鮑菇', idx, 20).length, 4, '（對照）不收合時還是四筆（其他地方的搜尋不受影響）');
+}
+
+section('新增食譜用直覺單位填（2026-09-18 第 6 項 (c)）');
+{
+  const idx = indexFoods(foods, aliases);
+  const terms = aliasTermsOf(idx);
+  const unitsOf = (term) => { const f = resolveFood(term, idx); return entryUnitsFor(f, { terms: terms.get(f?.id) ?? [], units }); };
+  eq(unitsOf('杏鮑菇'), [{ unit: '根', grams: 70 }, { unit: '克', grams: 1 }], '杏鮑菇：根（採買單位）、克');
+  eq(unitsOf('高麗菜')[0], { unit: '顆', grams: 1000 }, '高麗菜預設顆');
+  eq(unitsOf('青江菜')[0].unit, '把', '青江菜預設把');
+  eq(unitsOf('雞蛋')[0].unit, '顆', '雞蛋預設顆（沒有採買單位，用食藥署的單位重）');
+  eq(unitsOf('醬油').map((u) => u.unit), ['大匙', '小匙', '克'], '醬油：大匙、小匙、克');
+  ok(unitsOf('豬絞肉').some((u) => u.unit === '斤' && u.grams === JIN_GRAMS), '豬絞肉可以用斤（600 克）');
+  ok(unitsOf('鱸魚').some((u) => u.unit === '斤'), '魚也可以用斤');
+  eq(unitsOf('中筋麵粉').map((u) => u.unit), ['克'], '麵粉只能用克（食藥署的單位重是一杯，不是一個，不拿來當「個」）');
+  everyOf([...Object.keys(units.buyUnits).filter((k) => k !== 'note')], (t) => { const f = resolveFood(t, idx); return !f || entryUnitsFor(f, { terms: terms.get(f.id) ?? [], units }).at(-1).unit === '克'; }, '每一樣都可以切回克（克一定在最後）');
+  eq(entryUnitsFor(null, { units }), [{ unit: '克', grams: 1 }], '還沒選食材：只有克');
+  eq(entryToGrams('3', { unit: '顆', grams: 55 }), 165, '3 顆 × 55 克 = 165 克');
+  eq(entryToGrams('0.5', { unit: '斤', grams: 600 }), 300, '半斤 = 300 克');
+  eq(entryToGrams('', { unit: '顆', grams: 55 }), null, '沒填 → null（營養寫「未估算」，不是 0）');
+  eq(entryToGrams('-1', { unit: '顆', grams: 55 }), null, '負數 → null');
+  eq(gramsToEntry(300, { unit: '克', grams: 1 }), 300, '300 克換成克還是 300');
+  eq(gramsToEntry(250, { unit: '顆', grams: 1000 }), 0.25, '250 克高麗菜 = 0.25 顆');
+  const recipes = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/recipes.json'), 'utf8')).recipes;
+  const used = [...new Set(recipes.flatMap((r) => r.ingredients.map((i) => i.food)))];
+  const withUnit = used.filter((id) => entryUnitsFor(idx.byId.get(id), { terms: terms.get(id) ?? [], units }).length > 1);
+  ok(withUnit.length >= 130, `食譜用到的 ${used.length} 種食材裡，${withUnit.length} 種有克以外的單位可以填（≥ 130）`);
+}
 
 done('unittest');

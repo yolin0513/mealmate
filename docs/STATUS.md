@@ -45,12 +45,13 @@
 | 按「更新」之後停在空白：拿掉更新流程裡的 `unregister`，加開機看門狗 | ✅ 完成（2026-09-17） | `mealmate-v0.27.0` |
 | 九項調整第一批：菜色選項卡重做、移「換一道」、篩選收進「更多選項」、「我來指定」放寬並說明、過去的日子收合／清單只算今天以後 | ✅ 完成（2026-09-18） | `mealmate-v0.28.0` |
 | 九項調整第二批：素食改成「素＋蛋／奶／五辛三個勾」、主食的米（白米／糙米／五穀米）、6 道有主食的早餐 | ✅ 完成（2026-09-18） | `mealmate-v0.29.0` |
+| 九項調整第三批：找食材只列簡名、改選食材名稱跟著換、用顆／把／大匙填 | ✅ 完成（2026-09-18） | `mealmate-v0.30.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、recipetest 134、membertest 127、nutritiontest 149、plannertest 354、shoppingtest 140、timelinetest 71、doctest 125；
-瀏覽器端（puppeteer）：shelltest 161、familytest 84、recipeviewtest 97、backuptest 30、weekviewtest 186、shoppingviewtest 147、todaytest 41、racetest 16、versionmixtest 66、layouttest 110（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
+Node 端：datatest 64、aliastest 26、unittest 69、edutest 13、copytest 7、recipetest 134、membertest 127、nutritiontest 149、plannertest 354、shoppingtest 140、timelinetest 71、doctest 125；
+瀏覽器端（puppeteer）：shelltest 161、familytest 84、recipeviewtest 124、backuptest 30、weekviewtest 186、shoppingviewtest 147、todaytest 41、racetest 16、versionmixtest 66、layouttest 110（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **303 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
+`mutationtest` 共 **316 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
 
 食譜現況：**223 道**（主菜 102、配菜 56、湯 34、早餐 25、主食 6）。
 
@@ -77,6 +78,24 @@ Node 端：datatest 64、aliastest 26、unittest 40、edutest 13、copytest 7、
 5. **完整突變套件**：105 條全跑一次**全綠**（24 個基準先過，再逐條改壞、確認會紅、還原）。
 
 檢測期間**沒有動任何產品程式碼**（js／css／data 零改動），改的都是測試與工具。
+
+### 九項調整第三批（2026-09-18，v0.30.0）：第 6 項
+
+**(a) 找食材只列平均值那一筆、顯示簡名。** 新增 `foods.foodFamilies()`：每一筆「X平均值」代表它的家族，同類別、名稱是「X(…)」或剛好就叫「X」的細分收起來。
+收掉 186 筆（杏鮑菇的大中小、稉米九個品種、山藥十幾個產地、水果的取樣月份…），畫面上叫「杏鮑菇」「稉米」。
+同一個 X 有好幾筆平均值的保留括號（「西瓜（紅肉小瓜）」「西瓜（黃肉小瓜）」）。**foods.json 一筆都沒刪、編號沒改**：舊食譜用到細分的照樣認得、顯示原名；
+精確打出某個品種會換成它的平均值那一筆。沒有平均值的家族不動（例如「黑美人西瓜」是名稱不同的品種、「紅肉李(大)」沒有平均值可代表）。
+只有新增食譜的畫面收合（`searchFoods(…, { collapse: true })`），其他搜尋照舊。
+
+**(b) 改選別的食材，下面的名稱不跟著換。** 根因：名稱欄只有**空白時**才自動帶入。選了杏鮑菇（帶入「杏鮑菇」）、再改選高麗菜，名稱還是「杏鮑菇」。
+改成記住「上次自動帶入的名稱」：名稱是空的、或還是上次自動帶入的，就換成這次選的；使用者自己改過的（「高麗菜絲」）不動。帶入的是簡名（不是打到一半的「杏鮑」）；用俗名找的（打「高麗菜」選到甘藍）帶入俗名。
+
+**(c) 直覺單位。** `units.entryUnitsFor()`：採買單位（顆／把／條／根／盒…，103 條）→ 沒有採買單位的蛋、蔬果、菇用食藥署的單位重當「顆／個」→ 調味料的大匙、小匙（24 種）→ 肉魚加「斤」→ 克（一定在最後，可切回）。
+食藥署的「單位重」沒寫單位名稱（米、麵粉的單位重其實是一杯），所以只在一顆一個的類別用。食譜用到的 169 種食材裡 135 種有克以外的單位；其餘 34 種（黃豆芽、五香粉…資料裡沒有單位重）只能填克。
+數量旁邊即時寫「≈ N 克」；換單位時克數不變、數量換算；換成別的食材時，用「根、顆」填的數量清空重填（2 根杏鮑菇換成高麗菜不該變成 0.14 顆），用克填的保留。
+**存的永遠是克**（營養、購物清單不動），另記 `entry: {qty, unit}` 讓下次編輯照原本的單位顯示；食譜驗證器驗 `entry` 並保留。
+
+測試：unittest 40→**69**、recipeviewtest 97→**124**（新增一段 27 條真實操作）。突變 303→**316**：新增 13 條，另 2 條因名稱提示抽成共用函式更新 find。
 
 ### 九項調整第二批（2026-09-18，v0.29.0）：第 5、9、8 項
 

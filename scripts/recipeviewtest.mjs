@@ -239,8 +239,10 @@ try {
   section('補上克數之後有估計值');
   await goto(page, `#/recipes/${mineId}/edit`);
   await titleIs(page, '修改食譜');
-  await page.waitForSelector('[data-ingredient="0"] [data-field="ingGrams"]');
-  await page.type('[data-ingredient="0"] [data-field="ingGrams"]', '200');
+  await page.waitForSelector('[data-ingredient="0"] [data-field="ingQty"]');
+  // 2026-09-18 起數量旁邊有單位（青江菜預設「把」）；這一段驗的是克數，先切回克
+  await page.select('[data-ingredient="0"] [data-field="ingUnit"]', '克');
+  await page.type('[data-ingredient="0"] [data-field="ingQty"]', '200');
   await waitToastGone(page);
   await clickEl(page, '[data-action="saveRecipe"]');
   await titleIs(page, '我的燙青菜');
@@ -248,6 +250,120 @@ try {
   const mineVals2 = await nutriValues(page);
   const kcal = mineVals2.find((v) => v.k === 'kcal').t;
   ok(/^估 \d/.test(kcal), `熱量有估計值：${kcal}`);
+
+  section('新增食譜的食材（2026-09-18 第 6 項）：只列簡名、名稱跟著換、用顆／把／大匙填');
+  {
+    await goto(page, '#/recipes');
+    await titleIs(page, '食譜');
+    await goto(page, '#/recipes/new');
+    await titleIs(page, '新增食譜');
+    await page.waitForSelector('[data-field="recipeName"]');
+    await page.type('[data-field="recipeName"]', '單位測試菜');
+    await clickEl(page, chipSel('vegMode', 'meatOnly'));
+    const row = (i) => `[data-ingredient="${i}"]`;
+    const searchFor = async (i, q) => {
+      await page.$eval(`${row(i)} [data-field="foodSearch"]`, (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }, q);
+      await sleep(120);
+      return page.$$eval(`${row(i)} .picker-item`, (els) => els.map((e) => e.textContent));
+    };
+    const pickFirst = async (i) => { await clickEl(page, `${row(i)} .picker-item`); await sleep(120); };
+    const val = (i, f) => page.$eval(`${row(i)} [data-field="${f}"]`, (el) => el.value);
+    const txt = (i, f) => textOf(page, `${row(i)} [data-field="${f}"]`);
+    const unitsOf = (i) => page.$$eval(`${row(i)} [data-field="ingUnit"] option`, (els) => els.map((e) => e.value));
+    const setQty = async (i, q) => {
+      await page.$eval(`${row(i)} [data-field="ingQty"]`, (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }, q);
+      await sleep(60);
+    };
+
+    // (a) 只列平均值那一筆、顯示簡名
+    eq(await searchFor(0, '杏鮑'), ['杏鮑菇 菇類'], '搜「杏鮑」只剩一筆「杏鮑菇」（不再有大、中、小、平均值四筆）');
+    const rice = await searchFor(0, '稉米');
+    ok(rice.length >= 1 && rice[0].startsWith('稉米 '), `搜「稉米」第一筆就是「稉米」：${rice.join('、')}`);
+    noneOf(rice, (t) => /台稉|台中|高雄|台南|台農|平均值/.test(t), '稉米的九個品種與「平均值」字樣都不列出來');
+    const idxInfo = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const idx = store.foodsIndex();
+      return { n: idx.list.length, small: idx.byId.get('G1300201')?.name, avg: idx.byId.get('G13002')?.name };
+    });
+    eq(idxInfo, { n: 2151, small: '杏鮑菇(大)', avg: '杏鮑菇平均值' }, '資料一筆都沒刪、編號沒改（杏鮑菇(大) 照樣查得到）');
+
+    // (c) 選完自動換單位
+    await searchFor(0, '杏鮑');
+    await pickFirst(0);
+    eq(await val(0, 'ingLabel'), '杏鮑菇', '選了之後名稱帶入簡名「杏鮑菇」（不是打到一半的「杏鮑」）');
+    eq(await unitsOf(0), ['根', '克'], '杏鮑菇的單位：根（預設）、克');
+    eq(await val(0, 'ingUnit'), '根', '預設用「根」');
+    ok((await txt(0, 'ingGramsHint')).includes('1 根 ≈ 70 克'), `還沒填數量時講出一根大約幾克：「${await txt(0, 'ingGramsHint')}」`);
+    await setQty(0, '2');
+    ok((await txt(0, 'ingGramsHint')).includes('≈ 140 克'), `填 2 根 → 講出約 140 克：「${await txt(0, 'ingGramsHint')}」`);
+
+    // (b) 改選別的食材，名稱跟著換
+    await searchFor(0, '高麗菜');
+    await pickFirst(0);
+    eq(await val(0, 'ingLabel'), '高麗菜', '改選高麗菜 → 下面的名稱跟著變成「高麗菜」（以前會停在「杏鮑菇」）');
+    ok((await txt(0, 'pickedFood')).includes('甘藍'), `對到的條目也換了：「${await txt(0, 'pickedFood')}」`);
+    eq(await val(0, 'ingUnit'), '顆', '單位換成「顆」');
+    eq(await val(0, 'ingQty'), '', '「2 根」對高麗菜沒有意義 → 數量清空重填（不是 0.14 顆）');
+    await setQty(0, '0.25');
+    // 使用者自己改過的名稱，改選食材時不蓋掉
+    await page.$eval(`${row(0)} [data-field="ingLabel"]`, (el) => { el.value = '高麗菜絲'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await searchFor(0, '甘藍');
+    await pickFirst(0);
+    eq(await val(0, 'ingLabel'), '高麗菜絲', '自己改過的名稱（高麗菜絲），再選一次食材也不會被蓋掉');
+
+    // 蛋用顆、醬油用大匙、肉可以用斤；換單位克數不變
+    await clickEl(page, '[data-action="addIngredient"]');
+    await sleep(120);
+    await searchFor(1, '雞蛋');
+    await pickFirst(1);
+    eq(await val(1, 'ingUnit'), '顆', '雞蛋預設「顆」');
+    await setQty(1, '3');
+    ok((await txt(1, 'ingGramsHint')).includes('≈ 165 克'), `3 顆蛋 ≈ 165 克：「${await txt(1, 'ingGramsHint')}」`);
+    await clickEl(page, '[data-action="addIngredient"]');
+    await sleep(120);
+    await searchFor(2, '醬油');
+    await pickFirst(2);
+    eq(await unitsOf(2), ['大匙', '小匙', '克'], '醬油：大匙、小匙、克');
+    await setQty(2, '1');
+    ok((await txt(2, 'ingGramsHint')).includes('≈ 18 克'), `1 大匙醬油 ≈ 18 克：「${await txt(2, 'ingGramsHint')}」`);
+    await clickEl(page, '[data-action="addIngredient"]');
+    await sleep(120);
+    await searchFor(3, '豬絞肉');
+    await pickFirst(3);
+    ok((await unitsOf(3)).includes('斤') && (await unitsOf(3)).includes('克'), `豬絞肉可以用斤：${(await unitsOf(3)).join('、')}`);
+    await page.select(`${row(3)} [data-field="ingUnit"]`, '斤');
+    await setQty(3, '0.5');
+    ok((await txt(3, 'ingGramsHint')).includes('≈ 300 克'), `半斤 ≈ 300 克：「${await txt(3, 'ingGramsHint')}」`);
+    await page.select(`${row(3)} [data-field="ingUnit"]`, '克');
+    await sleep(60);
+    eq(await val(3, 'ingQty'), '300', '切回克 → 數量換成 300（克數不變）');
+
+    await page.type('[data-list="steps"] textarea', '全部炒熟');
+    await waitToastGone(page);
+    await clickEl(page, '[data-action="saveRecipe"]');
+    await titleIs(page, '單位測試菜');
+    const savedU = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const r = store.userRecipes().find((x) => x.name === '單位測試菜');
+      return { id: r.id, ings: r.ingredients.map((i) => ({ label: i.label, grams: i.grams, entry: i.entry ?? null })) };
+    });
+    eq(savedU.ings.map((i) => i.grams), [250, 165, 18, 300], '存的是克：高麗菜 0.25 顆＝250、蛋 3 顆＝165、醬油 1 大匙＝18、豬絞肉 300');
+    eq(savedU.ings.map((i) => i.entry), [{ qty: 0.25, unit: '顆' }, { qty: 3, unit: '顆' }, { qty: 1, unit: '大匙' }, null], '也記下當初怎麼填的（用克填的就不另外記）');
+    await page.waitForSelector('[data-card="recipeNutrition"] .nutri-value');
+    const vals = await nutriValues(page);
+    ok(vals.filter((v) => /^估 \d/.test(v.t)).length >= 10, '用顆、大匙填的食材照樣算得出營養估計');
+
+    await goto(page, `#/recipes/${savedU.id}/edit`);
+    await titleIs(page, '修改食譜');
+    await page.waitForSelector(`${row(1)} [data-field="ingQty"]`);
+    eq([await val(1, 'ingQty'), await val(1, 'ingUnit')], ['3', '顆'], '再打開編輯：蛋還是顯示「3 顆」');
+    eq([await val(2, 'ingQty'), await val(2, 'ingUnit')], ['1', '大匙'], '醬油還是「1 大匙」');
+    eq([await val(3, 'ingQty'), await val(3, 'ingUnit')], ['300', '克'], '用克填的顯示克');
+    // 後面的段落會數「我的食譜有幾道」：這道只是單位測試用，刪掉
+    await page.evaluate(async (id) => (await import('./js/store.js')).deleteUserRecipe(id), savedU.id);
+    await goto(page, '#/recipes');
+    await titleIs(page, '食譜');
+  }
 
   section('複製內建食譜成我的版本');
   await goto(page, '#/recipes/new?from=r-tomato-egg');
@@ -370,7 +486,8 @@ try {
     await page.type('[data-field="recipeName"]', '滷豬耳朵');
     await page.$eval('[data-field="time"]', (el) => { el.value = '0'; el.dispatchEvent(new Event('input', { bubbles: true })); });
     await page.type('[data-ingredient="0"] [data-field="ingLabel"]', '豬耳朵');
-    await page.type('[data-ingredient="0"] [data-field="ingGrams"]', '300');
+    await page.select('[data-ingredient="0"] [data-field="ingUnit"]', '克');
+    await page.type('[data-ingredient="0"] [data-field="ingQty"]', '300');
     await sleep(150);
     const earHint = await textOf(page, '[data-ingredient="0"] [data-field="pickedFood"]');
     ok(earHint.includes('查不到「豬耳朵」') && earHint.includes('未估算'), `打了查不到的名稱 → 表單當場講可以存、營養會寫未估算：「${earHint}」`);
@@ -379,7 +496,8 @@ try {
     await clickEl(page, '[data-action="addIngredient"]');
     await sleep(150);
     await page.type('[data-ingredient="1"] [data-field="ingLabel"]', '青蔥');
-    await page.type('[data-ingredient="1"] [data-field="ingGrams"]', '20');
+    await page.select('[data-ingredient="1"] [data-field="ingUnit"]', '克');
+    await page.type('[data-ingredient="1"] [data-field="ingQty"]', '20');
     // 加一個食材會整排重畫：第一列的提示不可以變回「尚未選食材」（線上實測抓到過）
     const hintAfterAdd = await textOf(page, '[data-ingredient="0"] [data-field="pickedFood"]');
     ok(hintAfterAdd.includes('查不到「豬耳朵」'), `加了第二個食材（整排重畫）之後，第一列的提示還在：「${hintAfterAdd}」`);

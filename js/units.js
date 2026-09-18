@@ -13,6 +13,50 @@ export function toBuyQty(grams, unitDef) {
   return { qty, unit: unitDef.unit, grams: qty * unitDef.grams };
 }
 
+// ---- 新增食譜時用直覺單位填（2026-09-18 Yolin 定案，九項調整第 6 項 (c)）----
+// 存的永遠是克（營養、購物清單都用克算）；單位只是填的時候方便，另外記在 ingredient.entry 讓下次編輯看得到原本怎麼填的。
+export const JIN_GRAMS = 600;
+/** 食藥署的「單位重」沒寫單位名稱（米的單位重其實是一杯），只在一顆一個的類別當「個／顆」用。 */
+export const COUNT_UNIT_BY_CAT = { 蛋類: '顆', 蔬菜類: '個', 水果類: '個', 菇類: '個' };
+
+/**
+ * 這樣食材可以用哪些單位填。回 [{ unit, grams }]（1 單位幾克），**第一個是預設**，「克」一定在最後（可以切回克）。
+ * 順序：採買單位（顆／把／條／根／盒…）→ 沒有採買單位的蛋、蔬果、菇用單位重當「顆／個」→ 調味料的大匙、小匙 → 肉魚加「斤」→ 克。
+ * @param terms 這樣食材的口語詞（foods.aliasTermsOf），units.json 是用口語詞查的
+ */
+export function entryUnitsFor(food, { terms = [], units } = {}) {
+  const out = [];
+  const add = (unit, grams) => { if (grams > 0 && !out.some((o) => o.unit === unit)) out.push({ unit, grams: Math.round(grams * 10) / 10 }); };
+  if (food) {
+    const keys = [...terms, food.name];
+    let buy = null;
+    for (const t of keys) { const u = units?.buyUnits?.[t]; if (u && typeof u === 'object' && u.grams > 0) { buy = u; break; } }
+    if (buy) add(buy.unit, buy.grams);
+    else if (COUNT_UNIT_BY_CAT[food.cat] && food.unitWeight > 0) add(COUNT_UNIT_BY_CAT[food.cat], food.unitWeight);
+    for (const t of keys) {
+      const row = units?.spoonGrams?.[t];
+      if (row && typeof row === 'object') { add('大匙', row['大匙']); add('小匙', row['小匙']); break; }
+    }
+    if (food.cat === '肉類' || food.cat === '魚貝類') add('斤', JIN_GRAMS);
+  }
+  add('克', 1);
+  return out;
+}
+
+/** 填的數量 × 單位 → 克（四捨五入到 0.1 克）；數量不是正數回 null（＝沒填，營養寫「未估算」）。 */
+export function entryToGrams(qty, unitDef) {
+  const q = Number(qty);
+  if (!(q > 0) || !unitDef || !(unitDef.grams > 0)) return null;
+  return Math.round(q * unitDef.grams * 10) / 10;
+}
+
+/** 克 → 這個單位要填多少（切換單位時用；克數不變）。克以外取到 0.01。 */
+export function gramsToEntry(grams, unitDef) {
+  if (!(grams > 0) || !unitDef || !(unitDef.grams > 0)) return null;
+  const q = grams / unitDef.grams;
+  return unitDef.grams === 1 ? Math.round(q * 10) / 10 : Math.round(q * 100) / 100;
+}
+
 /** 「1 大匙醬油」→ 克；查不到回 null（不猜）。 */
 export function spoonToGrams(term, spoon, units) {
   const row = units?.spoonGrams?.[term];
