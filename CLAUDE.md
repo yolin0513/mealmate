@@ -15,3 +15,11 @@
 6. **測試紀律**：不寫假斷言；每條新斷言都要用突變（`npm run mutationtest -- --only <關鍵字>`）證明會紅；平常只跑受影響的測試；
    跑 mutationtest 期間不要同時編輯原始碼；含反斜線或 regex 的補丁用 Write 工具寫檔，不經 shell heredoc。
 7. **每次部署**：`npm run bump -- mealmate-vX.Y.Z` → 26 支測試全綠 → commit → push → 線上核對 `js/version.js`、`sw.js`、`index.html` 三處版本號 → 更新 `docs/STATUS.md` → 回報版本號、動到的檔、逐項對照。
+
+## 共用慣例
+
+四個 App 共用的工作慣例在 `docs/CONVENTIONS.md`。那是副本，主檔在統籌工作區，**不要在這裡改它**。
+開工前把它跟 `docs/STATUS.md` 一起讀完，並在第一則回覆的**第一行**寫回執：`已讀共用慣例 vN（日期）`（N 與日期抄副本第一行）。
+本檔與 `docs/STATUS.md` 的規則優先於共用慣例；兩邊衝突時照較嚴的做，並在回報裡指出來。
+
+@docs/CONVENTIONS.md

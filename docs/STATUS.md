@@ -1,6 +1,6 @@
 # MealMate 專案狀態（docs/STATUS.md）
 
-> 最後更新：2026-09-18（交接整理）。線上版本 **`mealmate-v0.35.0`**，commit `89b8ee2` 之後只有這次的文件整理。
+> 最後更新：2026-09-19（共用慣例導入＋commit 作者信箱改 noreply）。線上版本 **`mealmate-v0.35.0`**，commit `89b8ee2` 之後只有文件變動。
 > repo `yolin0513/mealmate`，GitHub Pages `https://yolin0513.github.io/mealmate/`。
 > 給接手的工作階段快速接手用。規劃細節見 `PLAN.md`（唯一真相來源），實測見 `FEASIBILITY.md`，資料與衛教來源見 `SOURCES.md`。
 
@@ -19,6 +19,11 @@
 3. 下面「等 Yolin 回覆」（第 1 項四季豆誤判建議優先）與 `docs/SPEC_全素蛋白質食譜補充.md`、`docs/SPEC_食材搜尋排序.md` 兩份草稿，Yolin 點頭才做。
 
 **正在等 Yolin 回覆的事：** 見下一節。沒有任何一項會擋住現有功能。
+
+**2026-09-19 文件變動（docs-only，不 bump、不算一版；工單 `docs/SPEC_共用慣例導入.md`）：**
+· commit 作者信箱改用 GitHub noreply（只設本 repo 的 `.git/config`），`CLAUDE.md` 第 3 條與「常設規則補遺」第 5 條同步改寫。
+· 共用慣例導入：新增 `docs/CONVENTIONS.md`（四個 App 共用慣例的**副本**，主檔在統籌工作區，這裡不改），`CLAUDE.md` 檔尾加「共用慣例」一節與 `@docs/CONVENTIONS.md` 匯入。
+  之後全新開場的 Session，第一則回覆第一行要寫回執 `已讀共用慣例 vN（日期）`。本檔與 `CLAUDE.md` 優先於共用慣例，衝突時照較嚴的做。
 
 ## 等 Yolin 回覆（2026-09-18 整理；每項都還沒人交辦，是交接時整理出的建議）
 
