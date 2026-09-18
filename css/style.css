@@ -682,6 +682,9 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 .shop-line1 { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .shop-name { font-weight: 600; overflow-wrap: anywhere; }
 .shop-qty { white-space: nowrap; font-weight: 600; margin-left: auto; }
+/* 320 寬、特大字級的「約 21.5 根（1500 g）」比一整行寬 3px：多出來的是全形「）」右半邊的空白
+   （Chrome 判斷換行時會把行尾全形標點的半格壓掉，所以不換行）。框限制在一整行內，右緣才跟其他列對齊；字的筆畫沒有超出。 */
+.shop-line1 > .shop-qty { max-width: 100%; }
 .shop-uses { overflow-wrap: anywhere; }
 /* 第二行：「家裡有」按鈕與說明文字各自一塊。放得下就並排（文字在自己那塊換行，不會繞到按鈕底下）；
    320px 特大字級下旁邊只剩幾個字寬，硬並排會變成一欄七八行 —— 那時說明整行放到按鈕下面。 */

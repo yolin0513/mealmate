@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, near, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { indexFoods } from '../js/foods.js';
 import { newMember } from '../js/members.js';
-import { rangesOfPlan, orderRangesForToday, rangeIsPast, buildShoppingList, scaleFor, suggestedText, manualUnitOf, sanitizeCustom, customKey, sectionOf, quantityText, listAsText, SECTIONS } from '../js/shopping.js';
+import { planCustomCarry, rangesOfPlan, orderRangesForToday, rangeIsPast, buildShoppingList, scaleFor, suggestedText, manualUnitOf, sanitizeCustom, customKey, sectionOf, quantityText, listAsText, SECTIONS } from '../js/shopping.js';
 import { generateWeek } from '../js/planner.js';
 import { estimate } from '../js/nutrition.js';
 
@@ -373,6 +373,31 @@ section('份數同步：每位成員各自的食量 ＋ 不少於一份');
   ok(per.kcal > 0, `（對照母體）這道菜每人一份估 ${Math.round(per.kcal)} kcal`);
   const fnSource = fs.readFileSync(path.join(ROOT, 'js/nutrition.js'), 'utf8');
   ok(!fnSource.includes('appetite'), '營養估算的程式碼完全不認識食量（每日估算講的是「每人一份」）');
+}
+
+section('已過的清單不顯示，沒勾的「自己加的」搬到下一張（2026-09-18 Yolin 定案）');
+{
+  const R = [
+    { key: '2026-09-07', dates: ['2026-09-13'] },                       // 上週買、給上週日（整個過了）
+    { key: '2026-09-14', dates: ['2026-09-14', '2026-09-15', '2026-09-16'] }, // 週一買（整個過了）
+    { key: '2026-09-17', dates: ['2026-09-17', '2026-09-18', '2026-09-20'] }, // 週四買（今天這張）
+  ];
+  const rows = {
+    '2026-09-07': { custom: [{ id: 'a', name: '洗碗精' }], checked: { [customKey('a')]: true } },
+    '2026-09-14': { custom: [{ id: 'p', name: '衛生紙', qty: '一串' }, { id: 'q', name: '蘋果' }], checked: { [customKey('q')]: true } },
+    '2026-09-17': { custom: [{ id: 'm', name: '牛奶' }], checked: {} },
+  };
+  const c = planCustomCarry(R, rows, '2026-09-17');
+  eq(c.target, '2026-09-17', '搬到下一張還沒過的清單（今天這張）');
+  eq(c.hide, ['2026-09-07', '2026-09-14'], '兩張整個過去的都不顯示');
+  eq(c.moves.map((m) => [m.from, m.items.map((x) => x.name)]), [['2026-09-14', ['衛生紙']]], '只搬沒勾的衛生紙；勾掉的蘋果、洗碗精不搬');
+  eq(c.moves[0].items[0].qty, '一串', '搬的時候數量跟著走');
+  eq(planCustomCarry(R, rows, '2026-09-14').hide, ['2026-09-07'], '（對照）站在週一：週一那張沒過，照樣顯示');
+  // 今天以後一張清單都沒有（剩下的餐都外食）：沒地方搬 → 還有沒勾的那張留著，免得備忘不見
+  const none = planCustomCarry(R.slice(0, 2), rows, '2026-09-19');
+  eq([none.target, none.moves.length], [null, 0], '今天以後沒有清單 → 沒地方搬');
+  eq(none.hide, ['2026-09-07'], '所以還有沒勾的衛生紙的那張照樣顯示；全勾完的那張不顯示');
+  eq(planCustomCarry(R, {}, '2026-09-17').moves, [], '沒有存過任何資料 → 什麼都不搬');
 }
 
 done('shoppingtest');

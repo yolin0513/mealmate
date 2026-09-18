@@ -93,6 +93,13 @@ export default async function familyView() {
       label: a.label, hint: a.hint, checked: avoidNow()[a.key] === true, key: `avoid-${a.key}`,
       onChange: async (on) => { await prefs.set('avoid', { ...avoidNow(), [a.key]: on }); refresh(); },
     })),
+    // 2026-09-18 Yolin 定案：有素食成員時才出現，預設開。只講組成（每餐有一道），不講營養理由。
+    members.some((m) => m.diet !== 'omni') ? switchRow({
+      label: '素食成員每餐排一道蛋、豆製品或奶類的菜',
+      hint: '豆腐、豆干、豆皮、麵腸、毛豆、蛋、奶都算。排菜時優先挑，真的排不到照樣出菜，本週頁會寫是哪幾餐。',
+      checked: prefs.get('vegProteinEachMeal') !== false, key: 'vegProteinEachMeal',
+      onChange: async (on) => { await prefs.set('vegProteinEachMeal', on); refresh(); },
+    }) : null,
     h('h3', { class: 'sub-title' }, '幾天內不重複'),
     h('p', { class: 'muted sm' }, '排菜時會盡量隔這麼多天才再排同一道；菜不夠時還是會重複，本週頁會寫出來。'),
     ...NO_REPEAT.map((n) => h('div', { class: 'pref-row' },

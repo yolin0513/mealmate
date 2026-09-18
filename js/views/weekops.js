@@ -12,7 +12,7 @@ import { matchesQuery } from './recipes.js';
 async function planArgs(plan) {
   return {
     recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
-    rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid'), heartyLevel: prefs.get('heartyLevel'), riceKind: prefs.get('riceKind') },
+    rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid'), heartyLevel: prefs.get('heartyLevel'), riceKind: prefs.get('riceKind'), vegProtein: prefs.get('vegProteinEachMeal') !== false },
     favorites: store.favoritesList(), shoppingDays: prefs.get('shoppingDays') ?? [], seed: prefs.get('planSeed') ?? 'mealmate',
   };
 }

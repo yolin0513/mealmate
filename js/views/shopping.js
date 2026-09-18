@@ -5,7 +5,7 @@ import { setTop, render } from '../shell.js';
 import * as store from '../store.js';
 import * as prefs from '../prefs.js';
 import { mondayOf, weekKeyOf, addDays, isoDate, parseDate, DAY_LABELS } from '../planner.js';
-import { buildShoppingList, quantityText, listAsText, suggestedText, manualUnitOf, customKey, sanitizeCustom, SECTIONS, rangesOfPlan, orderRangesForToday, rangeIsPast } from '../shopping.js';
+import { buildShoppingList, quantityText, listAsText, suggestedText, manualUnitOf, customKey, sanitizeCustom, SECTIONS, rangesOfPlan, orderRangesForToday, rangeIsPast, planCustomCarry } from '../shopping.js';
 import { refresh } from '../router.js';
 
 function fmtMD(iso) { const d = parseDate(iso); return `${d.getMonth() + 1}/${d.getDate()}`; }
@@ -47,16 +47,32 @@ export default async function shoppingView(query = {}) {
   const recipesById = new Map(store.allRecipes().map((r) => [r.id, r]));
   const manualByRange = {};
   const customByRange = {};
-  for (const r of rangesOfPlan(plan, shoppingDays)) {
-    const saved = await store.getShopping(r.key);
-    manualByRange[r.key] = saved.manual ?? {};
-    customByRange[r.key] = saved.custom ?? [];
-  }
-  // 還沒到的買菜日排前面；已經過去的排後面、預設收合。跨今天的那一張只算今天以後的餐（fromDate）。
   const todayIso = isoDate(new Date());
-  const { ranges } = buildShoppingList({ plan, recipesById, members, idx, units: store.units(), shoppingDays, manualByRange, customByRange, fromDate: todayIso });
+  const planRanges = rangesOfPlan(plan, shoppingDays);
+  const rowsByKey = {};
+  for (const r of planRanges) rowsByKey[r.key] = await store.getShopping(r.key);
+  // 已過的清單不顯示；上面還沒勾掉的「自己加的」先搬到下一張還沒過的清單（planCustomCarry）
+  const carry = planCustomCarry(planRanges, rowsByKey, todayIso);
+  for (const mv of carry.moves) {
+    const from = rowsByKey[mv.from];
+    const to = rowsByKey[carry.target];
+    const ids = new Set(mv.items.map((c) => c.id));
+    from.custom = (from.custom ?? []).filter((c) => !ids.has(c.id));
+    const have = new Set((to.custom ?? []).map((c) => c.id));
+    to.custom = [...(to.custom ?? []), ...mv.items.filter((c) => !have.has(c.id))];
+    await store.saveShopping({ ...from, weekKey });
+    await store.saveShopping({ ...to, weekKey });
+  }
+  const hidden = new Set(carry.hide);
+  for (const r of planRanges) {
+    manualByRange[r.key] = rowsByKey[r.key].manual ?? {};
+    customByRange[r.key] = rowsByKey[r.key].custom ?? [];
+  }
+  // 跨今天的那一張只算今天以後的餐（fromDate）。
+  const { ranges: allRanges } = buildShoppingList({ plan, recipesById, members, idx, units: store.units(), shoppingDays, manualByRange, customByRange, fromDate: todayIso });
+  const ranges = allRanges.filter((r) => !hidden.has(r.key));
   if (!ranges.length) {
-    render(h('section', { class: 'card', dataset: { card: 'shoppingEmpty' } }, h('div', { class: 'row-actions' }, weekChips), h('h2', { class: 'card-title' }, '這週沒有自己煮的餐'), h('p', { class: 'muted' }, '菜單裡每一餐都是外食或不煮，所以沒有東西要買。')));
+    render(h('section', { class: 'card', dataset: { card: 'shoppingEmpty' } }, h('div', { class: 'row-actions' }, weekChips), h('h2', { class: 'card-title' }, allRanges.length ? '這週剩下的餐不用買菜' : '這週沒有自己煮的餐'), h('p', { class: 'muted' }, allRanges.length ? '今天以後的餐都是外食或不煮；已過的清單不再列出。' : '菜單裡每一餐都是外食或不煮，所以沒有東西要買。')));
     return;
   }
 

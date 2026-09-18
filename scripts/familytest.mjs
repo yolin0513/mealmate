@@ -14,6 +14,13 @@ try {
   eq(await textOf(page, '#topTitle'), '開始之前', '第一次開是說明頁');
   await acceptWelcome(page);
   eq(await textOf(page, '#topTitle'), '本週菜單', '按「我知道了」後進到本週');
+  // 2026-09-18 第 5 項：還沒有素食成員時，「素食成員每餐排一道蛋、豆製品或奶類的菜」不出現（出現了也沒有作用）
+  await goto(page, '#/family');
+  await titleIs(page, '家人');
+  await page.waitForSelector('[data-card="rules"]');
+  eq(await page.$$eval('[data-pref="vegProteinEachMeal"]', (els) => els.length), 0, '沒有素食成員 → 排菜規則裡沒有「素食成員每餐一道蛋、豆製品或奶類」的開關');
+  await goto(page, '#/');
+  await titleIs(page, '本週菜單');
 
   section('新增家人：腎臟病沒勾子項');
   await goto(page, '#/family/new');
@@ -164,6 +171,22 @@ try {
 
   section('排菜規則：三個「避開」開關預設關');
   await page.waitForSelector('[data-card="rules"]');
+  // 2026-09-18 第 5 項：有素食成員（阿嬤蛋奶素）→ 開關出現、預設開，說明只講組成
+  {
+    await page.waitForSelector('[data-pref="vegProteinEachMeal"]');
+    eq(await page.$eval('[data-pref="vegProteinEachMeal"]', (el) => el.getAttribute('aria-checked')), 'true', '有素食成員 →「素食成員每餐排一道蛋、豆製品或奶類的菜」出現，預設開');
+    const row = await page.$eval('[data-pref="vegProteinEachMeal"]', (el) => (el.closest('.switch-row, .pref-row') ?? el.parentElement).textContent);
+    ok(row.includes('素食成員每餐排一道蛋、豆製品或奶類的菜') && row.includes('排不到照樣出菜'), `名稱與說明：「${row.replace(/\s+/g, ' ').slice(0, 80)}」`);
+    noneOf(['健康', '營養', '建議', '應該', '補充', '控制'], (w) => row.includes(w), '說明沒有營養理由或建議語氣');
+    await clickEl(page, '[data-pref="vegProteinEachMeal"]');
+    await sleep(300);
+    eq(await page.evaluate(async () => (await import('./js/prefs.js')).get('vegProteinEachMeal')), false, '關掉 → prefs 記成 false');
+    await page.waitForSelector('[data-pref="vegProteinEachMeal"]');
+    await clickEl(page, '[data-pref="vegProteinEachMeal"]');
+    await sleep(300);
+    eq(await page.evaluate(async () => (await import('./js/prefs.js')).get('vegProteinEachMeal')), true, '再打開 → true');
+    await page.waitForSelector('[data-card="rules"]');
+  }
   const avoidStates = await page.$$eval('[data-card="rules"] [data-pref^="avoid-"]', (els) => els.map((e) => ({ k: e.dataset.pref, on: e.getAttribute('aria-checked') })));
   eq(avoidStates.map((a) => a.k), ['avoid-sweet', 'avoid-processed', 'avoid-fried'], '三個開關');
   everyOf(avoidStates, (a) => a.on === 'false', '預設全關（留意項目只降分；排除由使用者自己開）');

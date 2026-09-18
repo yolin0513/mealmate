@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf } from './tap.mjs';
-import { TEST_MONDAY, openApp, acceptWelcome, goto, titleIs, textOf, sleep, clickEl } from './browserlib.mjs';
+import { pinToday, TEST_MONDAY, openApp, acceptWelcome, goto, titleIs, textOf, sleep, clickEl } from './browserlib.mjs';
 import { indexFoods } from '../js/foods.js';
 import { buildShoppingList, rangesOfPlan, orderRangesForToday, quantityText } from '../js/shopping.js';
 import { mondayOf, isoDate, addDays } from '../js/planner.js';
@@ -558,71 +558,63 @@ try {
     await page.evaluate(async (key) => { const store = await import('./js/store.js'); const row = await store.getShopping(key); row.checked = {}; row.fold = {}; row.custom = []; await store.saveShopping(row); }, cardKey);
   }
 
-  section('已經過去的那張清單：排到後面、預設收起來，但打得開（補買）');
-  // 使用者回報：星期四打開買菜頁，最上面那張是「上週買」——那幾餐早吃完了，要一直往下捲才看得到現在這一張。
-  //
-  // 「今天星期幾」會決定有沒有過去的清單，所以不能靠跑測試的當下是星期幾（慣例 19）。
-  // 這裡開一個把 new Date() 固定在「本週四」的分頁：週一那張（涵蓋週一到週三）必然整個過去了，
-  // 而 mondayOf 不變，所以剛才存的那份菜單照樣讀得到。
+  section('已經過去的清單不顯示；上面沒勾的「自己加的」搬到下一張（2026-09-18 Yolin 定案）');
+  // 「今天星期幾」不能靠跑測試的當下（慣例 19）：開一個把今天固定在本週四的分頁。
+  // 買菜日是週一、週四：週一那張（給週一到週三）整個過去了，週四那張是下一張還沒過的。
   {
     const mondayIso = mondayOf(isoDate(new Date()));
     const thursdayIso = addDays(mondayIso, 3);
-    const fakeNow = new Date(`${thursdayIso}T10:00:00`).getTime();
+    const keys = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const prefs = await import('./js/prefs.js');
+      const { rangesOfPlan } = await import('./js/shopping.js');
+      const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      return rangesOfPlan(plan, prefs.get('shoppingDays') ?? []).map((r) => ({ key: r.key, dates: r.dates }));
+    });
+    const pastKey = mondayIso;
+    ok(keys.some((k) => k.key === pastKey) && keys.some((k) => k.key === thursdayIso), `（前提）兩張清單：${keys.map((k) => k.key).join('、')}`);
+    await page.evaluate(async (key) => {
+      const store = await import('./js/store.js');
+      const row = await store.getShopping(key);
+      row.custom = [{ id: 'c-paper', name: '衛生紙', qty: '一串' }, { id: 'c-apple', name: '蘋果', qty: '3 顆' }];
+      row.checked = { ...(row.checked ?? {}), 'custom:c-apple': true };
+      await store.saveShopping(row);
+    }, pastKey);
     const p2 = await browser.newPage();
     p2.setDefaultTimeout(60000);
     try {
-      await p2.evaluateOnNewDocument((now) => {
-        const Real = Date;
-        const Fake = function Fake(...a) { return a.length ? new Real(...a) : new Real(now); };
-        Fake.now = () => now;
-        Fake.parse = Real.parse;
-        Fake.UTC = Real.UTC;
-        Fake.prototype = Real.prototype;
-        window.Date = Fake;
-      }, fakeNow);
+      await pinToday(p2, thursdayIso);
       await p2.goto(`http://localhost:${port}/#/shopping`, { waitUntil: 'networkidle0' });
       await p2.waitForSelector('[data-card="shopRange"]');
       await sleep(300);
-      const cards = await p2.$$eval('[data-card="shopRange"]', (els) => els.map((e) => ({
-        key: e.dataset.range,
-        past: e.dataset.past,
-        title: e.querySelector('.card-title').textContent.replace(/\s+/g, ' ').trim(),
-        open: e.querySelector('.fold-body').hidden === false,
+      const read = () => p2.$$eval('[data-card="shopRange"]', (els) => els.map((e) => ({
+        key: e.dataset.range, title: e.querySelector('.card-title').textContent.replace(/\s+/g, ' ').trim(),
+        customs: [...e.querySelectorAll('[data-custom]')].map((c) => c.textContent.replace(/\s+/g, ' ').trim()),
       })));
-      ok(cards.length >= 2, `（母體）站在週四看，畫面上有 ${cards.length} 張清單：${cards.map((c) => c.key).join('、')}`);
-      const pastCards = cards.filter((c) => c.past === 'true');
-      const liveCards = cards.filter((c) => c.past !== 'true');
-      ok(pastCards.length >= 1, `（前提）有 ${pastCards.length} 張整個過去了（週一那張涵蓋週一到週三）`);
-      ok(liveCards.length >= 1, `（前提）也有 ${liveCards.length} 張還有餐要煮`);
-      ok(cards.indexOf(liveCards[0]) < cards.indexOf(pastCards[0]), '還有餐要煮的排在前面');
-      eq(cards.slice(-pastCards.length).every((c) => c.past === 'true'), true, '過去的全部排在最後面');
-      everyOf(pastCards, (c) => c.open === false, '過去的那幾張預設收起來');
-      everyOf(pastCards, (c) => c.title.includes('已過'), `標題上標「已過」（${pastCards[0].title}）`);
-      everyOf(pastCards, (c) => /還差|全買齊/.test(c.title), '但還是寫得出還差幾項 —— 不是把它藏起來');
-      everyOf(liveCards, (c) => c.open === true, '還有餐要煮的那幾張照樣是展開的');
-      noneOf(liveCards, (c) => c.title.includes('已過'), '（對照）沒過去的不會被標成「已過」');
-
-      // 補買：打得開，而且重畫之後還是開著（手動意圖優先，跟既有的摺疊規則同一套）
-      const pastKey = pastCards[0].key;
-      await p2.$eval(`[data-card="shopRange"][data-range="${pastKey}"] [data-action="fold"][data-fold="__card"]`, (el) => el.click());
-      await sleep(300);
-      const opened = await p2.$eval(`[data-card="shopRange"][data-range="${pastKey}"] .fold-body`, (el) => !el.hidden);
-      eq(opened, true, '點一下標題就打得開，可以補買');
-      await p2.evaluate(() => { location.hash = '#/recipes'; });
-      await p2.waitForSelector('[data-list="recipes"]');
-      await p2.evaluate(() => { location.hash = '#/shopping'; });
+      const cards = await read();
+      eq(cards.map((c) => c.key), [thursdayIso], '站在週四：只剩週四那張，週一那張（給週一到週三的餐）不顯示');
+      noneOf(cards, (c) => c.title.includes('已過'), '畫面上沒有任何「已過」的清單');
+      ok(cards[0].customs.some((t) => t.includes('衛生紙')), `週一那張上沒勾的「衛生紙」搬到週四這張：${cards[0].customs.join('｜')}`);
+      ok(!cards[0].customs.some((t) => t.includes('蘋果')), '已經勾掉的「蘋果」不搬');
+      const stored = await p2.evaluate(async ([a, b]) => {
+        const store = await import('./js/store.js');
+        const from = await store.getShopping(a); const to = await store.getShopping(b);
+        return { from: (from.custom ?? []).map((c) => c.name), to: (to.custom ?? []).map((c) => c.name) };
+      }, [pastKey, thursdayIso]);
+      eq(stored.from, ['蘋果'], '存檔：週一那張只剩已勾的蘋果（衛生紙真的搬走了，不是複製）');
+      eq(stored.to.filter((n) => n === '衛生紙').length, 1, '存檔：週四那張有衛生紙');
+      await p2.reload({ waitUntil: 'networkidle0' });
       await p2.waitForSelector('[data-card="shopRange"]');
       await sleep(300);
-      const stillOpen = await p2.$eval(`[data-card="shopRange"][data-range="${pastKey}"] .fold-body`, (el) => !el.hidden);
-      eq(stillOpen, true, '換頁回來還是開著 —— 手動展開過就不會再被自動收回去');
-      await p2.evaluate(async (key) => {
-        const store = await import('./js/store.js');
-        const row = await store.getShopping(key);
-        row.fold = {};
-        await store.saveShopping(row);
-      }, pastKey);
+      const again = await read();
+      eq(again[0].customs.filter((t) => t.includes('衛生紙')).length, 1, '重新整理之後衛生紙還是只有一筆（不會每開一次就再搬一次）');
     } finally {
       await p2.close();
+      await page.evaluate(async (keys2) => {
+        const store = await import('./js/store.js');
+        for (const k of keys2) { const row = await store.getShopping(k); row.custom = []; row.checked = {}; await store.saveShopping(row); }
+      }, [pastKey, thursdayIso]);
     }
   }
 

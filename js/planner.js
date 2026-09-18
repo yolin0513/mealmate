@@ -14,7 +14,7 @@ import { estimate } from './nutrition.js';
 import { versionFor, watchFields, DIET_LABELS } from './members.js';
 import { shelfDaysFor } from './units.js';
 import { NUTRIENT_LABELS, foodFamilies, displayNameOf } from './foods.js';
-import { ROLE_LABELS, METHOD_LABELS } from './recipeschema.js';
+import { ROLE_LABELS, METHOD_LABELS, proteinGroupOf } from './recipeschema.js';
 
 export const MEALS = ['breakfast', 'lunch', 'dinner'];
 export const MEAL_LABELS = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐' };
@@ -130,6 +130,54 @@ export function starFoods(recipe, version, idx) {
   return [...new Set(cand.filter((c) => c.per >= top * STAR_SHARE && c.per >= STAR_MIN_GRAMS).sort((a, b) => b.per - a.per).map((c) => c.key))].slice(0, 2);
 }
 
+// ---------- 素食成員每餐一道蛋、豆製品或奶類的菜（2026-09-18 Yolin 定案，家人頁開關，有素食成員時預設開）----------
+// 只講「組成」：這一餐素食成員吃得到的菜裡，有沒有一道是蛋、豆製品（豆腐、豆干、豆皮、麵腸、毛豆…）或奶類做的。
+// 做法是**加分、不硬擋**：這一餐某位素食成員還沒有這種菜時，後面的位置優先挑給得到他的；排不到照樣出菜，本週頁講是哪幾餐。
+export const VEG_PROTEIN_BONUS = 35;
+/** 這一餐後面還有位置可以補的時候只加這麼多：主菜先照原本的變化挑，蛋白質菜由後面的配菜、湯補（Yolin：「後面的位置優先挑」）。 */
+export const VEG_PROTEIN_EARLY_BONUS = 12;
+export const VEG_PROTEIN_MIN_GRAMS = 15; // 每人至少這麼多克才算（一小匙豆豉、幾片奶油不算）
+export const VEG_PROTEIN_LABEL = '蛋、豆製品或奶類';
+/** 這道菜的這個版本（'veg' | 'meat' | 'all'）是不是一道蛋、豆製品或奶類的菜。看食材，不看營養估算。 */
+export function isProteinDish(recipe, version, idx) {
+  if (!recipe || !idx) return false;
+  const tracks = version === 'veg' ? ['base', 'veg'] : version === 'meat' ? ['base', 'meat'] : ['base', 'veg', 'meat'];
+  const sideServ = version === 'veg' ? (recipe.splitServings?.veg ?? 1) : (recipe.splitServings?.meat ?? recipe.servings);
+  for (const ing of recipe.ingredients ?? []) {
+    const track = ing.track ?? 'base';
+    if (!tracks.includes(track) || ing.pantry || !ing.food || !(ing.grams > 0)) continue;
+    const f = idx.byId.get(ing.food);
+    if (!f) continue;
+    const kind = f.cat === '蛋類' ? 'egg' : f.cat === '乳品類' ? 'dairy' : proteinGroupOf(f, new Set()) === 'soy' ? 'soy' : null;
+    if (!kind) continue;
+    if (ing.grams / (track === 'base' ? recipe.servings : sideServ) >= VEG_PROTEIN_MIN_GRAMS) return true;
+  }
+  return false;
+}
+/** 這位家人吃這道菜時，吃到的是不是一道蛋、豆製品或奶類的菜（吃不了的回 false）。 */
+export function proteinDishFor(recipe, member, idx) {
+  const v = versionFor(recipe, member.diet);
+  if (v === null) return false;
+  return isProteinDish(recipe, v === 'veg' ? 'veg' : v === 'meat' ? 'meat' : 'all', idx);
+}
+/**
+ * 現在的菜單裡，哪幾餐（午晚餐、自己煮）有素食成員吃不到任何一道蛋、豆製品或奶類的菜。
+ * 本週頁從**現在的菜單**算（換過、指定過的都算進去），不是排菜當下的紀錄。
+ * @returns [{ date, meal, names: 成員暱稱[] }]
+ */
+export function vegProteinMisses(plan, members, recipesById, idx) {
+  const vegs = (members ?? []).filter((m) => m.diet !== 'omni');
+  if (!vegs.length || !plan) return [];
+  const out = [];
+  for (const s of plan.slots ?? []) {
+    if (s.kind !== 'cook' || s.meal === 'breakfast' || !(s.items ?? []).length) continue;
+    const rs = s.items.map((it) => recipesById.get(it.recipeId)).filter(Boolean);
+    const names = vegs.filter((m) => !rs.some((r) => proteinDishFor(r, m, idx))).map((m) => m.name);
+    if (names.length) out.push({ date: s.date, meal: s.meal, names });
+  }
+  return out;
+}
+
 const NO_REPEAT_PENALTY = { main: 100, side: 60, soup: 60, breakfast: 0, staple: 0 };
 /** 同一餐不重複的烹法（PLAN §4.3：兩道炸、兩道湯）。兩道炒在台灣家常菜很平常，不算衝突。 */
 export const EXCLUSIVE_METHODS = new Set(['deepfry', 'soup']);
@@ -238,6 +286,8 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
     balance: rules.balance !== false,
     // 對照用：false 時不做「主角食材短期不要太常出現」的扣分。同樣**不在畫面上給使用者**。
     starSpacing: rules.starSpacing !== false,
+    // 素食成員每餐一道蛋、豆製品或奶類的菜：家人頁的開關（prefs.vegProteinEachMeal，預設開）
+    vegProtein: rules.vegProtein !== false,
   };
   const vegetarians = members.filter((m) => m.diet !== 'omni');
   const hasOmni = members.some((m) => m.diet === 'omni') || members.length === 0;
@@ -264,6 +314,12 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
       starCache.set(recipe.id, [...new Set(vs.flatMap((v) => starFoods(recipe, v, idx)))]);
     }
     return starCache.get(recipe.id);
+  };
+  const vpCache = new Map();
+  const proteinFor = (recipe, m) => {
+    const k = `${recipe.id}|${m.diet}`;
+    if (!vpCache.has(k)) vpCache.set(k, proteinDishFor(recipe, m, idx));
+    return vpCache.get(k);
   };
   const riceCache = new Map();
   const riceOf = (recipe) => {
@@ -368,7 +424,8 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
 
   // 混合家庭：同時有吃葷與吃素的人。hasOmni 在「還沒新增家人」時也是 true，但那時 vegetarians 是空的，所以不算。
   const mixedHome = vegetarians.length > 0 && hasOmni;
-  return { starsOf, riceOf, riceBonus, riceDishes, recipes, members, idx, units, rules: r, vegetarians, hasOmni, mixedHome, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, refPerServing, heartyOf, isLight };
+  const recipeById = new Map(recipes.map((x) => [x.id, x]));
+  return { recipeById, proteinFor, starsOf, riceOf, riceBonus, riceDishes, recipes, members, idx, units, rules: r, vegetarians, hasOmni, mixedHome, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, refPerServing, heartyOf, isLight };
 }
 
 // ---------- 保存期限 ----------
@@ -554,12 +611,33 @@ export function scoreSoft(recipe, { role, meal, date, day }, ctx, state, rng) {
   if (ctx.needsSoft && (role === 'main' || role === 'side') && recipe.texture !== 'normal') { score += 8; reasons.push('軟質，家裡有需要好咬的成員'); }
 
   // 主角食材短期不要太常出現（見 STAR_PENALTY）。取這道菜幾樣主角裡最常出現的那一樣。
+  let starWorst = 0;
   if (rules.starSpacing && meal !== 'breakfast' && ['main', 'side', 'soup'].includes(role) && ctx.starsOf && state.starCount) {
     let worst = null;
     for (const k of ctx.starsOf(recipe)) { const c = state.starCount(k, date); if (!worst || c > worst.c) worst = { k, c }; }
+    starWorst = worst?.c ?? 0;
     if (worst && worst.c > 0) {
       score -= STAR_PENALTY[Math.min(worst.c, STAR_PENALTY.length - 1)];
       reasons.push(`${displayNameOf(ctx.idx?.byId.get(worst.k), ctx.idx)}前後幾天已經排了 ${worst.c} 道`);
+    }
+  }
+
+  // 素食成員每餐一道蛋、豆製品或奶類的菜（見 VEG_PROTEIN_BONUS）：這一餐已經排的菜裡還沒有的成員，這道給得到他就加分
+  if (rules.vegProtein && ctx.vegetarians.length && meal !== 'breakfast' && ['main', 'side', 'soup'].includes(role) && ctx.proteinFor) {
+    const placed = (state.slotItems ?? []).map((it) => ctx.recipeById.get(it.recipeId)).filter(Boolean);
+    const lacking = ctx.vegetarians.filter((m) => !placed.some((r) => ctx.proteinFor(r, m)));
+    const gives = lacking.filter((m) => ctx.proteinFor(recipe, m));
+    // 主角食材前後幾天已經排了 2 道以上（例如第三道豆干）就不加這個分 —— 「三天內不要太常出現」優先（Yolin 先提的那一條）
+    // 主菜一定不是最後一個位置 → 最多只加 VEG_PROTEIN_EARLY_BONUS（12），小於「同一天另一餐已經豐盛」的扣分（30），
+    // 所以不會把豐盛的豆腐主菜推成一天兩餐都豐盛（第一版從主菜就加滿 35 時會，plannertest 的一週平衡抓到）。
+    if (gives.length && starWorst < 2) {
+      // 這一格之後，這一餐還剩幾個素食成員吃得到的位置（主食不算；混合家庭最後一道配菜會是給葷食的加菜，也不算）
+      const vegRoles = (MEAL_ROLES[meal] ?? []).filter((r) => r !== 'staple');
+      const placedN = (state.slotItems ?? []).filter((it) => it.role !== 'staple').length;
+      const extraPending = ctx.mixedHome && !(state.slotItems ?? []).some((it) => it.extraMeat) ? 1 : 0;
+      const later = vegRoles.length - placedN - 1 - extraPending;
+      score += (later >= 1 ? VEG_PROTEIN_EARLY_BONUS : VEG_PROTEIN_BONUS) * (gives.length / lacking.length);
+      reasons.push(`${gives.map((m) => m.name).join('、')}這一餐吃得到的${VEG_PROTEIN_LABEL}的菜`);
     }
   }
 
@@ -889,7 +967,7 @@ export function generateWeek({ recipes, members = [], idx, units, rules = {}, fa
   const past = history.filter((h) => h.date < monday && daysBetween(h.date, monday) <= 28);
   const state = makeState(past, ctx, monday);
   // rules：這週實際用的豐盛程度與主食的米（跟著 plan 存）。設定頁改了、排出來卻沒跟著變時，查得到是哪一環沒傳到。
-  const diagnostics = { forcedRepeats: [], relaxed: [], empty: [], noMeat: [], wantMissed: [], meatExtraSkipped: [], poolSizes: {}, rules: { heartyLevel: ctx.rules.heartyLevel, riceKind: ctx.rules.riceKind } };
+  const diagnostics = { forcedRepeats: [], relaxed: [], empty: [], noMeat: [], wantMissed: [], meatExtraSkipped: [], poolSizes: {}, rules: { heartyLevel: ctx.rules.heartyLevel, riceKind: ctx.rules.riceKind, vegProtein: ctx.rules.vegProtein } };
   for (const role of ['main', 'side', 'soup', 'staple', 'breakfast']) diagnostics.poolSizes[role] = recipes.filter((r) => r.role === role).length;
 
   // 「本週想吃」＝這週一定要排到（2026-09-14 使用者回報：勾了滷雞腳，重新產生幾次都沒排進去，畫面上也沒說為什麼）。

@@ -25,6 +25,7 @@ import {
   weekBalance, balanceSentence, assignItem, HEARTY_LEVELS, WEEK_CAPS, BALANCE_NOTE, HEARTY_HINT, HEARTY_TOP_SHARE, groupEstimates,
   riceKindOf, riceKindOfFood, RICE_KINDS, RICE_KIND_LABELS, RICE_KIND_HINT, DEFAULT_RULES, wantMissReason,
   starFoods, STAR_PENALTY, STAR_WINDOW_DAYS, historyRowsOf as rowsOf,
+  isProteinDish, proteinDishFor, vegProteinMisses, VEG_PROTEIN_BONUS, VEG_PROTEIN_EARLY_BONUS,
 } from '../js/planner.js';
 import { displayNameOf } from '../js/foods.js';
 import { versionFor as vFor } from '../js/members.js';
@@ -480,8 +481,8 @@ section('主食的米（2026-09-18 第 9 項）：照家裡的設定排，預設
     ok(got.includes('白麵條'), `設${RICE_KIND_LABELS[kind]}時麵條照常排得到`);
   }
   eq(buildContext({ recipes, idx, units, rules: { riceKind: 'jasmine' } }).rules.riceKind, 'white', '亂填的設定 → 當白米');
-  eq(gen({ rules: { riceKind: 'multigrain', heartyLevel: 'low' } }).diagnostics.rules, { heartyLevel: 'low', riceKind: 'multigrain' }, '排菜器把實際用的豐盛程度與米記在 diagnostics.rules（跟著 plan 存）');
-  eq(gen({}).diagnostics.rules, { heartyLevel: 'medium', riceKind: 'white' }, '沒設就記預設：適中、白米');
+  eq(gen({ rules: { riceKind: 'multigrain', heartyLevel: 'low', vegProtein: false } }).diagnostics.rules, { heartyLevel: 'low', riceKind: 'multigrain', vegProtein: false }, '排菜器把實際用的豐盛程度與米記在 diagnostics.rules（跟著 plan 存）');
+  eq(gen({}).diagnostics.rules, { heartyLevel: 'medium', riceKind: 'white', vegProtein: true }, '沒設就記預設：適中、白米、素食每餐一道蛋豆奶開著');
   {
     const bctx = buildContext({ recipes, idx, units, rules: { riceKind: 'brown' } });
     const lunchHad = { slotItems: [], dayRecipes: () => new Set(['r-brown-rice', 'r-plain-noodles']) };
@@ -584,7 +585,8 @@ section('主角食材短期不要太常出現（2026-09-18 Yolin：三天內午�
     const monHits = (history) => {
       let n = 0;
       for (let sd = 0; sd < 60; sd += 1) {
-        const { plan } = generateWeek({ recipes, members: vegOnly, idx, units, favorites: [], history, mondayIso: MONDAY, seed: `wk${sd}`, shoppingDays: [] });
+        // 只看主角食材這條：蛋白質偏好關掉（開著時豆腐會把杏鮑菇擠掉，對照組就量不到東西）
+        const { plan } = generateWeek({ recipes, members: vegOnly, idx, units, rules: { vegProtein: false }, favorites: [], history, mondayIso: MONDAY, seed: `wk${sd}`, shoppingDays: [] });
         for (const sl of plan.slots.filter((x) => x.date === MONDAY && x.meal !== 'breakfast')) {
           const hit = sl.items.filter((it) => vctx.starsOf(byId.get(it.recipeId)).includes(kCup));
           if (hit.length) n += 1;
@@ -601,6 +603,120 @@ section('主角食材短期不要太常出現（2026-09-18 Yolin：三天內午�
     const after = monHits(hist);
     ok(base >= 3, `（對照）上週沒吃杏鮑菇時，60 組裡週一午晚餐排到杏鮑菇 ${base} 次`);
     eq(after, 0, `上週六、日已經吃了三道杏鮑菇 → 週一午晚餐 120 餐一次都沒排到（上週的紀錄有算進來）`);
+  }
+}
+
+section('素食成員每餐一道蛋、豆製品或奶類的菜（2026-09-18 Yolin 定案，家人頁開關，預設開）');
+{
+  const byName = (n) => recipes.find((r) => r.name.startsWith(n));
+  const ants = byName('螞蟻上樹');
+  ok(ants.proteins.includes('pork') && !ants.vegProteins.includes('pork'), `蛋白質來源按版本分開：螞蟻上樹全部是 ${ants.proteins.join('、')}，素版 ${ants.vegProteins.join('、') || '（沒有）'} —— 素版不算豬肉`);
+  ok(ants.meatProteins.includes('pork'), '（對照）葷版照樣是豬肉');
+  everyOf(recipes.filter((r) => r.vegMode === 'splittable'), (r) => Array.isArray(r.vegProteins) && Array.isArray(r.meatProteins), '每一道可分流的菜都有素版、葷版各自的蛋白質來源');
+  eq(isProteinDish(byName('家常麻婆豆腐'), 'veg', idx), true, '麻婆豆腐（素版）是豆製品的菜');
+  eq(isProteinDish(byName('番茄炒蛋'), 'all', idx), true, '番茄炒蛋是蛋的菜');
+  eq(isProteinDish(byName('起司焗南瓜'), 'all', idx), true, '起司焗南瓜是奶類的菜');
+  eq(isProteinDish(byName('蒜炒空心菜'), 'all', idx), false, '炒青菜不是');
+  // 份量門檻：自己組一道菜，豆豉每人 2.5 克（不是常備品）→ 不算；同一道換成每人 25 克的豆腐 → 算
+  const fakeDish = (food, grams) => ({ id: 'r-fake', role: 'side', servings: 4, vegMode: 'nativeVeg', ingredients: [{ food: 'E3201202', label: '青江菜', grams: 300, track: 'base' }, { food, label: 'x', grams, track: 'base' }] });
+  eq(isProteinDish(fakeDish('R4700601', 10), 'all', idx), false, '一小撮豆豉（每人 2.5 克）不算 —— 每人至少 15 克才算');
+  eq(isProteinDish(fakeDish('R4700901', 100), 'all', idx), true, '（對照）每人 25 克的豆腐算');
+  eq(isProteinDish(ants, 'veg', idx), false, '素螞蟻上樹不是（冬粉、蔬菜）');
+  const vegan = { ...newMember(), name: '姊', diet: 'veganNoAllium' };
+  eq(proteinDishFor(byName('番茄炒蛋'), vegan, idx), false, '全素的姊吃不了番茄炒蛋 → 對她不算');
+
+  // 加分直接驗
+  const fam = [{ ...newMember(), name: '爸' }, vegan];
+  const ctxOn = buildContext({ recipes, members: fam, idx, units });
+  const ctxOff = buildContext({ recipes, members: fam, idx, units, rules: { vegProtein: false } });
+  const tofu = recipes.find((r) => r.role === 'side' && r.vegMode === 'nativeVeg' && isProteinDish(r, 'all', idx) && proteinDishFor(r, vegan, idx));
+  const greens = byName('蒜炒空心菜');
+  ok(tofu, `（前提）找到一道全素吃得到的豆製品配菜：${tofu?.name}`);
+  const at = { role: 'side', meal: 'dinner', date: '2026-09-16', day: 2 };
+  const st = (items) => ({ slotItems: items, dayRecipes: () => new Set(), lastServed: () => null, timesServedWithin: () => 0, dayProteins: () => new Set(), prevDayMealProteins: () => new Set(), fishCount: () => 0, rangeHas: () => false, placedWant: new Set(), starCount: () => 0 });
+  const sc = (ctx, r, items) => scoreSoft(r, at, ctx, st(items), () => 0);
+  const noProtYet = [{ recipeId: greens.id, role: 'main', pos: 0 }];
+  // 晚餐是主菜、配菜、配菜、湯、主食；混合家庭最後一道配菜會是給葷食的加菜。
+  // 只排了主菜 → 這格（配菜）之後還有湯可以補 → 只加一點；主菜＋一道配菜都排了 → 這是最後一個位置 → 加滿
+  eq(Math.round(sc(ctxOn, tofu, noProtYet).score - sc(ctxOff, tofu, noProtYet).score), VEG_PROTEIN_EARLY_BONUS, `姊還沒有、後面還有位置可以補 → 只加 ${VEG_PROTEIN_EARLY_BONUS} 分（主菜照原本的變化挑）`);
+  const lastChance = [{ recipeId: greens.id, role: 'main', pos: 0 }, { recipeId: greens.id, role: 'side', pos: 1 }];
+  eq(Math.round(sc(ctxOn, tofu, lastChance).score - sc(ctxOff, tofu, lastChance).score), VEG_PROTEIN_BONUS, `姊還沒有、這是最後一個她吃得到的位置 → 加 ${VEG_PROTEIN_BONUS} 分`);
+  ok(sc(ctxOn, tofu, noProtYet).reasons.some((t) => t.includes('姊這一餐吃得到的蛋、豆製品或奶類的菜')), '理由只講組成：「姊這一餐吃得到的蛋、豆製品或奶類的菜」');
+  noneOf(sc(ctxOn, tofu, noProtYet).reasons, (t) => /健康|蛋白質|營養|建議|應該|補充/.test(t), '理由沒有營養理由或建議語氣');
+  const hasProt = [{ recipeId: tofu.id, role: 'main', pos: 0 }];
+  eq(Math.round(sc(ctxOn, tofu, hasProt).score - sc(ctxOff, tofu, hasProt).score), 0, '這一餐已經有了 → 不再加');
+  eq(Math.round(sc(ctxOn, greens, noProtYet).score - sc(ctxOff, greens, noProtYet).score), 0, '炒青菜不加');
+  const stStar = { ...st(noProtYet), starCount: (k) => (starFoods(tofu, 'all', idx).includes(k) ? 2 : 0) };
+  eq(Math.round(scoreSoft(tofu, at, ctxOn, stStar, () => 0).score - scoreSoft(tofu, at, ctxOff, stStar, () => 0).score), 0, '同一樣主角（豆腐）前後幾天已經 2 道 → 不加（三天內不要太常出現優先）');
+
+  // 排不到的餐：從現在的菜單算
+  const plan = { slots: [
+    { date: '2026-09-14', meal: 'lunch', kind: 'cook', items: [{ recipeId: greens.id }] },
+    { date: '2026-09-14', meal: 'dinner', kind: 'cook', items: [{ recipeId: greens.id }, { recipeId: tofu.id }] },
+    { date: '2026-09-14', meal: 'breakfast', kind: 'cook', items: [{ recipeId: greens.id }] },
+    { date: '2026-09-15', meal: 'lunch', kind: 'eatOut', items: [] },
+  ] };
+  eq(vegProteinMisses(plan, fam, byId, idx), [{ date: '2026-09-14', meal: 'lunch', names: ['姊'] }], '只列週一午餐（晚餐有豆腐；早餐、外食不算）');
+  eq(vegProteinMisses(plan, [{ ...newMember(), name: '爸' }], byId, idx), [], '沒有素食成員 → 什麼都不列');
+
+  // 統計：三種家庭 × 8 組種子 × 連排 3 週，開與關比
+  const FAMS = {
+    有蛋奶素: [{ ...newMember(), name: '爸' }, { ...newMember(), name: '媽' }, { ...newMember(), name: '姊', diet: 'lactoOvo' }],
+    有全素: [{ ...newMember(), name: '爸' }, { ...newMember(), name: '姊', diet: 'veganNoAllium' }],
+    全家全素: [{ ...newMember(), name: '姊', diet: 'veganNoAllium' }],
+  };
+  const LIMIT = { 有蛋奶素: [0.15, 0.05], 有全素: [0.3, 0.2], 全家全素: [0.2, 0.1] }; // [關的時候至少, 開的時候至多]
+  const SOY_RX = /豆腐|豆干|豆皮|麵腸|百頁/;
+  const run = (members, vegProtein) => {
+    const ctx = buildContext({ recipes, members, idx, units });
+    const out = { meals: 0, miss: 0, empty: 0, ge4: 0, soyDish: 0, soy3: 0, days: 0, dishes: new Set(), vegMin: 99 };
+    for (let sd = 0; sd < 8; sd += 1) {
+      let history = [];
+      for (let w = 0; w < 3; w += 1) {
+        const { plan: pl, diagnostics } = generateWeek({ recipes, members, idx, units, rules: { vegProtein }, favorites: [], history, mondayIso: addDays(MONDAY, 7 * w), seed: `vp${sd}`, shoppingDays: [3, 6] });
+        history = [...history, ...rowsOf(pl)];
+        out.empty += diagnostics.empty.length;
+        out.miss += vegProteinMisses(pl, members, byId, idx).length;
+        const byDate = new Map();
+        for (const sl of pl.slots) {
+          if (sl.kind !== 'cook' || sl.meal === 'breakfast') continue;
+          out.meals += 1;
+          const veg = members.find((m) => m.diet !== 'omni');
+          out.vegMin = Math.min(out.vegMin, sl.items.filter((it) => vFor(byId.get(it.recipeId), veg.diet)).length);
+          for (const it of sl.items) {
+            out.dishes.add(it.recipeId);
+            const r = byId.get(it.recipeId);
+            if (!['main', 'side', 'soup'].includes(r.role)) continue;
+            if (!byDate.has(sl.date)) byDate.set(sl.date, []);
+            byDate.get(sl.date).push(r);
+            if (ctx.starsOf(r).some((k) => SOY_RX.test(idx.byId.get(k).name))) out.soyDish += 1;
+          }
+        }
+        const dates = [...byDate.keys()].sort();
+        out.days += dates.length;
+        for (let i = 0; i + 2 < dates.length; i += 1) {
+          const cnt = new Map();
+          for (const d of dates.slice(i, i + 3)) for (const r of byDate.get(d)) for (const k of ctx.starsOf(r)) cnt.set(k, (cnt.get(k) ?? 0) + 1);
+          if (Math.max(0, ...cnt.values()) >= 4) out.ge4 += 1;
+          if (Math.max(0, ...[...cnt].filter(([k]) => SOY_RX.test(idx.byId.get(k).name)).map(([, n]) => n)) >= 3) out.soy3 += 1;
+        }
+      }
+    }
+    return out;
+  };
+  for (const [fname, members] of Object.entries(FAMS)) {
+    const off = run(members, false);
+    const on = run(members, true);
+    const pct = (o) => o.miss / o.meals;
+    ok(on.meals >= 300, `（母體）${fname}：${on.meals} 個午晚餐`);
+    ok(pct(off) >= LIMIT[fname][0], `（對照）${fname}：開關關著時，素食成員沒有蛋、豆製品或奶類菜的餐 ${off.miss}/${off.meals}（${Math.round(pct(off) * 100)}%）`);
+    ok(pct(on) <= LIMIT[fname][1], `${fname}：開關開著 → ${on.miss}/${on.meals}（${Math.round(pct(on) * 100)}%，≤ ${LIMIT[fname][1] * 100}%）`);
+    eq(on.empty, 0, `${fname}：沒有排出空格（加分，不是硬擋）`);
+    eq(on.ge4, 0, `${fname}：主角食材三天內出現 4 次以上的段落仍然是 0（第 4 項那條優先）`);
+    ok(on.vegMin >= 3, `${fname}：素食成員每一餐仍吃得到 ≥ 3 道`);
+    ok(on.dishes.size >= 0.9 * off.dishes.size, `${fname}：菜色種類 ${off.dishes.size} → ${on.dishes.size}（≥ 九成）`);
+    // 誠實記下拉扯：豆製品當主角的菜變多了；「同一樣豆製品三天三次」不能比關著時多太多
+    ok(on.soy3 <= off.soy3 + 5, `${fname}：豆製品當主角的菜每天 ${(off.soyDish / off.days).toFixed(2)} → ${(on.soyDish / on.days).toFixed(2)} 道；同一樣豆製品三天內 3 次的段落 ${off.soy3} → ${on.soy3}（不多於關著時 ＋5）`);
   }
 }
 

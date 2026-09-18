@@ -19,6 +19,8 @@ export const DEFAULTS = {
   heartyLevel: 'medium',
   // 主食的米：white 白米／brown 糙米／multigrain 五穀米（planner.RICE_KINDS）。預設白米，不自動換。
   riceKind: 'white',
+  // 素食成員每餐排一道蛋、豆製品或奶類的菜（2026-09-18 Yolin 定案：有素食成員時預設開；沒有素食成員時不起作用）
+  vegProteinEachMeal: true,
   // 這週用的亂數種子；「重新產生」會換一個
   planSeed: null,
   // 本週頁每一天是收起來還是展開。**依週存**：{ '2026-W38': { 0: 'closed', 3: 'open' } }。

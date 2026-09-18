@@ -10,7 +10,7 @@ import { eduNode } from '../edu.js';
 import { DIET_LABELS, displayFields, familyWatchFields } from '../members.js';
 import { ROLE_LABELS, METHOD_LABELS } from '../recipeschema.js';
 import { NUTRIENT_LABELS } from '../foods.js';
-import {
+import { vegProteinMisses, VEG_PROTEIN_LABEL,
   generateWeek, dailyEstimates, mondayOf, weekKeyOf, weekDates, addDays, isoDate, parseDate,
   MEALS, MEAL_LABELS, MEAL_ROLES, DAY_LABELS, RELAXABLE, weekBalance, balanceSentence, groupEstimates, plainReasons,
 } from '../planner.js';
@@ -26,7 +26,7 @@ async function generate({ mondayIso, prevPlan, newSeed }) {
   await prefs.set('planSeed', seed);
   const { plan, diagnostics } = generateWeek({
     recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
-    rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid'), heartyLevel: prefs.get('heartyLevel'), riceKind: prefs.get('riceKind') },
+    rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid'), heartyLevel: prefs.get('heartyLevel'), riceKind: prefs.get('riceKind'), vegProtein: prefs.get('vegProteinEachMeal') !== false },
     favorites: store.favoritesList(), history: await store.history(), mondayIso, seed, prevPlan, shoppingDays: prefs.get('shoppingDays') ?? [],
   });
   await store.savePlan({ ...plan, diagnostics });
@@ -121,6 +121,18 @@ export default async function weekView(query = {}) {
     ...missedWants.map((x) => h('p', { dataset: { field: 'wantMissedLine' } }, `你想吃的「${recipesById.get(x.recipeId).name}」這週沒排進去，因為${x.why}。`)),
   ) : null;
 
+  // 素食成員每餐一道蛋、豆製品或奶類的菜（開關開著才講）：從現在的菜單算，只講列出來的日子（已過的不列）
+  const todayForVp = isoDate(new Date());
+  const vpMisses = prefs.get('vegProteinEachMeal') !== false
+    ? vegProteinMisses(plan, members, recipesById, idx).filter((x) => x.date >= todayForVp)
+    : [];
+  const vpNames = [...new Set(vpMisses.flatMap((x) => x.names))];
+  const vpCard = vpMisses.length ? h('section', { class: 'card notice', dataset: { card: 'vegProteinMiss' } },
+    h('strong', {}, `這幾餐排不到${VEG_PROTEIN_LABEL}的菜給${vpNames.join('、')}`),
+    h('p', { dataset: { field: 'vegProteinMeals' } }, vpMisses.map((x) => `週${DAY_LABELS[(parseDate(x.date).getDay() + 6) % 7]}${MEAL_LABELS[x.meal]}`).join('、')),
+    h('p', { class: 'muted sm' }, '符合條件的菜不夠（例如這幾天已經排過好幾道豆腐豆干）。要換的話，在那一格用「我來指定…」挑一道。'),
+  ) : null;
+
   // 一週平衡：這週排了幾道比較豐盛的主菜、有沒有超過設定。從**現在的菜單**重算（換過、鎖過的都算進去），
   // 讓使用者看得到排菜器做了什麼，不是偷偷調。
   const balance = weekBalance({ plan, recipes: store.allRecipes(), members, idx, units: store.units(), rules: { heartyLevel: prefs.get('heartyLevel') } });
@@ -186,7 +198,7 @@ export default async function weekView(query = {}) {
   const pastNote = hiddenPast ? h('p', { class: 'muted xs', dataset: { field: 'pastNote' } }, `這週已過的 ${hiddenPast} 天不列出來。`) : null;
   // 桌機的欄數跟著實際列出的天數走（週五打開只剩三欄，不要留四欄空白）
   const grid = h('div', { class: 'week-grid', style: `--days:${Math.max(1, dayCards.length)}` }, ...dayCards);
-  render(head, wantCard, diagCard, balanceCard, pastNote, grid, noticeFooter());
+  render(head, wantCard, diagCard, vpCard, balanceCard, pastNote, grid, noticeFooter());
 }
 
 const RELAX_LABELS = {

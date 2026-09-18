@@ -139,6 +139,9 @@ export function validateRecipe(recipe, ctx) {
   const vegTags = new Set();   // base ＋ veg 軌的標籤：素食成員實際吃到的
   const meatTags = new Set();  // base ＋ meat 軌的標籤：葷食成員實際吃到的
   const proteins = new Set();
+  // 按實際吃的版本分開記（2026-09-18）：螞蟻上樹的素版是豆干、不是豬肉。proteins 仍是全部加起來（輪替用）。
+  const vegProteins = new Set();
+  const meatProteins = new Set();
   const tracksSeen = new Set();
   let sugarGrams = 0;          // 糖類食材總克數（推導「含精緻糖」）
   let processed = false;
@@ -182,7 +185,11 @@ export function validateRecipe(recipe, ctx) {
         if (track !== 'veg') meatTags.add(t);
       }
       const pg = proteinGroupOf(food, fTags);
-      if (pg) proteins.add(pg);
+      if (pg) {
+        proteins.add(pg);
+        if (track !== 'meat') vegProteins.add(pg);
+        if (track !== 'veg') meatProteins.add(pg);
+      }
       if (food.cat === '糖類' && isPosNum(ing?.grams)) sugarGrams += ing.grams;
       if (isProcessedFood(food, fTags)) processed = true;
       if (fTags.has('wholegrain')) wholegrain = true;
@@ -286,6 +293,7 @@ export function validateRecipe(recipe, ctx) {
     vegTags: r.vegMode === 'meatOnly' ? null : [...vegTags].sort(),
     meatTags: r.vegMode === 'nativeVeg' ? null : [...meatTags].sort(),
     proteins: [...proteins].sort(),
+    ...(r.vegMode === 'splittable' ? { vegProteins: [...vegProteins].sort(), meatProteins: [...meatProteins].sort() } : {}),
     source: r.source === 'user' ? 'user' : 'builtin',
   };
   return { errors, recipe: normalized };

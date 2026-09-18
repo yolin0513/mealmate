@@ -949,6 +949,50 @@ try {
     await page.evaluate(async () => (await import('./js/prefs.js')).set('riceKind', 'white'));
   }
 
+  section('素食成員每餐一道蛋、豆製品或奶類的菜：排不到時本週頁講是哪幾餐（2026-09-18 第 5 項）');
+  {
+    // 把週一午餐換成全素的姊吃得到、但都不是蛋／豆製品／奶類的菜（例如只有炒青菜），看本週頁講不講
+    const setup = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const prefs = await import('./js/prefs.js');
+      const { mondayOf, weekKeyOf, isoDate, isProteinDish } = await import('./js/planner.js');
+      const { versionFor } = await import('./js/members.js');
+      await prefs.set('vegProteinEachMeal', true);
+      const idx = store.foodsIndex();
+      const plain = store.allRecipes().filter((r) => ['main', 'side'].includes(r.role) && r.vegMode === 'nativeVeg' && versionFor(r, 'veganNoAllium') && !isProteinDish(r, 'all', idx));
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const slot = plan.slots.find((s) => s.day === 0 && s.meal === 'lunch');
+      slot.kind = 'cook';
+      slot.items = plain.slice(0, 3).map((r, pos) => ({ recipeId: r.id, role: pos === 0 ? 'main' : 'side', pos, locked: true, reasons: [] }));
+      await store.savePlan(plan);
+      return plain.slice(0, 3).map((r) => r.name);
+    });
+    ok(setup.length === 3, `（前提）週一午餐換成三道都不是蛋、豆製品或奶類的菜：${setup.join('、')}`);
+    await goto(page, '#/family'); await titleIs(page, '家人');
+    await goto(page, '#/'); await titleIs(page, '本週菜單');
+    await page.waitForSelector('[data-card="vegProteinMiss"]');
+    const card = await textOf(page, '[data-card="vegProteinMiss"]');
+    ok(card.includes('姊') && card.includes('週一午餐'), `本週頁講出是誰、哪一餐：「${card.replace(/\s+/g, ' ').slice(0, 80)}」`);
+    ok(card.includes('我來指定'), '也講怎麼換（我來指定）');
+    noneOf(['健康', '營養', '建議', '應該', '補充', '蛋白質'], (w) => card.includes(w), '只講組成，沒有營養理由或建議語氣');
+    await page.evaluate(async () => (await import('./js/prefs.js')).set('vegProteinEachMeal', false));
+    await goto(page, '#/family'); await titleIs(page, '家人');
+    await goto(page, '#/'); await titleIs(page, '本週菜單');
+    await page.waitForSelector('[data-card="weekHead"]');
+    eq(await page.$$eval('[data-card="vegProteinMiss"]', (els) => els.length), 0, '開關關掉 → 不講');
+    // 關著時按「重新產生」：排菜器真的拿到「關」（排菜器把用的設定記在 diagnostics.rules）
+    await waitToastGone(page).catch(() => {});
+    await clickEl(page, '[data-action="regenerate"]');
+    await page.waitForFunction(() => { const t = document.getElementById('toast'); return t && !t.hidden && t.textContent.includes('已重新排好'); });
+    const used = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js');
+      return (await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))))).diagnostics?.rules?.vegProtein;
+    });
+    eq(used, false, '開關關著時重新產生，排菜器用的是「關」（家人頁的設定有傳到）');
+    await page.evaluate(async () => (await import('./js/prefs.js')).set('vegProteinEachMeal', true));
+  }
+
   eq(pageErrors, [], '沒有未攔截的例外');
 } finally {
   await close();

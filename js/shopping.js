@@ -199,6 +199,28 @@ export const CUSTOM_PREFIX = 'custom:';
 export function customKey(id) { return `${CUSTOM_PREFIX}${id}`; }
 
 /**
+ * 已過的清單不顯示（2026-09-18 Yolin 定案）。清單上的食材都屬於已經煮完的餐，拿掉不會少買；
+ * 但「自己加的」（衛生紙、蘋果）是掛在那一張清單上的備忘 —— **還沒勾掉的搬到下一張還沒過的清單**，已勾掉的不搬。
+ * @param ranges      rangesOfPlan 的結果（依日期排好）
+ * @param rowsByKey   { rangeKey: 存著的 shopping row（custom、checked） }
+ * @returns { target: 搬去哪一張的 key | null, moves: [{ from, items }], hide: 不顯示的 key[] }
+ *   今天以後一張清單都沒有（剩下的餐都外食）→ 沒地方搬：還有沒勾掉的「自己加的」那張照樣留著顯示，免得備忘不見。
+ */
+export function planCustomCarry(ranges, rowsByKey, todayIso) {
+  const past = ranges.filter((r) => rangeIsPast(r, todayIso));
+  const target = ranges.find((r) => !rangeIsPast(r, todayIso))?.key ?? null;
+  const moves = [];
+  const hide = [];
+  for (const r of past) {
+    const row = rowsByKey[r.key] ?? {};
+    const open = sanitizeCustom(row.custom).filter((c) => !row.checked?.[customKey(c.id)]);
+    if (open.length && target) moves.push({ from: r.key, items: open });
+    if (!open.length || target) hide.push(r.key);
+  }
+  return { target, moves, hide };
+}
+
+/**
  * 使用者自己加的採買項目（例如飯後水果）。**不是食材**：不解析到食藥署編號、
  * 不進營養計算，也不影響排菜 —— 純粹是「這趟也要買」的備忘。
  * 名稱必填、數量可不填（「一串」「3 顆」這種自由文字）；亂填的收成乾淨的形狀。
