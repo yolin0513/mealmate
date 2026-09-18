@@ -209,7 +209,7 @@ try {
   await clickEl(page, chipSel('vegMode', 'nativeVeg'));
   await sleep(100);
   await page.type('[data-field="recipeName"]', '我的燙青菜');
-  await page.type('[data-ingredient="0"] [data-field="foodSearch"]', '青江菜');
+  await page.type('[data-ingredient="0"] [data-field="ingLabel"]', '青江菜');
   await page.waitForSelector('[data-ingredient="0"] .picker-item');
   await clickEl(page, '[data-ingredient="0"] .picker-item');
   await sleep(100);
@@ -268,7 +268,7 @@ try {
     await clickEl(page, chipSel('vegMode', 'meatOnly'));
     const row = (i) => `[data-ingredient="${i}"]`;
     const searchFor = async (i, q) => {
-      await page.$eval(`${row(i)} [data-field="foodSearch"]`, (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }, q);
+      await page.$eval(`${row(i)} [data-field="ingLabel"]`, (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }, q);
       await sleep(120);
       return page.$$eval(`${row(i)} .picker-item`, (els) => els.map((e) => e.textContent));
     };
@@ -310,12 +310,56 @@ try {
     ok((await txt(0, 'pickedFood')).includes('甘藍'), `對到的條目也換了：「${await txt(0, 'pickedFood')}」`);
     eq(await val(0, 'ingUnit'), '顆', '單位換成「顆」');
     eq(await val(0, 'ingQty'), '', '「2 根」對高麗菜沒有意義 → 數量清空重填（不是 0.14 顆）');
-    await setQty(0, '0.25');
-    // 使用者自己改過的名稱，改選食材時不蓋掉
-    await page.$eval(`${row(0)} [data-field="ingLabel"]`, (el) => { el.value = '高麗菜絲'; el.dispatchEvent(new Event('input', { bubbles: true })); });
-    await searchFor(0, '甘藍');
+    // 2026-09-18 Yolin 定案：食材只有一個框（查詢＝輸入）。改框裡的字時保護對應關係。
+    eq(await page.$$eval(`${row(0)} [data-field="foodSearch"]`, (els) => els.length), 0, '食材只剩一個框（沒有另一個「找食材」框）');
+    const foodOf = (i) => page.evaluate(async (k) => {
+      // 從畫面讀：存檔前的草稿不在 store 裡，用「營養照…算」那行＋清單標 on 的那筆
+      const r = document.querySelector(`[data-ingredient="${k}"]`);
+      return { hint: r.querySelector('[data-field="pickedFood"]').textContent, listShown: !r.querySelector('.picker-results').hidden };
+    }, i);
+    // 改成認不得的名稱 → 維持原本對到的（甘藍），下面寫「營養照『甘藍』算」，清單跳出來可以重選
+    await searchFor(0, '高麗菜切絲');
+    const kept = await foodOf(0);
+    ok(kept.hint.includes('營養照「甘藍」算'), `改成認不得的「高麗菜切絲」→ 維持對到甘藍，下面寫：「${kept.hint}」`);
+    ok(kept.listShown, '清單照樣跳出來，可以重新點選');
+    eq(await val(0, 'ingUnit'), '顆', '對應沒變，單位也沒變（還是顆）');
+    // 改成認得的名稱 → 自動改對到那一筆
+    await searchFor(0, '杏鮑菇');
+    ok((await foodOf(0)).hint.includes('營養照「杏鮑菇」算'), `改成認得的「杏鮑菇」→ 自動改對到杏鮑菇：「${(await foodOf(0)).hint}」`);
+    eq(await val(0, 'ingUnit'), '根', '營養跟著換，單位也換成「根」');
+    // 點清單另一筆 → 名稱當場換成那一筆（舊 bug：名稱停在上一樣）
+    await searchFor(0, '青江');
     await pickFirst(0);
-    eq(await val(0, 'ingLabel'), '高麗菜絲', '自己改過的名稱（高麗菜絲），再選一次食材也不會被蓋掉');
+    eq(await val(0, 'ingLabel'), '青江菜', '點清單的青江菜 → 框裡的名稱當場換成「青江菜」（不會停在「杏鮑菇」）');
+    ok((await foodOf(0)).hint.includes('青江菜'), '對應也換成青江菜');
+    // 打字途中剛好認得的詞不會卡住：逐字打「豬耳朵」，打到「豬耳」會先對到，打完「豬耳朵」認不得就放掉（不會變成營養照豬耳算）
+    // （這一段在下面「滷豬耳朵」照樣驗；這裡驗「離開框」之後才算數）
+    await searchFor(0, '高麗菜');
+    await page.$eval(`${row(0)} [data-field="ingLabel"]`, (el) => el.dispatchEvent(new Event('change', { bubbles: true })));
+    // 回到後面要用的狀態：高麗菜 0.25 顆，名稱寫「高麗菜絲」
+    await setQty(0, '0.25');
+    await searchFor(0, '高麗菜絲');
+    ok((await foodOf(0)).hint.includes('營養照「甘藍」算'), '名稱寫「高麗菜絲」，營養照甘藍算');
+    // Yolin 舉的例子：打「傳統豆腐」（認得）、離開框，再改成「豆腐切塊」→ 維持傳統豆腐
+    await clickEl(page, '[data-action="addIngredient"]');
+    await sleep(120);
+    const last = await page.$$eval('[data-list="ingredients"] .edit-row', (els) => els.length - 1);
+    await page.type(`${row(last)} [data-field="ingLabel"]`, '傳統豆腐');
+    await page.$eval(`${row(last)} [data-field="ingLabel"]`, (el) => el.dispatchEvent(new Event('change', { bubbles: true })));
+    await searchFor(last, '豆腐切塊');
+    const tofu = await foodOf(last);
+    ok(tofu.hint.includes('營養照「傳統豆腐」算') && tofu.listShown, `「傳統豆腐」改成「豆腐切塊」→ 維持傳統豆腐、清單可重選：「${tofu.hint}」`);
+    // 對照：新的一列，沒離開框就一路打下去（逐字打「雞蛋餅皮」會先經過認得的「雞蛋」）→ 不會卡在半途的詞
+    await page.$eval(`${row(last)} button[aria-label^="移除食材"]`, (el) => el.click());
+    await sleep(120);
+    await clickEl(page, '[data-action="addIngredient"]');
+    await sleep(120);
+    await page.type(`${row(last)} [data-field="ingLabel"]`, '雞蛋');
+    ok((await foodOf(last)).hint.includes('營養照「雞蛋'), `（前提）打到「雞蛋」時先對到雞蛋：「${(await foodOf(last)).hint}」`);
+    await page.type(`${row(last)} [data-field="ingLabel"]`, '餅皮');
+    ok((await foodOf(last)).hint.includes('查不到「雞蛋餅皮」'), `繼續打成「雞蛋餅皮」→ 放掉半途的雞蛋，照實講查不到：「${(await foodOf(last)).hint}」`);
+    await page.$eval(`${row(last)} button[aria-label^="移除食材"]`, (el) => el.click()); // 移除這一列，後面的存檔斷言照舊四列
+    await sleep(120);
 
     // 蛋用顆、醬油用大匙、肉可以用斤；換單位克數不變
     await clickEl(page, '[data-action="addIngredient"]');
@@ -352,8 +396,9 @@ try {
     const savedU = await page.evaluate(async () => {
       const store = await import('./js/store.js');
       const r = store.userRecipes().find((x) => x.name === '單位測試菜');
-      return { id: r.id, ings: r.ingredients.map((i) => ({ label: i.label, grams: i.grams, entry: i.entry ?? null })) };
+      return { id: r.id, ings: r.ingredients.map((i) => ({ food: i.food, label: i.label, grams: i.grams, entry: i.entry ?? null })) };
     });
+    eq(savedU.ings[0].food, 'E30001', '名稱寫「高麗菜絲」的那一列，存檔時對到甘藍（E30001）');
     eq(savedU.ings.map((i) => i.grams), [250, 165, 18, 300], '存的是克：高麗菜 0.25 顆＝250、蛋 3 顆＝165、醬油 1 大匙＝18、豬絞肉 300');
     eq(savedU.ings.map((i) => i.entry), [{ qty: 0.25, unit: '顆' }, { qty: 3, unit: '顆' }, { qty: 1, unit: '大匙' }, null], '也記下當初怎麼填的（用克填的就不另外記）');
     await page.waitForSelector('[data-card="recipeNutrition"] .nutri-value');
@@ -425,7 +470,7 @@ try {
     ok(hint.includes('雞腳(肉雞)'), `沒點清單、直接打「雞腳」→ 表單就講出會對到哪一筆：「${hint}」`);
     await clickEl(page, '[data-action="addIngredient"]');
     await sleep(150);
-    await page.type('[data-ingredient="1"] [data-field="foodSearch"]', '青蔥');   // 打在搜尋框，但沒點清單
+    await page.type('[data-ingredient="1"] [data-field="ingLabel"]', '青蔥');   // 打了認得的名稱，但沒點清單
     await clickEl(page, '[data-action="addStep"]'); await sleep(80);
     await page.type('[data-list="steps"] textarea', '加熱');
     await waitToastGone(page);

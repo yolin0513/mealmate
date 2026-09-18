@@ -5,20 +5,20 @@ import { h, chips, stepper, toast } from '../ui.js';
 import { setTop, render } from '../shell.js';
 import { navigate } from '../router.js';
 import * as store from '../store.js';
-import { searchFoods, displayNameOf, aliasTermsOf } from '../foods.js';
+import { searchFoods, displayNameOf, aliasTermsOf, foodFamilies } from '../foods.js';
 import { entryUnitsFor, entryToGrams, gramsToEntry } from '../units.js';
 import { validateRecipe, ROLES, ROLE_LABELS, VEG_MODES, VEG_MODE_LABELS, METHODS, METHOD_LABELS, TEXTURES, TEXTURE_LABELS, TRACKS, TRACK_LABELS, STAGES, STAGE_LABELS } from '../recipeschema.js';
 
 const MONTHS = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
 
-function blankIngredient(track = 'base') { return { food: '', foodName: '', label: '', autoLabel: '', grams: null, entry: null, track, pantry: false }; }
+function blankIngredient(track = 'base') { return { food: '', foodName: '', label: '', grams: null, entry: null, track, pantry: false }; }
 function blankStep(stage = 'base') { return { stage, type: 'cook', text: '' }; }
 
 function draftFrom(recipe, { copy = false } = {}) {
   const idx = store.foodsIndex();
   const d = JSON.parse(JSON.stringify(recipe));
   if (copy) { d.id = store.newUserRecipeId(); d.name = `${recipe.name}（我的版本）`; }
-  d.ingredients = d.ingredients.map((ing) => ({ food: ing.food, foodName: idx ? displayNameOf(idx.byId.get(ing.food), idx) : '', label: ing.label, autoLabel: '', grams: ing.grams ?? null, entry: ing.entry ?? null, track: ing.track ?? 'base', pantry: !!ing.pantry }));
+  d.ingredients = d.ingredients.map((ing) => ({ food: ing.food, foodName: idx ? displayNameOf(idx.byId.get(ing.food), idx) : '', label: ing.label, grams: ing.grams ?? null, entry: ing.entry ?? null, track: ing.track ?? 'base', pantry: !!ing.pantry }));
   d.steps = d.steps.map((st) => ({ stage: st.stage ?? 'base', type: st.type ?? 'cook', text: st.text }));
   d.splitServings = d.splitServings ?? { veg: 1, meat: Math.max(1, (d.servings ?? 4) - 1) };
   d.season = d.season ?? [];
@@ -101,48 +101,71 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
     const split = d.vegMode === 'splittable';
     // 這一列重畫時（加一個食材、改素葷都會整排重畫）照現在的內容把提示算回來 ——
     // 只看 food 的話，打了名稱、沒點清單的那一列會從「查不到「豬耳朵」」變回「尚未選食材」（線上實測抓到）。
+    // 2026-09-18 Yolin 定案：食材只有**一個框**（以前是「找食材」＋「顯示名稱」兩個）。
+    // 打字＝查詢；點一筆就對到那筆、名稱填回同一個框；之後可以直接改名稱。改名稱時保護對應關係：
+    //   · 打的字剛好是資料庫認得的名稱 → 自動改對到那一筆（營養跟著換）
+    //   · 認不得（「傳統豆腐」改成「豆腐切塊」）→ 維持原本對到的，下面那行寫「營養照『傳統豆腐』算」，清單照樣跳出來可以重選
+    // 沒點過清單、直接打認得的名稱（雞腳）→ 一樣自動對到；認不得又沒對到 → 照舊可以存、營養寫「未估算」。
+    // 對應分兩種強度（ing.linkedBy）：'pick'＝點清單點的、離開框時仍是認得的名稱、既有食譜讀進來的 → 改成認不得的字也保留；
+    // 'typed'＝打字途中剛好認得 → 再打下去認不得就放掉。不然逐字打「豬耳朵」會卡在「豬耳」、打「蛋餅」會卡在雞蛋。
+    if (ing.food && !ing.linkedBy) ing.linkedBy = 'pick';
+    const catOf = () => idx?.byId.get(ing.food)?.cat ?? '';
     const pickedText = () => {
-      if (ing.food) return `→ ${ing.foodName || ing.food}`;
+      if (ing.food) return `→ 營養照「${ing.foodName || ing.food}」算（${catOf()}）`;
       const typed = String(ing.label ?? '').trim();
-      if (!typed) return '尚未選食材';
-      const hit = store.recipeCtx().resolve(typed);
-      return hit ? `→ 依名稱對到 ${displayNameOf(hit, idx)}（${hit.cat}）` : `→ 資料庫裡查不到「${typed}」：可以照樣存，這個食材的營養會寫「未估算」`;
+      if (!typed) return '尚未選食材：在上面打字，從清單點一筆';
+      return `→ 資料庫裡查不到「${typed}」：可以照樣存，這個食材的營養會寫「未估算」`;
     };
     const picked = h('p', { class: 'sm picked', dataset: { field: 'pickedFood' } }, pickedText());
-    const search = h('input', { class: 'field', type: 'search', placeholder: '找食材，例如：板豆腐', 'aria-label': `食材 ${i + 1} 搜尋`, dataset: { field: 'foodSearch' } });
     const results = h('div', { class: 'picker-results', hidden: true });
-    search.addEventListener('input', () => {
-      const q = search.value.trim();
-      ing.query = q;   // 打在搜尋框、沒點清單也算數（存的時候用這個名稱解析）
+    /** 對到某一筆食材（點清單或打出認得的名稱都走這裡）。 */
+    const linkTo = (food, display, by) => {
+      ing.linkedBy = by;
+      // 換成另一樣食材：用「根、顆」填的數量對新食材沒有意義（2 根杏鮑菇換成高麗菜不是 0.14 顆），清掉重填；用克填的保留
+      if (ing.food && ing.food !== food.id && ing.entry && ing.entry.unit !== '克') { ing.grams = null; ing.entry = null; }
+      ing.food = food.id; ing.foodName = display;
       updateVegConfirm();
-      // 2026-09-18 第 6 項 (a)：只列平均值那一筆、顯示簡名（杏鮑菇不再分大中小、稉米不再列九個品種）
-      const hits = q && idx ? searchFoods(q, idx, 8, { collapse: true }) : [];
+    };
+    const labelInput = h('input', { class: 'field', type: 'search', value: ing.label, placeholder: '找食材或打名稱，例如：板豆腐', 'aria-label': `食材 ${i + 1}`, autocomplete: 'off', dataset: { field: 'ingLabel' } });
+    const showResults = (q) => {
+      // 只列平均值那一筆、顯示簡名（杏鮑菇不再分大中小、稉米不再列九個品種）
+      let hits = q && idx ? searchFoods(q, idx, 8, { collapse: true }) : [];
+      // 整串查不到（「高麗菜切絲」）就往前縮短再查，讓使用者一定有東西可以重選
+      for (let n = q.length - 1; !hits.length && n >= 1 && idx; n -= 1) hits = searchFoods(q.slice(0, n), idx, 8, { collapse: true });
       results.hidden = hits.length === 0;
       results.replaceChildren(...hits.map(({ food, display, alias }) => h('button', {
-        class: 'picker-item', type: 'button', dataset: { food: food.id },
+        class: 'picker-item' + (food.id === ing.food ? ' on' : ''), type: 'button', dataset: { food: food.id },
         onclick: () => {
-          // 換成另一樣食材：用「根、顆」填的數量對新食材沒有意義（2 根杏鮑菇換成高麗菜不是 0.14 顆），清掉重填；用克填的保留
-          if (ing.food && ing.food !== food.id && ing.entry && ing.entry.unit !== '克') { ing.grams = null; ing.entry = null; }
-          ing.food = food.id; ing.foodName = display; ing.query = '';
-          updateVegConfirm();
-          // 2026-09-18 第 6 項 (b)：以前只有名稱欄是空的才帶入 —— 選了杏鮑菇再改選高麗菜，下面的名稱還停在杏鮑菇。
-          // 現在：名稱是空的、或還是上次自動帶入的，就換成這次選的；使用者自己改過的名稱不動。
-          const name = alias && alias === q ? q : display;
-          if (!ing.label.trim() || ing.label === ing.autoLabel) { ing.label = name; ing.autoLabel = name; labelInput.value = name; }
-          picked.textContent = `→ ${display}（${food.cat}）`;
-          results.hidden = true; search.value = '';
+          linkTo(food, display, 'pick');
+          // 點了就把名稱填回同一個框。用俗名找到的填俗名（打「高麗菜」選到甘藍 → 高麗菜；打「青江」→ 青江菜，不是「青江菜(土植)(1月取樣)」）
+          const name = alias || display.replace(/[(（].*$/, '') || display;
+          ing.label = name; labelInput.value = name;
+          picked.textContent = pickedText();
+          results.hidden = true;
           drawUnits({ keepGrams: true });
         },
       }, display, h('span', { class: 'muted xs' }, ` ${food.cat}${alias && alias !== display ? `・也叫${alias}` : ''}`))));
-    });
-    const labelInput = h('input', { class: 'field', type: 'text', value: ing.label, placeholder: '顯示名稱（例如：豆腐切塊）', 'aria-label': `食材 ${i + 1} 名稱`, dataset: { field: 'ingLabel' } });
+    };
+    // 離開框（或按 Enter）時仍是認得的名稱 → 這個對應就算數了（之後改成「豆腐切塊」也保留）
+    labelInput.addEventListener('change', () => { if (ing.food && ing.linkedBy === 'typed') ing.linkedBy = 'pick'; });
     labelInput.addEventListener('input', () => {
       ing.label = labelInput.value;
-      // 沒點清單、直接打名稱也可以：名稱剛好是資料庫認得的叫法（雞腳、高麗菜…）就自動對到，這裡先講出來
-      if (!ing.food) {
-        picked.textContent = pickedText();
+      const q = labelInput.value.trim();
+      const raw = q ? store.recipeCtx().resolve(q) : null;
+      // 打出某個細分（杏鮑菇(大)）也換成它的平均值那一筆，跟點清單一致
+      const hit = raw && idx ? (idx.byId.get(foodFamilies(idx).parent.get(raw.id)) ?? raw) : raw;
+      if (hit && hit.id !== ing.food) {
+        const food = hit;
+        linkTo(food, idx ? displayNameOf(food, idx) : food.name, 'typed');
+        drawUnits({ keepGrams: true });
+      } else if (!hit && ing.food && ing.linkedBy === 'typed') {
+        ing.food = ''; ing.foodName = ''; ing.linkedBy = null;
+        drawUnits({ keepGrams: true });
+      } else if (!hit && !ing.food) {
         drawUnits({ keepGrams: true });
       }
+      picked.textContent = pickedText();
+      showResults(q);
       updateVegConfirm();
     });
 
@@ -193,7 +216,7 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
     const remove = h('button', { class: 'btn btn-danger btn-sm', type: 'button', 'aria-label': `移除食材 ${i + 1}`, onclick: () => { d.ingredients.splice(i, 1); drawIngredients(); } }, '移除');
     return h('div', { class: 'edit-row', dataset: { ingredient: String(i) } },
       h('div', { class: 'edit-row-head' }, h('strong', {}, `食材 ${i + 1}`), remove),
-      search, results, picked, labelInput,
+      labelInput, results, picked,
       h('div', { class: 'row-actions qty-row' }, qtyInput, unitSelect, gramsHint),
       h('p', { class: 'muted xs' }, '沒填數量的食材，營養標示會寫「未估算」，不會當成 0。'),
       trackChips, pantry,
