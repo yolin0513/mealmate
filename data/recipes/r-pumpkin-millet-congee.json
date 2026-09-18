@@ -1,0 +1,23 @@
+{
+  "id": "r-pumpkin-millet-congee",
+  "name": "南瓜小米粥",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 35,
+  "method": "porridge",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "小米", "label": "小米（生）", "grams": 100, "track": "base" },
+    { "food": "白米", "label": "白米（生）", "grams": 100, "track": "base", "pantry": true },
+    { "food": "南瓜", "label": "南瓜（去皮去籽切塊）", "grams": 300, "track": "base" },
+    { "food": "鹽", "label": "鹽（少許，可省略）", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "小米與白米一起洗淨；南瓜去皮去籽，切 2 公分塊。" },
+    { "stage": "base", "type": "cook", "text": "鍋放米與 1700 毫升水煮滾，轉小火煮 15 分鐘，中途攪幾次免得黏鍋。" },
+    { "stage": "base", "type": "cook", "text": "加入南瓜塊再煮 15 分鐘，到南瓜軟爛、用湯匙壓開拌進粥裡，喜歡鹹的加一點鹽。" }
+  ]
+}

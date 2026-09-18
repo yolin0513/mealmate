@@ -23,6 +23,7 @@ import {
   lastShoppingDayOnOrBefore, historyRowsOf, dailyEstimates, medianOf, MEALS, isMeaty, VEG_MIN_DISHES, withPositions,
   actualRelaxations, shelfBlocker, RELAXABLE, FREEZABLE_CATS, daysBetween, MEAL_ROLES, refillSlot,
   weekBalance, balanceSentence, assignItem, HEARTY_LEVELS, WEEK_CAPS, BALANCE_NOTE, HEARTY_HINT, HEARTY_TOP_SHARE, groupEstimates,
+  riceKindOf, riceKindOfFood, RICE_KINDS, RICE_KIND_LABELS, RICE_KIND_HINT, DEFAULT_RULES, wantMissReason,
 } from '../js/planner.js';
 import { FORBIDDEN } from './copyrules.mjs';
 import { shelfDaysFor } from '../js/units.js';
@@ -38,6 +39,7 @@ const byId = new Map(recipes.map((r) => [r.id, r]));
 const MONDAY = '2026-09-14'; // 週一
 const cookSlots = (plan) => plan.slots.filter((s) => s.kind === 'cook');
 const mainsOf = (plan) => cookSlots(plan).flatMap((s) => s.items.filter((it) => it.role === 'main').map((it) => ({ ...it, date: s.date, meal: s.meal })));
+const RICE_RED_WORDS = ['健康', '降', '控制', '療效', '治療', '建議', '應該', '比較好'];
 const gen = (over = {}) => generateWeek({ recipes, members: [], idx, units, favorites: [], history: [], mondayIso: MONDAY, seed: 'test', shoppingDays: [3, 6], ...over });
 
 section('日期與亂數工具');
@@ -228,7 +230,9 @@ section('放寬的限制要少：主食不算時間上限、只有炸與湯互�
   const soupA = recipes.find((r) => r.role === 'soup' && r.method === 'soup' && r.time <= 30);
   eq(hb(soupA, { role: 'soup', meal: 'dinner', date: '2026-09-14' }, ctx, { slotItems: [{ recipeId: 'x', role: 'main', method: 'soup' }], dayRecipes: () => new Set() }), 'method', '（對照）同一餐已有湯類烹法的菜 → 湯衝突');
   const rice = byId.get('r-brown-rice');
-  eq(hb(rice, { role: 'staple', meal: 'dinner', date: '2026-09-14' }, ctx, { slotItems: [], dayRecipes: () => new Set() }), null, '糙米飯 70 分鐘在平日晚餐不被時間上限擋（主食不算）');
+  // 2026-09-18 起主食的米照設定排；這條驗的是時間上限，所以設成糙米
+  const brownCtx = bc({ recipes, members: [], idx, units, shoppingDays: [], rules: { riceKind: 'brown' } });
+  eq(hb(rice, { role: 'staple', meal: 'dinner', date: '2026-09-14' }, brownCtx, { slotItems: [], dayRecipes: () => new Set() }), null, '糙米飯 70 分鐘在平日晚餐不被時間上限擋（主食不算）');
   const slowMain = recipes.find((r) => r.role === 'main' && r.time > 40);
   eq(hb(slowMain, { role: 'main', meal: 'dinner', date: '2026-09-14' }, ctx, { slotItems: [], dayRecipes: () => new Set() }), 'time', `（對照）${slowMain.name} ${slowMain.time} 分鐘在平日晚餐被時間上限擋`);
 }
@@ -403,8 +407,8 @@ section('家裡有人留意醣 → 主食「優先」排全穀雜糧（是加分
   // 而且要有對照組：沒有人留意醣的同一個家庭，比例應該明顯低很多。
   const share = (members) => {
     let whole = 0; let total = 0; const names = new Set();
-    for (const seed of ['test', 's2', 's3', 's4']) {
-      const { plan } = gen({ members, seed });
+    for (const seed of ['test', 's2', 's3', 's4', 's5', 's6', 's7', 's8']) {
+      const { plan } = gen({ members, seed }); // 預設白米：可選的是白飯、地瓜飯（全穀）、芋頭飯、白麵條
       for (const s of cookSlots(plan)) {
         for (const it of s.items.filter((x) => x.role === 'staple')) {
           const r = byId.get(it.recipeId);
@@ -417,11 +421,77 @@ section('家裡有人留意醣 → 主食「優先」排全穀雜糧（是加分
   };
   const watch = share([{ ...newMember(), name: '爸' }, { ...newMember(), name: '阿嬤', diet: 'lactoOvo', conditions: ['diabetes'] }]);
   const plain = share([{ ...newMember(), name: '爸' }, { ...newMember(), name: '媽' }]);
-  ok(watch.total >= 40 && plain.total >= 40, `（母體）四週各排了 ${watch.total}／${plain.total} 個主食格`);
-  ok(watch.pct >= 0.7, `有人留意醣：全穀主食 ${watch.whole}/${watch.total}（${Math.round(watch.pct * 100)}%）`);
-  ok(plain.pct <= 0.5, `（對照）沒有人留意醣的同一個家庭只有 ${plain.whole}/${plain.total}（${Math.round(plain.pct * 100)}%）—— 差別是那個加分做出來的`);
-  ok(watch.pct - plain.pct >= 0.3, `兩者差 ${Math.round((watch.pct - plain.pct) * 100)} 個百分點`);
+  ok(watch.total >= 80 && plain.total >= 80, `（母體）八週各排了 ${watch.total}／${plain.total} 個主食格`);
+  // 2026-09-18 起主食的米照家裡的設定（預設白米），全穀的只剩地瓜飯一道，而且同一天不排兩次、
+  // 它的醣又高於主食池中位數（留意醣的扣分會抵掉一部分加分），差距變小。八組種子實測：有留意 36%、對照 26%、差 10 個百分點；
+  // 門檻各留約 5 個百分點。加分那一行有沒有觸發，另外用同一道地瓜飯直接驗（下一段），不靠統計。
+  ok(watch.pct >= 0.3, `有人留意醣：全穀主食 ${watch.whole}/${watch.total}（${Math.round(watch.pct * 100)}%）`);
+  ok(plain.pct <= 0.32, `（對照）沒有人留意醣的同一個家庭只有 ${plain.whole}/${plain.total}（${Math.round(plain.pct * 100)}%）—— 差別是那個加分做出來的`);
+  ok(watch.pct - plain.pct >= 0.05, `兩者差 ${Math.round((watch.pct - plain.pct) * 100)} 個百分點`);
+  {
+    const sp = byId.get('r-sweet-potato-rice');
+    const at = { role: 'staple', meal: 'dinner', date: MONDAY, day: 0 };
+    const st = () => ({ slotItems: [], dayRecipes: () => new Set(), lastServed: () => null, placedWant: new Set() });
+    const withD = buildContext({ recipes, members: [{ ...newMember(), name: '阿嬤', conditions: ['diabetes'] }], idx, units });
+    const noD = buildContext({ recipes, members: [{ ...newMember(), name: '媽' }], idx, units });
+    const reasonsD = scoreSoft(sp, at, withD, st(), () => 0).reasons;
+    ok(reasonsD.includes('全穀雜糧主食（家中有留意醣的成員）'), `同一道地瓜飯：家裡有人留意醣時多一句「全穀雜糧主食（家中有留意醣的成員）」`);
+    ok(!scoreSoft(sp, at, noD, st(), () => 0).reasons.some((t) => t.includes('家中有留意醣')), '（對照）沒有人留意醣時沒有這一句');
+  }
   ok(watch.names.length >= 2, `而且不是只排同一種：${watch.names.join('、')}`);
+}
+
+section('主食的米（2026-09-18 第 9 項）：照家裡的設定排，預設白米，不自動換；麵條不受影響');
+{
+  eq(DEFAULT_RULES.riceKind, 'white', '預設白米');
+  eq(RICE_KINDS.map((k) => RICE_KIND_LABELS[k]), ['白米', '糙米', '五穀米'], '三種：白米／糙米／五穀米');
+  eq(['稉米平均值', '秈米平均值', '糙稉米平均值', '發芽稉米平均值', '五穀米', '秈米粉', '稉型糯米平均值', '米胚芽'].map(riceKindOfFood),
+    ['white', 'white', 'brown', 'brown', 'multigrain', null, null, null], '食材判斷：稉米／秈米是白米、糙米是糙米、五穀米；米粉、糯米、米胚芽不算煮飯的米');
+  const staples = recipes.filter((r) => r.role === 'staple');
+  eq(Object.fromEntries(staples.map((r) => [r.name, riceKindOf(r, idx)])),
+    { 糙米飯: 'brown', 五穀飯: 'multigrain', 白麵條: null, 地瓜飯: 'white', 芋頭飯: 'white', 白飯: 'white' }, '內建六道主食各自是哪一種米（麵條沒有米）');
+  noneOf(RICE_RED_WORDS, (w) => RICE_KIND_HINT.includes(w), `設定旁的說明是中性的：${RICE_KIND_HINT}`);
+
+  const staplesOf = (rules, members = []) => {
+    const names = [];
+    for (const seed of ['test', 's2', 's3', 's4']) {
+      const { plan } = gen({ members, seed, rules });
+      for (const sl of cookSlots(plan)) for (const it of sl.items.filter((x) => x.role === 'staple')) names.push(byId.get(it.recipeId).name);
+    }
+    return names;
+  };
+  const count = (arr) => Object.fromEntries([...new Set(arr)].map((n) => [n, arr.filter((x) => x === n).length]));
+  const diab = [{ ...newMember(), name: '爸' }, { ...newMember(), name: '阿嬤', conditions: ['diabetes'] }];
+  const white = staplesOf({}, diab);
+  ok(white.length >= 40, `（母體）四週 ${white.length} 個主食格（家裡有人留意醣）`);
+  noneOf(white, (n) => n === '糙米飯' || n === '五穀飯', `預設白米：有人留意醣也不會自動換成糙米或五穀飯（${JSON.stringify(count(white))}）`);
+  ok(['白飯', '地瓜飯', '芋頭飯'].filter((n) => white.includes(n)).length >= 2, '白米會在白飯、地瓜飯、芋頭飯之間輪流（至少兩種）');
+  ok(white.includes('白麵條'), '麵條照常排得到');
+  for (const [kind, rice] of [['brown', '糙米飯'], ['multigrain', '五穀飯']]) {
+    const got = staplesOf({ riceKind: kind });
+    ok(got.length >= 40, `（母體）設${RICE_KIND_LABELS[kind]}：四週 ${got.length} 個主食格`);
+    everyOf(got, (n) => n === rice || n === '白麵條', `設${RICE_KIND_LABELS[kind]}：飯類主食只有${rice}（其餘是麵條）`);
+    // 只有一道飯時，不放寬「同一天不排同一道」的話晚餐只剩麵 → 飯麵各半（改之前量到 26/52）。實測現在約八成是飯。
+    const share = got.filter((n) => n === rice).length / got.length;
+    ok(share >= 0.7, `而且大部分是${rice}（${got.filter((n) => n === rice).length}/${got.length}，${Math.round(share * 100)}%），麵條沒有因為換米變成一半`);
+    ok(got.includes('白麵條'), `設${RICE_KIND_LABELS[kind]}時麵條照常排得到`);
+  }
+  eq(buildContext({ recipes, idx, units, rules: { riceKind: 'jasmine' } }).rules.riceKind, 'white', '亂填的設定 → 當白米');
+  eq(gen({ rules: { riceKind: 'multigrain', heartyLevel: 'low' } }).diagnostics.rules, { heartyLevel: 'low', riceKind: 'multigrain' }, '排菜器把實際用的豐盛程度與米記在 diagnostics.rules（跟著 plan 存）');
+  eq(gen({}).diagnostics.rules, { heartyLevel: 'medium', riceKind: 'white' }, '沒設就記預設：適中、白米');
+  {
+    const bctx = buildContext({ recipes, idx, units, rules: { riceKind: 'brown' } });
+    const lunchHad = { slotItems: [], dayRecipes: () => new Set(['r-brown-rice', 'r-plain-noodles']) };
+    eq(hardBlock(byId.get('r-brown-rice'), { role: 'staple', meal: 'dinner', date: '2026-09-14' }, bctx, lunchHad), null, '設糙米：午餐吃過糙米飯，晚餐照樣可以排（只有一道飯，不套同一天不重複）');
+    eq(hardBlock(byId.get('r-plain-noodles'), { role: 'staple', meal: 'dinner', date: '2026-09-14' }, bctx, lunchHad), 'sameDay', '（對照）麵條午餐吃過，晚餐照舊不重複');
+    const wctx = buildContext({ recipes, idx, units, rules: {} });
+    eq(hardBlock(byId.get('r-white-rice'), { role: 'staple', meal: 'dinner', date: '2026-09-14' }, wctx, { slotItems: [], dayRecipes: () => new Set(['r-white-rice']) }), 'sameDay', '（對照）白米有三道飯可以輪，白飯照舊同一天不重複');
+  }
+
+  const ctxW = buildContext({ recipes, members: [], idx, units, shoppingDays: [3, 6], wantThisWeek: [] });
+  const { plan: wp } = gen({});
+  const why = wantMissReason(byId.get('r-brown-rice'), wp.slots, ctxW);
+  ok(why.includes('主食的米用白米'), `勾了「本週想吃」糙米飯但設定白米：本週頁講得出原因（${why}）`);
 }
 
 section('舊版計畫沒有位置欄位 → 讀出來時補上（相容轉換）');
@@ -710,13 +780,13 @@ const B_MEMBERS = {
 }
 
 section('一週平衡：配額、分散、上一餐豐盛就傾向清淡（跟「沒平衡」的對照比）');
-const bRun = (members, rules, weeks = 8) => {
+const bRun = (members, rules, weeks = 8, pre = 'bal') => {
   const ctx = buildContext({ recipes, members, idx, units, rules });
   let history = [];
   const out = { weeks: [], reasons: [], lh: 0, lhL: 0, ln: 0, lnL: 0, mains: new Set(), dishes: new Set(), empty: 0 };
   for (let w = 0; w < weeks; w += 1) {
     const monday = addDays(MONDAY, 7 * w);
-    const { plan, diagnostics } = generateWeek({ recipes, members, idx, units, rules, favorites: [], history, mondayIso: monday, seed: `bal${w}`, shoppingDays: [3, 6] });
+    const { plan, diagnostics } = generateWeek({ recipes, members, idx, units, rules, favorites: [], history, mondayIso: monday, seed: `${pre}${w}`, shoppingDays: [3, 6] });
     history = [...history, ...historyRowsOf(plan)];
     const b = weekBalance({ plan, recipes, members, idx, units, rules });
     // 混合家庭每餐會多一道純葷加菜（SPEC_排菜葷素比例）。配額是給正規主菜設計的，
@@ -753,8 +823,14 @@ const bOff = bRun([], { heartyLevel: 'medium', balance: false });
   ok(bOn.lh >= 16, `（母體）${bOn.lh} 次「上一餐豐盛」`);
   ok(rateOn >= 0.4 && rateOn >= 2 * rateOnNon, `上一餐豐盛之後，這一餐的主菜清淡的比例 ${Math.round(rateOn * 100)}%（≥ 40%，而且是上一餐不豐盛時 ${Math.round(rateOnNon * 100)}% 的兩倍以上）`);
   ok(rateOff < rateOn - 0.2, `（對照）不做平衡時只有 ${Math.round(rateOff * 100)}%`);
-  ok(bOn.mains.size >= 0.85 * bOff.mains.size, `變化沒有被壓掉：8 週用到 ${bOn.mains.size} 道不同的主菜（不做平衡 ${bOff.mains.size} 道，≥ 85%）`);
-  ok(bOn.dishes.size >= 0.95 * bOff.dishes.size, `全部的菜 ${bOn.dishes.size} 道不同（不做平衡 ${bOff.dishes.size}，≥ 95%）`);
+  // 「變化沒有被壓掉」是統計量：單一組種子下「全部的菜」的比例在 0.93～1.01 之間跳（2026-09-18 補早餐後量了六組，
+  // 三組低於舊門檻 95% —— 舊門檻是剛好碰上運氣好的種子，不是平衡把變化壓掉了；早餐根本不吃平衡的加減分）。
+  // 改成四組種子合計再比，雜訊小一半；門檻照合計實測（主菜約 92%、全部約 95%）各留約 5 個百分點。
+  const pool = ['bal', 'x', 'q', 'w'].map((pre) => (pre === 'bal' ? [bOn, bOff] : [bRun([], { heartyLevel: 'medium' }, 8, pre), bRun([], { heartyLevel: 'medium', balance: false }, 8, pre)]));
+  const sum = (k, i) => pool.reduce((n, pair) => n + pair[i][k].size, 0);
+  const [mOn, mOff, dOn, dOff] = [sum('mains', 0), sum('mains', 1), sum('dishes', 0), sum('dishes', 1)];
+  ok(mOn >= 0.87 * mOff, `變化沒有被壓掉：四組各 8 週，不同的主菜合計 ${mOn}（不做平衡 ${mOff}，${Math.round(mOn / mOff * 100)}%，≥ 87%）`);
+  ok(dOn >= 0.9 * dOff, `全部的菜合計 ${dOn} 道次不同（不做平衡 ${dOff}，${Math.round(dOn / dOff * 100)}%，≥ 90%）`);
   eq(bOn.empty, 0, '做平衡不會排出空格（是加減分，不是排除）');
   const hi = bRun([], { heartyLevel: 'high' }); const lo = bRun([], { heartyLevel: 'low' });
   const avgN = (o) => o.weeks.reduce((n, x) => n + x.b.hearty.length, 0) / o.weeks.length;

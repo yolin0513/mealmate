@@ -616,8 +616,11 @@ try {
       const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
       const noExtra = { ...plan, slots: plan.slots.map((sl) => ({ ...sl, items: (sl.items ?? []).filter((it) => !it.extraMeat) })) };
       const b = weekBalance({ plan: noExtra, recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(), rules: { heartyLevel: prefs.get('heartyLevel') } });
-      return { load: b.load, budget: b.budget };
+      return { load: b.load, budget: b.budget, used: plan.diagnostics?.rules?.heartyLevel };
     });
+    // 「重新產生」每次換亂數種子，用預設的適中排也常常剛好 ≤ 2 道 —— 光看道數，沒傳到設定也可能綠（2026-09-18 突變抓到）。
+    // 排菜器把實際用的豐盛程度記在 diagnostics.rules，直接看它。
+    eq(lowNoExtra.used, 'low', '這週真的是用「少」排的（本週頁有把家人頁的設定傳給排菜器）');
     ok(lowNoExtra.budget === 2 && lowNoExtra.load <= 2, `家人頁選「少」之後重新產生：不含加菜的豐盛主菜加權 ${lowNoExtra.load} 道（≤ 2）`);
     ok(low.load >= lowNoExtra.load, `（對照）含加菜是 ${low.load} 道 —— 加菜有被算進一週平衡`);
     const t2 = await textOf(page, '[data-card="balance"] [data-field="balanceText"]');
@@ -909,6 +912,29 @@ try {
     ok(refilled.vegEatable >= 3, `姊仍吃得到 ${refilled.vegEatable} 道（≥ 3）`);
     ok(refilled.extras.length === 1 || refilled.vegEatable <= 3,
       `改回自己煮的那一餐走的是同一條規則：加菜 ${refilled.extras.length} 道`);
+
+    // 2026-09-18 第 9 項：單一餐重排（regenerateSlot → refillSlot）也要照「主食的米」的設定
+    await page.evaluate(async () => (await import('./js/prefs.js')).set('riceKind', 'brown'));
+    // 整週每一格午晚餐都用本週頁「改回自己煮」同一個函式重排一次（只重排一餐可能剛好抽到麵條、或主菜本身含主食而沒有主食格）
+    const allStaples = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const { regenerateSlot } = await import('./js/views/weekops.js');
+      const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const all = new Map(store.allRecipes().map((r) => [r.id, r]));
+      const out = [];
+      for (let i = 0; i < plan.slots.length; i += 1) {
+        const sl = plan.slots[i];
+        if (sl.kind !== 'cook' || sl.meal === 'breakfast') continue;
+        await regenerateSlot({ plan, slotIndex: i });
+        for (const it of sl.items) if (all.get(it.recipeId)?.role === 'staple') out.push(all.get(it.recipeId).name);
+      }
+      return out;
+    });
+    ok(allStaples.length >= 8, `（母體）整週重排出 ${allStaples.length} 個主食`);
+    everyOf(allStaples, (n) => n === '糙米飯' || n === '白麵條', `整週逐餐重排：主食只有糙米飯或麵條（${[...new Set(allStaples)].join('、')}）`);
+    ok(allStaples.includes('糙米飯'), '而且真的排到糙米飯');
+    await page.evaluate(async () => (await import('./js/prefs.js')).set('riceKind', 'white'));
   }
 
   eq(pageErrors, [], '沒有未攔截的例外');

@@ -1,0 +1,26 @@
+{
+  "id": "r-radish-egg-rice-ball",
+  "name": "菜脯蛋飯糰",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 40,
+  "method": "rice",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "A05005", "label": "圓糯米（生）", "grams": 320, "track": "base" },
+    { "food": "蘿蔔乾", "label": "菜脯（切碎）", "grams": 60, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋（3 顆）", "grams": 165, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "白胡椒粉", "label": "白胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "糯米洗淨（前一晚泡水更好煮）；菜脯切碎，用清水沖一下減少鹹味、擰乾；蛋打散。" },
+    { "stage": "base", "type": "cook", "text": "糯米加 250 毫升水放電鍋，外鍋 1 杯水煮到開關跳起，再燜 10 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "趁煮飯時，鍋熱下油炒菜脯 1 分鐘，倒入蛋液煎成菜脯蛋，加醬油、白胡椒粉，用鍋鏟切小塊。" },
+    { "stage": "base", "type": "prep", "text": "保鮮膜上鋪一層糯米飯壓平，放菜脯蛋，提起保鮮膜捏緊成長條飯糰。" }
+  ]
+}

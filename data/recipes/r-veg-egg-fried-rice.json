@@ -1,0 +1,30 @@
+{
+  "id": "r-veg-egg-fried-rice",
+  "name": "蔬菜蛋炒飯",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "includesStaple": true,
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "白飯", "label": "白飯（前一晚剩的飯最好炒）", "grams": 600, "track": "base", "pantry": true },
+    { "food": "雞蛋", "label": "雞蛋（3 顆）", "grams": 165, "track": "base" },
+    { "food": "高麗菜", "label": "高麗菜（切小片）", "grams": 150, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切小丁）", "grams": 60, "track": "base" },
+    { "food": "玉米粒", "label": "玉米粒", "grams": 80, "track": "base" },
+    { "food": "油", "label": "油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 3, "track": "base", "pantry": true },
+    { "food": "白胡椒粉", "label": "白胡椒粉", "grams": 1, "track": "base", "pantry": true },
+    { "food": "青蔥", "label": "青蔥（切蔥花，可省略）", "grams": 15, "track": "base" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "高麗菜切小片、胡蘿蔔切小丁、蔥切蔥花；蛋打散；冷飯先用手或飯匙撥鬆。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱下一半的油，倒入蛋液炒到半熟就盛起來。" },
+    { "stage": "base", "type": "cook", "text": "下另一半的油，炒胡蘿蔔丁 1 分鐘，再下高麗菜、玉米粒炒到高麗菜變軟。" },
+    { "stage": "base", "type": "cook", "text": "下白飯炒散炒熱，倒回炒蛋，加鹽、白胡椒粉拌勻，起鍋前撒蔥花。" }
+  ]
+}

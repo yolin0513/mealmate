@@ -10,10 +10,52 @@ import { NUTRIENT_ORDER } from './foods.js';
 export const AGE_GROUPS = ['child', 'adult', 'senior'];
 export const AGE_LABELS = { child: '小孩', adult: '成人', senior: '長輩' };
 
-export const DIETS = ['omni', 'lactoOvo', 'vegan', 'veganNoAllium'];
+// 2026-09-18 Yolin 定案（九項調整第 5 項、方案 A）：素食改成「素 ＋ 吃不吃蛋／奶／五辛三個獨立勾」。
+// 存的還是一個 diet 字串 —— 八種組合各一個鍵。**舊的三個鍵原封不動沿用**：
+//   lactoOvo＝蛋✓奶✓五辛✓、vegan＝蛋✗奶✗五辛✓、veganNoAllium＝蛋✗奶✗五辛✗
+// 所以舊資料、舊備份不用搬，既有的排菜結果一道都不會變（membertest 拿改版前的判斷逐道對照）。
+export const VEG_DIET_FLAGS = {
+  lactoOvo:         { egg: true,  dairy: true,  allium: true },
+  ovo:              { egg: true,  dairy: false, allium: true },
+  lacto:            { egg: false, dairy: true,  allium: true },
+  vegan:            { egg: false, dairy: false, allium: true },
+  lactoOvoNoAllium: { egg: true,  dairy: true,  allium: false },
+  ovoNoAllium:      { egg: true,  dairy: false, allium: false },
+  lactoNoAllium:    { egg: false, dairy: true,  allium: false },
+  veganNoAllium:    { egg: false, dairy: false, allium: false },
+};
+export const DIETS = ['omni', ...Object.keys(VEG_DIET_FLAGS)];
 // 「五辛素」＝不吃肉、海鮮、蛋、奶，但吃蔥蒜等五辛（vegan）；「全素」連五辛都不吃（veganNoAllium）。
 // 2026-09-16 正名：舊標籤把 vegan 叫「全素」，但它本來就允許五辛 —— 名稱與行為對不起來。存的值不變。
-export const DIET_LABELS = { omni: '葷', lactoOvo: '蛋奶素', vegan: '五辛素', veganNoAllium: '全素' };
+export const DIET_LABELS = {
+  omni: '葷', lactoOvo: '蛋奶素', ovo: '蛋素', lacto: '奶素', vegan: '五辛素',
+  lactoOvoNoAllium: '蛋奶素・不吃五辛', ovoNoAllium: '蛋素・不吃五辛', lactoNoAllium: '奶素・不吃五辛', veganNoAllium: '全素',
+};
+/** 素食三個勾的順序與名稱（成員頁用）。 */
+export const VEG_EATS = ['egg', 'dairy', 'allium'];
+export const VEG_EAT_LABELS = { egg: '吃蛋', dairy: '吃奶', allium: '吃五辛' };
+
+/** 這個飲食型態吃不吃蛋／奶／五辛；葷或認不得的值回 null。 */
+export function dietFlags(diet) {
+  return VEG_DIET_FLAGS[diet] ?? null;
+}
+/** 由三個勾組回 diet 鍵。 */
+export function dietFromFlags({ egg, dairy, allium }) {
+  return Object.keys(VEG_DIET_FLAGS).find((k) => {
+    const f = VEG_DIET_FLAGS[k];
+    return f.egg === !!egg && f.dairy === !!dairy && f.allium === !!allium;
+  });
+}
+/** 一句白話說明（成員頁的即時摘要）。 */
+export function dietSentence(diet) {
+  const f = dietFlags(diet);
+  if (!f) return '什麼都吃';
+  const yes = [], no = ['肉', '海鮮'];
+  (f.egg ? yes : no).push('蛋');
+  (f.dairy ? yes : no).push('奶');
+  (f.allium ? yes : no).push('蔥、蒜、韭、洋蔥等五辛');
+  return `不吃${no.join('、')}` + (yes.length ? `；吃${yes.join('、')}` : '');
+}
 
 // 留意項目：**只收食藥署資料庫 12 個欄位撐得起數字的**。
 // 痛風（普林）、貧血（鐵）這些資料庫沒有的欄位，在拿到可引用的來源之前不放進清單 —— 放了也只能是個空標籤，
@@ -165,20 +207,18 @@ export function validateMember(m) {
 export function versionFor(recipe, diet) {
   const split = recipe.vegMode === 'splittable';
   if (diet === 'omni') return split ? 'meat' : 'all';
+  const eats = dietFlags(diet);
+  if (!eats) return null; // 認不得的值：寧可少排一道，不可排錯
   const tags = split ? (recipe.vegTags ?? []) : (recipe.tags ?? []);
   if (recipe.vegMode === 'meatOnly') return null;
   if (tags.includes('meat') || tags.includes('seafood')) return null;
-  if (diet === 'lactoOvo') return split ? 'veg' : 'all';
   // 使用者自己加的菜裡有查不到的食材（使用者自己說素食成員吃得到）：蛋、奶、五辛都判斷不了 ——
-  // 全素的家人**保守地不排**（寧可少排一道，不可排錯）；蛋奶素本來就吃蛋奶五辛，照使用者的判斷。
-  if (tags.includes('unresolved')) return null;
-  if (tags.includes('egg') || tags.includes('dairy')) return null;
-  if (diet === 'vegan') return split ? 'veg' : 'all';
-  if (diet === 'veganNoAllium') {
-    if (tags.includes('allium') && !recipe.alliumOptional) return null;
-    return split ? 'veg' : 'all';
-  }
-  return null;
+  // 三樣都吃的人照使用者的判斷；少吃任何一樣的**保守地不排**（寧可少排一道，不可排錯）。
+  if (tags.includes('unresolved') && !(eats.egg && eats.dairy && eats.allium)) return null;
+  if (tags.includes('egg') && !eats.egg) return null;
+  if (tags.includes('dairy') && !eats.dairy) return null;
+  if (tags.includes('allium') && !eats.allium && !recipe.alliumOptional) return null;
+  return split ? 'veg' : 'all';
 }
 
 export function fitsDiet(recipe, diet) {

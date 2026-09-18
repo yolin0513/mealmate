@@ -17,6 +17,8 @@ export const DEFAULTS = {
   avoid: { sweet: false, processed: false, fried: false },
   // 一週排幾道比較豐盛的主菜：low 2／medium 4／high 6（planner.HEARTY_LEVELS）。只影響分數，不排除。
   heartyLevel: 'medium',
+  // 主食的米：white 白米／brown 糙米／multigrain 五穀米（planner.RICE_KINDS）。預設白米，不自動換。
+  riceKind: 'white',
   // 這週用的亂數種子；「重新產生」會換一個
   planSeed: null,
   // 本週頁每一天是收起來還是展開。**依週存**：{ '2026-W38': { 0: 'closed', 3: 'open' } }。

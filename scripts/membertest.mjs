@@ -10,7 +10,7 @@ import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import {
   watchFields, familyWatchFields, validateMember, newMember, versionFor, fitsDiet, allergenHits, splitByDiet,
   KIDNEY_FIELDS, TARGET_FIELDS, CONDITION_FIELDS, CONDITIONS, CONDITION_LABELS, matchesCondition, DIETS, DIET_LABELS, displayFields,
-  APPETITES, APPETITE_FACTORS, appetiteOf,
+  APPETITES, APPETITE_FACTORS, appetiteOf, VEG_DIET_FLAGS, VEG_EATS, VEG_EAT_LABELS, dietFlags, dietFromFlags, dietSentence,
 } from '../js/members.js';
 import { NUTRIENT_ORDER } from '../js/foods.js';
 
@@ -133,6 +133,87 @@ section('素食標籤的語意：五辛素吃得到蔥蒜、全素吃不到');
   const plainVeg = recipes.find((r) => r.vegMode === 'nativeVeg' && !r.tags.includes('allium') && !r.tags.includes('egg') && !r.tags.includes('dairy'));
   ok(plainVeg, `（對照母體）也有完全不含蔥蒜蛋奶的素菜：${plainVeg?.name}`);
   eq(versionFor(plainVeg, 'veganNoAllium'), 'all', '那種菜「全素」照樣吃得到（上面那條不是因為全素什麼都不能吃）');
+}
+
+section('素食三個勾（2026-09-18 Yolin 定案方案 A）：舊的三種判斷一道都沒變');
+{
+  // 改版前的 versionFor 原文照抄在這裡當對照組：蛋奶素／五辛素／全素三個舊值，217 道每一道都要跟以前一樣。
+  // 「既有的排菜結果不變」就靠這一條 —— 判斷一樣，排菜器拿到的可吃清單就一樣。
+  function legacyVersionFor(recipe, diet) {
+    const split = recipe.vegMode === 'splittable';
+    if (diet === 'omni') return split ? 'meat' : 'all';
+    const tags = split ? (recipe.vegTags ?? []) : (recipe.tags ?? []);
+    if (recipe.vegMode === 'meatOnly') return null;
+    if (tags.includes('meat') || tags.includes('seafood')) return null;
+    if (diet === 'lactoOvo') return split ? 'veg' : 'all';
+    if (tags.includes('unresolved')) return null;
+    if (tags.includes('egg') || tags.includes('dairy')) return null;
+    if (diet === 'vegan') return split ? 'veg' : 'all';
+    if (diet === 'veganNoAllium') {
+      if (tags.includes('allium') && !recipe.alliumOptional) return null;
+      return split ? 'veg' : 'all';
+    }
+    return null;
+  }
+  const unresolvedVeg = { id: 'x', name: '自己加的菜', vegMode: 'nativeVeg', tags: ['unresolved'] };
+  const pool = [...recipes, unresolvedVeg];
+  for (const d of ['omni', 'lactoOvo', 'vegan', 'veganNoAllium']) {
+    everyOf(pool, (r) => versionFor(r, d) === legacyVersionFor(r, d), `「${DIET_LABELS[d]}」（${d}）${pool.length} 道的判斷跟改版前逐道相同`);
+  }
+  eq(dietFlags('lactoOvo'), { egg: true, dairy: true, allium: true }, '舊的蛋奶素＝三個勾全開');
+  eq(dietFlags('vegan'), { egg: false, dairy: false, allium: true }, '舊的五辛素＝只勾五辛');
+  eq(dietFlags('veganNoAllium'), { egg: false, dairy: false, allium: false }, '舊的全素＝三個都不勾');
+  eq(dietFlags('omni'), null, '葷不是素食組合');
+}
+
+section('素食三個勾：八種組合各自成立，每個勾都真的有作用');
+{
+  const combos = Object.keys(VEG_DIET_FLAGS);
+  eq(combos.length, 8, '三個勾 → 八種組合');
+  eq(DIETS, ['omni', ...combos], 'DIETS＝葷＋八種素食');
+  everyOf(combos, (k) => dietFromFlags(dietFlags(k)) === k, '三個勾組回去一定回到同一個鍵（沒有兩個鍵撞在同一組勾）');
+  everyOf(combos, (k) => typeof DIET_LABELS[k] === 'string' && DIET_LABELS[k].length > 0, '每一種組合都有名稱');
+  eq(new Set(combos.map((k) => DIET_LABELS[k])).size, 8, '八個名稱都不一樣');
+  everyOf(combos, (k) => validateMember({ ...newMember(), name: 'a', diet: k }).length === 0, '八種都通過成員驗證（新值存得進去、備份匯得回來）');
+  eq(validateMember({ ...newMember(), name: 'a', diet: 'veg' }).some((e) => e.includes('飲食型態')), true, '畫面上的「素」不是可存的值（一定要組成八種之一）');
+  eq(versionFor(recipes[0], 'nonsense'), null, '認不得的值 → 吃不了（寧可少排，不可排錯）');
+
+  const tagsOf = (r) => (r.vegMode === 'splittable' ? r.vegTags : r.tags) ?? [];
+  // 紅線：吃到的那個版本，不能含他不吃的東西。八種組合 × 217 道逐道驗。
+  for (const k of combos) {
+    const f = dietFlags(k);
+    everyOf(recipes.filter((r) => fitsDiet(r, k)), (r) => {
+      const t = tagsOf(r);
+      return !t.includes('meat') && !t.includes('seafood') && r.vegMode !== 'meatOnly'
+        && (f.egg || !t.includes('egg')) && (f.dairy || !t.includes('dairy')) && (f.allium || !t.includes('allium') || r.alliumOptional);
+    }, `「${DIET_LABELS[k]}」可吃的每一道：沒有肉海鮮，也沒有他沒勾的東西`);
+  }
+  // 多勾一樣只會多吃到菜，不會少：每個勾的「開」都是「關」的超集合
+  for (const k of combos) for (const e of VEG_EATS) {
+    const f = dietFlags(k);
+    if (f[e]) continue;
+    const more = dietFromFlags({ ...f, [e]: true });
+    everyOf(recipes.filter((r) => fitsDiet(r, k)), (r) => fitsDiet(r, more), `「${DIET_LABELS[k]}」多勾「${VEG_EAT_LABELS[e]}」→「${DIET_LABELS[more]}」，原本吃得到的都還吃得到`);
+  }
+  const byName = (n) => recipes.find((r) => r.name === n);
+  const eggDish = byName('九層塔煎蛋');
+  const dairyDish = byName('起司焗南瓜');
+  ok(eggDish && dairyDish, '（前提）找得到有蛋的素菜、有奶的素菜');
+  eq([versionFor(eggDish, 'ovo'), versionFor(eggDish, 'lacto')].map(Boolean), [true, false], `有蛋的菜（${eggDish?.name}）：蛋素吃得到、奶素吃不到`);
+  eq([versionFor(dairyDish, 'lacto'), versionFor(dairyDish, 'ovo')].map(Boolean), [true, false], `有奶的菜（${dairyDish?.name}）：奶素吃得到、蛋素吃不到`);
+  eq(Boolean(versionFor(dairyDish, 'lactoNoAllium')), !tagsOf(dairyDish).includes('allium') || !!dairyDish.alliumOptional, '奶素・不吃五辛看起司焗南瓜：只看有沒有五辛');
+  const alliumVeg = recipes.find((r) => r.vegMode === 'nativeVeg' && r.tags.includes('allium') && !r.alliumOptional && !r.tags.includes('egg') && !r.tags.includes('dairy'));
+  ok(alliumVeg, `（前提）有蔥蒜、不可省略、無蛋奶的素菜：${alliumVeg?.name}`);
+  eq(combos.filter((k) => fitsDiet(alliumVeg, k)).sort(), combos.filter((k) => dietFlags(k).allium).sort(), `「${alliumVeg?.name}」：勾了五辛的四種吃得到，沒勾的四種吃不到`);
+  const unresolvedVeg = { id: 'x', name: '自己加的菜', vegMode: 'nativeVeg', tags: ['unresolved'] };
+  eq(combos.filter((k) => fitsDiet(unresolvedVeg, k)), ['lactoOvo'], '有查不到的食材（蛋奶五辛都判斷不了）：只有三樣都吃的人排得到');
+  const counts = combos.map((k) => recipes.filter((r) => fitsDiet(r, k)).length);
+  ok(counts.every((n) => n >= 20), `八種組合每一種都至少有 20 道可吃（${counts.join('、')}）`);
+
+  eq(dietSentence('omni'), '什麼都吃', '葷的說明');
+  eq(dietSentence('lactoOvo'), '不吃肉、海鮮；吃蛋、奶、蔥、蒜、韭、洋蔥等五辛', '蛋奶素的說明');
+  eq(dietSentence('ovoNoAllium'), '不吃肉、海鮮、奶、蔥、蒜、韭、洋蔥等五辛；吃蛋', '蛋素（不吃五辛）的說明');
+  eq(dietSentence('veganNoAllium'), '不吃肉、海鮮、蛋、奶、蔥、蒜、韭、洋蔥等五辛', '全素的說明（沒有「吃」那半句）');
 }
 
 section('慢性病清單：只收資料庫撐得起數字的；搜尋比對名稱與口語說法');

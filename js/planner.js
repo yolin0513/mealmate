@@ -67,7 +67,36 @@ export const DEFAULT_RULES = {
   avoid: { sweet: false, processed: false, fried: false },
   // 一週排幾道比較豐盛的主菜（少 2／適中 4／多 6）。家人頁可調，預設適中。
   heartyLevel: 'medium',
+  // 主食的米（2026-09-18 Yolin 定案，九項調整第 9 項）：家裡平常煮哪一種，飯類主食就只排那一種。
+  // 預設白米；**不因為家人的留意項目自動換成糙米**（換不換米是家裡的決定）。麵條這類沒有米的主食不受影響。
+  riceKind: 'white',
 };
+
+export const RICE_KINDS = ['white', 'brown', 'multigrain'];
+export const RICE_KIND_LABELS = { white: '白米', brown: '糙米', multigrain: '五穀米' };
+/** 設定的米種只有 1／2 道飯時，飯類主食的加分（亂數是 0～3 分；plannertest 量麵條的頻率）。 */
+const RICE_SCARCE_BONUS = { 1: 0.9, 2: 0.4 };
+export const RICE_KIND_HINT = '飯類主食只排這一種米（白米會在白飯、地瓜飯、芋頭飯之間輪流）；麵條照常會排到。';
+/**
+ * 一樣食材是哪一種米；不是米回 null。看食藥署的名稱，所以使用者自己加的主食也適用。
+ * 米粉、米胚芽、糯米不算「煮飯的米」。
+ */
+export function riceKindOfFood(name) {
+  const n = String(name ?? '');
+  if (!/米/.test(n) || /米粉|米胚芽|糯|米漿|米苔目|米血/.test(n)) return null;
+  if (/五穀|雜糧|高纖/.test(n)) return 'multigrain';
+  if (/糙|發芽|紅米/.test(n)) return 'brown';
+  if (/^(秈米|稉米|蓬萊米|在來米|白米|越光米|胚芽|加鈣米)/.test(n)) return 'white';
+  return null;
+}
+/** 這道主食用哪一種米（第一樣是米的食材）；沒有米回 null。 */
+export function riceKindOf(recipe, idx) {
+  for (const ing of recipe?.ingredients ?? []) {
+    const k = riceKindOfFood(idx?.byId?.get(ing.food)?.name ?? ing.label);
+    if (k) return k;
+  }
+  return null;
+}
 
 const NO_REPEAT_PENALTY = { main: 100, side: 60, soup: 60, breakfast: 0, staple: 0 };
 /** 同一餐不重複的烹法（PLAN §4.3：兩道炸、兩道湯）。兩道炒在台灣家常菜很平常，不算衝突。 */
@@ -172,6 +201,7 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
     fishPerWeek: rules.fishPerWeek ?? DEFAULT_RULES.fishPerWeek,
     avoid: { ...DEFAULT_RULES.avoid, ...(rules.avoid ?? {}) },
     heartyLevel: Object.hasOwn(HEARTY_LEVELS, rules.heartyLevel ?? '') ? rules.heartyLevel : DEFAULT_RULES.heartyLevel,
+    riceKind: RICE_KINDS.includes(rules.riceKind) ? rules.riceKind : DEFAULT_RULES.riceKind,
     // 對照用：false 時完全不做一週平衡的加減分。**不在畫面上給使用者**，只給測試比較「有平衡／沒平衡」。
     balance: rules.balance !== false,
   };
@@ -190,6 +220,15 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
   const aliasesById = new Map();
   for (const [term, id] of idx?.aliasMap ?? []) { if (!aliasesById.has(id)) aliasesById.set(id, []); aliasesById.get(id).push(term); }
 
+  const riceCache = new Map();
+  const riceOf = (recipe) => {
+    if (!riceCache.has(recipe.id)) riceCache.set(recipe.id, riceKindOf(recipe, idx));
+    return riceCache.get(recipe.id);
+  };
+  // 「麵條不受影響」：白米有白飯、地瓜飯、芋頭飯三道對一道麵，麵大約四餐一次；
+  // 糙米、五穀米各只有一道飯，不補的話就變成飯麵各半。飯的道數少於三道時給飯一點加分，把麵拉回差不多的頻率。
+  const riceDishes = recipes.filter((x) => x.role === 'staple' && riceOf(x) === r.riceKind).length;
+  const riceBonus = RICE_SCARCE_BONUS[riceDishes] ?? 0;
   const estCache = new Map();
   const perServing = (recipe, version) => {
     const key = `${recipe.id}|${version}`;
@@ -284,7 +323,7 @@ export function buildContext({ recipes, members = [], idx, units, rules = {}, fa
 
   // 混合家庭：同時有吃葷與吃素的人。hasOmni 在「還沒新增家人」時也是 true，但那時 vegetarians 是空的，所以不算。
   const mixedHome = vegetarians.length > 0 && hasOmni;
-  return { recipes, members, idx, units, rules: r, vegetarians, hasOmni, mixedHome, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, refPerServing, heartyOf, isLight };
+  return { riceOf, riceBonus, riceDishes, recipes, members, idx, units, rules: r, vegetarians, hasOmni, mixedHome, watchers, hasDiabetes, needsSoft, favSet, wantSet, aliasesById, perServing, watchedValue, medians, shoppingDays, refPerServing, heartyOf, isLight };
 }
 
 // ---------- 保存期限 ----------
@@ -314,12 +353,20 @@ export function shelfBlocker(recipe, date, ctx) {
 /** 這道菜在這一格能不能選。回 null 表示可以，否則回不能的原因（給 diagnostics）。 */
 export function hardBlock(recipe, { role, meal, date }, ctx, state, { relaxTime = false, relaxMethod = false, relaxDay = false, relaxShelf = false, relaxBreakfast = false, requireMeaty = false, meatOnlyExtra = false } = {}) {
   if (recipe.role !== role) return 'role';
-  // 同一天不排同一道菜（午餐晚餐都是番茄炒蛋這種）；真的沒得選才放寬
-  if (!relaxDay && state.dayRecipes && state.dayRecipes(date).has(recipe.id)) return 'sameDay';
+  // 同一天不排同一道菜（午餐晚餐都是番茄炒蛋這種）；真的沒得選才放寬。
+  // 例外：設定的米只有一道飯（糙米、五穀米）時，飯類主食午晚都排是正常的 —— 不例外的話，
+  // 晚餐的主食只剩麵條，設了糙米的家庭會有一半的餐吃麵（plannertest 量過 48%）。
+  const riceAllDay = role === 'staple' && ctx.riceDishes === 1 && ctx.riceOf?.(recipe);
+  if (!relaxDay && !riceAllDay && state.dayRecipes && state.dayRecipes(date).has(recipe.id)) return 'sameDay';
   const { rules } = ctx;
   if (rules.avoid.sweet && recipe.tags.includes('sweet')) return 'avoid:sweet';
   if (rules.avoid.processed && recipe.tags.includes('processed')) return 'avoid:processed';
   if (rules.avoid.fried && recipe.method === 'deepfry') return 'avoid:fried';
+  // 主食的米：不是設定的那一種就不排（麵條沒有米 → riceOf 是 null → 不受影響）
+  if (role === 'staple') {
+    const kind = ctx.riceOf ? ctx.riceOf(recipe) : riceKindOf(recipe, ctx.idx);
+    if (kind && kind !== rules.riceKind) return 'rice';
+  }
   if (meatOnlyExtra) {
     // 「僅葷食成員」的加菜：這一格刻意排素食成員吃不到的菜，所以跳過飲食型態的過濾，
     // 但只收純葷的（可分流的菜本來就兩邊都吃得到，不必當加菜），而且呼叫端要先確認素食保障還成立。
@@ -444,6 +491,7 @@ export function scoreSoft(recipe, { role, meal, date, day }, ctx, state, rng) {
     if (role === 'staple' && recipe.tags.includes('wholegrain')) { score += 12; reasons.push('全穀雜糧主食（家中有留意醣的成員）'); }
     if (recipe.tags.includes('sweet')) { score -= 15; reasons.push('含精緻糖（家中有留意醣的成員）'); }
   }
+  if (role === 'staple' && ctx.riceBonus && ctx.riceOf?.(recipe)) score += ctx.riceBonus;
   if (role === 'staple' && !(ctx.hasDiabetes && recipe.tags.includes('wholegrain'))) {
     reasons.push(recipe.tags.includes('wholegrain') ? '全穀雜糧主食' : '一般主食（白米或麵）');
   }
@@ -623,6 +671,7 @@ export function wantMissReason(recipe, slots, ctx) {
         const longest = Math.max(...open.map((s) => (isWeekend(s.date) ? ctx.rules.timeCaps.weekend : ctx.rules.timeCaps.weekday)[s.meal]));
         add(`要花約 ${recipe.time} 分鐘，超過這週每一餐的時間上限（最長的一餐是 ${longest} 分鐘）`);
       } else if (c.startsWith('shelf:')) add(`${c.slice(6)}離買菜日太久放不住`);
+      else if (c === 'rice') add(`你在排菜規則設了主食的米用${RICE_KIND_LABELS[ctx.rules.riceKind]}`);
     }
     if (texts.length) return texts.join('；');
   }
@@ -773,7 +822,8 @@ export function generateWeek({ recipes, members = [], idx, units, rules = {}, fa
   // 這一週自己的歷史不算（重新產生時舊格子會被換掉）；只帶這週之前 28 天內的
   const past = history.filter((h) => h.date < monday && daysBetween(h.date, monday) <= 28);
   const state = makeState(past, ctx, monday);
-  const diagnostics = { forcedRepeats: [], relaxed: [], empty: [], noMeat: [], wantMissed: [], meatExtraSkipped: [], poolSizes: {} };
+  // rules：這週實際用的豐盛程度與主食的米（跟著 plan 存）。設定頁改了、排出來卻沒跟著變時，查得到是哪一環沒傳到。
+  const diagnostics = { forcedRepeats: [], relaxed: [], empty: [], noMeat: [], wantMissed: [], meatExtraSkipped: [], poolSizes: {}, rules: { heartyLevel: ctx.rules.heartyLevel, riceKind: ctx.rules.riceKind } };
   for (const role of ['main', 'side', 'soup', 'staple', 'breakfast']) diagnostics.poolSizes[role] = recipes.filter((r) => r.role === role).length;
 
   // 「本週想吃」＝這週一定要排到（2026-09-14 使用者回報：勾了滷雞腳，重新產生幾次都沒排進去，畫面上也沒說為什麼）。

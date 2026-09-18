@@ -120,10 +120,11 @@ const jsFiles = ['js', 'js/views'].flatMap((d) => fs.readdirSync(path.join(ROOT,
 noneOf(jsFiles, (f) => read(f).includes('無過敏原'), `程式裡沒有任何一處寫「無過敏原」（掃了 ${jsFiles.length} 個檔）`);
 
 section('PLAN §2 定案總表：數字對得上');
-eq(DIETS, ['omni', 'lactoOvo', 'vegan', 'veganNoAllium'], '飲食型態四種（存的值不變）');
+everyOf(['omni', 'lactoOvo', 'vegan', 'veganNoAllium'], (k) => DIETS.includes(k), '舊的四個值原封不動（2026-09-18 起再加五種素食組合，舊資料不用搬）');
+eq(DIETS.length, 9, '葷＋素食三個勾的八種組合');
  eq(DIET_LABELS.vegan, '五辛素', '2026-09-16 正名：vegan 本來就允許五辛 → 標籤叫「五辛素」');
  eq(DIET_LABELS.veganNoAllium, '全素', '連五辛都不吃的才叫「全素」');
-ok(PLAN.includes('葷／蛋奶素／五辛素／全素'), '（文件）PLAN 也是這四種');
+ok(PLAN.includes('葷／素（吃不吃蛋、奶、五辛三個勾）'), '（文件）PLAN 寫的是葷／素＋三個勾');
 ok(PLAN.includes('主菜 14 天內不重複、配菜 7 天、湯 7 天'), '（文件）PLAN 寫了不重複天數');
 eq([DEFAULTS.noRepeatDays.main, DEFAULTS.noRepeatDays.side, DEFAULTS.noRepeatDays.soup], [14, 7, 7], '程式的預設：主菜 14、配菜 7、湯 7');
 ok(PLAN.includes('早餐不納入不重複'), '（文件）PLAN 寫了早餐不納入不重複');

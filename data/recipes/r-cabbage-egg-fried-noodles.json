@@ -1,0 +1,29 @@
+{
+  "id": "r-cabbage-egg-fried-noodles",
+  "name": "高麗菜蛋炒麵",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 20,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "includesStaple": true,
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "乾麵條", "label": "乾麵條（約 4 把）", "grams": 240, "track": "base" },
+    { "food": "高麗菜", "label": "高麗菜（切絲）", "grams": 200, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切絲）", "grams": 50, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋（2 顆）", "grams": 110, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "油", "label": "油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "白胡椒粉", "label": "白胡椒粉", "grams": 1, "track": "base", "pantry": true },
+    { "food": "青蔥", "label": "青蔥（切段，可省略）", "grams": 15, "track": "base" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "高麗菜、胡蘿蔔切絲，蔥切段；蛋打散。" },
+    { "stage": "base", "type": "cook", "text": "麵條下滾水煮到比包裝時間少 1 分鐘，撈起瀝乾，拌一點油防黏。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱下油，倒入蛋液炒散盛起；再下胡蘿蔔、高麗菜炒到變軟。" },
+    { "stage": "base", "type": "cook", "text": "下麵條、醬油與 3 大匙水翻炒到麵吸乾湯汁，倒回炒蛋，撒白胡椒粉與蔥段拌勻。" }
+  ]
+}

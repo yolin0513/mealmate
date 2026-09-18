@@ -46,7 +46,7 @@ export const CAT_TAGS = {
 export const TAG_LABELS = { meat: '肉', seafood: '海鮮', egg: '蛋', dairy: '奶', allium: '五辛', peanut: '花生', gluten: '麩質', sweet: '含精緻糖', processed: '加工肉／醃漬', wholegrain: '全穀雜糧', unresolved: '有食材查不到營養資料' };
 
 /** 加工肉、醃漬品：加工調理食品類裡帶肉／海鮮的，或名稱看得出來的。給「避開加工肉與醃漬」開關用。 */
-const PROCESSED_NAME_RX = /培根|火腿|香腸|臘肉|臘腸|貢丸|魚丸|肉鬆|肉乾|醃|漬|榨菜|酸菜|泡菜|鹹菜|菜脯/;
+const PROCESSED_NAME_RX = /培根|火腿|香腸|臘肉|臘腸|貢丸|魚丸|肉鬆|肉乾|醃|漬|榨菜|酸菜|泡菜|鹹菜|菜脯|蘿蔔乾/; // 蘿蔔乾＝菜脯（食藥署名稱），每 100 g 鈉約 3279 mg
 export function isProcessedFood(food, fTags) {
   if (PROCESSED_NAME_RX.test(food.name)) return true;
   return food.cat === '加工調理食品及其他類' && (fTags.has('meat') || fTags.has('seafood'));

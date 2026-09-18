@@ -26,7 +26,7 @@ async function generate({ mondayIso, prevPlan, newSeed }) {
   await prefs.set('planSeed', seed);
   const { plan, diagnostics } = generateWeek({
     recipes: store.allRecipes(), members: store.members(), idx: store.foodsIndex(), units: store.units(),
-    rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid'), heartyLevel: prefs.get('heartyLevel') },
+    rules: { noRepeatDays: prefs.get('noRepeatDays'), avoid: prefs.get('avoid'), heartyLevel: prefs.get('heartyLevel'), riceKind: prefs.get('riceKind') },
     favorites: store.favoritesList(), history: await store.history(), mondayIso, seed, prevPlan, shoppingDays: prefs.get('shoppingDays') ?? [],
   });
   await store.savePlan({ ...plan, diagnostics });

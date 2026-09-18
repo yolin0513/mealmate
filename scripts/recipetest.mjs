@@ -27,11 +27,11 @@ const s = summarize(recipes);
 // 數量門檻。M5 是 PLAN §8 的 170 道（主菜 80、配菜 50、湯 25）；2026-09-14 使用者要求「多加一些有份量的菜」
 // 補到 217 道（主菜 102、配菜 56、湯 34），門檻跟著墊高，退化會紅。
 // 主菜裡素食成員吃得到的（nativeVeg ＋ splittable）要 ≥ 55 —— 補的多半是葷菜，素食保障不能被稀釋。
-ok(s.count >= 210, `${s.count} 道（≥ 210）`);
+ok(s.count >= 223, `${s.count} 道（≥ 223）`);
 ok((s.roles.main ?? 0) >= 100, `主菜 ${s.roles.main} 道（≥ 100）`);
 ok((s.roles.side ?? 0) >= 55, `配菜 ${s.roles.side} 道（≥ 55）`);
 ok((s.roles.soup ?? 0) >= 33, `湯 ${s.roles.soup} 道（≥ 33）`);
-ok((s.roles.breakfast ?? 0) >= 10, `早餐 ${s.roles.breakfast} 道（≥ 10）`);
+ok((s.roles.breakfast ?? 0) >= 25, `早餐 ${s.roles.breakfast} 道（≥ 25；2026-09-18 補了 6 道有主食的）`);
 ok((s.roles.staple ?? 0) >= 6, `主食 ${s.roles.staple} 道（≥ 6）`);
 ok((s.vegModes.nativeVeg ?? 0) >= 8, `素的 ${s.vegModes.nativeVeg} 道（≥ 8）`);
 ok((s.vegModes.splittable ?? 0) >= 8, `可分流的 ${s.vegModes.splittable} 道（≥ 8）`);
@@ -79,6 +79,33 @@ section('主菜有份量、有變化（使用者回報：不要都只是豆腐�
   everyOf(withButter, (r) => !fitsDiet(r, 'vegan') && !fitsDiet(r, 'veganNoAllium'), '用到奶油的菜，全素的家人都吃不到（素版也不行）',
     withButter.filter((r) => fitsDiet(r, 'vegan')).map((r) => r.name).join('、'));
   everyOf(withButter.filter((r) => r.vegMode !== 'meatOnly'), (r) => fitsDiet(r, 'lactoOvo'), '（對照）蛋奶素的家人照樣吃得到 —— 上面那條不是因為這些菜本來就沒人能吃');
+}
+
+section('有主食、吃得飽的早餐（2026-09-18 第 8 項：水果優格那種吃不飽）');
+{
+  const FILLING = ['r-veg-egg-fried-rice', 'r-cabbage-egg-fried-noodles', 'r-tomato-egg-noodle-soup', 'r-pumpkin-millet-congee', 'r-taro-congee-split', 'r-radish-egg-rice-ball'];
+  const byIdR = new Map(recipes.map((r) => [r.id, r]));
+  const added = FILLING.map((id) => byIdR.get(id));
+  everyOf(FILLING, (id) => byIdR.get(id)?.role === 'breakfast', `新增的 ${FILLING.length} 道都在、而且是早餐`);
+  // 「有主食」：食材裡有穀物類／澱粉類，或麵條（食藥署歸在加工調理類）
+  const isStapleFood = (id) => { const f = idx.byId.get(id); return !!f && (f.cat === '穀物類' || f.cat === '澱粉類' || /麵條|饅頭|吐司/.test(f.name)); };
+  const stapleGrams = (r) => r.ingredients.filter((i) => isStapleFood(i.food)).reduce((a, i) => a + i.grams, 0) / r.servings;
+  everyOf(added, (r) => stapleGrams(r) >= 40, `每一道每人至少 40 克主食類食材（${added.map((r) => `${r.name} ${Math.round(stapleGrams(r))}`).join('、')}）`);
+  everyOf(added, (r) => r.includesStaple === true, '每一道都標了「含主食」');
+  everyOf(added, (r) => r.ingredients.every((i) => idx.byId.has(i.food)), '每個食材都對到食藥署編號');
+  // 食藥署資料本身缺的欄位（小米沒有糖、膽固醇）照規則標「部分未計入」、不寫 0；223 道裡原本就有 35 道這樣。
+  // 這裡守的是畫面預設顯示與最常留意的四欄一定算得出來。
+  everyOf(added, (r) => { const e = estimate(r, idx, { version: r.vegMode === 'splittable' ? 'veg' : 'all' }).perServing; return ['kcal', 'protein', 'carb', 'sodium'].every((k) => e[k] != null); }, '每一道的熱量、蛋白質、醣、鈉都估得出來');
+  ok(added.filter((r) => r.time <= 20).length >= 3, `平日早餐 20 分鐘內做得完的有 ${added.filter((r) => r.time <= 20).length} 道（≥ 3）`);
+  everyOf(added, (r) => r.time <= 40, '全部在週末早餐的 40 分鐘內');
+  eq(byIdR.get('r-radish-egg-rice-ball').tags.includes('processed'), true, '菜脯蛋飯糰標成醃漬（食藥署名稱是「蘿蔔乾」，每 100 克鈉三千多毫克）');
+  ok(added.filter((r) => fitsDiet(r, 'veganNoAllium')).length >= 1, '全素的家人也至少吃得到一道（南瓜小米粥）');
+  ok(added.filter((r) => fitsDiet(r, 'vegan')).length >= 2, '五辛素的家人至少吃得到兩道');
+  const breakfasts = recipes.filter((r) => r.role === 'breakfast');
+  const filling = breakfasts.filter((r) => stapleGrams(r) >= 40);
+  ok(filling.length >= 15, `早餐 ${breakfasts.length} 道裡，每人有 40 克以上主食類的 ${filling.length} 道（≥ 15；補之前 19 道裡只有 9 道）`);
+  const words = ['健康', '降', '控制', '療效', '治療', '建議', '應該'];
+  noneOf(added.flatMap((r) => [r.name, ...r.ingredients.map((i) => i.label), ...r.steps.map((st) => st.text)]), (t) => words.some((w) => t.includes(w)), '名稱、食材、步驟都沒有禁用詞');
 }
 
 section('每個食材都對到食藥署編號');

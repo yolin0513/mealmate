@@ -1,0 +1,28 @@
+{
+  "id": "r-tomato-egg-noodle-soup",
+  "name": "番茄蛋花麵",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 20,
+  "method": "boil",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "alliumOptional": true,
+  "ingredients": [
+    { "food": "乾麵條", "label": "乾麵條（約 4 把）", "grams": 240, "track": "base" },
+    { "food": "番茄", "label": "番茄（2 顆，切塊）", "grams": 300, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋（2 顆）", "grams": 110, "track": "base" },
+    { "food": "青江菜", "label": "青江菜", "grams": 150, "track": "base" },
+    { "food": "油", "label": "油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 4, "track": "base", "pantry": true },
+    { "food": "青蔥", "label": "青蔥（切蔥花，可省略）", "grams": 10, "track": "base" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "番茄切塊；青江菜洗淨切段；蛋打散；蔥切蔥花。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱下油，炒番茄塊到出汁變軟，加 1500 毫升水煮滾。" },
+    { "stage": "base", "type": "cook", "text": "下麵條煮到快熟，放青江菜再煮 1 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "轉小火，蛋液繞圈倒入，等蛋花浮起再攪動，加鹽調味、撒蔥花。" }
+  ]
+}

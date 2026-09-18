@@ -62,7 +62,8 @@ try {
   await goto(page, '#/family/new');
   await titleIs(page, '新增家人');
   await page.type('[data-field="name"]', '姊');
-  await clickEl(page, chipSel('diet', 'veganNoAllium'));
+  await clickEl(page, chipSel('diet', 'veg'));
+  for (const k of ['egg', 'dairy', 'allium']) await clickEl(page, chipSel('vegEats', k)); // 三個勾都取消＝全素
   await clickEl(page, '[data-action="saveMember"]');
   await titleIs(page, '家人');
   await goto(page, '#/');

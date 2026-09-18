@@ -9,18 +9,11 @@ import { setTop, render } from '../shell.js';
 import { navigate } from '../router.js';
 import * as store from '../store.js';
 import {
-  newMember, AGE_GROUPS, AGE_LABELS, DIETS, DIET_LABELS, CONDITIONS, CONDITION_LABELS, CONDITION_HINTS, matchesCondition,
+  newMember, AGE_GROUPS, AGE_LABELS, DIET_LABELS, dietFlags, dietFromFlags, dietSentence, VEG_EATS, VEG_EAT_LABELS, CONDITIONS, CONDITION_LABELS, CONDITION_HINTS, matchesCondition,
   KIDNEY_FIELDS, ALLERGENS, ALLERGEN_LABELS, MEMBER_TEXTURES, APPETITES, APPETITE_LABELS, TARGET_FIELDS,
 } from '../members.js';
 import { TEXTURE_LABELS } from '../recipeschema.js';
 import { NUTRIENT_LABELS } from '../foods.js';
-
-const DIET_HINTS = {
-  omni: '什麼都吃',
-  lactoOvo: '不吃肉與海鮮，吃蛋、奶與蔥蒜',
-  vegan: '不吃肉、海鮮、蛋、奶，吃蔥、蒜、韭、洋蔥等五辛',
-  veganNoAllium: '不吃肉、海鮮、蛋、奶，也不吃蔥、蒜、韭、洋蔥等五辛',
-};
 
 export default async function memberView(id) {
   const isNew = id == null;
@@ -39,8 +32,38 @@ export default async function memberView(id) {
   const nameInput = h('input', { class: 'field', type: 'text', maxLength: 20, value: m.name, placeholder: '例如：阿嬤、爸爸', 'aria-label': '暱稱', dataset: { field: 'name' } });
   nameInput.addEventListener('input', () => { m.name = nameInput.value; });
 
+  // ---- 飲食型態（2026-09-18 Yolin 定案：葷／素，選素再勾吃不吃蛋、奶、五辛；預設三樣都吃）----
+  // 存的仍是一個 diet 字串（members.VEG_DIET_FLAGS），舊的蛋奶素／五辛素／全素三個值原封不動對得上。
+  let lastVegFlags = dietFlags(m.diet) ?? { egg: true, dairy: true, allium: true };
+  const dietNow = h('p', { class: 'muted sm', dataset: { field: 'dietSummary' } });
+  const vegBox = h('div', { class: 'sub-block', dataset: { field: 'vegEats' } });
+  const drawDiet = () => {
+    const veg = m.diet !== 'omni';
+    vegBox.hidden = !veg;
+    dietNow.textContent = `${DIET_LABELS[m.diet]}：${dietSentence(m.diet)}`;
+  };
+  const vegChips = chips({
+    options: VEG_EATS.map((k) => ({ value: k, label: VEG_EAT_LABELS[k] })),
+    value: VEG_EATS.filter((k) => lastVegFlags[k]), multi: true, name: 'vegEats',
+    onChange: (on) => {
+      lastVegFlags = Object.fromEntries(VEG_EATS.map((k) => [k, on.includes(k)]));
+      m.diet = dietFromFlags(lastVegFlags);
+      drawDiet();
+    },
+  });
+  vegBox.append(h('p', { class: 'muted xs' }, '素食都不吃肉與海鮮。下面三樣照這位家人的習慣勾；五辛是蔥、蒜、韭、洋蔥、蕎頭。'), vegChips);
+  const dietBox = h('div', {},
+    chips({
+      options: [{ value: 'omni', label: '葷' }, { value: 'veg', label: '素' }],
+      value: m.diet === 'omni' ? 'omni' : 'veg', name: 'diet',
+      onChange: (v) => { m.diet = v === 'omni' ? 'omni' : dietFromFlags(lastVegFlags); drawDiet(); },
+    }),
+    vegBox, dietNow,
+  );
+  drawDiet();
+
   // ---- 留意項目 ----
-  const kidneySub = h('div', { class: 'sub-block', hidden: !m.conditions.includes('kidney') },
+  const kidneySub = h('div', { class: 'sub-block', dataset: { field: 'kidneySub' }, hidden: !m.conditions.includes('kidney') },
     h('p', { class: 'muted sm' }, '只勾醫師或營養師要你留意的項目；沒勾的不會顯示、也不影響排菜。'),
     chips({
       options: KIDNEY_FIELDS.map((k) => ({ value: k, label: NUTRIENT_LABELS[k] })),
@@ -130,7 +153,7 @@ export default async function memberView(id) {
       h('p', { class: 'field-label' }, '年齡層'),
       chips({ options: AGE_GROUPS.map((v) => ({ value: v, label: AGE_LABELS[v] })), value: m.ageGroup, name: 'ageGroup', onChange: (v) => { m.ageGroup = v; } }),
       h('p', { class: 'field-label' }, '飲食型態'),
-      chips({ options: DIETS.map((v) => ({ value: v, label: DIET_LABELS[v], hint: DIET_HINTS[v] })), value: m.diet, name: 'diet', onChange: (v) => { m.diet = v; } }),
+      dietBox,
       h('p', { class: 'field-label' }, '牙口／質地'),
       chips({ options: MEMBER_TEXTURES.map((v) => ({ value: v, label: TEXTURE_LABELS[v] })), value: m.texture, name: 'texture', onChange: (v) => { m.texture = v; } }),
       h('p', { class: 'field-label' }, '食量'),

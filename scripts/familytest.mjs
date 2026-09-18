@@ -28,11 +28,29 @@ try {
   ok(formText.includes('不會自己建議目標'), '文案說 App 不會自己建議目標');
 
   await page.type('[data-field="name"]', '阿嬤');
-  await clickEl(page, chipSel('diet', 'lactoOvo'));
+  // 2026-09-18 第 5 項：飲食型態改成「葷／素」＋素的三個勾（蛋、奶、五辛），預設全開。
+  const vegShown = () => page.$eval('[data-field="vegEats"]', (el) => getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0);
+  const vegOn = () => page.$$eval('[data-chips="vegEats"] .chip.on', (els) => els.map((e) => e.dataset.value));
+  const dietNow = () => textOf(page, '[data-field="dietSummary"]');
+  eq(await vegShown(), false, '新家人預設葷：三個勾看不到');
+  ok((await dietNow()).startsWith('葷'), `摘要寫葷：${await dietNow()}`);
+  await clickEl(page, chipSel('diet', 'veg')); // 選「素」，三個勾預設全開＝蛋奶素
+  eq(await vegShown(), true, '選「素」→ 出現蛋、奶、五辛三個勾');
+  eq(await vegOn(), ['egg', 'dairy', 'allium'], '三個勾預設全開');
+  ok((await dietNow()).startsWith('蛋奶素：'), `摘要即時變成蛋奶素：${await dietNow()}`);
+  await clickEl(page, chipSel('vegEats', 'egg'));
+  ok((await dietNow()).startsWith('奶素：') && (await dietNow()).includes('不吃肉、海鮮、蛋'), `取消「吃蛋」→ 奶素，而且講出不吃蛋：${await dietNow()}`);
+  await clickEl(page, chipSel('diet', 'omni'));
+  eq(await vegShown(), false, '改回葷 → 三個勾收起來');
+  await clickEl(page, chipSel('diet', 'veg'));
+  eq(await vegOn(), ['dairy', 'allium'], '再選素 → 剛才的勾還在（不會被重設）');
+  ok((await dietNow()).startsWith('奶素：'), `而且存的值跟勾一致，還是奶素（不是偷偷變回蛋奶素）：${await dietNow()}`);
+  await clickEl(page, chipSel('vegEats', 'egg'));
+  eq(await vegOn(), ['egg', 'dairy', 'allium'], '勾回吃蛋');
   await clickEl(page, chipSel('ageGroup', 'senior'));
   // 要驗「真的看不到」，不是只驗 hidden 屬性：display:flex 的 class 會蓋掉 hidden（截圖走查抓到過）。
   const shownBox = (sel) => page.$eval(sel, (el) => { const cs = getComputedStyle(el); return cs.display !== 'none' && el.getBoundingClientRect().height > 0; });
-  eq(await shownBox('.sub-block'), false, '腎臟病還沒開之前，子項（鈉／鉀／磷／蛋白質）是看不到的');
+  eq(await shownBox('[data-field="kidneySub"]'), false, '腎臟病還沒開之前，子項（鈉／鉀／磷／蛋白質）是看不到的');
   eq(await shownBox('.err-box'), false, '沒有錯誤時，錯誤框看不到（不是一條空的紅框）');
   // 2026-09-16：慢性病改成搜尋式挑選（清單 10 項，一排開關會把整頁塞滿），選過的用 tag 呈現。
   const hits = () => page.$$eval('[data-list="condResults"] [data-cond]', (els) => els.map((e) => e.dataset.cond));
@@ -49,7 +67,7 @@ try {
   eq(await tags(), ['kidney'], '點一下 → 變成 tag');
   eq(await page.$eval('[data-field="condSearch"]', (el) => el.value), '', '選完把搜尋的字清掉');
   ok(!(await hits()).includes('kidney'), '選過的不會再出現在結果清單裡');
-  eq(await shownBox('.sub-block'), true, '開腎臟病後出現子項（鈉／鉀／磷／蛋白質）');
+  eq(await shownBox('[data-field="kidneySub"]'), true, '開腎臟病後出現子項（鈉／鉀／磷／蛋白質）');
   const subChecked = await page.$$eval(chipSel('kidneyWatch', 'potassium').replace(' .chip[data-value="potassium"]', ' .chip.on'), (els) => els.length);
   eq(subChecked, 0, '子項預設全不勾');
   await clickEl(page, '[data-action="saveMember"]');
@@ -200,6 +218,42 @@ try {
     await page.waitForSelector('[data-chips="heartyLevel"] .chip.on');
     eq(await page.$eval('[data-chips="heartyLevel"] .chip.on', (el) => el.dataset.value), 'low', '重新載入後還是「少」');
     await clickEl(page, chipSel('heartyLevel', 'medium'));
+    await sleep(300);
+  }
+
+  section('主食的米（2026-09-18 第 9 項）：白米／糙米／五穀米，預設白米，說明中性，真的影響排菜');
+  {
+    await page.waitForSelector('[data-chips="riceKind"] .chip');
+    eq(await page.$$eval('[data-chips="riceKind"] .chip', (els) => els.map((e) => e.textContent.trim())), ['白米', '糙米', '五穀米'], '三種：白米、糙米、五穀米');
+    eq(await page.$eval('[data-chips="riceKind"] .chip.on', (el) => el.dataset.value), 'white', '預設白米（家裡有人留意醣也一樣，不自動換）');
+    const hint = await textOf(page, '[data-field="riceHint"]');
+    ok(hint.includes('麵條照常'), `說明講了麵條照常：「${hint}」`);
+    noneOf(['健康', '降', '控制', '療效', '治療', '建議', '應該', '比較好', '血糖'], (w) => hint.includes(w), '說明是中性的（沒有哪一種米比較好的字眼）');
+    await clickEl(page, chipSel('riceKind', 'brown'));
+    await sleep(300);
+    eq(await page.evaluate(async () => (await import('./js/prefs.js')).get('riceKind')), 'brown', '點「糙米」→ prefs 記成 brown');
+    // 真實呼叫路徑：本週頁按「重新產生」，排出來的飯類主食要全是糙米飯
+    await goto(page, '#/');
+    await titleIs(page, '本週菜單');
+    await page.waitForSelector('[data-action="generate"], [data-action="regenerate"]');
+    await clickEl(page, (await page.$('[data-action="generate"]')) ? '[data-action="generate"]' : '[data-action="regenerate"]');
+    await sleep(1500);
+    await page.waitForSelector('[data-card="weekHead"]');
+    const staplesRun = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const byId = new Map(store.allRecipes().map((r) => [r.id, r]));
+      return { used: plan.diagnostics?.rules?.riceKind, names: plan.slots.flatMap((s) => (s.items ?? []).filter((it) => it.role === 'staple').map((it) => byId.get(it.recipeId)?.name)) };
+    });
+    eq(staplesRun.used, 'brown', '這週真的是用「糙米」排的（排菜器記下的設定）');
+    const staples = staplesRun.names;
+    ok(staples.length >= 10, `（母體）這週排了 ${staples.length} 個主食`);
+    everyOf(staples, (n) => n === '糙米飯' || n === '白麵條', `設糙米之後，主食只有糙米飯（或麵條）：${[...new Set(staples)].join('、')}`);
+    ok(staples.includes('糙米飯'), '而且真的排到糙米飯');
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    await clickEl(page, chipSel('riceKind', 'white'));
     await sleep(300);
   }
 

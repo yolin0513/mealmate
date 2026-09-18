@@ -9,7 +9,7 @@ import { eduNode } from '../edu.js';
 import { APP_VERSION } from '../version.js';
 import { AGE_LABELS, DIET_LABELS, CONDITION_LABELS, ALLERGEN_LABELS, APPETITE_LABELS, watchFields } from '../members.js';
 import { TEXTURE_LABELS } from '../recipeschema.js';
-import { HEARTY_LEVELS, HEARTY_LEVEL_LABELS, HEARTY_HINT, BALANCE_NOTE } from '../planner.js';
+import { HEARTY_LEVELS, HEARTY_LEVEL_LABELS, HEARTY_HINT, BALANCE_NOTE, RICE_KINDS, RICE_KIND_LABELS, RICE_KIND_HINT } from '../planner.js';
 import { NUTRIENT_LABELS } from '../foods.js';
 import { exportBundle, bundleFilename, validateImport, bundleCounts, applyImport } from '../backup.js';
 import { noticeCard } from './welcome.js';
@@ -112,6 +112,16 @@ export default async function familyView() {
         options: Object.entries(HEARTY_LEVELS).map(([k, n]) => ({ value: k, label: `${HEARTY_LEVEL_LABELS[k]}（一週 ${n} 道）` })),
         value: prefs.get('heartyLevel') ?? 'medium', name: 'heartyLevel',
         onChange: async (v) => { await prefs.set('heartyLevel', v); refresh(); },
+      }),
+    ),
+    // 主食的米（2026-09-18 第 9 項）：說明只講「排什麼」，不講哪一種比較好 —— 換不換米是家裡的決定。
+    h('h3', { class: 'sub-title' }, '主食的米'),
+    h('p', { class: 'muted sm', dataset: { field: 'riceHint' } }, RICE_KIND_HINT),
+    h('div', { class: 'row-actions', dataset: { field: 'riceKindRow' } },
+      chips({
+        options: RICE_KINDS.map((k) => ({ value: k, label: RICE_KIND_LABELS[k] })),
+        value: prefs.get('riceKind') ?? 'white', name: 'riceKind',
+        onChange: async (v) => { await prefs.set('riceKind', v); refresh(); },
       }),
     ),
     h('p', { class: 'muted xs' }, '改了之後下次「產生」或「重新產生」才會生效。'),
