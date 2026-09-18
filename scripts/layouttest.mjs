@@ -14,6 +14,7 @@
 // 樣本裡放最長的名字與最多的標籤 —— 短名字照不出使用者真正會看到的那一版。
 
 import puppeteer from 'puppeteer';
+import { pinToday } from './browserlib.mjs';
 import { ok, eq, section, done, noneOf, everyOf, note } from './tap.mjs';
 import { listen } from './serve.mjs';
 
@@ -30,6 +31,7 @@ try {
   const pageErrors = [];
   page.on('pageerror', (e) => pageErrors.push(String(e.message)));
   await page.setViewport({ width: 390, height: 844 });
+  await pinToday(page); // 今天固定在本週一：七張日卡都在（今天之前的日子不列出來）
   await page.goto(`http://localhost:${port}/`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('[data-action="acceptDisclaimer"]');
   await page.click('[data-action="acceptDisclaimer"]');
@@ -518,7 +520,7 @@ try {
         const t = c.querySelector('.modal-title');
         const tr = t.getBoundingClientRect();
         const tPad = parseFloat(getComputedStyle(t).paddingRight);
-        const btns = [...c.querySelectorAll('.modal-actions .btn')].map((b) => { const r = b.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), right: r.right, left: r.left }; });
+        const btns = [...c.querySelectorAll('.modal-actions .btn')].map((b) => { const r = b.getBoundingClientRect(); return { label: b.textContent.trim(), w: Math.round(r.width), h: Math.round(r.height), right: r.right, left: r.left, top: r.top }; });
         const name = c.querySelector('.menu-name')?.getBoundingClientRect();
         const open = c.querySelector('.menu-open')?.getBoundingClientRect();
         const inside = [...c.querySelectorAll('*')].every((e) => { const r = e.getBoundingClientRect(); return r.width === 0 || (r.right <= cr.right + 1 && r.left >= cr.left - 1); });
@@ -528,7 +530,9 @@ try {
           xInside: x.right <= cr.right + 1 && x.top >= cr.top - 1,
           titleClearOfX: (tr.right - tPad) <= x.left + 1,
           btns,
-          sameWidth: Math.max(...btns.map((b) => b.w)) - Math.min(...btns.map((b) => b.w)) <= 2,
+          // 2026-09-18 Yolin：上排「鎖定｜拿掉」兩顆等寬並排，下排「我來指定…」滿寬＝上排左緣到右緣（含中間間距）
+          topPair: btns.length === 3 && Math.abs(btns[0].top - btns[1].top) <= 1 && Math.abs(btns[0].w - btns[1].w) <= 2,
+          wideSpan: btns.length === 3 && btns[2].top > btns[0].top + 1 && Math.abs(btns[2].left - btns[0].left) <= 1.5 && Math.abs(btns[2].right - btns[1].right) <= 1.5,
           minBtnH: Math.min(...btns.map((b) => b.h)),
           openSameRow: name && open ? Math.abs(name.top - open.top) < Math.max(name.height, open.height) : false,
           hasEst: /估|中位數/.test(c.querySelector('.modal-body').textContent),
@@ -631,8 +635,9 @@ try {
     everyOf(menuCards, (p) => p.cardInDoc && p.docScrollW <= p.docW + 1, '卡片在畫面裡，沒有橫向捲動');
     everyOf(menuCards, (p) => p.allInside, '卡片裡的每一個元素都沒有超出卡片邊緣', menuCards.filter((p) => !p.allInside).map(mw).join(' ／ '));
     everyOf(menuCards, (p) => p.xInside && p.titleClearOfX, '關閉的 ✕ 在卡片右上角，而且不壓到標題文字', menuCards.filter((p) => !(p.xInside && p.titleClearOfX)).map(mw).join(' ／ '));
-    everyOf(menuCards, (p) => p.btns.length === 3, '下方剛好三顆按鈕（鎖定、我來指定、拿掉）');
-    everyOf(menuCards, (p) => p.sameWidth, `三顆按鈕等寬（差 ≤ 2px）`, menuCards.filter((p) => !p.sameWidth).map((p) => `${mw(p)} ${p.btns.map((b) => b.w).join('/')}`).join(' ／ '));
+    everyOf(menuCards, (p) => p.btns.map((b) => b.label).join('|') === '鎖定這道|拿掉這道|我來指定…', '順序：上排鎖定、拿掉，下排我來指定', menuCards.map((p) => p.btns.map((b) => b.label).join('|')).join(' ／ '));
+    everyOf(menuCards, (p) => p.topPair, '上排兩顆同一行、等寬（差 ≤ 2px）', menuCards.filter((p) => !p.topPair).map((p) => `${mw(p)} ${p.btns.map((b) => `${b.w}@${Math.round(b.top)}`).join('/')}`).join(' ／ '));
+    everyOf(menuCards, (p) => p.wideSpan, '下排「我來指定…」單獨一行、左右緣對齊上排兩顆的外緣（寬＝兩顆＋間距）', menuCards.filter((p) => !p.wideSpan).map((p) => `${mw(p)} ${p.btns.map((b) => `${Math.round(b.left)}-${Math.round(b.right)}`).join('/')}`).join(' ／ '));
     everyOf(menuCards, (p) => p.minBtnH >= 44, `每一顆都按得到（最小 ${Math.min(...menuCards.map((p) => p.minBtnH))}px）`);
     everyOf(menuCards, (p) => p.openSameRow, '「看食譜」跟菜名同一行', menuCards.filter((p) => !p.openSameRow).map(mw).join(' ／ '));
     noneOf(menuCards, (p) => p.hasEst, '卡上沒有任何估算數字（每一種字級與寬度都一樣）');

@@ -46,12 +46,13 @@
 | 九項調整第一批：菜色選項卡重做、移「換一道」、篩選收進「更多選項」、「我來指定」放寬並說明、過去的日子收合／清單只算今天以後 | ✅ 完成（2026-09-18） | `mealmate-v0.28.0` |
 | 九項調整第二批：素食改成「素＋蛋／奶／五辛三個勾」、主食的米（白米／糙米／五穀米）、6 道有主食的早餐 | ✅ 完成（2026-09-18） | `mealmate-v0.29.0` |
 | 九項調整第三批：找食材只列簡名、改選食材名稱跟著換、用顆／把／大匙填 | ✅ 完成（2026-09-18） | `mealmate-v0.30.0` |
+| 再提五項第一批：看食譜時彈窗一併關、菜色選項按鈕重排、本週頁不列已過的日子 | ✅ 完成（2026-09-18） | `mealmate-v0.31.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
 Node 端：datatest 64、aliastest 26、unittest 69、edutest 13、copytest 7、recipetest 134、membertest 127、nutritiontest 149、plannertest 354、shoppingtest 140、timelinetest 71、doctest 125；
-瀏覽器端（puppeteer）：shelltest 161、familytest 84、recipeviewtest 124、backuptest 30、weekviewtest 186、shoppingviewtest 147、todaytest 41、racetest 16、versionmixtest 66、layouttest 110（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
+瀏覽器端（puppeteer）：shelltest 161、familytest 84、recipeviewtest 124、backuptest 30、weekviewtest 186、shoppingviewtest 147、todaytest 41、racetest 16、versionmixtest 66、layouttest 111（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **316 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
+`mutationtest` 共 **320 條**，2026-09-13 全套跑過一次**全綠**（檢測後的六項修正各自帶著突變，另修好 2 條因重構而過期的）。平常只跑受影響的（慣例 15）；完整套件約 20 分鐘。
 
 食譜現況：**223 道**（主菜 102、配菜 56、湯 34、早餐 25、主食 6）。
 
@@ -78,6 +79,25 @@ Node 端：datatest 64、aliastest 26、unittest 69、edutest 13、copytest 7、
 5. **完整突變套件**：105 條全跑一次**全綠**（24 個基準先過，再逐條改壞、確認會紅、還原）。
 
 檢測期間**沒有動任何產品程式碼**（js／css／data 零改動），改的都是測試與工具。
+
+### 再提五項第一批（2026-09-18，v0.31.0）：第 1、2 項與第 3 項的本週頁
+
+**1. 點「看食譜」導到食譜頁，彈窗還蓋在上面 —— 是 bug。** 對話框掛在 `#modalRoot`，不跟著頁面重畫；「看食譜」是一般連結，沒有人去關它。
+修在共用的 `ui.modal`：網址一換頁（`hashchange`）就關。點連結、按上一頁、點底下分頁都走這條，以後任何彈窗裡放連結都不會再卡住。
+weekviewtest 點真的連結，驗食譜頁畫出來、彈窗數是 0；按上一頁回來也沒有舊彈窗。
+
+**2. 菜色選項按鈕重排。** 上排「鎖定這道／解除鎖定｜拿掉這道」兩顆並排，下排「我來指定…」單獨一排、滿寬。
+`.modal-actions-grid` 改成固定兩欄（原本 `auto-fit` 在寬螢幕會把三顆擠成一排），`ui.modal` 的 action 多一個 `wide` 撐滿整排。
+layouttest 在 3 種字級 × 3 種寬度量：順序、上排兩顆同一行且等寬、下排左右緣對齊上排兩顆的外緣（寬＝兩顆＋間距）。
+
+**3（本週頁）. 今天之前的日子不列出來。** v0.28.0 做的是「收起來、標已過」，Yolin 確認之後改成拿掉，頁面上一行字講「這週已過的 N 天不列出來」。
+存著的計畫不動（「幾天內不重複」照樣看得到那幾天）。桌機的欄數跟著列出的天數走（`--days`），週五打開是三欄、不是七欄留四欄空白。
+購物清單那一半有一個例外要 Yolin 決定（見當次回報），這版沒動。
+· 連帶：**瀏覽器測試的「今天」一律固定在本週一 10:00**（`browserlib.pinToday`，`openApp` 預設開）。拿掉已過日子之後，寫死點「週一那張卡」的測試會隨跑的那天是星期幾時好時壞（慣例 19）。
+時間照真的往前走，只有日期固定；要測「已過」的段落自己開分頁設週四。
+· 兩條舊突變刪除：「過去的日子不再預設收起來」「手動展開過去的日子不被記住」—— 已過的日子不列了，前者守的行為不存在；後者變成等價突變（列出來的日子預設就是展開）。
+
+測試：weekviewtest 186（已過段落改寫，數量不變）、layouttest 110→**111**。突變 316→**320**：新增 6 條、刪除 2 條，另 2 條更新 find。
 
 ### 九項調整第三批（2026-09-18，v0.30.0）：第 6 項
 

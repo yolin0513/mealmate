@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf } from './tap.mjs';
-import { openApp, acceptWelcome, goto, titleIs, textOf, sleep, clickEl } from './browserlib.mjs';
+import { TEST_MONDAY, openApp, acceptWelcome, goto, titleIs, textOf, sleep, clickEl } from './browserlib.mjs';
 import { indexFoods } from '../js/foods.js';
 import { buildShoppingList, rangesOfPlan, orderRangesForToday, quantityText } from '../js/shopping.js';
 import { mondayOf, isoDate, addDays } from '../js/planner.js';
@@ -49,7 +49,7 @@ try {
   });
   ok(plan && plan.slots.length === 21, '（前提）計畫存在');
   // 2026-09-18 起畫面只算今天（含）以後的餐（fromDate），Node 端要算一樣的東西才比得出來
-  const todayIso0 = isoDate(new Date());
+  const todayIso0 = TEST_MONDAY; // 頁面的「今天」固定在本週一（browserlib.openApp），Node 端用同一天
   const expected = buildShoppingList({ plan, recipesById: byId, members, idx, units, shoppingDays: [1, 4], fromDate: todayIso0 });
   const expectedRanges = rangesOfPlan(plan, [1, 4]);
   await goto(page, '#/shopping');
@@ -58,7 +58,7 @@ try {
   const rangeKeys = await page.$$eval('[data-card="shopRange"]', (els) => els.map((e) => e.dataset.range));
   // 2026-09-17：順序改成「還有餐要煮的排前面，整個過去的排後面」（見 shopping.orderRangesForToday）。
   // 這條原本比的是 rangesOfPlan 的時間順序，現在比的是畫面真正該有的順序 —— 語意換掉，不是刪掉。
-  const todayIso = isoDate(new Date());
+  const todayIso = TEST_MONDAY;
   eq(rangeKeys, orderRangesForToday(expectedRanges, todayIso).map((r) => r.key), `區間與順序跟 Node 端算的一樣：${rangeKeys.join('、')}`);
   eq([...rangeKeys].sort(), expectedRanges.map((r) => r.key).sort(), '而且一張清單都沒有少（只是換順序）');
   ok(rangeKeys.length >= 2, `（母體）${rangeKeys.length} 個區間`);

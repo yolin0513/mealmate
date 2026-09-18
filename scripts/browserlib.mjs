@@ -2,14 +2,34 @@
 
 import puppeteer from 'puppeteer';
 import { listen } from './serve.mjs';
+import { mondayOf, isoDate } from '../js/planner.js';
 
-export async function openApp({ width = 390, height = 844 } = {}) {
+/**
+ * 把這個分頁的「今天」固定住（慣例 19：測試不依賴跑的那天是星期幾）。
+ * 2026-09-18 起本週頁不列今天之前的日子 —— 週五跑測試就只剩三張日卡，寫死點「週一」的測試會隨星期幾時好時壞。
+ * 所有瀏覽器測試預設把今天放在**本週一 10:00**（週計畫的週次不變，七天都在）；要測「已過」的段落自己另開分頁設別天。
+ */
+export const TEST_MONDAY = mondayOf(isoDate(new Date()));
+export async function pinToday(page, iso = TEST_MONDAY, time = '10:00:00') {
+  // 起點固定、之後照真的時間往前走（Date.now() 若凍住，量時間差的程式會以為永遠過了 0 毫秒）
+  await page.evaluateOnNewDocument((start) => {
+    const Real = Date;
+    const t0 = Real.now();
+    const now = () => start + (Real.now() - t0);
+    const Fake = function Fake(...a) { return a.length ? new Real(...a) : new Real(now()); };
+    Fake.now = now; Fake.parse = Real.parse; Fake.UTC = Real.UTC; Fake.prototype = Real.prototype;
+    window.Date = Fake;
+  }, new Date(`${iso}T${time}`).getTime());
+}
+
+export async function openApp({ width = 390, height = 844, today = TEST_MONDAY } = {}) {
   const { srv, port } = await listen(0);
   const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
   const page = await browser.newPage();
   page.setDefaultTimeout(60000);
   page.setDefaultNavigationTimeout(60000);
   await page.setViewport({ width, height });
+  if (today) await pinToday(page, today);
   const pageErrors = [];
   page.on('pageerror', (e) => pageErrors.push(String(e.message)));
   await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle0' });

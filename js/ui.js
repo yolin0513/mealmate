@@ -52,7 +52,10 @@ export function toast(msg, ms = 2400) {
 export function modal({ title, body, actions, closeX = false, bind = null, actionsClass = '' }) {
   const root = document.getElementById('modalRoot');
   return new Promise((resolve) => {
-    const close = (val) => { overlay.remove(); document.removeEventListener('keydown', onKey); resolve(val); };
+    // 換頁就關：對話框掛在 #modalRoot，不跟著頁面重畫。以前點卡片裡的「看食譜」連結，食譜頁畫出來了、彈窗還蓋在上面（2026-09-18 回報）。
+    // 按上一頁、點任何連結都一樣走這裡。
+    const close = (val) => { overlay.remove(); document.removeEventListener('keydown', onKey); window.removeEventListener('hashchange', onNav); resolve(val); };
+    const onNav = () => close(null);
     if (typeof bind === 'function') bind(close);
     const onKey = (e) => { if (e.key === 'Escape') close(null); };
     const card = h('div', { class: 'modal-card', role: 'dialog', 'aria-modal': 'true' },
@@ -62,7 +65,7 @@ export function modal({ title, body, actions, closeX = false, bind = null, actio
       h('div', { class: 'modal-actions' + (actionsClass ? ` ${actionsClass}` : '') },
         ...(actions || [{ label: '好', value: true, primary: true }]).map((a) =>
           h('button', {
-            class: 'btn' + (a.primary ? ' btn-primary' : '') + (a.danger ? ' btn-danger' : ''),
+            class: 'btn' + (a.primary ? ' btn-primary' : '') + (a.danger ? ' btn-danger' : '') + (a.wide ? ' btn-wide' : ''),
             onclick: () => close(a.value),
           }, a.label)
         )
@@ -71,6 +74,7 @@ export function modal({ title, body, actions, closeX = false, bind = null, actio
     const overlay = h('div', { class: 'modal-overlay', onclick: (e) => { if (e.target === overlay) close(null); } }, card);
     root.append(overlay);
     document.addEventListener('keydown', onKey);
+    window.addEventListener('hashchange', onNav);
     const focusable = card.querySelector('input, textarea, button.btn-primary, button');
     if (focusable) setTimeout(() => focusable.focus(), 30);
   });

@@ -45,12 +45,13 @@ export default async function weekView(query = {}) {
   const plan = await store.getPlan(weekKey);
   const wants = store.wantThisWeekIds();
   const shoppingDays = prefs.get('shoppingDays') ?? [];
-  // 每一天收不收：手動設過的照手動；沒設過的 —— **今天之前的收起來（已過）、其餘展開**。
-  // 使用者 2026-09-18：「今天已經週四，就不要再攤開週一到週三」。收起來不是拿掉：點一下仍看得到那天煮了什麼。
+  // 今天之前的日子**不列出來**（2026-09-18 Yolin：已過的直接不要列）。v0.28.0 先做的是「收起來、標已過」，
+  // 再問一次之後定案拿掉：那幾天的菜早就煮完，留著只是往下滑的距離。排菜的「幾天內不重複」看的是存著的計畫，不受影響。
+  // 其餘每一天收不收：手動設過的照手動，沒設過的展開。
   const todayIso = isoDate(new Date());
   const folds = prefs.dayFoldsFor(weekKey);
   const isPastDay = (date) => date < todayIso;
-  const dayIsOpen = (day, date) => (folds[day] ? folds[day] === 'open' : !isPastDay(date));
+  const dayIsOpen = (day) => (folds[day] ? folds[day] === 'open' : true);
 
   const weekChips = chips({
     options: [{ value: 'this', label: '本週' }, { value: 'next', label: '下週' }], value: offset ? 'next' : 'this', name: 'week',
@@ -133,7 +134,9 @@ export default async function weekView(query = {}) {
   const watch = familyWatchFields(members);
   const units = idx?.units ?? {};
 
-  const dayCards = dates.map((date, day) => {
+  const shownDays = dates.map((date, day) => ({ date, day })).filter(({ date }) => !isPastDay(date));
+  const hiddenPast = dates.length - shownDays.length;
+  const dayCards = shownDays.map(({ date, day }) => {
     const daySlots = plan.slots.filter((s) => s.day === day);
     const isShop = shoppingDays.includes(parseDate(date).getDay());
     const mealBlocks = MEALS.map((meal) => {
@@ -142,8 +145,7 @@ export default async function weekView(query = {}) {
       return mealBlock({ slot, slotIndex, plan, mondayIso, recipesById, members });
     });
     const anyCook = daySlots.some((s) => s.kind === 'cook' && s.items.length);
-    const isOpen = dayIsOpen(day, date);
-    const past = isPastDay(date);
+    const isOpen = dayIsOpen(day);
     const isToday = date === todayIso;
     // 收起來的內容用 hidden：它會真的從版面消失（CSS 有 [hidden]{display:none!important}），
     // 螢幕閱讀器也讀不到。只把高度壓成 0 或改個顏色的話，讀螢幕的人還是會念到整天的菜。
@@ -161,10 +163,9 @@ export default async function weekView(query = {}) {
       'aria-controls': `dayBody-${day}`, dataset: { action: 'toggleDay', day: String(day) },
     }, caret, h('span', { class: 'card-title' }, `週${DAY_LABELS[day]} ${fmtMD(date)}`),
     isToday ? pill('今天', 'accent') : null,
-    past ? pill('已過') : null,
     isShop ? pill('買菜日', 'green') : null, summary);
     body.id = `dayBody-${day}`;
-    const card = h('section', { class: 'card day-card' + (isOpen ? '' : ' collapsed'), dataset: { card: 'day', day: String(day), open: isOpen ? 'true' : 'false', past: past ? 'true' : 'false', today: isToday ? 'true' : 'false' } },
+    const card = h('section', { class: 'card day-card' + (isOpen ? '' : ' collapsed'), dataset: { card: 'day', day: String(day), open: isOpen ? 'true' : 'false', today: isToday ? 'true' : 'false' } },
       h('div', { class: 'day-head' }, toggle,
         anyCook ? h('a', { class: 'btn btn-sm no-print', href: `#/today?d=${date}`, dataset: { action: 'cookToday', day: String(day) } }, '一起煮 ›') : null),
       body,
@@ -182,7 +183,10 @@ export default async function weekView(query = {}) {
     return card;
   });
 
-  render(head, wantCard, diagCard, balanceCard, h('div', { class: 'week-grid' }, ...dayCards), noticeFooter());
+  const pastNote = hiddenPast ? h('p', { class: 'muted xs', dataset: { field: 'pastNote' } }, `這週已過的 ${hiddenPast} 天不列出來。`) : null;
+  // 桌機的欄數跟著實際列出的天數走（週五打開只剩三欄，不要留四欄空白）
+  const grid = h('div', { class: 'week-grid', style: `--days:${Math.max(1, dayCards.length)}` }, ...dayCards);
+  render(head, wantCard, diagCard, balanceCard, pastNote, grid, noticeFooter());
 }
 
 const RELAX_LABELS = {
@@ -348,10 +352,10 @@ function itemMenuBtn({ slot, slotIndex, pos, role, item, plan, mondayIso, recipe
     );
     const choice = await modal({
       title: `${MEAL_LABELS[slot.meal]} · ${ROLE_LABELS[role]}`, body, closeX: true, actionsClass: 'modal-actions-grid',
+      // 2026-09-18 Yolin：上排「鎖定／解除鎖定｜拿掉這道」並排，下排「我來指定…」單獨一排、滿寬（左右對稱）
       actions: [
-        ...(item ? [{ label: item.locked ? '解除鎖定' : '鎖定這道', value: 'lock' }] : []),
-        { label: '我來指定…', value: 'assign' },
-        ...(item ? [{ label: '拿掉這道', value: 'remove', danger: true }] : []),
+        ...(item ? [{ label: item.locked ? '解除鎖定' : '鎖定這道', value: 'lock' }, { label: '拿掉這道', value: 'remove', danger: true }] : []),
+        { label: '我來指定…', value: 'assign', wide: true },
       ],
     });
     if (!choice) return;

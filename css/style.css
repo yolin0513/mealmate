@@ -398,7 +398,9 @@ a.row { color: inherit; text-decoration: none; }
 .modal-title { margin: 0; font-size: 1.1em; padding-right: 44px; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
 /* 菜色選項那類「三顆並排」的按鈕列：等寬格子，放不下就整齊地換成兩列或三列，不會有一顆孤單地掉在下面 */
-.modal-actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.modal-actions-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+/* 滿寬的那一顆（我來指定…）：寬度＝上排兩顆＋中間間距 */
+.modal-actions-grid > .btn-wide { grid-column: 1 / -1; }
 .modal-actions-grid > .btn { min-width: 0; padding-left: 8px; padding-right: 8px; white-space: nowrap; }
 .modal-x { position: absolute; top: 8px; right: 8px; min-width: 44px; min-height: 44px; border: 0; background: transparent; font-size: 1.2em; cursor: pointer; }
 /* 菜色選項卡：菜名與「看食譜」同一行；資訊一行；理由收在 details 裡 */
@@ -717,7 +719,7 @@ details.how > summary { cursor: pointer; font-weight: 600; min-height: 44px; dis
 }
 @media (min-width: 1100px) {
   #view { max-width: 1400px; }
-  .week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: start; }
+  .week-grid { display: grid; grid-template-columns: repeat(var(--days, 7), minmax(0, 1fr)); align-items: start; }
   .day-card .nutri-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 420px) {

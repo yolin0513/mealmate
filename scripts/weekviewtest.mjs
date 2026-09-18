@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, note } from './tap.mjs';
-import { openApp, acceptWelcome, goto, titleIs, textOf, sleep, clickEl, waitToastGone } from './browserlib.mjs';
+import { pinToday, openApp, acceptWelcome, goto, titleIs, textOf, sleep, clickEl, waitToastGone } from './browserlib.mjs';
 import { versionFor } from '../js/members.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -120,9 +120,24 @@ try {
     ok(card.openSameRow, '「看食譜」跟菜名同一行');
     ok(/約 \d+ 分鐘/.test(card.meta), `資訊列有時間：「${card.meta}」`);
     ok(/姊（全素）/.test(card.meta), '資訊列講出姊吃得了或吃不了');
-    eq(card.actions, ['鎖定這道', '我來指定…', '拿掉這道'], '下方剛好三顆：鎖定、指定、拿掉（「換一道」已移除）');
-    await page.evaluate(() => document.querySelector('.modal-x').click());
-    await sleep(200);
+    eq(card.actions, ['鎖定這道', '拿掉這道', '我來指定…'], '下方剛好三顆：上排鎖定、拿掉，下排我來指定（「換一道」已移除）');
+    // 2026-09-18 回報：點「看食譜」導到食譜頁，彈窗卻還蓋在上面。點真的連結（不是改 hash），看彈窗有沒有關、食譜頁有沒有畫出來。
+    await clickEl(page, '.modal-card [data-action="openRecipe"]');
+    await page.waitForFunction((id) => location.hash === `#/recipes/${id}`, {}, card.itemId);
+    await page.waitForSelector('[data-card="recipeNutrition"]');
+    await sleep(150);
+    eq(await page.$$eval('#modalRoot .modal-overlay', (els) => els.length), 0, '點「看食譜」→ 導到食譜頁，彈窗一併關掉');
+    await page.goBack();
+    await page.waitForSelector('.meal-item[data-role="main"] .item-menu');
+    await sleep(150);
+    eq(await page.$$eval('#modalRoot .modal-overlay', (els) => els.length), 0, '按上一頁回本週頁，也沒有卡著舊彈窗');
+    // 上一頁鍵本身也要能關彈窗（手機上最常用的「返回」）
+    await clickEl(page, '.meal-item[data-role="main"] .item-menu');
+    await page.waitForSelector('.modal-card .modal-actions .btn');
+    await goto(page, '#/family');
+    await titleIs(page, '家人');
+    eq(await page.$$eval('#modalRoot .modal-overlay', (els) => els.length), 0, '彈窗開著時換到別頁（例如按上一頁、點底下分頁），彈窗也關掉');
+    await goto(page, '#/'); await page.waitForSelector('.meal-item[data-role="main"] .item-menu');
 
     // 空格子：只剩「我來指定」
     await page.evaluate(async () => {
@@ -516,9 +531,9 @@ try {
   }
 
 
-  section('今天之前的日子預設收起來、標「已過」；今天標「今天」；點開會記住');
-  // 2026-09-18 使用者：「今天已經週四，就不要再攤開週一到週三」。收起來不是拿掉：點一下仍看得到那天煮了什麼。
-  // 「今天星期幾」不能靠跑測試的當下（慣例 19）—— 開一個把 new Date() 固定在「本週四 10:00」的分頁。
+  section('今天之前的日子不列出來；今天標「今天」（2026-09-18 Yolin：已過的直接不要列）');
+  // v0.28.0 先做「收起來、標已過」，Yolin 再確認之後改成拿掉。「今天星期幾」不能靠跑測試的當下（慣例 19）——
+  // 開一個把今天固定在「本週四 10:00」的分頁。
   {
     const { mondayOf, addDays, isoDate } = await import('../js/planner.js');
     const thu = addDays(mondayOf(isoDate(new Date())), 3);
@@ -526,41 +541,38 @@ try {
     const p2 = await browser.newPage();
     p2.setDefaultTimeout(60000);
     try {
-      await p2.evaluateOnNewDocument((now) => {
-        const Real = Date;
-        const Fake = function Fake(...a) { return a.length ? new Real(...a) : new Real(now); };
-        Fake.now = () => now; Fake.parse = Real.parse; Fake.UTC = Real.UTC; Fake.prototype = Real.prototype;
-        window.Date = Fake;
-      }, new Date(`${thu}T10:00:00`).getTime());
+      await pinToday(p2, thu);
       await p2.goto(`http://localhost:${port}/#/`, { waitUntil: 'networkidle0' });
       await p2.waitForSelector('[data-card="day"][data-day="6"]');
       await sleep(300);
       const days = await p2.$$eval('[data-card="day"]', (els) => els.map((e) => ({
-        day: Number(e.dataset.day), open: e.dataset.open, past: e.dataset.past, today: e.dataset.today,
+        day: Number(e.dataset.day), open: e.dataset.open, today: e.dataset.today,
         pills: [...e.querySelectorAll('.day-toggle .pill')].map((p) => p.textContent),
-        bodyH: Math.round(e.querySelector('[data-field="dayBody"]').getBoundingClientRect().height),
       })));
-      eq(days.length, 7, '（母體）七天都在畫面上，一天都沒有被拿掉');
-      everyOf(days.filter((d) => d.day < 3), (d) => d.open === 'false' && d.bodyH === 0, '週一到週三預設收起來（內容真的不佔版面）');
-      everyOf(days.filter((d) => d.day < 3), (d) => d.pills.includes('已過'), '而且標「已過」');
-      eq(days[3].open, 'true', '今天（週四）是展開的');
-      ok(days[3].pills.includes('今天') && !days[3].pills.includes('已過'), '今天標「今天」、不標「已過」');
-      everyOf(days.filter((d) => d.day > 3), (d) => d.open === 'true' && !d.pills.includes('已過') && !d.pills.includes('今天'), '週五到週日展開、沒有標籤');
-      // 點開過去的一天 → 看得到那天的菜；重載之後還是開的（手動意圖優先）
-      await p2.$eval('[data-card="day"][data-day="0"] [data-action="toggleDay"]', (el) => el.click());
+      eq(days.map((d) => d.day), [3, 4, 5, 6], '今天週四：只列週四到週日，週一到週三不在畫面上');
+      noneOf(days, (d) => d.pills.includes('已過'), '沒有任何一天標「已過」（已過的根本不列）');
+      ok(days[0].today === 'true' && days[0].pills.includes('今天'), '第一張就是今天，標「今天」');
+      everyOf(days, (d) => d.open === 'true', '列出來的每一天預設展開');
+      const note = await p2.$eval('[data-field="pastNote"]', (e) => e.textContent).catch(() => '');
+      ok(note.includes('已過的 3 天不列出來'), `頁面上一行字講清楚少了幾天：「${note}」`);
+      const plan = await p2.evaluate(async (cut) => {
+        const store = await import('./js/store.js');
+        const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js');
+        const pl = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+        return pl.slots.filter((s) => s.date < cut && s.kind === 'cook').reduce((n, s) => n + s.items.length, 0);
+      }, thu);
+      ok(plan >= 9, `（對照）存著的計畫裡週一到週三的 ${plan} 道菜都還在 —— 只是不列，「幾天內不重複」照樣看得到`);
+      // 桌機：欄數跟著列出的天數走（四天就是四欄，不是七欄留三欄空白）
+      await p2.setViewport({ width: 1280, height: 900 });
       await sleep(300);
-      const opened = await p2.$eval('[data-card="day"][data-day="0"]', (e) => ({ open: e.dataset.open, meals: [...e.querySelectorAll('.meal-block')].filter((m) => m.getBoundingClientRect().height > 0).length }));
-      eq(opened.open, 'true', '點一下就打開');
-      eq(opened.meals, 3, '看得到週一的三餐（收起來不是拿掉）');
-      await p2.reload({ waitUntil: 'networkidle0' });
-      await p2.waitForSelector('[data-card="day"][data-day="0"]');
-      eq(await p2.$eval('[data-card="day"][data-day="0"]', (e) => e.dataset.open), 'true', '重載之後週一還是開的 —— 手動展開過就不再自動收回去');
-      eq(await p2.$eval('[data-card="day"][data-day="1"]', (e) => e.dataset.open), 'false', '（對照）沒動過的週二仍然是收的');
+      const cols = await p2.$eval('.week-grid', (el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+      eq(cols, 4, '桌機寬度：四天就排四欄');
       // 下週頁：一天都不算過去
+      await p2.setViewport({ width: 390, height: 844 });
       await p2.evaluate(() => { location.hash = '#/?w=next'; });
       await sleep(600);
-      const nextPast = await p2.$$eval('[data-card="day"], [data-card="weekEmpty"]', (els) => els.filter((e) => e.dataset.past === 'true').length);
-      eq(nextPast, 0, '下週頁沒有任何一天標「已過」');
+      const nextNote = await p2.$$eval('[data-field="pastNote"]', (els) => els.length);
+      eq(nextNote, 0, '下週頁沒有「已過的幾天不列」那行字');
     } finally {
       await p2.close();
       await openAllDays();   // 後面幾節還要點每一天的「⋯」
