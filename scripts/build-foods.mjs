@@ -51,6 +51,33 @@ export const NUTRIENT_KEYS = {
   '膽固醇': 'cholesterol',
 };
 
+/**
+ * 類別覆寫表：食材編號 → 類別，轉檔時蓋過食藥署的「食品分類」。
+ * 食藥署把「吃嫩莢的豆類」歸在豆類；Yolin 2026-09-19：「四季豆是屬於蔬菜，不是豆類」「豌豆莢也是蔬菜」
+ * 「比照四季豆改成蔬菜類」。寫在這裡（不是手改 foods.json），每季重建才不會被蓋回去。
+ * 表裡的編號在原始資料找不到 → 建檔直接失敗（食藥署哪天改了編號，這張表不能悄悄失效）。
+ */
+export const CAT_OVERRIDES = {
+  H1000201: '蔬菜類', // 敏豆莢（四季豆）—— Yolin 2026-09-19：嫩莢類當蔬菜
+  H1000101: '蔬菜類', // 粉豆莢（四季豆）—— Yolin 2026-09-19：嫩莢類當蔬菜
+  H1000301: '蔬菜類', // 冷凍菜豆(莢)（冷凍四季豆）—— Yolin 2026-09-19：嫩莢類當蔬菜
+  H1200201: '蔬菜類', // 豌豆莢（荷蘭豆）—— Yolin 2026-09-19：嫩莢類當蔬菜
+  H1200301: '蔬菜類', // 高山大豌豆莢（荷蘭豆）—— Yolin 2026-09-19：嫩莢類當蔬菜
+  H1200401: '蔬菜類', // 甜豌豆莢（甜脆豌豆）—— Yolin 2026-09-19：嫩莢類當蔬菜
+  H0800101: '蔬菜類', // 豇豆(莢)（長豆、菜豆）—— Yolin 2026-09-19：嫩莢類當蔬菜
+  H1300101: '蔬菜類', // 鵲豆莢（扁豆）—— Yolin 2026-09-19：嫩莢類當蔬菜
+  H1800101: '蔬菜類', // 翼豆（四角豆）—— Yolin 2026-09-19：嫩莢類當蔬菜
+};
+
+/** 套用類別覆寫（就地改 foods）。表裡有、資料裡沒有的編號 → 丟錯，不略過。回傳改了幾筆。 */
+export function applyCatOverrides(foods, overrides = CAT_OVERRIDES) {
+  const byId = new Map(foods.map((f) => [f.id, f]));
+  const missing = Object.keys(overrides).filter((id) => !byId.has(id));
+  if (missing.length) throw new Error(`類別覆寫表的編號在原始資料找不到：${missing.join('、')}（食藥署可能改了編號，請更新 CAT_OVERRIDES）`);
+  for (const [id, cat] of Object.entries(overrides)) byId.get(id).cat = cat;
+  return Object.keys(overrides).length;
+}
+
 /** 營養值在 foods.json 的 n 陣列裡的順序。**這個順序會寫進檔案的 nutrients 欄位**，
  *  App 讀檔時照著檔案裡宣告的順序還原成物件 —— 兩邊不會各自寫死一份而悄悄對不上。 */
 export function nutrientOrder() { return Object.values(NUTRIENT_KEYS); }
@@ -239,6 +266,8 @@ async function main() {
   console.log(`讀 ${path.relative(ROOT, raw)} …`);
   const rows = JSON.parse(fs.readFileSync(raw, 'utf8'));
   const { foods, units, report } = transform(rows);
+  const overridden = applyCatOverrides(foods);
+  console.log(`類別覆寫 ${overridden} 筆（見 CAT_OVERRIDES）`);
 
   const prev = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : null;
   const out = {

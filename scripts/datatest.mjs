@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, noneOf, everyOf, detects } from './tap.mjs';
-import { transform, num, parseUnitWeight, splitAliases, sampleState, NUTRIENT_KEYS, nutrientOrder } from './build-foods.mjs';
+import { transform, num, parseUnitWeight, splitAliases, sampleState, NUTRIENT_KEYS, nutrientOrder, CAT_OVERRIDES, applyCatOverrides } from './build-foods.mjs';
 import { indexFoods, NUTRIENT_ORDER } from '../js/foods.js';
 import { fmtEst, fmtNum, NOT_ESTIMATED, NO_VALUE } from '../js/ui.js';
 import { DEFAULTS } from '../js/prefs.js';
@@ -142,5 +142,28 @@ eq(DEFAULTS.noRepeatDays.breakfast, 0, '早餐的不重複天數預設 0（早�
 ok(DEFAULTS.noRepeatDays.main >= 14, `主菜不重複 ${DEFAULTS.noRepeatDays.main} 天（≥ 14）`);
 eq(DEFAULTS.dailyTargets, {}, '每日目標預設是空的 —— App 不替任何人設目標');
 eq(DEFAULTS.disclaimerAcceptedAt, null, '「我知道了」預設沒按過');
+
+// ---------- E. 類別覆寫（2026-09-19，SPEC_嫩莢豆芽與蛋白質門檻 R1） ----------
+section('類別覆寫：吃嫩莢的豆類歸蔬菜（Yolin：「四季豆是屬於蔬菜，不是豆類」）');
+{
+  const PODS = ['H1000201', 'H1000101', 'H1000301', 'H1200201', 'H1200301', 'H1200401', 'H0800101', 'H1300101', 'H1800101'];
+  const built = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foods.json'), 'utf8'));
+  const byIdB = new Map(built.foods.map((f) => [f.id, f]));
+  eq(Object.keys(CAT_OVERRIDES).sort(), [...PODS].sort(), `覆寫表恰好是這九筆嫩莢類（${Object.keys(CAT_OVERRIDES).length} 筆）`);
+  everyOf(PODS, (id) => CAT_OVERRIDES[id] === '蔬菜類', '覆寫表把九筆都寫成蔬菜類');
+  everyOf(PODS, (id) => byIdB.get(id)?.cat === '蔬菜類', 'data/foods.json 裡九筆的類別都是蔬菜類（改了表忘了重建會紅）',
+    PODS.filter((id) => byIdB.get(id)?.cat !== '蔬菜類').map((id) => `${id} ${byIdB.get(id)?.cat}`).join('、'));
+  // 對照：範圍沒有被擴大 —— 吃豆仁的仍是豆類
+  const BEANS = { H1100101: '毛豆仁', H1200101: '豌豆仁', H0900101: '萊豆仁(帶膜)', H1105101: '黃豆' };
+  everyOf(Object.entries(BEANS), ([id, name]) => byIdB.get(id)?.name === name && byIdB.get(id)?.cat === '豆類', '（對照）毛豆仁、豌豆仁、萊豆仁、黃豆仍是豆類');
+  // 表裡的編號在原始資料找不到 → 建檔失敗（不能靜默略過）
+  const fixture = () => [{ id: 'H1000201', cat: '豆類' }, { id: 'A0550601', cat: '穀物類' }];
+  const small = fixture();
+  eq(applyCatOverrides(small, { H1000201: '蔬菜類' }), 1, '（對照）編號都在時照常套用');
+  eq(small[0].cat, '蔬菜類', '（對照）套用之後類別真的改了');
+  let threw = null;
+  try { applyCatOverrides(fixture(), { H1000201: '蔬菜類', ZZ99999: '蔬菜類' }); } catch (e) { threw = e.message; }
+  ok(!!threw && threw.includes('ZZ99999'), `覆寫表有原始資料找不到的編號 → 丟錯並點名（${threw ?? '沒有丟錯'}）`);
+}
 
 done('datatest');

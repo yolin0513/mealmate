@@ -80,7 +80,9 @@ export function proteinGroupOf(food, tags) {
     if (/鴨|鵝/.test(food.name)) return 'duck';
     return 'meat';
   }
-  if (food.cat === '豆類' || /豆腐|豆干|豆皮|豆包|豆漿|百頁|豆豉|毛豆|黃豆|黑豆/.test(food.name)) return 'soy';
+  // 蔬菜類不走名稱規則（Yolin 2026-09-19：「豆芽菜也是蔬菜類」）—— 黃豆芽、黑豆芽名稱裡有「黃豆」「黑豆」，以前因此被當成豆製品。
+  // 蛋白質夠多的蔬菜照樣能讓素食成員那一餐達標，但那是 planner.proteinDishKind 看每份含量判的，不是這裡。
+  if (food.cat === '豆類' || (food.cat !== '蔬菜類' && /豆腐|豆干|豆皮|豆包|豆漿|百頁|豆豉|毛豆|黃豆|黑豆/.test(food.name))) return 'soy';
   return null;
 }
 

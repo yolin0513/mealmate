@@ -132,4 +132,17 @@ section('新增食譜用直覺單位填（2026-09-18 第 6 項 (c)）');
   ok(withUnit.length >= 130, `食譜用到的 ${used.length} 種食材裡，${withUnit.length} 種有克以外的單位可以填（≥ 130）`);
 }
 
+section('嫩莢類改成蔬菜類之後，預設填寫單位不是「個」（2026-09-19，SPEC_嫩莢豆芽與蛋白質門檻 R5）');
+{
+  // 蔬菜類會拿食藥署的單位重當「個」（COUNT_UNIT_BY_CAT）；嫩莢類的單位重是一根、一片莢的重量，「1 個＝25 克的豌豆莢」沒有意義。
+  // 照 App 的呼叫方式（recipeedit.js）：別名表的詞＋框裡的名稱（點清單時填的是顯示名稱）
+  const PODS = ['H1000201', 'H1000101', 'H1000301', 'H1200201', 'H1200301', 'H1200401', 'H0800101', 'H1300101', 'H1800101'];
+  const idx = indexFoods(foods, aliases);
+  const terms = aliasTermsOf(idx);
+  const firstUnit = (id) => { const f = idx.byId.get(id); return entryUnitsFor(f, { terms: [...(terms.get(id) ?? []), displayNameOf(f, idx)], units })[0].unit; };
+  ok(PODS.every((id) => idx.byId.get(id)?.cat === '蔬菜類'), '（前提）九筆都是蔬菜類（會走「蔬菜類拿單位重當個」那條路）');
+  noneOf(PODS, (id) => firstUnit(id) === '個', `九筆嫩莢類的預設填寫單位都不是「個」：${PODS.map((id) => `${idx.byId.get(id).name} ${firstUnit(id)}`).join('、')}`);
+  eq(firstUnit('E1300101'), '個', '（對照）茭白筍（蔬菜類、有單位重、沒有採買單位）仍是「個」—— 上面那條不是因為「個」整個被拿掉');
+}
+
 done('unittest');

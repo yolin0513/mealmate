@@ -56,4 +56,15 @@ const r3 = searchFoods('雞蛋', idx);
 eq(r3[0]?.food.id, 'K01001', '搜「雞蛋」第一筆是別名的雞蛋平均值 K01001');
 ok(r3.every((x) => x.food.name.includes('雞蛋') || x.food.aliases.some((a) => a.includes('雞蛋')) || x.how === 'alias'), '搜到的每一筆都真的跟「雞蛋」有關');
 
+section('嫩莢類的口語別名（2026-09-19 補：買菜清單靠別名表的詞找採買單位）');
+{
+  const NEW = { 甜豆: 'H1200401', 大豌豆莢: 'H1200301', 長豆: 'H0800101', 肉豆: 'H1300101' };
+  everyOf(Object.entries(NEW), ([t, id]) => resolveFood(t, idx)?.id === id, `四個新別名各自對到那一筆嫩莢：${Object.entries(NEW).map(([t, id]) => `${t}→${resolveFood(t, idx)?.id ?? 'null'}(${id})`).join('、')}`);
+  // 每個新詞都不是別的食材名稱或俗名的一部分（撞名的話，打那個詞的人會被靜默算成豆莢）
+  noneOf(Object.entries(NEW), ([t, id]) => idx.list.some((f) => f.id !== id && (f.name.includes(t) || f.aliases.some((a) => a.includes(t)))), '四個新別名都不是別的食材名稱或俗名的一部分');
+  // 對照：「扁豆」是萊豆仁的俗名（白扁豆）、也在「紅扁豆仁」（lentil）的名稱裡 —— 所以鵲豆莢不用它
+  ok(idx.list.some((f) => f.id !== 'H1300101' && (f.name.includes('扁豆') || f.aliases.some((a) => a.includes('扁豆')))), '（前提）「扁豆」確實是別的食材名稱或俗名的一部分（紅扁豆仁、白扁豆）');
+  ok(resolveFood('扁豆', idx)?.id !== 'H1300101', `打「扁豆」不會對到鵲豆莢（實際：${resolveFood('扁豆', idx)?.name ?? 'null'}）`);
+}
+
 done('aliastest');

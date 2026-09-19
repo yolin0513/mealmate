@@ -139,9 +139,23 @@ export const VEG_PROTEIN_BONUS = 35;
 export const VEG_PROTEIN_EARLY_BONUS = 12;
 export const VEG_PROTEIN_MIN_GRAMS = 15; // 每人至少這麼多克才算（一小匙豆豉、幾片奶油不算）
 export const VEG_PROTEIN_LABEL = '蛋、豆製品或奶類';
-/** 這道菜的這個版本（'veg' | 'meat' | 'all'）是不是一道蛋、豆製品或奶類的菜。看食材，不看營養估算。 */
-export function isProteinDish(recipe, version, idx) {
-  if (!recipe || !idx) return false;
+/**
+ * 蔬菜類的食材，這道菜每份吃到的蛋白質至少這麼多克，也算達標（Yolin 2026-09-19：嫩莢與豆芽歸蔬菜，
+ * 「但如果他們的蛋白質含量很高也可以排菜」）。看**每份吃到幾克**、不看每 100 克：乾香菇、金針乾每 100 克很高，
+ * 但一道菜只用幾克；黃豆芽（每份約 5.3）算、四季豆（約 1.7）與豌豆莢（約 1.8）不算，所以門檻落在 4。
+ */
+export const VEG_PROTEIN_VEG_GRAMS = 4;
+/**
+ * 這道菜的這個版本靠哪一樣算達標：'egg' | 'dairy' | 'soy' | 'vegprotein'，都不是回 null。
+ * 蛋、奶、豆製品看份量（每人 ≥ VEG_PROTEIN_MIN_GRAMS 克這樣食材）；蔬菜類看每份吃到的蛋白質（≥ VEG_PROTEIN_VEG_GRAMS 克）。
+ * 任一食材達標即可，不累加；常備品、沒有編號、沒有克數的食材不算；蛋白質沒有資料（null）的蔬菜不算。
+ */
+export function proteinDishKind(recipe, version, idx) {
+  return proteinDishMatch(recipe, version, idx)?.kind ?? null;
+}
+/** 同 proteinDishKind，另外回是哪一樣食材讓它達標：{ kind, food } 或 null（理由句要點名那樣食材）。 */
+export function proteinDishMatch(recipe, version, idx) {
+  if (!recipe || !idx) return null;
   const tracks = version === 'veg' ? ['base', 'veg'] : version === 'meat' ? ['base', 'meat'] : ['base', 'veg', 'meat'];
   const sideServ = version === 'veg' ? (recipe.splitServings?.veg ?? 1) : (recipe.splitServings?.meat ?? recipe.servings);
   for (const ing of recipe.ingredients ?? []) {
@@ -149,17 +163,27 @@ export function isProteinDish(recipe, version, idx) {
     if (!tracks.includes(track) || ing.pantry || !ing.food || !(ing.grams > 0)) continue;
     const f = idx.byId.get(ing.food);
     if (!f) continue;
+    const perServing = ing.grams / (track === 'base' ? recipe.servings : sideServ);
     const kind = f.cat === '蛋類' ? 'egg' : f.cat === '乳品類' ? 'dairy' : proteinGroupOf(f, new Set()) === 'soy' ? 'soy' : null;
-    if (!kind) continue;
-    if (ing.grams / (track === 'base' ? recipe.servings : sideServ) >= VEG_PROTEIN_MIN_GRAMS) return true;
+    if (kind && perServing >= VEG_PROTEIN_MIN_GRAMS) return { kind, food: f };
+    const protein = f.n?.protein;
+    if (f.cat === '蔬菜類' && typeof protein === 'number' && perServing * protein / 100 >= VEG_PROTEIN_VEG_GRAMS) return { kind: 'vegprotein', food: f };
   }
-  return false;
+  return null;
 }
-/** 這位家人吃這道菜時，吃到的是不是一道蛋、豆製品或奶類的菜（吃不了的回 false）。 */
+/** 這道菜的這個版本（'veg' | 'meat' | 'all'）是不是一道蛋、豆製品、奶類，或蛋白質較多的蔬菜菜。看食材，不看營養估算。 */
+export function isProteinDish(recipe, version, idx) {
+  return proteinDishKind(recipe, version, idx) !== null;
+}
+/** 這位家人吃這道菜時，吃到的是不是一道蛋、豆製品、奶類，或份量夠的蛋白質較多的蔬菜菜（吃不了的回 false）。 */
 export function proteinDishFor(recipe, member, idx) {
+  return proteinDishMatchFor(recipe, member, idx) !== null;
+}
+/** 同 proteinDishFor，回 proteinDishMatch 的結果（吃不了的回 null）。 */
+export function proteinDishMatchFor(recipe, member, idx) {
   const v = versionFor(recipe, member.diet);
-  if (v === null) return false;
-  return isProteinDish(recipe, v === 'veg' ? 'veg' : v === 'meat' ? 'meat' : 'all', idx);
+  if (v === null) return null;
+  return proteinDishMatch(recipe, v === 'veg' ? 'veg' : v === 'meat' ? 'meat' : 'all', idx);
 }
 /**
  * 現在的菜單裡，哪幾餐（午晚餐、自己煮）有素食成員吃不到任何一道蛋、豆製品或奶類的菜。
@@ -664,7 +688,12 @@ export function scoreSoft(recipe, { role, meal, date, day }, ctx, state, rng) {
       const extraPending = ctx.mixedHome && !(state.slotItems ?? []).some((it) => it.extraMeat) ? 1 : 0;
       const later = vegRoles.length - placedN - 1 - extraPending;
       score += (later >= 1 ? VEG_PROTEIN_EARLY_BONUS : VEG_PROTEIN_BONUS) * (gives.length / lacking.length);
-      reasons.push(`${gives.map((m) => m.name).join('、')}這一餐吃得到的${VEG_PROTEIN_LABEL}的菜`);
+      // 靠「蔬菜類、每份蛋白質夠」達標的（黃豆芽）照 Yolin 的分類是蔬菜，不說它是豆製品的菜：點名那樣食材、只講份量（R6）
+      const matches = gives.map((m) => proteinDishMatchFor(recipe, m, ctx.idx));
+      if (matches.every((x) => x?.kind === 'vegprotein')) {
+        const foods = [...new Set(matches.map((x) => displayNameOf(x.food, ctx.idx)))];
+        reasons.push(`${gives.map((m) => m.name).join('、')}這一餐吃得到份量夠的${foods.join('、')}`);
+      } else reasons.push(`${gives.map((m) => m.name).join('、')}這一餐吃得到的${VEG_PROTEIN_LABEL}的菜`);
     }
   }
 

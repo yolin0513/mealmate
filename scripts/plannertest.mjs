@@ -27,6 +27,7 @@ import {
   riceKindOf, riceKindOfFood, RICE_KINDS, RICE_KIND_LABELS, RICE_KIND_HINT, DEFAULT_RULES, wantMissReason,
   starFoods, STAR_PENALTY, STAR_WINDOW_DAYS, historyRowsOf as rowsOf,
   isProteinDish, proteinDishFor, vegProteinMisses, VEG_PROTEIN_BONUS, VEG_PROTEIN_EARLY_BONUS,
+  proteinDishKind, VEG_PROTEIN_MIN_GRAMS, VEG_PROTEIN_VEG_GRAMS,
 } from '../js/planner.js';
 import { displayNameOf } from '../js/foods.js';
 import { versionFor as vFor } from '../js/members.js';
@@ -603,7 +604,9 @@ section('主角食材短期不要太常出現（2026-09-18 Yolin：三天內午�
     const on = measure(members, true);
     const off = measure(members, false);
     ok(on.windows >= 150, `（母體）${fname}：${on.windows} 段連續三天`);
-    ok(off.ge4 >= 5, `（對照）${fname}：沒有這條規則時，同一樣主角食材三天內出現 4 次以上的有 ${off.ge4} 段（最多 ${off.worst} 次，${off.ex}）`);
+    // 對照組只要證明「沒有這條規則時問題存在」。2026-09-19 嫩莢歸蔬菜改了亂數序列後重量（6 組種子組 × 12 × 3 週）：
+    // 葷食 4～16 段（這一組 star 剛好最少，4）、有蛋奶素 69～81、有全素 100～108 —— 門檻從 ≥ 5 放到 ≥ 2（補遺第 12 條）。
+    ok(off.ge4 >= 2, `（對照）${fname}：沒有這條規則時，同一樣主角食材三天內出現 4 次以上的有 ${off.ge4} 段（最多 ${off.worst} 次，${off.ex}）`);
     eq(on.ge4, 0, `${fname}：有這條規則，三天內同一樣主角食材沒有任何一段出現 4 次以上（最多 ${on.worst} 次）`);
     ok(on.ge3 <= 0.4 * off.ge3, `${fname}：出現 3 次的段落 ${off.ge3} → ${on.ge3}（≤ 四成；實測最多約三成）`);
     eq(on.empty, 0, `${fname}：沒有因此排出空格（是扣分，不是排除）`);
@@ -657,6 +660,47 @@ section('素食成員每餐一道蛋、豆製品或奶類的菜（2026-09-18 Yol
   eq(isProteinDish(fakeDish('R4700601', 10), 'all', idx), false, '一小撮豆豉（每人 2.5 克）不算 —— 每人至少 15 克才算');
   eq(isProteinDish(fakeDish('R4700901', 100), 'all', idx), true, '（對照）每人 25 克的豆腐算');
   eq(isProteinDish(ants, 'veg', idx), false, '素螞蟻上樹不是（冬粉、蔬菜）');
+
+  // ---- 嫩莢與豆芽歸蔬菜；蔬菜看每份吃到的蛋白質（2026-09-19，SPEC_嫩莢豆芽與蛋白質門檻 R1–R4） ----
+  // T3：四季豆、豌豆莢的菜不再算。前提：真的含那樣食材、每份克數 ≥ 15（否則它們是因為份量不夠才不算，這條就是假的）
+  const PODS = new Set(['H1000201', 'H1200201']);
+  const podDishes = [['涼拌四季豆', 'all'], ['乾煸四季豆', 'veg'], ['蒜炒豌豆莢', 'all']].map(([n, v]) => ({ r: byName(n), v }));
+  ok(podDishes.every(({ r }) => r && r.ingredients.some((i) => PODS.has(i.food) && (i.track ?? 'base') === 'base' && i.grams / r.servings >= VEG_PROTEIN_MIN_GRAMS)),
+    `（前提）三道都在、都用了四季豆或豌豆莢、每份 ≥ ${VEG_PROTEIN_MIN_GRAMS} 克：${podDishes.map(({ r }) => r?.name).join('、')}`);
+  everyOf(podDishes, ({ r, v }) => proteinDishKind(r, v, idx) === null, '涼拌四季豆、乾煸四季豆（素版）、蒜炒豌豆莢不算蛋、豆製品或奶類的菜（四季豆、豌豆莢是蔬菜，每份蛋白質不到 4 克）',
+    podDishes.filter(({ r, v }) => proteinDishKind(r, v, idx)).map(({ r }) => r.name).join('、'));
+  // T4：黃豆芽的菜照樣算，但走「蔬菜、每份蛋白質夠」這條（不是豆製品）；綠豆芽不夠
+  eq(proteinDishKind(byName('韓式涼拌黃豆芽'), 'all', idx), 'vegprotein', '韓式涼拌黃豆芽算達標，而且是走「蔬菜類、每份蛋白質 ≥ 4 克」（每份約 5.3 克）');
+  eq(proteinDishKind(byName('涼拌豆芽菜'), 'all', idx), null, '（對照）涼拌豆芽菜（綠豆芽，每份約 1.7 克）不算');
+  // T5：邊界與反例，各只踩一條規則。豌豆芽每 100 克剛好 4 克 → 每份 100 克＝4.0 克、97.5 克＝3.9 克（沒有浮點誤差）
+  const PEA_SPROUT = 'E7700801';
+  ok(idx.byId.get(PEA_SPROUT)?.cat === '蔬菜類' && idx.byId.get(PEA_SPROUT)?.n.protein === 4, '（前提）豌豆芽是蔬菜類、每 100 克蛋白質 4 克');
+  eq(proteinDishKind(fakeDish(PEA_SPROUT, 400), 'all', idx), 'vegprotein', `蔬菜每份吃到剛好 ${VEG_PROTEIN_VEG_GRAMS}.0 克蛋白質 → 算`);
+  eq(proteinDishKind(fakeDish(PEA_SPROUT, 390), 'all', idx), null, '每份 3.9 克 → 不算');
+  const pantryDish = { ...fakeDish(PEA_SPROUT, 400) };
+  pantryDish.ingredients = pantryDish.ingredients.map((i) => (i.food === PEA_SPROUT ? { ...i, pantry: true } : i));
+  eq(proteinDishKind(pantryDish, 'all', idx), null, '同一樣標成常備品 → 不算（跟蛋豆奶那條一樣跳過常備品）');
+  ok(idx.byId.get('E5910101')?.n.protein > VEG_PROTEIN_VEG_GRAMS, `（前提）金針菜乾每 100 克 ${idx.byId.get('E5910101')?.n.protein} 克 —— 比每 100 克的話它會過`);
+  eq(proteinDishKind(fakeDish('E5910101', 40), 'all', idx), null, '乾貨對照：金針菜乾每份 10 克 → 不算（看每份吃到的，不看每 100 克）');
+  ok(idx.byId.get('R2000101')?.cat !== '蔬菜類' && 80 * idx.byId.get('R2000101').n.protein / 100 >= VEG_PROTEIN_VEG_GRAMS, '（前提）乾麵條不是蔬菜類，每份 80 克的蛋白質超過 4 克');
+  eq(proteinDishKind(fakeDish('R2000101', 320), 'all', idx), null, '非蔬菜類對照：乾麵條每份 80 克 → 不算（這條只給蔬菜類）');
+  // T9：靠黃豆芽達標時，理由句不說它是豆製品的菜（點名那樣食材、只講份量）；靠豆腐達標的照舊（下面那段）
+  {
+    const fiveSpice = { ...newMember(), name: '妹', diet: 'vegan' };
+    const sprouts = byName('韓式涼拌黃豆芽');
+    const famV = [{ ...newMember(), name: '爸' }, fiveSpice];
+    const ctxV = buildContext({ recipes, members: famV, idx, units });
+    const stV = { slotItems: [{ recipeId: byName('蒜炒空心菜').id, role: 'main', pos: 0 }], dayRecipes: () => new Set(), lastServed: () => null, timesServedWithin: () => 0, dayProteins: () => new Set(), prevDayMealProteins: () => new Set(), fishCount: () => 0, rangeHas: () => false, placedWant: new Set(), starCount: () => 0 };
+    const rs = scoreSoft(sprouts, { role: 'side', meal: 'dinner', date: '2026-09-16', day: 2 }, ctxV, stV, () => 0).reasons;
+    ok(proteinDishFor(sprouts, fiveSpice, idx), '（前提）吃五辛的全素家人吃得到韓式涼拌黃豆芽，而且對她算達標');
+    ok(rs.some((t) => t.includes('妹這一餐吃得到份量夠的黃豆芽')), `靠黃豆芽達標的理由句點名黃豆芽：${rs.find((t) => t.includes('妹這一餐')) ?? rs.join('｜')}`);
+    noneOf(rs, (t) => t.includes('豆製品'), '靠黃豆芽達標時，理由句不說它是「豆製品」的菜（照 Yolin 的分類它是蔬菜）');
+    // 食材名稱是實際讓這道菜達標的那樣，不是寫死黃豆芽（使用者自己的菜可能靠別的蔬菜達標）
+    const peaDish = { ...fakeDish(PEA_SPROUT, 400), id: 'r-fake-pea-sprout', name: '（假）豌豆芽的菜', season: [], tags: [], method: 'stirfry', time: 10, texture: 'normal' };
+    const rsPea = scoreSoft(peaDish, { role: 'side', meal: 'dinner', date: '2026-09-16', day: 2 }, ctxV, stV, () => 0).reasons;
+    ok(rsPea.some((t) => t.includes('妹這一餐吃得到份量夠的豌豆芽')) && !rsPea.some((t) => t.includes('黃豆芽')),
+      `靠豌豆芽達標的菜，理由句點名的是豌豆芽：${rsPea.find((t) => t.includes('妹這一餐')) ?? rsPea.join('｜')}`);
+  }
   const vegan = { ...newMember(), name: '姊', diet: 'veganNoAllium' };
   eq(proteinDishFor(byName('番茄炒蛋'), vegan, idx), false, '全素的姊吃不了番茄炒蛋 → 對她不算');
 
@@ -700,7 +744,11 @@ section('素食成員每餐一道蛋、豆製品或奶類的菜（2026-09-18 Yol
     有全素: [{ ...newMember(), name: '爸' }, { ...newMember(), name: '姊', diet: 'veganNoAllium' }],
     全家全素: [{ ...newMember(), name: '姊', diet: 'veganNoAllium' }],
   };
-  const LIMIT = { 有蛋奶素: [0.15, 0.05], 有全素: [0.3, 0.2], 全家全素: [0.2, 0.1] }; // [關的時候至少, 開的時候至多]
+  // [關的時候至少, 開的時候至多]。2026-09-19 嫩莢與豆芽歸蔬菜之後重量（補遺第 12 條：6 組種子組 × 8 × 3 週，照最差的留約 5 個百分點）：
+  // 開著 有蛋奶素 0%、有全素 13.7–15.2%、全家全素 6.0–7.4%（改之前 0%、6.8–8.3%、3.3–5.4% —— 四季豆、豌豆莢不再算豆製品）；
+  // 關著 28.3–32.1%、42.6–45.5%、32.7–37.2%。有全素上升最多：涼拌四季豆不含五辛，原本是全素又不吃五辛的家人少數算得上的配菜。
+  // 有全素的 20% 守的是「修正誤判之後」的現況，不是滿意的水準；docs/SPEC_全素蛋白質食譜補充.md 做了之後要往下收（統籌者裁決一 §3）。
+  const LIMIT = { 有蛋奶素: [0.23, 0.05], 有全素: [0.37, 0.2], 全家全素: [0.27, 0.12] };
   const SOY_RX = /豆腐|豆干|豆皮|麵腸|百頁/;
   const run = (members, vegProtein) => {
     const ctx = buildContext({ recipes, members, idx, units });

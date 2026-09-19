@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadContext, buildRecipes, summarize, outputFor } from './build-recipes.mjs';
-import { validateRecipe, USER_DEFAULT_STEP, tagsOfFood } from '../js/recipeschema.js';
+import { validateRecipe, USER_DEFAULT_STEP, tagsOfFood, proteinGroupOf } from '../js/recipeschema.js';
 import { fitsDiet, versionFor } from '../js/members.js';
 import { estimate } from '../js/nutrition.js';
 
@@ -171,6 +171,16 @@ section('加工品照食藥署的「內容物描述」判葷素（2026-09-19：�
   const withUnknown = recipes.filter((r) => r.ingredients.some((i) => UNKNOWN.includes(i.food)));
   ok(withUnknown.length >= 2, `（母體）${withUnknown.length} 道用到成分沒寫的加工品（油條…）`);
   everyOf(withUnknown, (r) => r.vegMode === 'meatOnly', '用到成分沒寫的加工品的菜都是純葷的', withUnknown.filter((r) => r.vegMode !== 'meatOnly').map((r) => r.name).join('、'));
+}
+
+section('豆芽是蔬菜：不因為名稱裡有「黃豆」「黑豆」就算豆製品（2026-09-19，Yolin：「豆芽菜也是蔬菜類」）');
+{
+  const SPROUTS = ['E7700401', 'E7700402', 'E7700501'];   // 黃豆芽、黃豆芽(有機)、黑豆芽：蔬菜類裡名稱命中豆製品規則的全部三筆
+  const sprouts = SPROUTS.map((id) => idx.byId.get(id));
+  ok(sprouts.every((f) => f?.cat === '蔬菜類' && /黃豆|黑豆/.test(f.name)), `（前提）三筆都是蔬菜類、名稱裡有「黃豆」或「黑豆」：${sprouts.map((f) => f?.name).join('、')}`);
+  everyOf(sprouts, (f) => proteinGroupOf(f, new Set()) === null, '黃豆芽、黑豆芽不算豆製品（蔬菜類不走名稱規則）');
+  const SOY = { R4700901: '傳統豆腐', R4700202: '五香豆干', H1150201: '豆漿(無糖)', H1100101: '毛豆仁' };
+  everyOf(Object.entries(SOY), ([id, name]) => idx.byId.get(id)?.name === name && proteinGroupOf(idx.byId.get(id), new Set()) === 'soy', '（對照）傳統豆腐、五香豆干、無糖豆漿、毛豆仁仍是豆製品');
 }
 
 section('每個食材都對到食藥署編號');

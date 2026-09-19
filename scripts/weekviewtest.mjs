@@ -191,13 +191,22 @@ try {
   await page.waitForSelector('.meal-item[data-role="main"] .lock');
   const lockedId = (await mainIds(page))[0];
   const beforeAll = await mainIds(page);
+  const beforeItems = await allItemIds(page);
+  await waitToastGone(page).catch(() => {});
   await clickEl(page, '[data-action="regenerate"]');
-  await page.waitForFunction(() => !document.querySelector('[data-action="regenerate"]')?.disabled);
-  await sleep(300);
+  // 等「已重新排好」出現（新菜單已存好），再離開、回來讓畫面照存好的菜單重畫。
+  // 以前只等按鈕不是停用＋300 毫秒：機器忙、排菜超過 300 毫秒時讀到的是舊畫面，這條對照組會偶發紅（2026-09-19 突變基準踩到）。
+  await page.waitForFunction(() => { const t = document.getElementById('toast'); return t && !t.hidden && t.textContent.includes('已重新排好'); });
+  await goto(page, '#/family'); await titleIs(page, '家人');
+  await goto(page, '#/'); await page.waitForSelector('.meal-item[data-role="main"] .lock');
   const afterAll = await mainIds(page);
   eq(afterAll[0], lockedId, '鎖住的主菜重新產生後還是同一道');
   ok(await page.$('.meal-item[data-role="main"] .lock') != null, '鎖頭還在');
-  ok(afterAll.some((id, i) => id !== beforeAll[i]), '（對照）沒鎖的主菜有變（換了 seed）');
+  // 對照組：重新產生真的換了菜（上面「鎖住的沒變」才不是恆真）。以前只比 14 道主菜：2026-09-19 嫩莢歸蔬菜之後，
+  // 全素不吃五辛的家人吃得到的蛋白質菜變少，蛋豆奶加分把主菜收窄，Node 端量到 200 次裡有 2 次沒鎖的主菜完全沒變（改之前 0 次），
+  // 這條就偶發紅。改成比畫面上所有的菜（主菜、配菜、湯、主食），全部一模一樣的機率幾乎是 0。
+  const afterItems = await allItemIds(page);
+  ok(afterItems.length === beforeItems.length && afterItems.some((id, i) => id !== beforeItems[i]), `（對照）沒鎖的菜有變（換了 seed；${beforeItems.length} 道裡）`, JSON.stringify({ beforeAll, afterAll }));
   eq(afterAll.length, 14, '仍然 14 個主菜');
 
   section('外食');
