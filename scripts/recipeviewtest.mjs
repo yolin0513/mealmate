@@ -510,6 +510,61 @@ try {
     ok((await textOf(page, '[data-card="recipeSteps"]')).includes('現成的，加熱或直接盛盤即可'), '食譜頁的步驟顯示那一句，不是空的一格');
     await page.evaluate(async () => { const s = await import('./js/store.js'); const r = s.userRecipes().find((x) => x.name === '滷雞腳不寫步驟'); if (r) await s.deleteUserRecipe(r.id); });
 
+    // 預設 0 步之後，空白步驟框只剩一條路會出現：按了「＋ 新增步驟」卻一個字都沒打就存（2026-09-19 全面檢測補的；
+    // 上面那條是 0 步，走不到 validateRecipe 濾掉空白步驟的那一行，突變改壞了也照樣綠）。
+    await goto(page, '#/recipes/new');
+    await titleIs(page, '新增食譜');
+    await page.waitForSelector('[data-field="recipeName"]');
+    await page.type('[data-field="recipeName"]', '滷雞腳空白步驟');
+    await clickEl(page, chipSel('vegMode', 'meatOnly'));
+    await sleep(150);
+    await page.$eval('[data-field="time"]', (el) => { el.value = '0'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.type('[data-ingredient="0"] [data-field="ingLabel"]', '雞腳');
+    await sleep(150);
+    await clickEl(page, '[data-action="addStep"]'); await sleep(80);
+    const blankBoxes = await page.$$eval('[data-list="steps"] textarea', (els) => els.map((e) => e.value));
+    eq(blankBoxes, [''], '（前提）按了「＋ 新增步驟」，畫面上有一個空白的步驟框');
+    await waitToastGone(page);
+    await clickEl(page, '[data-action="saveRecipe"]');
+    await page.waitForFunction(() => document.getElementById('topTitle')?.textContent === '滷雞腳空白步驟' || document.querySelector('[data-field="errors"]')?.hidden === false);
+    const blankErrs = await page.$eval('[data-field="errors"]', (el) => (el.hidden ? '' : el.textContent)).catch(() => '');
+    eq(await textOf(page, '#topTitle'), '滷雞腳空白步驟', `按了新增步驟卻一個字都沒打，照樣存得進去（${blankErrs || '沒有錯誤'}）`);
+    const blankSaved = await page.evaluate(async () => (await import('./js/store.js')).userRecipes().find((x) => x.name === '滷雞腳空白步驟')?.steps.map((s) => s.text));
+    eq(blankSaved, ['現成的，加熱或直接盛盤即可'], `空白的那一步被濾掉、存成預設那一句（${JSON.stringify(blankSaved)}）`);
+    await page.evaluate(async () => { const s = await import('./js/store.js'); const r = s.userRecipes().find((x) => x.name === '滷雞腳空白步驟'); if (r) await s.deleteUserRecipe(r.id); });
+
+    // 編輯一道舊食譜：存的時候資料庫還不認得那個名稱（食材欄是空的），之後別名補上了（「雞腳」就是這樣補的）。
+    // 使用者打開編輯、不碰那個框、直接按存 —— 靠 validateRecipe「沒有 food 就用名稱解析」那一段才對得上食材；
+    // 新增食譜走不到它（打字當下就對到了），所以要從編輯舊食譜這條路測（2026-09-19 全面檢測補的）。
+    const oldId = await page.evaluate(async () => {
+      const s = await import('./js/store.js'); const db = await import('./js/db.js');
+      const id = s.newUserRecipeId();
+      const { errors } = await s.saveUserRecipe({ id, name: '舊的滷雞腳', role: 'side', servings: 2, time: 0, method: 'braise', vegMode: 'meatOnly', vegModeConfirmed: true, texture: 'normal', season: [],
+        ingredients: [{ food: '', label: '雞腳', grams: 300, track: 'base' }], steps: [] });
+      if (errors.length) return { errors };
+      // 改回「當年查不到」時存下來的樣子：food 是 null、帶 unresolved
+      const row = await db.get('userRecipes', id);
+      row.ingredients = row.ingredients.map((i) => ({ ...i, food: null, unresolved: true }));
+      await db.put('userRecipes', row);
+      await s.reloadUserData();
+      return id;
+    });
+    ok(typeof oldId === 'string', `（前提）舊食譜放進去了（${JSON.stringify(oldId)}）`);
+    const before = await page.evaluate(async (id) => {
+      const s = await import('./js/store.js');
+      const r = s.userRecipes().find((x) => x.id === id);
+      return { food: r?.ingredients[0].food ?? null, resolved: s.recipeCtx().resolve('雞腳')?.id ?? null };
+    }, oldId);
+    ok(before.food === null && typeof before.resolved === 'string', `（前提）存著的食材欄是空的，而現在的資料庫認得「雞腳」（${JSON.stringify(before)}）`);
+    await goto(page, `#/recipes/${oldId}/edit`);
+    await page.waitForSelector('[data-field="recipeName"]');
+    await waitToastGone(page);
+    await clickEl(page, '[data-action="saveRecipe"]');
+    await page.waitForFunction(() => document.getElementById('topTitle')?.textContent === '舊的滷雞腳' || document.querySelector('[data-field="errors"]')?.hidden === false);
+    const after = await page.evaluate(async (id) => (await import('./js/store.js')).userRecipes().find((x) => x.id === id)?.ingredients[0] ?? null, oldId);
+    eq(after?.food ?? null, before.resolved, `編輯舊食譜不碰食材框直接存，「雞腳」對到了資料庫那一筆（存下來 ${JSON.stringify(after)}）`);
+    await page.evaluate(async (id) => { const s = await import('./js/store.js'); await s.deleteUserRecipe(id); }, oldId);
+
     // 真的查不到的食材：訊息要把使用者打的字帶進去，不可以是「找不到「」」
     await goto(page, '#/recipes/new');
     await titleIs(page, '新增食譜');

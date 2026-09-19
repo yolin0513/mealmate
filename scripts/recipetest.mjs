@@ -307,6 +307,11 @@ section('使用者自己加的菜：放寬跟著這道菜走，不靠呼叫端�
   const viaOldStore = validateRecipe(userDraft, oldStoreCtx);
   eq(viaOldStore.errors, [], `舊版 store.js 的上下文（沒帶旗標）也存得進去：${JSON.stringify(viaOldStore.errors)}`);
   eq(viaOldStore.recipe.ingredients[0].food, 'I0420801', '沒點清單、只打「雞腳」→ 解析到雞腳(肉雞) I0420801');
+  // 編輯舊食譜（2026-09-19 全面檢測補的）：當年資料庫不認得、存成 food: null＋unresolved；之後別名補上了，
+  // 使用者打開編輯不碰那個框就存 —— 表單送進來的就是這個形狀，要靠名稱補解析才對得上。
+  const oldSaved = validateRecipe({ ...userDraft, ingredients: [{ food: null, label: '雞腳', grams: 300, track: 'base', unresolved: true }] }, oldStoreCtx);
+  eq([oldSaved.recipe?.ingredients[0].food ?? null, oldSaved.recipe?.ingredients[0].unresolved ?? false], ['I0420801', false],
+    '編輯舊食譜：當年存成 food: null 的「雞腳」，現在認得了 → 對到 I0420801，也不再標成查不到');
   ok(viaOldStore.recipe.tags.includes('meat'), '雞腳被認成肉 →「標成葷卻沒有肉」不會再出現');
   eq(viaOldStore.recipe.time, 0, '時間就是 0');
   const explicitStrict = validateRecipe(userDraft, { ...oldStoreCtx, relaxRequired: false });

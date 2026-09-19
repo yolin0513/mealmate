@@ -22,7 +22,7 @@ import { shelfOverdue } from '../js/planner.js';
 import {
   generateWeek, plainReasons, buildContext, scoreSoft, hardBlock, makeRng, hashSeed, weekKeyOf, mondayOf, addDays,
   lastShoppingDayOnOrBefore, historyRowsOf, dailyEstimates, medianOf, MEALS, isMeaty, VEG_MIN_DISHES, withPositions,
-  actualRelaxations, shelfBlocker, RELAXABLE, FREEZABLE_CATS, daysBetween, MEAL_ROLES, refillSlot,
+  actualRelaxations, shelfBlocker, RELAXABLE, FREEZABLE_CATS, daysBetween, MEAL_ROLES, refillSlot, relaxReason,
   weekBalance, balanceSentence, assignItem, HEARTY_LEVELS, WEEK_CAPS, BALANCE_NOTE, HEARTY_HINT, HEARTY_TOP_SHARE, groupEstimates,
   riceKindOf, riceKindOfFood, RICE_KINDS, RICE_KIND_LABELS, RICE_KIND_HINT, DEFAULT_RULES, wantMissReason,
   starFoods, STAR_PENALTY, STAR_WINDOW_DAYS, historyRowsOf as rowsOf,
@@ -858,6 +858,45 @@ section('放寬的理由要照「實際擋住的那一條」寫，不是照「�
   everyOf(shelfClaims, (c) => c.all.every((b) => c.line.includes(b.label)), '每一樣放不住的食材都有講到（不是只講第一樣）');
   everyOf(shelfClaims, (c) => c.all.every((b) => (FREEZABLE_CATS.has(b.cat) ? halves(c.line).frozen.includes(b.label) : !halves(c.line).frozen.includes(b.label))), '「要先冷凍」只講肉類與魚貝類');
   everyOf(shelfClaims, (c) => c.all.filter((b) => !FREEZABLE_CATS.has(b.cat)).every((b) => halves(c.line).fresh.includes(b.label) && c.line.includes('不耐放')), '蔬菜、菇、辛香料那些講的是「不耐放」，不是叫人冷凍');
+}
+
+section('放寬保存期限的理由句與扣分：固定情境（2026-09-19 全面檢測補的）');
+// 上面那一段靠「那一週剛好排到」：v0.34.0、v0.35.0 那一週 7 句保存期限理由裡，只有 9/15 的麻油薑燒雞（雞腿＋杏鮑菇）
+// 同時有肉與菜放不住；v0.36.0 補早餐改了亂數序列，它被排到 9/14（杏鮑菇還撐得住），三條突變就全都不紅了。
+// 這裡改成固定情境：週三買菜、9/15（離買菜 6 天），直接驗 relaxReason 與 scoreSoft，每一組先斷言情境成立。
+{
+  const shopCtx = buildContext({ recipes, members: [{ ...newMember(), name: '爸' }], idx, units, shoppingDays: [3] });
+  const noShopCtx = buildContext({ recipes, members: [{ ...newMember(), name: '爸' }], idx, units, shoppingDays: [] });
+  const DATE = '2026-09-15';
+  const mixed = byId.get('r-basil-clam-split');      // 塔香蛤蜊：九層塔、鴻喜菇、杏鮑菇不耐放，蛤蜊可以冷凍
+  const vegOnly = byId.get('r-basil-omelet');        // 九層塔煎蛋：只有九層塔放不住
+  const meatOnly = byId.get('r-black-pepper-beef');  // 黑胡椒牛肉片：只有牛肉放不住（對照）
+  const over = (r) => shelfOverdue(r, DATE, shopCtx);
+  const isFz = (b) => FREEZABLE_CATS.has(b.cat);
+  // 前置：情境真的成立（食譜或保存天數一改，這裡先大聲紅，不讓下面變成恆真）
+  ok(!!mixed && over(mixed).length >= 2 && over(mixed).some(isFz) && over(mixed).filter((b) => !isFz(b)).length >= 2,
+    `（前提）塔香蛤蜊在 9/15 有肉魚也有至少兩樣菜放不住：${mixed ? over(mixed).map((b) => `${b.label}（${b.cat}）`).join('、') : '找不到這道'}`);
+  ok(!!vegOnly && over(vegOnly).length >= 1 && !over(vegOnly).some(isFz), `（前提）九層塔煎蛋在 9/15 只有菜放不住：${vegOnly ? over(vegOnly).map((b) => b.label).join('、') : '找不到這道'}`);
+  ok(!!meatOnly && over(meatOnly).length >= 1 && over(meatOnly).every(isFz), `（前提）黑胡椒牛肉片在 9/15 只有肉放不住：${meatOnly ? over(meatOnly).map((b) => b.label).join('、') : '找不到這道'}`);
+
+  const info = { meal: 'dinner', date: DATE };
+  const lineMixed = relaxReason('relaxShelf', mixed, info, shopCtx) ?? '';
+  const lineVeg = relaxReason('relaxShelf', vegOnly, info, shopCtx) ?? '';
+  const [frozenHalf, freshHalf = ''] = lineMixed.split('；');
+  ok(over(mixed).every((b) => lineMixed.includes(b.label)), `保存期限理由每一樣放不住的都講到（不是只講第一樣）：${lineMixed}`);
+  ok(frozenHalf.includes('要先冷凍') && over(mixed).filter(isFz).every((b) => frozenHalf.includes(b.label))
+    && over(mixed).filter((b) => !isFz(b)).every((b) => !frozenHalf.includes(b.label)), '「要先冷凍」那一半只有肉魚，九層塔、菇沒有被叫去冷凍');
+  ok(over(mixed).filter((b) => !isFz(b)).every((b) => freshHalf.includes(b.label)) && freshHalf.includes('不耐放'), '菜與菇落在「不耐放」那一半');
+  ok(lineVeg.length > 0 && !lineVeg.includes('冷凍') && lineVeg.includes('不耐放'), `只有菜放不住的菜，理由句完全不提冷凍：${lineVeg}`);
+
+  // 扣分：放寬保存期限那一輪，每一樣不能冷凍又放不住的扣 SHELF_FRESH_PENALTY；只需冷凍的不扣
+  const stub = { slotItems: [], placedWant: new Set(), lastServed: () => null, timesServedWithin: () => 0, dayProteins: () => new Set(), prevDayMealProteins: () => new Set(), fishCount: () => 0, rangeHas: () => false };
+  const gap = (r) => scoreSoft(r, { role: r.role, meal: 'dinner', date: DATE, day: 1 }, noShopCtx, stub, makeRng('shelf')).score
+    - scoreSoft(r, { role: r.role, meal: 'dinner', date: DATE, day: 1 }, shopCtx, stub, makeRng('shelf')).score;
+  const freshN = (r) => over(r).filter((b) => !isFz(b)).length;
+  ok(Math.abs(gap(mixed) - 60 * freshN(mixed)) < 1e-9 && freshN(mixed) >= 2, `不耐放又放不住的每一樣扣 60：塔香蛤蜊 ${freshN(mixed)} 樣，分數少 ${gap(mixed)}`);
+  ok(Math.abs(gap(vegOnly) - 60 * freshN(vegOnly)) < 1e-9, `九層塔煎蛋 ${freshN(vegOnly)} 樣，分數少 ${gap(vegOnly)}`);
+  ok(Math.abs(gap(meatOnly)) < 1e-9, `（對照）只有肉要冷凍的黑胡椒牛肉片不扣分（差 ${gap(meatOnly)}）`);
 }
 
 section('actualRelaxations：逐條探測，回的是實際踩到的那一條');

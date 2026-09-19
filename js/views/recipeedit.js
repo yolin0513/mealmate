@@ -46,7 +46,7 @@ export function toRecipe(d) {
     ...(split ? { splitServings: { veg: d.splitServings.veg, meat: d.servings - d.splitServings.veg } } : {}),
     ...(d.alliumOptional ? { alliumOptional: true } : {}),
     ingredients: d.ingredients.map((ing) => ({
-      food: ing.food, label: ing.label.trim() || ing.foodName || String(ing.query ?? '').trim(), grams: ing.grams == null || ing.grams === '' ? null : Number(ing.grams),
+      food: ing.food, label: ing.label.trim() || ing.foodName, grams: ing.grams == null || ing.grams === '' ? null : Number(ing.grams),
       track: split ? ing.track : 'base', ...(ing.pantry ? { pantry: true } : {}),
       // 用顆／把／大匙填的：記下原本怎麼填（下次編輯照樣顯示），克數仍然是唯一算營養、算採買的數字
       ...(ing.entry && ing.entry.unit !== '克' && ing.grams > 0 ? { entry: { qty: ing.entry.qty, unit: ing.entry.unit } } : {}),
@@ -257,7 +257,7 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
   const vegConfirm = h('div', { class: 'notice', hidden: true, dataset: { field: 'vegConfirm' } });
   function unresolvedNames() {
     const resolve = store.recipeCtx().resolve;
-    return d.ingredients.map((ing) => (ing.food ? '' : (String(ing.label ?? '').trim() || String(ing.query ?? '').trim()))).filter((t) => t && !resolve(t));
+    return d.ingredients.map((ing) => (ing.food ? '' : String(ing.label ?? '').trim())).filter((t) => t && !resolve(t));
   }
   function updateVegConfirm() {
     const names = unresolvedNames();

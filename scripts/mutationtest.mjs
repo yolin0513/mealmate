@@ -330,14 +330,10 @@ const MUTATIONS = [
     replace: "  return [...ranges];",
     test: "shoppingtest",
   },
-  {
-    name: "買菜頁不重排（真實畫面）",
-    why: "同一條，走真實的買菜頁。",
-    file: "js/shopping.js",
-    find: "  const past = (r) => rangeIsPast(r, todayIso);\n  return [...ranges.filter((r) => !past(r)), ...ranges.filter(past)];",
-    replace: "  return [...ranges];",
-    test: "shoppingviewtest",
-  },
+  // 「買菜頁不重排（真實畫面）」（shoppingviewtest）2026-09-19 刪掉：等價突變，不是測試走錯路。
+  // js/views/shopping.js 先用 planCustomCarry 算出 hide、把已過的清單濾掉，才呼叫 orderRangesForToday；
+  // 已過的清單只有在今天以後一張都沒有（target === null）時才留在畫面上，那時畫面上全部都是已過的，重排不重排結果一樣。
+  // 函式本身由上面那條 Node 端的「買菜頁不重排（回到改版前）」守著（它是紅的）。不要補回來。
   {
     name: "過去的買菜清單直接不給看",
     why: "排到後面跟刪掉是兩回事 —— 那幾項常常還要補買。",
@@ -667,11 +663,12 @@ const MUTATIONS = [
   },
   {
     name: "表單路徑：步驟一個字都沒打就存不進去",
-    why: "同一條，走真實表單（表單預設就有一個空白步驟）。",
+    why: "同一條，走真實表單：預設 0 步，但按了「＋ 新增步驟」卻一個字都沒打就存，空白步驟要被濾掉、存成預設那一句。",
     file: "js/recipeschema.js",
     find: "  const steps = relax ? rawSteps.filter((st) => typeof st?.text === 'string' && st.text.trim()) : rawSteps;",
     replace: "  const steps = rawSteps;",
     test: "recipeviewtest",
+    expect: "按了新增步驟卻一個字都沒打",
   },
   {
     name: "一步都沒寫：不補預設那一句",
@@ -901,11 +898,21 @@ const MUTATIONS = [
   },
   {
     name: "沒點清單、直接打的食材名稱不解析",
-    why: "使用者在「顯示名稱」打了「雞腳」，食材卻是空的，被擋成「找不到「」」。",
+    why: "編輯舊食譜：當年資料庫不認得、食材欄存成空的，之後別名補上了（雞腳就是這樣）；使用者打開編輯不碰那個框就存，要靠名稱補解析才對得上，不然永遠停在「未估算」。",
     file: "js/recipeschema.js",
     find: "    const food = typedFood ? ctx.resolve(typedFood) : (typedLabel ? ctx.resolve(typedLabel) : null);",
     replace: "    const food = typedFood ? ctx.resolve(typedFood) : null;",
     test: "recipeviewtest",
+    expect: "編輯舊食譜不碰食材框直接存",
+  },
+  {
+    name: "沒點清單、直接打的食材名稱不解析（Node 端）",
+    why: "同一條，直接驗 validateRecipe：舊食譜存成 food: null 的那個形狀。",
+    file: "js/recipeschema.js",
+    find: "    const food = typedFood ? ctx.resolve(typedFood) : (typedLabel ? ctx.resolve(typedLabel) : null);",
+    replace: "    const food = typedFood ? ctx.resolve(typedFood) : null;",
+    test: "recipetest",
+    expect: "編輯舊食譜：當年存成 food: null",
   },
   {
     name: "查不到食材的訊息又只塞編號（空的引號）",
@@ -931,14 +938,9 @@ const MUTATIONS = [
     replace: "    \"雞腳_沒有這個別名\": \"I0420801\",",
     test: "recipetest",
   },
-  {
-    name: "打在搜尋框、沒點清單的食材名稱被丟掉",
-    why: "使用者打了「青蔥」卻沒點下面的清單，存的時候那一列變成空的。",
-    file: "js/views/recipeedit.js",
-    find: "      food: ing.food, label: ing.label.trim() || ing.foodName || String(ing.query ?? '').trim(), grams:",
-    replace: "      food: ing.food, label: ing.label.trim() || ing.foodName, grams:",
-    test: "recipeviewtest",
-  },
+  // 「打在搜尋框、沒點清單的食材名稱被丟掉」2026-09-19 刪掉，連同 js/views/recipeedit.js 裡讀 ing.query 的兩處死碼：
+  // 整個 js/ 沒有任何地方寫入 ing.query（blankIngredient、draftFrom 都不建這個欄位）；v0.35.0 食材合成一個框之後，
+  // 打的字就寫在 label，搜尋框這個欄位已經不存在。不要補回來。
   // ---- 2026-09-14 一週平衡：豐盛的菜用其他天中和回來 ----
   {
     name: "家人頁豐盛程度的 chip 塞回設定列右邊（標籤被擠成一欄一個字）",
@@ -1419,6 +1421,7 @@ const MUTATIONS = [
     find: "    const frozen = all.filter((b) => FREEZABLE_CATS.has(b.cat));",
     replace: "    const frozen = all;",
     test: "plannertest",
+    expect: "「要先冷凍」那一半只有肉魚",
   },
   {
     name: "保存天數只認食材的第一個叫法",
@@ -2791,6 +2794,7 @@ const MUTATIONS = [
     find: '    if (fresh.length) score -= SHELF_FRESH_PENALTY * fresh.length;',
     replace: '',
     test: 'plannertest',
+    expect: '不耐放又放不住的每一樣扣 60',
   },
   {
     name: '保存期限的理由只講第一樣放不住的',
@@ -2799,6 +2803,7 @@ const MUTATIONS = [
     find: '    const all = shelfOverdue(recipe, date, ctx);\n    if (!all.length) return null;',
     replace: '    const all = shelfOverdue(recipe, date, ctx).slice(0, 1);\n    if (!all.length) return null;',
     test: 'plannertest',
+    expect: '保存期限理由每一樣放不住的都講到',
   },
   {
     name: '新增食譜又預設一步步驟框',
