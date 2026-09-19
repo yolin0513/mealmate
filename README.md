@@ -23,7 +23,9 @@
 ```bash
 npm install
 npm run dev          # http://localhost:5190/
-npm test             # 全部測試（含突變測試，會暫時改寫原始碼，跑的時候不要同時編輯）
+npm test             # 全部 26 支測試（不含突變）
+npm run mutationtest # 突變測試（會暫時改寫原始碼，跑的時候不要同時編輯；--only <關鍵字> 只跑幾條）
+npm run sincefull    # 距上次全面檢測、距上次突變整套各多久
 npm run build-foods  # 從 data/raw/ 的食藥署匯出檔重建 data/foods.json（--download 先抓）
 npm run build-recipes
 ```

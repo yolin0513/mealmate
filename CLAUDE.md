@@ -12,9 +12,10 @@
 5. **健康紅線**：不做療效宣稱、治療處方或「可取代醫囑」的說法；營養數字一律標「估」；素版與葷版的營養永不相加；
    慢性病只影響顯示與排序、不排除任何菜；腎臟病不自動限鉀；醣類份數不顯示；算不出來寫「未估算」，絕不寫成 0；
    畫面文字不用「健康／降／控制／療效／治療／建議／應該」。
-6. **測試紀律**：不寫假斷言；每條新斷言都要用突變（`npm run mutationtest -- --only <關鍵字>`）證明會紅；平常只跑受影響的測試；
+6. **測試紀律**：不寫假斷言；每條新斷言都要用突變（`npm run mutationtest -- --only <關鍵字>`）證明會紅；每版跑什麼見 STATUS 工作慣例第 15 條（本 App 每版跑完 26 支）；
    跑 mutationtest 期間不要同時編輯原始碼；含反斜線或 regex 的補丁用 Write 工具寫檔，不經 shell heredoc。
-7. **每次部署**：`npm run bump -- mealmate-vX.Y.Z` → 26 支測試全綠 → commit → push → 線上核對 `js/version.js`、`sw.js`、`index.html` 三處版本號 → 更新 `docs/STATUS.md` → 回報版本號、動到的檔、逐項對照。
+7. **每次部署**：`npm run bump -- mealmate-vX.Y.Z` → `npm test`（26 支，不含突變）全綠＋`npm run checkmutations` → commit → push → 線上核對 `js/version.js`、`sw.js`、`index.html` 三處版本號 → 更新 `docs/STATUS.md` → 回報版本號、動到的檔、逐項對照，最後附 `npm run sincefull` 的兩行。
+   只改文件的 commit 跑 `doctest`＋`copytest` 即可；全面檢測（含突變整套）由 Yolin 指定。
 
 ## 共用慣例
 

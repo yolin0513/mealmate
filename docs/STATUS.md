@@ -1,21 +1,28 @@
 # MealMate 專案狀態（docs/STATUS.md）
 
-> 最後更新：2026-09-19（早餐再補 14 道＋加工品照內容物描述補葷素標籤＋早餐輪替扣分 2 → 6）。線上版本 **`mealmate-v0.36.0`**。
+> 最後更新：2026-09-19（測試範圍：不做挑選器、`mutationtest` 拆出 `npm test`、全面檢測兩行紀錄、`sincefull` 提醒；不算一版）。線上版本 **`mealmate-v0.36.0`**。
 > repo `yolin0513/mealmate`，GitHub Pages `https://yolin0513.github.io/mealmate/`。
 > 給接手的工作階段快速接手用。規劃細節見 `PLAN.md`（唯一真相來源），實測見 `FEASIBILITY.md`，資料與衛教來源見 `SOURCES.md`。
 
 ## 目前進行中／交接（2026-09-19，寫給下一個 Session）
 
 **現在正在做什麼：沒有。** 最後一版 `mealmate-v0.36.0`：早餐再補 14 道（全素 10、台式葷食 4），見下面「早餐再補 14 道」一節。
-Dispatch 說 Yolin 另外交辦的兩件（測試範圍放寬、歷史菜單功能）由統籌者規劃中，規格下來才做；`docs/SPEC_測試範圍.md` 是統籌者放進來的未追蹤檔，**v0.36.0 沒有動它、也沒有提交它**。
+之後做了測試範圍的調整（docs＋scripts、不算一版，`docs/SPEC_測試範圍.md`＋`docs/SPEC_測試範圍_修訂一.md`）：**MealMate 不做受影響測試挑選器，每版照舊跑完 26 支**；`mutationtest` 拆出 `npm test`；全面檢測留兩行紀錄；每版回報加兩行提醒（`npm run sincefull`）。見下面「測試範圍」一節。
+Dispatch 說 Yolin 另外交辦的「歷史菜單功能」由統籌者規劃中，規格下來才做。
 
-**做到哪一步：** 2026-09-18 連出 v0.28.0 → v0.35.0 八版；2026-09-19 做了兩件文件工作（見下）與 v0.36.0。
-每一版都是「程式 → 測試＋突變驗紅 → 26 支全套綠 → bump → push → 線上核對三處版本號與新程式」。
-**完整的 `mutationtest`（366 條）自 2026-09-13 之後沒有整套跑過**；這段期間每一版只跑了新增／更新的那幾條（`--only`），外加每一版都跑 `checkmutations`（0 過期）。
+**做到哪一步：** 2026-09-18 連出 v0.28.0 → v0.35.0 八版；2026-09-19 做了兩件文件工作（見下）、v0.36.0、測試範圍調整。
+到 v0.36.0 為止每一版都是「程式 → 測試＋突變驗紅 → 26 支全套綠 → bump → push → 線上核對三處版本號與新程式」；
+測試範圍調整之後**照舊**，只是寫精確：每版 `npm test`（26 支，不含突變）全綠＋`checkmutations`＋新斷言的 `mutationtest -- --only`（工作慣例第 15 條）。
+**突變整套只在 2026-09-13 跑過一次（v0.7.0，105 條全綠）；現在 370 條，多出來的 265 條從來沒有整套跑過（`npm run sincefull` 照實算）。** 每一版只跑新增／更新的那幾條（`--only`），外加 `checkmutations`（0 過期）。
 v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條），這一版的 18 條都帶；**舊的 348 條沒有**，其中改 `data/recipes/`、`data/foodtags.json` 的突變可能只是讓「recipes.json 是最新的」紅，不代表對應的斷言有在檢查（見該節）。
 
+**保留、沒進 repo 的東西：受影響測試挑選器的 patch。** 存在 2026-09-19 那個開發工作階段的 scratchpad 底下 `affected-selector/`
+（本機暫存資料夾；完整路徑含本機使用者名稱，不寫進公開 repo，要找請問 Dispatch 或看該工作階段的回報）。
+內容：`affected-selector.patch`＋同內容的完整檔＋`README.md`（回放數據與重啟時要記得的三個事實）。
+保留的理由：統籌者裁決不做，推翻的是 Yolin「點名要做」的字面，**等 Yolin 確認不要之後再刪**。scratchpad 在系統暫存資料夾，可能被清掉；真的要用而它不見了，照 `docs/SPEC_測試範圍.md` 重寫即可。
+
 **下一步該做什麼（沒有人交辦，建議順序）：**
-1. 找時間跑一次完整的 `npm run mutationtest`（約 30–40 分鐘，不要同時改原始碼），確認 366 條全紅。上次整套跑是 2026-09-13。
+1. 等 Yolin 叫一次全面檢測（Dispatch 已轉達「261 條突變從來沒整套跑過」—— 那是 366 條時的數字，加上測試範圍這批的 4 條後是 265 條）：`npm test`＋`npm run mutationtest`（整套，約 30–40 分鐘，跑的時候不要編輯任何檔案）＋`npm run assertaudit`＋`npm run checkmutations`，跑完更新「測試現況」那兩行紀錄。統籌者建議同時分批替舊突變補 `expect`（要 Yolin 點頭）。
 2. 下面「等 Yolin 回覆」第 1、6 項（四季豆誤判、加工品標籤的系統性缺口）與 `docs/SPEC_全素蛋白質食譜補充.md`、`docs/SPEC_食材搜尋排序.md` 兩份草稿，Yolin 點頭才做。
 
 **正在等 Yolin 回覆的事：** 見下一節。沒有任何一項會擋住現有功能。
@@ -24,7 +31,8 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
 · commit 作者信箱改用 GitHub noreply（只設本 repo 的 `.git/config`），`CLAUDE.md` 第 3 條與「常設規則補遺」第 5 條同步改寫；「個資稽核」一節的舊紀錄照原樣保留，後面加一句補註指向補遺第 5 條。
 · 共用慣例：`docs/CONVENTIONS.md` 是四個 App 共用慣例的**副本**（主檔在統籌工作區，這裡不改），目前 **v2**；`CLAUDE.md` 檔尾有「共用慣例」一節與 `@docs/CONVENTIONS.md` 匯入。
   之後全新開場的 Session，第一則回覆第一行要寫回執 `已讀共用慣例 v2（2026-09-19）`（照副本第一行）。本檔與 `CLAUDE.md` 優先於共用慣例，衝突時照較嚴的做。
-  v2 的 §5.7 明講「平常只跑受影響的」是**解除義務、不是設上限**，本 App 規定每版要跑哪些的照本 App —— 所以跟 `CLAUDE.md` 第 7 條「每版 26 支全綠」不再衝突。
+  本 App 規定**每版跑完 26 支**（工作慣例第 15 條），跟共用 §5.7 不衝突：§5.7 是解除「每次都全測」的義務、不是設上限，「本 App 規定每版要跑哪些的，照本 App」。
+  全跑的理由是量出來的：26 支一輪約 448 秒（7.5 分鐘），而 13 版裡 10 版改到排菜器或成員模組、幾乎每支瀏覽器測試都靠它們造資料，挑選器省不到時間（見「測試範圍」一節）。
 · 待 Yolin 決定（不急）：`CLAUDE.md` 第 3 條「要先問的只有」的「只有」與共用 §2.1／§2.3 字面上相牴觸；照較嚴的做即可，改不改字由 Yolin 決定。
 
 ## 等 Yolin 回覆（2026-09-18 整理；每項都還沒人交辦，是交接時整理出的建議）
@@ -76,7 +84,7 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
    · Python `io.open(..., 'w')` 沒給 `newline=''` 會把 LF 變 CRLF。
    做法：補丁寫成 `.py` 檔（raw 字串、`newline=''`）再執行。
 9. **等待背景工作不要用 `sleep N` 串接**（環境會擋）；用 `until <條件>; do sleep 10; done` 單一迴圈，或開背景任務等通知。
-10. **全套測試**：`npm test` 會連 mutationtest 一起跑（很久）。平常要「26 支全跑、不含突變」就逐支 `node scripts/<name>.mjs`，清單照 `package.json` 的 `test` 腳本、去掉最後的 mutationtest。
+10. **全套測試**：`npm test`＝26 支、**不含突變**（2026-09-19 起；以前會連 mutationtest 一起跑）。`npm run mutationtest` 是獨立指令（`--only` 照舊），跑的時候會暫時改寫原始碼、不要同時編輯。
 11. **瀏覽器測試的「今天」固定在本週一 10:00**（`browserlib.openApp` 預設 `pinToday`，v0.31.0 起）。要測「已過」「今天」的段落自己開分頁 `pinToday(p2, 週四)`。
     時間照真的往前走、只有日期固定（`Date.now()` 若凍住，量時間差的程式會壞）。
 12. **統計型斷言要量餘裕，而且門檻要用多組種子量**（慣例 22 的延伸）：v0.29.0、v0.34.0 各有兩三條「單一種子剛好過」的門檻在菜單一變就紅。
@@ -132,12 +140,17 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
 | 再提三項：主食格只排設定的那種米（不再出現白麵條）、新增食譜步驟預設 0 步；連帶修放寬保存期限的漏洞 | ✅ 完成（2026-09-18） | `mealmate-v0.34.0` |
 | 新增食譜的食材合併成一個框（查詢＝輸入，改名稱時保護對應關係） | ✅ 完成（2026-09-18） | `mealmate-v0.35.0` |
 | 早餐再補 14 道（全素 10、台式葷食 4）、加工品照內容物描述補葷素標籤、早餐輪替扣分 2 → 6 | ✅ 完成（2026-09-19） | `mealmate-v0.36.0` |
+| 測試範圍：不做挑選器、每版照舊全跑；`mutationtest` 拆出 `npm test`；全面檢測兩行紀錄；`npm run sincefull` 提醒 | ✅ 完成（2026-09-19） | 未 bump（只動 scripts 與文件） |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 64、aliastest 26、unittest 69、edutest 13、copytest 7、recipetest 158、membertest 127、nutritiontest 149、plannertest 451、shoppingtest 148、timelinetest 71、doctest 125；
+Node 端：datatest 64、aliastest 26、unittest 69、edutest 13、copytest 7、recipetest 158、membertest 127、nutritiontest 149、plannertest 451、shoppingtest 148、timelinetest 71、doctest 136；
 瀏覽器端（puppeteer）：shelltest 161、familytest 90、recipeviewtest 140、backuptest 30、weekviewtest 192、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 111（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **366 條**。**上次整套跑是 2026-09-13（當時全綠）**；之後每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。平常只跑受影響的（慣例 15）；整套現在約 30–40 分鐘（plannertest 變慢了，一條約 35 秒）。
+`mutationtest` 共 **370 條**，是獨立指令、不在 `npm test` 裡。**整套只在 2026-09-13 跑過一次（105 條全綠）；多出來的 265 條從來沒有整套跑過（`npm run sincefull` 照實算）。** 之後每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。整套現在估約 30–40 分鐘（plannertest 變慢了，一條約 35 秒）。
+每版跑什麼見工作慣例第 15 條；每版回報最後附 `npm run sincefull` 印的兩行（距上次全面檢測、距上次突變整套）。下面兩行是固定格式，`sincefull` 與 `doctest` 會讀，改格式會紅：
+上次全面檢測：2026-09-13、mealmate-v0.7.0、全綠（當時的全套測試＋完整突變 105 條＋`assertaudit` 假斷言全掃，見「全面檢測」一節）、總耗時 無紀錄、最慢五支 無紀錄
+上次突變整套：2026-09-13、mealmate-v0.7.0、105 條、全綠、耗時 無紀錄
+（參考，不是全面檢測：上次 26 支全跑是 2026-09-19 `mealmate-v0.36.0`，全綠、約 448 秒；最慢五支 layouttest 101、plannertest 80、weekviewtest 53、recipeviewtest 37、racetest 與 versionmixtest 各 30 秒。）
 
 食譜現況：**237 道**（主菜 102、配菜 56、湯 34、早餐 39、主食 6）。
 
@@ -197,6 +210,26 @@ Node 端：datatest 64、aliastest 26、unittest 69、edutest 13、copytest 7、
 5. **完整突變套件**：105 條全跑一次**全綠**（24 個基準先過，再逐條改壞、確認會紅、還原）。
 
 檢測期間**沒有動任何產品程式碼**（js／css／data 零改動），改的都是測試與工具。
+
+### 測試範圍（2026-09-19，未 bump；`docs/SPEC_測試範圍.md`＋`docs/SPEC_測試範圍_修訂一.md`）
+
+Yolin：「請放寬，不用每一次小改動都全測，我會定期進行全面檢測」，並點名 MealMate 要做。統籌者先寫了照 TripQuest 做「受影響測試挑選器」的規格；
+實作後回放 v0.23.0–v0.35.0 十三版，**驗收沒過**（要求至少一半的版本明顯少於全套 27 支）：
+
+| 結果 | 版本 |
+|---|---|
+| 全套（骨架改動） | v0.24.0、v0.27.0、v0.28.0 |
+| 24–27 支、估計時間 ≈ 100% | v0.23.0、v0.25.0、v0.26.0、v0.29.0、v0.30.0、v0.32.0、v0.33.0、v0.34.0 |
+| 明顯少 | v0.31.0（19 支、82%）、v0.35.0（13 支、55%） |
+
+命中「排菜輸入面」放大器的 9 版；拿掉它試算幾乎不變。根因：瀏覽器測試大多在 `page.evaluate` 裡直接 import `store.js`／`planner.js`／`members.js`／`prefs.js`，
+`browserlib.mjs` 也 import `planner.js`，13 版裡 10 版改到它們 —— 「受影響」本來就幾乎是全部。
+統籌者裁決（修訂一）：**不做挑選器，每版照舊跑完 26 支**（7.5 分鐘；真正貴的突變整套早就只跑 `--only`），只做三件不需要挑選器的事：
+1. `mutationtest` 拆出 `npm test`（`npm test`＝26 支；突變是獨立指令）。
+2. 全面檢測的定義與「測試現況」兩行固定格式的紀錄（上次全面檢測、上次突變整套）。基準：2026-09-13、v0.7.0、突變 105 條全綠；**現在 370 條，265 條從未整套跑過（統籌者寫的 261 是 366 條時的數字）**。
+3. 每版回報最後附 `npm run sincefull` 印的兩行（距上次全面檢測、距上次突變整套各幾版幾天、幾條從未整套跑過）；STATUS 那兩行格式對不上就 exit 1，不印 0 天。
+已經寫好的挑選器（`scripts/affected.mjs`、`run-affected.mjs`、`bump-version.mjs` 匯出樣式）存成 patch 留在 scratchpad，等 Yolin 決定去留（見交接節）。
+測試：`doctest` 125→**136**（D1–D4：兩行紀錄讀得到而且解析得出日期、版本、條數；格式壞掉會丟錯；從未整套跑過的條數＝實際總條數 − 上次整套條數；`npm test` 鏈裡沒有 mutationtest 但 npm script 還在，含對照組）。突變 366→**370**（4 條，都帶 `expect`）。
 
 ### 早餐再補 14 道（2026-09-19，v0.36.0，Yolin：「好，請葷素都補」）
 
@@ -1277,7 +1310,7 @@ v0.11.0 明確放寬過前兩條，這是回歸。**實測查到的根因**（�
 4. **較大改動或值得討論的議題**：由 Fable 開 **3 個代理投票**，各代理當統籌、把查資料的工作交給 Opus；
    Fable 彙整投票結果後再回報。（下方「工作慣例」第 2、3 條的多代理投票與額度用盡改用 Opus，照舊適用。）
 5. **測試紀律不變**：照下方「工作慣例」與既有 STATUS 的規矩——每條新斷言都要用突變證明會紅、不寫假斷言、
-   含 regex 的測試碼用 Write、平常只跑受影響的測試、push 後驗線上並回報版號。
+   含 regex 的測試碼用 Write、每版跑什麼見工作慣例第 15 條（本 App 是每版跑完 26 支）、push 後驗線上並回報版號。
 6. **不准用互動式提示框**（AskUserQuestion 這類多選題工具）。需要使用者決定的事，一律用**純文字**寫在回覆裡：
    列出選項、講清楚每個選項的代價、附上建議，然後**停下來等**，由 Dispatch 轉達並把答案帶回來。
    原因：Yolin 常從手機／遠端操作，互動式提示框只渲染在本機 PC，遠端點不到就整個卡住（2026-09-16 實際卡過一次）。
@@ -1301,13 +1334,21 @@ v0.11.0 明確放寬過前兩條，這是回歸。**實測查到的根因**（�
 8. **不做帳號、雲端、任何外部請求。** 程式碎裡出現非同源 `fetch(` 或 CSP 多開主機 → `shelltest` 紅（各有突變）。
 9. 沿用 JLPT_App／TripQuest／StockDiary 技術路線：原生 JS ES Modules ＋ IndexedDB ＋ Service Worker，無框架、無打包；`h()` 全 textNode、URL 屬性白名單；CSP `script-src 'self'`；任何一頁不准自己 `mount(#view)`，一律走 `shell.js` 的 `render(...nodes)`；`js/app.js` 不准被任何模組 import；`index.html` 每個網址帶不帶版本參數要跟模組圖一致。都有 `shelltest` 靜態稽核。**`replaceChildren(...)` 的參數要自己過濶 null**（h() 會略過、它不會）。
 10. **資料授權標示**：食藥署資料 → 家人分頁「關於與資料來源」與每個「怎麼算的」底部（`eduNode('fda.tfnd.attribution')`）。國健署引用只用文字、不用圖像。
-11. 每版流程：`npm run bump -- mealmate-vX.Y.Z` → 受影響的測試 → `npm run build-recipes`（有改食譜時）→ commit/push → `curl https://yolin0513.github.io/mealmate/js/version.js` 確認線上版本 → `npm run screenshots`。
+11. 每版流程：`npm run bump -- mealmate-vX.Y.Z` → `npm run build-recipes`（有改食譜時）→ `npm test`（26 支，不含突變）全綠＋`npm run checkmutations`＋新斷言的 `npm run mutationtest -- --only <關鍵字>`（第 15 條）→ commit/push → `curl https://yolin0513.github.io/mealmate/js/version.js` 確認線上版本 → `npm run screenshots` → 回報最後附 `npm run sincefull` 的兩行。
 12. 打真網路的測試：**沒有**。`build-foods.mjs --download` 是開發者本機工具，不進 `npm test`。
 13. 不動 `D:\Claude\App\TripQuest`、`D:\Claude\App\JLPT_App`、`D:\Claude\App\StockDiary` 的任何檔案（可讀，用來抄慣例：`layouttest`／`uikittest` 的全頁掃描、`racetest`／`versionmixtest`）。
 14. **斷言驗語意、不貼字面。**
-15. **測試範圍：平常只跑受影響的，全面檢測由使用者叫**（沿用 StockDiary 的使用者指示）。判斷受影響：`grep -l "views/<改到的檔>" scripts/*.mjs`；改到任何 view → `shelltest`；`js/views/family.js`／`member.js` → `familytest`；`js/views/recipe*.js`／`js/nutrition.js`／`js/store.js` → `recipeviewtest`、`nutritiontest`；`js/planner.js`／`js/views/week*.js` → `plannertest`、`weekviewtest`；`js/backup.js`／`js/db.js` → `backuptest`；`js/shopping.js`／`js/views/shopping.js`／`js/units.js` → `shoppingtest`、`shoppingviewtest`；`js/timeline.js`／`js/views/today.js` → `timelinetest`、`todaytest`；`js/router.js`／`js/shell.js` → `racetest`、`shelltest`；`js/app.js`／`sw.js`／`js/version.js` → `shelltest`、`versionmixtest`；`css/style.css`／`js/prefs.js`（字級） → `layouttest`、`uikittest`、`shelltest`；`js/members.js` → `membertest`、`familytest`、`recipeviewtest`、`plannertest`；`js/recipeschema.js`／`data/recipes/` → `recipetest`、`copytest`、`plannertest`；`js/foods.js`／`data/aliases.json`／**`data/units.json`** → `aliastest`、`recipetest`、`unittest`（2026-09-13 補：改了 `data/units.json` 的保存天數卻只跑了 shoppingtest，unittest 紅了一版沒被發現）；`data/edu.json`／任何 `edu(` 呼叫 → `edutest`、`copytest`；`css/style.css` → `shelltest`（M4 起加 `layouttest`、`uikittest`）。**沒有放寬的那一條：新的斷言仍然必須經突變驗證會紅**（`npm run mutationtest -- --only <關鍵字>`）。
+15. **每版跑什麼（2026-09-19 起，`docs/SPEC_測試範圍_修訂一.md`）**：
+    · **每版**：`npm test`（26 支，不含突變，約 7.5 分鐘）全綠＋`npm run checkmutations`＋這一版新斷言的 `npm run mutationtest -- --only <關鍵字>`。
+    · **唯一的放寬**：只改 `docs/**`、`*.md` 的 commit → 跑 `doctest`＋`copytest` 就好（兩支純 Node、幾秒）。改到文件以外的任何檔，一律全跑；`git status` 一眼看得出來。
+    · **為什麼全跑**：26 支一輪約 448 秒；v0.23.0–v0.35.0 十三版回放「受影響測試挑選器」，11 版要跑 24–27 支、時間跟全套一樣 ——
+      13 版裡 10 版改到排菜器或成員模組，而幾乎每支瀏覽器測試都在 `page.evaluate` 裡直接用它們造資料（v0.33.0 買菜頁 320 寬溢出 3px 就是這層涵蓋抓到的）。
+      真正貴的突變整套（30–40 分鐘）早就只跑 `--only`。這不違反共用慣例 §5.7（解除義務、不是設上限；本 App 規定每版要跑哪些的照本 App）。
+    · 以前這裡是一張「改到 X → 跑 Y」的人工對照表，2026-09-19 刪掉：它漏過一次（`data/units.json`，unittest 紅了一版沒被發現），而且到最後還有 datatest、doctest、redlinetest、scenariotest、pwatest 五支一列都沒被點到；全跑就沒有「漏」這回事。
+    · **沒有放寬的那一條：新的斷言仍然必須經突變驗證會紅**（`npm run mutationtest -- --only <關鍵字>`）。
 16. **瀏覽器測試的點擊一律 `clickEl()`**（先捲到中央再點）；要量 toast 文字就等 `#toast.show`，要等它走就 `waitToastGone()`。
-17. **全面檢測怎麼跑**（使用者叫的時候）：`npm run checkmutations`（幾秒，先確認沒有過期的突變）→ `npm run doctest` → `npm run redlinetest` → `npm run scenariotest` → `npm run assertaudit`（會跑完整套件並分析假斷言，約 25 分）→ `npm run mutationtest`（2026-09-19 時 366 條，約 30–40 分）。**只跑 `--only` 子集永遠看不到過期的突變**，那是 M2 到 M5 之間漏掉一條的原因。
+17. **全面檢測怎麼跑**（Yolin 指定才跑；跑的期間不要編輯任何檔案）：`npm run checkmutations`（幾秒，先確認沒有過期的突變）→ `npm test`（26 支）→ `npm run assertaudit`（會跑完整套件並分析假斷言，約 25 分）→ `npm run mutationtest`（整套，2026-09-19 時 370 條，約 30–40 分）。
+    跑完更新「測試現況」那兩行固定格式的紀錄（上次全面檢測：日期、版本、結果、總耗時、最慢五支秒數；上次突變整套：日期、版本、條數、結果、耗時）。**只跑 `--only` 子集永遠看不到過期的突變**，那是 M2 到 M5 之間漏掉一條的原因。
 19. **UI 產生的計畫是隨機 seed —— 需要「特定情境」的斷言不可以靠按鈕。**
     `js/views/week.js` 的「產生菜單」與「重新產生」都走 `newSeed: true`，seed 取自 `Date.now()`。
     所以 `weekviewtest`／`todaytest`／`shoppingviewtest`／`scenariotest`／`versionmixtest` 每次跑驗到的是**不同的菜單**。
