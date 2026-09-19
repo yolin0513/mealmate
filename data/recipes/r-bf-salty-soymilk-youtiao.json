@@ -1,0 +1,27 @@
+{
+  "id": "r-bf-salty-soymilk-youtiao",
+  "name": "鹹豆漿配油條",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 15,
+  "method": "boil",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "無糖豆漿", "label": "無糖豆漿", "grams": 1000, "track": "base" },
+    { "food": "油條", "label": "油條（2 根，剪小段）", "grams": 108, "track": "base" },
+    { "food": "蝦皮", "label": "蝦皮", "grams": 10, "track": "base" },
+    { "food": "蘿蔔乾", "label": "菜脯（切碎）", "grams": 30, "track": "base" },
+    { "food": "米醋", "label": "白醋", "grams": 20, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "菜脯切碎，用清水沖一下減少鹹味、擰乾；油條剪成小段。" },
+    { "stage": "base", "type": "cook", "text": "乾鍋小火把蝦皮、菜脯炒香 1 分鐘，盛起來。油條放進烤箱或乾鍋烤 2 分鐘回脆。" },
+    { "stage": "base", "type": "prep", "text": "每個碗裡先放白醋、醬油、蝦皮、菜脯、油條。" },
+    { "stage": "base", "type": "cook", "text": "豆漿煮到快滾（冒小泡、還沒大滾），沖進碗裡，靜置半分鐘會結成豆花狀，滴幾滴香油。" }
+  ]
+}

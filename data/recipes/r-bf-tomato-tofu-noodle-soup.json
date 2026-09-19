@@ -1,0 +1,29 @@
+{
+  "id": "r-bf-tomato-tofu-noodle-soup",
+  "name": "番茄豆腐湯麵",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 20,
+  "method": "boil",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "乾麵條", "label": "乾麵條", "grams": 320, "track": "base" },
+    { "food": "番茄", "label": "番茄（3 顆，切塊）", "grams": 450, "track": "base" },
+    { "food": "嫩豆腐", "label": "嫩豆腐（切小塊）", "grams": 300, "track": "base" },
+    { "food": "青江菜", "label": "青江菜（切段）", "grams": 200, "track": "base" },
+    { "food": "油", "label": "油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 4, "track": "base", "pantry": true },
+    { "food": "紅糖", "label": "糖", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "番茄切塊、豆腐切小塊、青江菜洗淨切段。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱下油，炒番茄 2 分鐘到出汁，加 1200 毫升水、醬油、糖煮滾，再煮 5 分鐘讓湯變紅。" },
+    { "stage": "base", "type": "cook", "text": "同時另一鍋水煮麵條，照包裝時間煮熟撈起分到碗裡。" },
+    { "stage": "base", "type": "cook", "text": "番茄湯裡下豆腐與青江菜煮 2 分鐘，加鹽調味。" },
+    { "stage": "base", "type": "serve", "text": "把湯和料舀到麵上。" }
+  ]
+}

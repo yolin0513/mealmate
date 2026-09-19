@@ -1,0 +1,26 @@
+{
+  "id": "r-bf-miso-tofu-rice-soup",
+  "name": "味噌豆腐湯泡飯",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 15,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "白飯", "label": "白飯", "grams": 480, "track": "base", "pantry": true },
+    { "food": "嫩豆腐", "label": "嫩豆腐（切小塊）", "grams": 300, "track": "base" },
+    { "food": "青江菜", "label": "青江菜（切段）", "grams": 150, "track": "base" },
+    { "food": "香菇", "label": "新鮮香菇（切片）", "grams": 60, "track": "base" },
+    { "food": "裙帶菜", "label": "海帶芽（泡開）", "grams": 30, "track": "base" },
+    { "food": "味噌", "label": "味噌", "grams": 60, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "豆腐切小塊、青江菜切段、香菇切片；海帶芽用清水泡開、擰乾。" },
+    { "stage": "base", "type": "cook", "text": "1200 毫升水煮滾，下香菇煮 2 分鐘，再下豆腐、青江菜、海帶芽煮 2 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "關小火，把味噌放在湯勺裡用湯慢慢化開再倒回鍋，不要再大滾。" },
+    { "stage": "base", "type": "serve", "text": "白飯盛碗，舀入熱湯和料。" }
+  ]
+}

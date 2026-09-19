@@ -1,0 +1,27 @@
+{
+  "id": "r-bf-sesame-cold-noodles",
+  "name": "麻醬涼麵",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 20,
+  "method": "cold",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "乾麵條", "label": "乾麵條", "grams": 320, "track": "base" },
+    { "food": "小黃瓜", "label": "小黃瓜（切絲）", "grams": 200, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切絲）", "grams": 60, "track": "base" },
+    { "food": "麻醬", "label": "芝麻醬", "grams": 60, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "米醋", "label": "白醋", "grams": 15, "track": "base", "pantry": true },
+    { "food": "紅糖", "label": "糖", "grams": 10, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "小黃瓜、胡蘿蔔切細絲。芝麻醬加醬油、白醋、糖、香油和 3 大匙溫開水，攪成滑順的醬。" },
+    { "stage": "base", "type": "cook", "text": "麵條照包裝時間煮熟，撈起用冷開水沖涼、瀝乾。" },
+    { "stage": "base", "type": "serve", "text": "麵分到盤裡，鋪上小黃瓜絲、胡蘿蔔絲，淋上麻醬，吃之前拌開。" }
+  ]
+}

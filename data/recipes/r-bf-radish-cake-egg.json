@@ -1,0 +1,24 @@
+{
+  "id": "r-bf-radish-cake-egg",
+  "name": "蘿蔔糕煎蛋",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 15,
+  "method": "pan",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "冷藏廣式蘿蔔糕", "label": "蘿蔔糕（市售，含肉與蝦米）", "grams": 480, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋（2 顆）", "grams": 110, "track": "base" },
+    { "food": "油", "label": "油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "醬油膏", "label": "醬油膏", "grams": 20, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "蘿蔔糕切成 1 公分厚的片；蛋打散。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋中火下油，放蘿蔔糕煎 3 分鐘到底部金黃，翻面再煎 3 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "把蛋液淋在蘿蔔糕周圍，等蛋凝固後連蘿蔔糕一起翻面，再煎 1 分鐘。" },
+    { "stage": "base", "type": "serve", "text": "盛盤，淋一點醬油膏。" }
+  ]
+}

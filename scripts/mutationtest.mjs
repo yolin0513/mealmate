@@ -9,6 +9,7 @@
 //
 // ⚠ 執行期間會暫時改寫工作目錄裡的原始碼（改完立刻還原）。跑的時候不要同時編輯檔案、不要並行跑別的測試。
 //   `--only <關鍵字>` 只跑名稱／檔名／測試名含關鍵字的那幾條；多個關鍵字用 | 分隔（任一個命中就選）。
+//   突變可以帶 `expect: '字串'`：失敗輸出裡一定要有一行 ✗ 含這段字，才算這條突變被抓到（紅的是對的那一條）。
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -1112,9 +1113,10 @@ const MUTATIONS = [
     name: "奶油沒有標成奶製品",
     why: "奶油在食藥署是油脂類，分類推不出奶；不明列的話全素的家人會被排到奶油燉雞的素版。",
     file: "data/foodtags.json",
-    find: "    \"dairy\": [\n      \"M0900101\",\n      \"M0900201\",\n      \"M0900301\"\n    ],",
-    replace: "    \"dairy\": [],",
+    find: "    \"dairy\": [\n      \"M0900101\",\n      \"M0900201\",\n      \"M0900301\",\n",
+    replace: "    \"dairy\": [\n",
     test: "recipetest",
+    expect: "用到奶油的菜",
   },
   // ---- 使用者回報第五輪：買菜頁超連結樣式改按鈕、摺疊箭頭與常備品、底下三顆按鈕對齊 ----
   {
@@ -2863,6 +2865,160 @@ const MUTATIONS = [
     replace: "      if (ing.food) return '→ 已選';",
     test: 'recipeviewtest',
   },
+  // ---- 2026-09-19 早餐再補 14 道（全素 10、台式 4）、加工品照內容物描述判葷素、早餐輪替扣分 2 → 6 ----
+  {
+    name: "早餐輪替扣分退回 2",
+    why: "扣 2 壓不過「這幾天已經會買」的加分，有全素成員的家庭 7 天內同一道早餐再出現 14%（驗收標準 ≤ 10%）。",
+    file: "js/planner.js",
+    find: "export const BREAKFAST_ROTATE_PENALTY = 6;",
+    replace: "export const BREAKFAST_ROTATE_PENALTY = 2;",
+    test: "plannertest",
+    expect: "這 7 天吃過一次的早餐",
+  },
+  {
+    name: "早餐完全不輪替",
+    why: "不扣分的話幾道共用食材多的早餐會一週出現三次。",
+    file: "js/planner.js",
+    find: "export const BREAKFAST_ROTATE_PENALTY = 6;",
+    replace: "export const BREAKFAST_ROTATE_PENALTY = 0;",
+    test: "plannertest",
+    expect: "同一週同一道最多",
+  },
+  {
+    name: "早餐輪替只看有沒有吃過、不看次數",
+    why: "一週吃過兩次的早餐應該比吃過一次的更靠後。",
+    file: "js/planner.js",
+    find: "    score -= BREAKFAST_ROTATE_PENALTY * times;",
+    replace: "    score -= BREAKFAST_ROTATE_PENALTY * Math.min(times, 1);",
+    test: "plannertest",
+    expect: "吃過兩次少",
+  },
+  {
+    name: "蘿蔔糕沒有標成肉",
+    why: "冷藏廣式蘿蔔糕的內容物有豬肉、火腿；分類是糕餅點心，推不出肉。",
+    file: "data/foodtags.json",
+    find: "      \"R5300201\",\n      \"Q0100401\",",
+    replace: "      \"R5300201\",",
+    test: "recipetest",
+    expect: "冷藏廣式蘿蔔糕",
+  },
+  {
+    name: "蘿蔔糕沒有標成海鮮",
+    why: "冷藏廣式蘿蔔糕的內容物有蝦米。",
+    file: "data/foodtags.json",
+    find: "      \"P1004701\",\n      \"Q0100401\",",
+    replace: "      \"P1004701\",",
+    test: "recipetest",
+    expect: "冷藏廣式蘿蔔糕",
+  },
+  {
+    name: "冷凍蛋餅皮沒有標成肉",
+    why: "內容物有豬油；不標的話蛋餅會被當成素的，排給素食的家人。",
+    file: "data/foodtags.json",
+    find: "      \"R2700301\",\n      \"R5600201\"\n    ],",
+    replace: "      \"R5600201\"\n    ],",
+    test: "recipetest",
+    expect: "冷凍蛋餅皮",
+  },
+  {
+    name: "豬肉酥沒有標成肉",
+    why: "豬肉酥（肉鬆）是加工調理食品類，分類推不出肉。",
+    file: "data/foodtags.json",
+    find: "      \"R2700301\",\n      \"R5600201\"\n    ],",
+    replace: "      \"R2700301\"\n    ],",
+    test: "recipetest",
+    expect: "豬肉酥：標了",
+  },
+  {
+    name: "韓式泡菜沒有標成海鮮",
+    why: "內容物有魚露。",
+    file: "data/foodtags.json",
+    find: "      \"Q0100401\",\n      \"R4400301\"\n    ],",
+    replace: "      \"Q0100401\"\n    ],",
+    test: "recipetest",
+    expect: "韓式泡菜",
+  },
+  {
+    name: "加工品的五辛（蘿蔔糕、蛋餅皮、韓式泡菜）沒標",
+    why: "三樣的內容物都有蔥或蒜；不吃五辛的家人會吃到。",
+    file: "data/foodtags.json",
+    find: "      \"P1301001\",\n      \"Q0100401\",\n      \"R2700301\",\n      \"R4400301\"\n    ],",
+    replace: "      \"P1301001\"\n    ],",
+    test: "recipetest",
+    expect: "冷凍蛋餅皮",
+  },
+  {
+    name: "土司沒有標成奶製品",
+    why: "內容物有乳粉；不吃奶的家人（蛋素）會被排到煎蛋吐司。",
+    file: "data/foodtags.json",
+    find: "      \"M0900301\",\n      \"Q1000101\",",
+    replace: "      \"M0900301\",",
+    test: "recipetest",
+    expect: "用到土司的菜",
+  },
+  {
+    name: "咖哩塊沒有標成奶製品",
+    why: "內容物有奶粉；五辛素、蛋素的家人會被排到咖哩的素版。",
+    file: "data/foodtags.json",
+    find: "      \"Q1000101\",\n      \"P0200501\"\n    ],",
+    replace: "      \"Q1000101\"\n    ],",
+    test: "recipetest",
+    expect: "咖哩塊（奶粉）做的咖哩",
+  },
+  {
+    name: "全素早餐裡混進雞蛋",
+    why: "這一批是補給全素（不吃蛋、奶、五辛）的家人的，混進一樣就吃不到了。",
+    file: "data/recipes/r-bf-greens-tofu-skin-misua.json",
+    find: "    { \"food\": \"麵線\", \"label\": \"麵線\", \"grams\": 200, \"track\": \"base\" },",
+    replace: "    { \"food\": \"麵線\", \"label\": \"麵線\", \"grams\": 200, \"track\": \"base\" },\n    { \"food\": \"雞蛋\", \"label\": \"雞蛋\", \"grams\": 55, \"track\": \"base\" },",
+    test: "recipetest",
+    expect: "全素那 10 道",
+  },
+  {
+    name: "成分沒寫的油條放進素的菜",
+    why: "油條的內容物描述是空的，無從判斷有沒有豬油；只能放在純葷的菜裡。",
+    file: "data/recipes/r-bf-greens-tofu-skin-misua.json",
+    find: "    { \"food\": \"麵線\", \"label\": \"麵線\", \"grams\": 200, \"track\": \"base\" },",
+    replace: "    { \"food\": \"麵線\", \"label\": \"麵線\", \"grams\": 200, \"track\": \"base\" },\n    { \"food\": \"油條\", \"label\": \"油條\", \"grams\": 54, \"track\": \"base\" },",
+    test: "recipetest",
+    expect: "用到成分沒寫的加工品",
+  },
+  {
+    name: "新補的全素早餐有一道不是早餐",
+    why: "早餐道數門檻 ≥ 39；少一道就該紅。",
+    file: "data/recipes/r-bf-greens-tofu-skin-misua.json",
+    find: "  \"role\": \"breakfast\",",
+    replace: "  \"role\": \"side\",",
+    test: "recipetest",
+    expect: "道（≥ 39",
+  },
+  {
+    name: "全素早餐有一道平日做不完",
+    why: "平日早餐上限 20 分鐘；這批要有 8 道平日排得到。",
+    file: "data/recipes/r-bf-greens-tofu-skin-misua.json",
+    find: "  \"time\": 15,",
+    replace: "  \"time\": 25,",
+    test: "recipetest",
+    expect: "平日 20 分鐘內做得完的有",
+  },
+  {
+    name: "新早餐超過週末的 40 分鐘",
+    why: "週末早餐上限 40 分鐘，超過就排不進任何一天。",
+    file: "data/recipes/r-bf-traditional-rice-ball.json",
+    find: "  \"time\": 40,",
+    replace: "  \"time\": 45,",
+    test: "recipetest",
+    expect: "全部在週末早餐的 40 分鐘內",
+  },
+  {
+    name: "新早餐的步驟出現禁用詞",
+    why: "食譜文字也是文案，一樣要過禁用詞。",
+    file: "data/recipes/r-bf-tomato-tofu-noodle-soup.json",
+    find: "把湯和料舀到麵上。",
+    replace: "把湯和料舀到麵上，建議趁熱吃。",
+    test: "recipetest",
+    expect: "名稱、食材、步驟都沒有禁用詞",
+  },
 ];
 
 const only = (() => {
@@ -2933,8 +3089,13 @@ if (baselineOk) {
       clearPending();
     }
     const restored = fs.readFileSync(full, 'utf8') === original;
-    ok(!result.passed && restored, `【${m.test}】${m.name}`,
-      !restored ? `${m.file} 沒有還原成功！` : `改壞之後 ${m.test} 居然還是綠的 —— 對應的斷言沒有在檢查東西。${m.why}`);
+    // expect（選填）：紅的一定要是這一條。改食譜檔或 foodtags.json 的突變一定會讓「recipes.json 是最新的」紅，
+    // 只看有沒有紅的話，新斷言有沒有在檢查東西根本看不出來（2026-09-19 補早餐時發現）。
+    const expectHit = !m.expect || result.out.split('\n').some((l) => l.includes('✗') && l.includes(m.expect));
+    ok(!result.passed && expectHit && restored, `【${m.test}】${m.name}`,
+      !restored ? `${m.file} 沒有還原成功！`
+        : result.passed ? `改壞之後 ${m.test} 居然還是綠的 —— 對應的斷言沒有在檢查東西。${m.why}`
+          : `${m.test} 紅了，但紅的不是含「${m.expect}」的那一條 —— 對應的斷言沒有在檢查東西。${m.why}`);
   }
 } else {
   note('基準沒過，不跑突變（先把測試修綠）');

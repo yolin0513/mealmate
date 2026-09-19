@@ -1,0 +1,29 @@
+{
+  "id": "r-bf-cabbage-rice-noodles",
+  "name": "高麗菜炒米粉",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 20,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "米粉", "label": "米粉", "grams": 200, "track": "base" },
+    { "food": "高麗菜", "label": "高麗菜（切絲）", "grams": 250, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切絲）", "grams": 60, "track": "base" },
+    { "food": "香菇", "label": "新鮮香菇（切絲）", "grams": 80, "track": "base" },
+    { "food": "豆腐皮", "label": "豆皮（切絲）", "grams": 60, "track": "base" },
+    { "food": "油", "label": "油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 20, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 2, "track": "base", "pantry": true },
+    { "food": "白胡椒粉", "label": "白胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "米粉用溫水泡 10 分鐘到軟，剪短、瀝乾；高麗菜、胡蘿蔔、香菇、豆皮都切絲。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱下油，炒香菇、胡蘿蔔、豆皮 2 分鐘，再下高麗菜炒軟。" },
+    { "stage": "base", "type": "cook", "text": "加醬油和 150 毫升水煮滾，放入米粉，用筷子挑散拌炒到湯汁吸乾。" },
+    { "stage": "base", "type": "cook", "text": "加鹽、白胡椒粉拌勻起鍋。" }
+  ]
+}

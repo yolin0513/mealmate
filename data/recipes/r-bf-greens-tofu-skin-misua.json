@@ -1,0 +1,28 @@
+{
+  "id": "r-bf-greens-tofu-skin-misua",
+  "name": "青菜豆皮麵線",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 15,
+  "method": "boil",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "麵線", "label": "麵線", "grams": 200, "track": "base" },
+    { "food": "豆腐皮", "label": "豆皮（切條）", "grams": 120, "track": "base" },
+    { "food": "小白菜", "label": "小白菜（切段）", "grams": 200, "track": "base" },
+    { "food": "香菇", "label": "新鮮香菇（切片）", "grams": 80, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 2, "track": "base", "pantry": true },
+    { "food": "香油", "label": "香油", "grams": 5, "track": "base", "pantry": true },
+    { "food": "白胡椒粉", "label": "白胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "小白菜洗淨切段、香菇切片、豆皮切條。" },
+    { "stage": "base", "type": "cook", "text": "一鍋水煮滾，下麵線煮 2 分鐘，撈起用冷水沖一下去掉多的鹹味，分到碗裡。" },
+    { "stage": "base", "type": "cook", "text": "另一鍋加 1200 毫升水煮滾，下香菇、豆皮煮 3 分鐘，再下小白菜煮到軟，加醬油、鹽、白胡椒粉調味。" },
+    { "stage": "base", "type": "serve", "text": "把湯和料淋到麵線上，滴幾滴香油。" }
+  ]
+}

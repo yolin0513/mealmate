@@ -1,0 +1,27 @@
+{
+  "id": "r-bf-tofu-skin-seaweed-rice-ball",
+  "name": "醬燒豆皮海苔飯糰",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 15,
+  "method": "rice",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "白飯", "label": "白飯（溫的比較好捏）", "grams": 600, "track": "base", "pantry": true },
+    { "food": "豆腐皮", "label": "豆皮（切小片）", "grams": 120, "track": "base" },
+    { "food": "海苔", "label": "海苔片（4 張）", "grams": 8, "track": "base" },
+    { "food": "白芝麻", "label": "熟白芝麻", "grams": 8, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "紅糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "油", "grams": 5, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "豆皮切小片；白飯拌入白芝麻。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱下油，放豆皮煎到兩面微黃，加醬油、糖和 2 大匙水，煮到醬汁收乾。" },
+    { "stage": "base", "type": "prep", "text": "保鮮膜上鋪一層飯壓平，放醬燒豆皮，再蓋一層飯，提起保鮮膜捏成三角形。" },
+    { "stage": "base", "type": "serve", "text": "吃之前再包上海苔片，海苔才不會軟掉。" }
+  ]
+}

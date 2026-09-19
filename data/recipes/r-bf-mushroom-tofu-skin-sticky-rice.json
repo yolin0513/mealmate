@@ -1,0 +1,28 @@
+{
+  "id": "r-bf-mushroom-tofu-skin-sticky-rice",
+  "name": "香菇豆皮油飯",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 40,
+  "method": "rice",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "A05005", "label": "圓糯米（生）", "grams": 320, "track": "base" },
+    { "food": "乾香菇", "label": "乾香菇（泡軟切絲）", "grams": 15, "track": "base" },
+    { "food": "豆腐皮", "label": "豆皮（切絲）", "grams": 100, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切絲）", "grams": 60, "track": "base" },
+    { "food": "香油", "label": "香油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 30, "track": "base", "pantry": true },
+    { "food": "紅糖", "label": "糖", "grams": 5, "track": "base", "pantry": true },
+    { "food": "白胡椒粉", "label": "白胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "糯米洗淨（前一晚泡水更好煮）；乾香菇泡軟切絲，泡香菇的水留著；豆皮、胡蘿蔔切絲。" },
+    { "stage": "base", "type": "cook", "text": "鍋裡下香油，小火炒香菇絲到香，再下胡蘿蔔、豆皮炒 2 分鐘，加醬油、糖、白胡椒粉拌勻。" },
+    { "stage": "base", "type": "cook", "text": "糯米瀝乾倒進鍋裡拌炒均勻，移到電鍋內鍋，加 200 毫升香菇水，外鍋 1 杯水煮到開關跳起。" },
+    { "stage": "base", "type": "serve", "text": "再燜 10 分鐘，翻鬆拌勻後盛碗。" }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "r-bf-cabbage-tofu-pancake",
+  "name": "高麗菜豆腐煎餅",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 30,
+  "method": "pan",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "中筋麵粉", "label": "中筋麵粉", "grams": 200, "track": "base", "pantry": true },
+    { "food": "傳統豆腐", "label": "板豆腐（壓碎）", "grams": 300, "track": "base" },
+    { "food": "高麗菜", "label": "高麗菜（切細絲）", "grams": 250, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切細絲）", "grams": 60, "track": "base" },
+    { "food": "鹽", "label": "鹽", "grams": 4, "track": "base", "pantry": true },
+    { "food": "白胡椒粉", "label": "白胡椒粉", "grams": 1, "track": "base", "pantry": true },
+    { "food": "油", "label": "油", "grams": 30, "track": "base", "pantry": true },
+    { "food": "醬油膏", "label": "醬油膏（沾）", "grams": 20, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "高麗菜、胡蘿蔔切細絲；豆腐用廚房紙巾包著壓掉水分再壓碎。" },
+    { "stage": "base", "type": "prep", "text": "麵粉加 250 毫升水攪成麵糊，拌入高麗菜、胡蘿蔔、豆腐碎，加鹽、白胡椒粉拌勻。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋中小火下油，倒入一半麵糊攤平，煎 4 分鐘到底部金黃再翻面煎 4 分鐘；另一半照做。" },
+    { "stage": "base", "type": "serve", "text": "切塊，沾醬油膏吃。" }
+  ]
+}

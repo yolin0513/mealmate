@@ -1,0 +1,26 @@
+{
+  "id": "r-bf-traditional-rice-ball",
+  "name": "傳統飯糰（油條肉鬆）",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 40,
+  "method": "rice",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "A05005", "label": "圓糯米（生）", "grams": 320, "track": "base" },
+    { "food": "油條", "label": "油條（2 根）", "grams": 108, "track": "base" },
+    { "food": "豬肉酥", "label": "肉鬆", "grams": 40, "track": "base" },
+    { "food": "蘿蔔乾", "label": "菜脯（切碎）", "grams": 40, "track": "base" },
+    { "food": "醬油", "label": "醬油", "grams": 5, "track": "base", "pantry": true },
+    { "food": "油", "label": "油", "grams": 10, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "糯米洗淨（前一晚泡水更好煮）；菜脯切碎，用清水沖一下減少鹹味、擰乾；油條每根切成兩段。" },
+    { "stage": "base", "type": "cook", "text": "糯米加 250 毫升水放電鍋，外鍋 1 杯水煮到開關跳起，再燜 10 分鐘。" },
+    { "stage": "base", "type": "cook", "text": "趁煮飯時，鍋熱下油炒菜脯 1 分鐘，加醬油拌勻；油條放進烤箱或乾鍋烤 2 分鐘回脆。" },
+    { "stage": "base", "type": "prep", "text": "保鮮膜上鋪一層糯米飯壓平，放油條、菜脯、肉鬆，提起保鮮膜捏緊成長條飯糰。" }
+  ]
+}

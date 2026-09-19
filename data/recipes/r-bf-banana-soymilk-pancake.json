@@ -1,0 +1,26 @@
+{
+  "id": "r-bf-banana-soymilk-pancake",
+  "name": "香蕉豆漿煎餅佐花生醬",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 20,
+  "method": "pan",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "中筋麵粉", "label": "中筋麵粉", "grams": 240, "track": "base", "pantry": true },
+    { "food": "無糖豆漿", "label": "無糖豆漿", "grams": 300, "track": "base" },
+    { "food": "香蕉", "label": "香蕉（2 根，壓成泥）", "grams": 240, "track": "base" },
+    { "food": "紅糖", "label": "糖", "grams": 15, "track": "base", "pantry": true },
+    { "food": "油", "label": "油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "花生醬", "label": "花生醬", "grams": 40, "track": "base" }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "香蕉壓成泥，加豆漿、糖拌勻，再篩入麵粉攪成沒有顆粒的麵糊。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋小火，刷一層薄油，舀一大勺麵糊攤成圓餅。" },
+    { "stage": "base", "type": "cook", "text": "表面冒小泡泡、邊緣變乾時翻面，再煎 1 分鐘，重複到麵糊用完。" },
+    { "stage": "base", "type": "serve", "text": "趁熱抹上花生醬。" }
+  ]
+}

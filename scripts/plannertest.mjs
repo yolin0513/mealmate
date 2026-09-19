@@ -978,6 +978,48 @@ section('早餐池太小的時候：誠實放寬，不是硬排也不是報錯')
   eq(t1.empty, 0, '也不是丟一個排不出來的空格給使用者');
 }
 
+section('早餐輪替：一週裡不要一直回到同幾道（2026-09-19 補 14 道早餐時一起調）');
+// 早餐不套「幾天內不重複」，只有輪替扣分。原本扣 2：跟「這幾天已經會買」（同一趟買菜共用食材，最多 +12）比起來太小，
+// 用到豆腐、高麗菜、香菇的那幾道全素早餐會一直被拉回來 —— 有全素成員的家庭 7 天內再出現 14%。
+{
+  const ctxR = buildContext({ recipes, members: [], idx, units, shoppingDays: [3, 6] });
+  const bf = recipes.find((r) => r.id === 'r-bf-miso-tofu-rice-soup');
+  ok(!!bf, '（母體）味噌豆腐湯泡飯在池子裡');
+  const stateN = (n) => ({ slotItems: [], placedWant: new Set(), lastServed: () => (n ? 3 : null), timesServedWithin: () => n, dayProteins: () => new Set(), prevDayMealProteins: () => new Set(), fishCount: () => 0, rangeHas: () => false });
+  const info = { role: 'breakfast', meal: 'breakfast', date: '2026-09-17', day: 3 };
+  const s0 = scoreSoft(bf, info, ctxR, stateN(0), makeRng('rot')).score;
+  const s1 = scoreSoft(bf, info, ctxR, stateN(1), makeRng('rot')).score;
+  const s2 = scoreSoft(bf, info, ctxR, stateN(2), makeRng('rot')).score;
+  ok(s0 - s1 >= 6, `這 7 天吃過一次的早餐，分數少 ${(s0 - s1).toFixed(1)}（≥ 6；原本只少 2）`);
+  ok(Math.abs((s0 - s2) - 2 * (s0 - s1)) < 1e-9, `吃過兩次少 ${(s0 - s2).toFixed(1)}，是一次的兩倍（照次數累加）`);
+
+  // 從真實入口量：有全素（不吃五辛）成員的家庭，4 組種子 × 連排 4 週。
+  // 門檻 10% ＝ Yolin 核准的驗收標準。2026-09-19 換 8 組種子組量：扣 6 時 1.8%～6.3%（這一組 3.6%）；
+  // 扣回 2 時 12.5%～21.4%、完全不扣 36.6%～44.6% —— 10% 分得開，也不是只靠這一組種子剛好過。
+  const WITHIN7_MAX = 0.10;
+  const fam =[{ ...newMember(), name: '爸' }, { ...newMember(), name: '姊', diet: 'veganNoAllium' }];
+  const pool = recipes.filter((r) => r.role === 'breakfast' && fam.every((m) => versionFor(r, m.diet) !== null));
+  ok(pool.length >= 16, `（前提）姊吃得到的早餐 ${pool.length} 道（≥ 16）`);
+  let slots = 0, within7 = 0, worstWeek = 0;
+  for (const seed of ['r1', 'r2', 'r3', 'r4']) {
+    let hist = []; const served = [];
+    for (let w = 0; w < 4; w += 1) {
+      const monday = addDays(MONDAY, 7 * w);
+      const { plan: pw } = gen({ members: fam, seed: `${seed}-${w}`, mondayIso: monday, history: hist });
+      hist = [...hist, ...historyRowsOf(pw)];
+      const wk = pw.slots.filter((x) => x.meal === 'breakfast' && x.kind === 'cook').map((x) => ({ date: x.date, id: x.items[0]?.recipeId })).filter((x) => x.id);
+      slots += wk.length; served.push(...wk);
+      const c = {}; for (const x of wk) c[x.id] = (c[x.id] ?? 0) + 1;
+      worstWeek = Math.max(worstWeek, ...Object.values(c));
+    }
+    const last = new Map();
+    for (const x of served) { if (last.has(x.id) && daysBetween(last.get(x.id), x.date) <= 7) within7 += 1; last.set(x.id, x.date); }
+  }
+  eq(slots, 112, '（母體）4 組種子 × 4 週 × 7 天 ＝ 112 個早餐');
+  ok(within7 / slots <= WITHIN7_MAX, `同一道早餐 7 天內再出現 ${(100 * within7 / slots).toFixed(1)}%（≤ ${100 * WITHIN7_MAX}%；原本 14%）`);
+  ok(worstWeek <= 2, `同一週同一道最多 ${worstWeek} 次（≤ 2）`);
+}
+
 section('保存天數要蓋得過買菜日之間的間隔（不然離買菜日最遠那天沒葷菜可挑）');
 // 為什麼不是用「每餐都有葷」來守這件事：那條現在守不住了。
 // M5 把食譜從 90 道加到 180 道之後，就算把肉類保存天數砍到 2 天、

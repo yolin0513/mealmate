@@ -1,0 +1,25 @@
+{
+  "id": "r-bf-pork-floss-egg-crepe",
+  "name": "肉鬆蛋餅",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 15,
+  "method": "pan",
+  "vegMode": "meatOnly",
+  "texture": "normal",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "冷凍蛋餅皮", "label": "冷凍蛋餅皮（4 片，市售多含豬油）", "grams": 216, "track": "base" },
+    { "food": "雞蛋", "label": "雞蛋（4 顆）", "grams": 220, "track": "base" },
+    { "food": "豬肉酥", "label": "肉鬆", "grams": 40, "track": "base" },
+    { "food": "油", "label": "油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "醬油膏", "label": "醬油膏", "grams": 20, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "蛋一顆一碗分別打散；蛋餅皮從冷凍庫拿出來，不用退冰。" },
+    { "stage": "base", "type": "cook", "text": "平底鍋中火下一點油，倒入一顆蛋液攤開，趁蛋還沒全熟蓋上一張蛋餅皮，輕壓讓兩者黏在一起。" },
+    { "stage": "base", "type": "cook", "text": "蛋凝固後翻面，把餅皮煎到兩面微黃，撒上肉鬆捲起來；其餘三片照做。" },
+    { "stage": "base", "type": "serve", "text": "切段盛盤，沾醬油膏吃。" }
+  ]
+}

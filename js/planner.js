@@ -180,6 +180,13 @@ export function vegProteinMisses(plan, members, recipesById, idx) {
 }
 
 const NO_REPEAT_PENALTY = { main: 100, side: 60, soup: 60, breakfast: 0, staple: 0 };
+/**
+ * 早餐不套「幾天內不重複」，只做輪替：這 7 天出現過幾次就扣幾次這個分數。
+ * 2026-09-19 從 2 調成 6：補了 10 道全素早餐之後，「這幾天已經會買」（同一趟買菜共用食材，最多 +12）
+ * 會把用到豆腐、高麗菜、香菇的那幾道一直拉回來，扣 2 壓不住 —— 有全素成員的家庭 7 天內再出現 14%；扣 6 是 4.5%。
+ * 再大（10）會把共用食材的加分整個壓掉，買菜清單變長，所以停在 6。
+ */
+export const BREAKFAST_ROTATE_PENALTY = 6;
 /** 同一餐不重複的烹法（PLAN §4.3：兩道炸、兩道湯）。兩道炒在台灣家常菜很平常，不算衝突。 */
 export const EXCLUSIVE_METHODS = new Set(['deepfry', 'soup']);
 const WATCH_PENALTY = 12;
@@ -540,7 +547,7 @@ export function scoreSoft(recipe, { role, meal, date, day }, ctx, state, rng) {
   } else if (role === 'breakfast') {
     // 早餐只做輪替、不算重複：出現過幾次就小扣幾分，讓幾道早餐輪著來
     const times = state.timesServedWithin(recipe.id, date, 7);
-    score -= 2 * times;
+    score -= BREAKFAST_ROTATE_PENALTY * times;
     reasons.push(times ? `早餐輪替，這 7 天第 ${times + 1} 次` : '早餐輪替，這 7 天第 1 次');
   }
 

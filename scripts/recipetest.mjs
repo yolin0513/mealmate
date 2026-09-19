@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadContext, buildRecipes, summarize, outputFor } from './build-recipes.mjs';
-import { validateRecipe, USER_DEFAULT_STEP } from '../js/recipeschema.js';
+import { validateRecipe, USER_DEFAULT_STEP, tagsOfFood } from '../js/recipeschema.js';
 import { fitsDiet, versionFor } from '../js/members.js';
 import { estimate } from '../js/nutrition.js';
 
@@ -27,11 +27,11 @@ const s = summarize(recipes);
 // 數量門檻。M5 是 PLAN §8 的 170 道（主菜 80、配菜 50、湯 25）；2026-09-14 使用者要求「多加一些有份量的菜」
 // 補到 217 道（主菜 102、配菜 56、湯 34），門檻跟著墊高，退化會紅。
 // 主菜裡素食成員吃得到的（nativeVeg ＋ splittable）要 ≥ 55 —— 補的多半是葷菜，素食保障不能被稀釋。
-ok(s.count >= 223, `${s.count} 道（≥ 223）`);
+ok(s.count >= 237, `${s.count} 道（≥ 237；2026-09-19 補了 14 道早餐）`);
 ok((s.roles.main ?? 0) >= 100, `主菜 ${s.roles.main} 道（≥ 100）`);
 ok((s.roles.side ?? 0) >= 55, `配菜 ${s.roles.side} 道（≥ 55）`);
 ok((s.roles.soup ?? 0) >= 33, `湯 ${s.roles.soup} 道（≥ 33）`);
-ok((s.roles.breakfast ?? 0) >= 25, `早餐 ${s.roles.breakfast} 道（≥ 25；2026-09-18 補了 6 道有主食的）`);
+ok((s.roles.breakfast ?? 0) >= 39, `早餐 ${s.roles.breakfast} 道（≥ 39；2026-09-18 補了 6 道有主食的，2026-09-19 再補 14 道）`);
 ok((s.roles.staple ?? 0) >= 6, `主食 ${s.roles.staple} 道（≥ 6）`);
 ok((s.vegModes.nativeVeg ?? 0) >= 8, `素的 ${s.vegModes.nativeVeg} 道（≥ 8）`);
 ok((s.vegModes.splittable ?? 0) >= 8, `可分流的 ${s.vegModes.splittable} 道（≥ 8）`);
@@ -106,6 +106,71 @@ section('有主食、吃得飽的早餐（2026-09-18 第 8 項：水果優格那
   ok(filling.length >= 15, `早餐 ${breakfasts.length} 道裡，每人有 40 克以上主食類的 ${filling.length} 道（≥ 15；補之前 19 道裡只有 9 道）`);
   const words = ['健康', '降', '控制', '療效', '治療', '建議', '應該'];
   noneOf(added.flatMap((r) => [r.name, ...r.ingredients.map((i) => i.label), ...r.steps.map((st) => st.text)]), (t) => words.some((w) => t.includes(w)), '名稱、食材、步驟都沒有禁用詞');
+}
+
+section('早餐再補 14 道：全素 10 道、台式葷食 4 道（2026-09-19，Yolin：「好，請葷素都補」）');
+{
+  const VEGAN = ['r-bf-greens-tofu-skin-misua', 'r-bf-tomato-tofu-noodle-soup', 'r-bf-edamame-corn-fried-rice', 'r-bf-tofu-skin-seaweed-rice-ball',
+    'r-bf-cabbage-rice-noodles', 'r-bf-banana-soymilk-pancake', 'r-bf-miso-tofu-rice-soup', 'r-bf-sesame-cold-noodles',
+    'r-bf-cabbage-tofu-pancake', 'r-bf-mushroom-tofu-skin-sticky-rice'];
+  const TAIWAN = ['r-bf-radish-cake-egg', 'r-bf-pork-floss-egg-crepe', 'r-bf-salty-soymilk-youtiao', 'r-bf-traditional-rice-ball'];
+  const byIdR = new Map(recipes.map((r) => [r.id, r]));
+  const vegan = VEGAN.map((id) => byIdR.get(id)).filter(Boolean);
+  const taiwan = TAIWAN.map((id) => byIdR.get(id)).filter(Boolean);
+  eq([vegan.length, taiwan.length], [10, 4], '（母體）全素 10 道、台式 4 道都在');
+  everyOf([...vegan, ...taiwan], (r) => r.role === 'breakfast', '全部是早餐');
+  // 全素而且不吃五辛的家人吃得到 —— 這一批就是為了他們補的（補之前他們只吃得到 6 道早餐，平日只有 3 道）
+  everyOf(vegan, (r) => fitsDiet(r, 'veganNoAllium'), '全素那 10 道，全素（不吃蛋、奶、五辛）的家人都吃得到',
+    vegan.filter((r) => !fitsDiet(r, 'veganNoAllium')).map((r) => r.name).join('、'));
+  // Yolin 核准的是「至少 6 道」；實際補了 8 道，門檻守實際值，少一道就紅
+  ok(vegan.filter((r) => r.time <= 20).length >= 8, `全素那批平日 20 分鐘內做得完的有 ${vegan.filter((r) => r.time <= 20).length} 道（≥ 8；核准的下限是 6）`);
+  everyOf([...vegan, ...taiwan], (r) => r.time <= 40, '全部在週末早餐的 40 分鐘內');
+  const breakfasts = recipes.filter((r) => r.role === 'breakfast');
+  const veganBf = breakfasts.filter((r) => fitsDiet(r, 'veganNoAllium'));
+  ok(veganBf.length >= 16 && veganBf.filter((r) => r.time <= 20).length >= 11,
+    `全素的家人吃得到的早餐 ${veganBf.length} 道（≥ 16）、平日做得完的 ${veganBf.filter((r) => r.time <= 20).length} 道（≥ 11）`);
+  // 台式那 4 道用到蘿蔔糕、蛋餅皮、肉鬆、油條、蝦皮 —— 只給吃葷的家人
+  everyOf(taiwan, (r) => r.vegMode === 'meatOnly', '台式那 4 道都標成純葷');
+  everyOf(taiwan, (r) => ['lactoOvo', 'ovo', 'lacto', 'vegan', 'veganNoAllium', 'lactoOvoNoAllium'].every((d) => !fitsDiet(r, d)), '台式那 4 道，任何一種素食的家人都吃不到');
+  const words = ['健康', '降', '控制', '療效', '治療', '建議', '應該'];
+  noneOf([...vegan, ...taiwan].flatMap((r) => [r.name, ...r.ingredients.map((i) => i.label), ...r.steps.map((st) => st.text)]), (t) => words.some((w) => t.includes(w)), '名稱、食材、步驟都沒有禁用詞');
+}
+
+section('加工品照食藥署的「內容物描述」判葷素（2026-09-19：分類看不出來，要明列）');
+{
+  // 這些都是「加工調理食品」「糕餅點心」「調味料」類，分類推不出肉、海鮮、蛋、奶、五辛；成分寫在食藥署原始資料的內容物描述裡。
+  // 沒明列的話：冷凍蛋餅皮（豬油）做的蛋餅會被當成素的、咖哩塊（奶粉）的素版會排給全素的家人。
+  const tagsOf = (id) => { const f = idx.byId.get(id); return f ? tagsOfFood(f, ctx.foodTags) : new Set(); };
+  const EXPECT = [
+    ['Q0100401', '冷藏廣式蘿蔔糕（豬肉、火腿、蝦米、蔥）', ['meat', 'seafood', 'allium']],
+    ['R2700301', '冷凍蛋餅皮（豬油、蔥）', ['meat', 'allium']],
+    ['R5600201', '豬肉酥', ['meat']],
+    ['R4400301', '韓式泡菜（魚露、大蒜、蔥、洋蔥）', ['seafood', 'allium']],
+    ['Q1000101', '土司（乳粉）', ['dairy']],
+    ['P0200501', '咖哩塊（奶粉）', ['dairy']],
+  ];
+  everyOf(EXPECT, ([id]) => idx.byId.has(id), '（母體）六樣都在食材資料庫裡');
+  for (const [id, label, want] of EXPECT) {
+    const got = tagsOf(id);
+    ok(want.every((t) => got.has(t)), `${label}：標了 ${want.join('、')}（實際 ${[...got].join('、') || '沒有'}）`);
+  }
+  // 真的影響到誰吃得到：用到這些食材的菜
+  const uses = (id) => recipes.filter((r) => r.ingredients.some((i) => i.food === id && i.track !== 'meat'));
+  const toast = uses('Q1000101');
+  ok(toast.length >= 5, `（母體）${toast.length} 道早餐用到土司`);
+  everyOf(toast, (r) => !fitsDiet(r, 'ovo') && !fitsDiet(r, 'vegan') && !fitsDiet(r, 'veganNoAllium'), '用到土司的菜，不吃奶的家人（蛋素、五辛素、全素）都吃不到',
+    toast.filter((r) => fitsDiet(r, 'ovo')).map((r) => r.name).join('、'));
+  ok(toast.some((r) => fitsDiet(r, 'lactoOvo')), '（對照）蛋奶素的家人照樣吃得到土司的菜 —— 上面那條不是因為這些菜本來就沒人能吃');
+  const curry = uses('P0200501');
+  ok(curry.length >= 2, `（母體）${curry.length} 道咖哩的共用軌用到咖哩塊`);
+  everyOf(curry, (r) => !fitsDiet(r, 'vegan') && !fitsDiet(r, 'ovo'), '咖哩塊（奶粉）做的咖哩，不吃奶的家人吃不到素版',
+    curry.filter((r) => fitsDiet(r, 'vegan') || fitsDiet(r, 'ovo')).map((r) => r.name).join('、'));
+  everyOf(curry, (r) => fitsDiet(r, 'lactoOvo'), '（對照）蛋奶素的家人照樣吃得到咖哩的素版');
+  // 成分沒寫的加工品（油條、燒餅、水煎包）無從判斷：內建食譜只能把它們放在純葷的菜裡，素食的家人才不會吃到來路不明的油
+  const UNKNOWN = ['R3000101', 'R2700401', 'R2800301'];
+  const withUnknown = recipes.filter((r) => r.ingredients.some((i) => UNKNOWN.includes(i.food)));
+  ok(withUnknown.length >= 2, `（母體）${withUnknown.length} 道用到成分沒寫的加工品（油條…）`);
+  everyOf(withUnknown, (r) => r.vegMode === 'meatOnly', '用到成分沒寫的加工品的菜都是純葷的', withUnknown.filter((r) => r.vegMode !== 'meatOnly').map((r) => r.name).join('、'));
 }
 
 section('每個食材都對到食藥署編號');

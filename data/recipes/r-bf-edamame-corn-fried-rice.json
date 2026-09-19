@@ -1,0 +1,29 @@
+{
+  "id": "r-bf-edamame-corn-fried-rice",
+  "name": "毛豆玉米炒飯",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    { "food": "白飯", "label": "白飯（前一晚剩的飯最好炒）", "grams": 600, "track": "base", "pantry": true },
+    { "food": "毛豆", "label": "毛豆仁", "grams": 150, "track": "base" },
+    { "food": "玉米粒", "label": "玉米粒", "grams": 100, "track": "base" },
+    { "food": "胡蘿蔔", "label": "胡蘿蔔（切小丁）", "grams": 60, "track": "base" },
+    { "food": "香菇", "label": "新鮮香菇（切小丁）", "grams": 60, "track": "base" },
+    { "food": "油", "label": "油", "grams": 15, "track": "base", "pantry": true },
+    { "food": "醬油", "label": "醬油", "grams": 10, "track": "base", "pantry": true },
+    { "food": "鹽", "label": "鹽", "grams": 2, "track": "base", "pantry": true },
+    { "food": "白胡椒粉", "label": "白胡椒粉", "grams": 1, "track": "base", "pantry": true }
+  ],
+  "steps": [
+    { "stage": "base", "type": "prep", "text": "胡蘿蔔、香菇切小丁；冷飯先用飯匙撥鬆。" },
+    { "stage": "base", "type": "cook", "text": "毛豆仁放進滾水燙 3 分鐘撈起瀝乾。" },
+    { "stage": "base", "type": "cook", "text": "鍋熱下油，炒胡蘿蔔、香菇 1 分鐘，再下毛豆、玉米粒炒香。" },
+    { "stage": "base", "type": "cook", "text": "下白飯炒散炒熱，沿鍋邊淋醬油，加鹽、白胡椒粉拌勻。" }
+  ]
+}
