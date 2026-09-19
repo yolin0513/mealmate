@@ -8,6 +8,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf } from './tap.mjs';
 import { FORBIDDEN } from './copyrules.mjs';
@@ -17,7 +18,7 @@ import { DEFAULT_RULES } from '../js/planner.js';
 import { MEAL_ROLES, VEG_MIN_DISHES } from '../js/planner.js';
 import { STORE_NAMES } from '../js/db.js';
 import { NUTRIENT_ORDER } from '../js/foods.js';
-import { parseCheckLines, neverRunCount, chainExcludesMutation, reminderLines } from './sincefull.mjs';
+import { parseCheckLines, chainExcludesMutation, reminderLines, mutationNames, neverRunNames, lastFullMatchesStatus, lastFullProblems, shouldRecordFull, writeLastFull } from './sincefull.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -186,13 +187,32 @@ section('STATUS：上次全面檢測／上次突變整套的兩行紀錄（npm r
   let threwEmpty = false;
   try { parseCheckLines(''); } catch { threwEmpty = true; }
   ok(threwEmpty, 'D2 整份 STATUS 讀不到那兩行時也丟錯');
-  // D3 從未整套跑過的條數＝突變實際總條數（從 mutationtest.mjs 數）− STATUS 記的上次整套條數
-  if (parsed?.mut) {
-    const never = neverRunCount(mutCount, parsed);
-    eq(never, mutCount - parsed.mut.count, `D3 從未整套跑過 ${never} 條＝現在 ${mutCount} 條 − 上次整套 ${parsed.mut.count} 條`);
-    ok(never >= 0, 'D3 而且不是負數');
-    eq(neverRunCount(parsed.mut.count + 7, parsed), 7, 'D3（對照）總條數多 7 條時，從未整套跑過的也跟著是 7 —— 不是寫死的');
+  // D3（條數相減）2026-09-19 由下面的 N1–N4 取代：刪過或改名過突變時條數相減會系統性偏低（docs/SPEC_sincefull_按名稱計數.md）。
+  // N1 從未整套跑過＝現在的突變名稱裡，不在基準清單上的（照名稱比對，改名的算沒跑過）
+  const lastfull = JSON.parse(read('scripts/mutation-lastfull.json'));
+  const curNames = mutationNames(read('scripts/mutationtest.mjs'));
+  eq(curNames.length, mutCount, `（前提）照名稱取出的突變 ${curNames.length} 條＝用行數數的 ${mutCount} 條（名稱沒有漏抓）`);
+  eq(neverRunNames(['a', 'b', 'c2'], ['a', 'b', 'c']), ['c2'], 'N1（對照）基準 3 條、現在 3 條但 1 條改名 → 從未整套跑過是 1 條（條數相減會得 0）');
+  const never = neverRunNames(curNames, lastfull.names);
+  ok(never.includes('sincefull 耗時無紀錄時省略整段') && !never.includes('某一頁載不起來時 router 不通報（回到只 console.error）'),
+    `N1 真實資料：v0.36.0 之後加的算從未整套跑過、之前就有的不算（現在 ${never.length} 條）`);
+  // N2 基準清單的日期、版本、條數跟 STATUS「上次突變整套」那一行一致
+  ok(!!lastfull.date && !!lastfull.version && !!parsed?.mut, `（前提）兩邊都讀得到：基準 ${lastfull.date}、${lastfull.version}、${lastfull.names?.length} 條；STATUS ${parsed?.mut?.date}、${parsed?.mut?.version}、${parsed?.mut?.count} 條`);
+  ok(lastFullMatchesStatus(lastfull, parsed), 'N2 基準清單與 STATUS 那一行的日期、版本、條數一致');
+  ok(!lastFullMatchesStatus({ ...lastfull, names: lastfull.names.slice(1) }, parsed), 'N2（對照）條數差一條 → 判成不一致');
+  // N3 帶 --only、中斷或漏跑時不寫基準；完整跑完才寫（用假的小清單，不真的跑整套）
+  ok(!shouldRecordFull({ only: '蛋豆奶', ran: 5, total: 5 }), 'N3 帶 --only → 不寫基準');
+  ok(!shouldRecordFull({ only: '', ran: 4, total: 5 }), 'N3 少跑一條（中斷或漏跑）→ 不寫基準');
+  ok(shouldRecordFull({ only: '', ran: 5, total: 5 }) && shouldRecordFull({ only: '蛋豆奶', ran: 1, total: 5, recordFlag: true }), 'N3（對照）完整跑完會寫；人明確下 --record-full 也寫');
+  {
+    const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'mm-lastfull-')), 'lastfull.json');
+    writeLastFull(tmp, { date: '2026-01-02', version: 'mealmate-v9.9.9', names: ['甲', '乙'] });
+    const back = JSON.parse(fs.readFileSync(tmp, 'utf8'));
+    eq([back.date, back.version, back.names], ['2026-01-02', 'mealmate-v9.9.9', ['甲', '乙']], 'N3（對照）寫入函式寫得出來、讀得回去');
   }
+  // N4 基準清單非空、沒有重複
+  eq(lastFullProblems(lastfull), [], `N4 基準清單 ${lastfull.names?.length} 條，非空、沒有重複`);
+  ok(lastFullProblems({ names: [] }).length > 0 && lastFullProblems({ names: ['甲', '甲'] }).length > 0, 'N4（對照）空清單、有重複的清單都會被抓到');
   // D4 npm test 的鏈裡沒有 mutationtest（它會暫時改寫原始碼、跑三十分鐘以上），但它的 npm script 還在
   ok(chainExcludesMutation(pkg), 'D4 package.json 的 test 鏈裡沒有 mutationtest');
   ok(!chainExcludesMutation({ scripts: { test: 'node scripts/datatest.mjs && node scripts/mutationtest.mjs' } }), 'D4（對照）含 mutationtest 的假鏈會被判成不合格');

@@ -148,12 +148,12 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
 | 測試範圍：不做挑選器、每版照舊全跑；`mutationtest` 拆出 `npm test`；全面檢測兩行紀錄；`npm run sincefull` 提醒 | ✅ 完成（2026-09-19） | 未 bump（只動 scripts 與文件） |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 71、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 162、membertest 127、nutritiontest 149、plannertest 477、shoppingtest 150、timelinetest 71、doctest 139；
+Node 端：datatest 71、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 162、membertest 127、nutritiontest 149、plannertest 477、shoppingtest 150、timelinetest 71、doctest 148；
 瀏覽器端（puppeteer）：shelltest 161、familytest 90、recipeviewtest 146、backuptest 30、weekviewtest 192、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 111（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **386 條**，是獨立指令、不在 `npm test` 裡。**整套在 2026-09-19 對 `mealmate-v0.36.0` 跑過一次（366 條：359 紅、7 條沒紅，見「全面檢測（2026-09-19）」一節）**；之後加的 4 條（測試範圍那批）只跑過 `--only`。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **389 條**，是獨立指令、不在 `npm test` 裡。**整套在 2026-09-19 對 `mealmate-v0.36.0` 跑過一次（366 條：359 紅、7 條沒紅，見「全面檢測（2026-09-19）」一節）**；之後加的 4 條（測試範圍那批）只跑過 `--only`。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
-每版跑什麼見工作慣例第 15 條；每版回報最後附 `npm run sincefull` 印的兩行（距上次全面檢測、距上次突變整套，各帶上次實測耗時；耗時欄位寫「無紀錄」就照實印「無紀錄」）。下面兩行是固定格式，`sincefull` 與 `doctest` 會讀，改格式會紅：
+每版跑什麼見工作慣例第 15 條；每版回報最後附 `npm run sincefull` 印的兩行（距上次全面檢測、距上次突變整套，各帶上次實測耗時；耗時欄位寫「無紀錄」就照實印「無紀錄」）。「幾條從未整套跑過」照名稱比對 `scripts/mutation-lastfull.json`（上次整套實際跑過的突變名稱；改名的算沒跑過），`--list` 列出名稱；`mutationtest` 不帶 `--only` 完整跑完時自動重寫它，分段補跑的由人確認後 `npm run sincefull -- --record-full`；它跟下面那一行的日期、版本、條數不一致 `doctest` 會紅。下面兩行是固定格式，`sincefull` 與 `doctest` 會讀，改格式會紅：
 上次全面檢測：2026-09-19、mealmate-v0.36.0、不是全綠（鏈 26 支全綠；突變 366 條 359 紅、7 條沒紅；`assertaudit` 12 項全過；`checkmutations` 0 過期）、總耗時 約 14,800 秒（約 4.1 小時，含一次逾時中斷與重跑）、最慢五支 layouttest 101.5、plannertest 75.9、weekviewtest 53.4、recipeviewtest 36.6、racetest 30.0 秒
 上次突變整套：2026-09-19、mealmate-v0.36.0、366 條、359 紅 7 條沒紅、耗時 約 13,500 秒（分兩段：前 309 條 10,800 秒被逾時中斷，其餘 57 條 2,723 秒）
 （更早的一次：2026-09-13、`mealmate-v0.7.0`，全面檢測全綠、突變 105 條全綠，耗時無紀錄。）
@@ -291,7 +291,7 @@ v0.36.0 補早餐改了亂數序列，**麻油薑燒雞被排到 9/14**（離買
 （我在全面檢測回報裡把這兩條跟第 4、7 條歸成同一類「守著不存在的狀態」，是錯的。）
 
 測試：plannertest 451→**461**、recipeviewtest 140→**146**、recipetest 158→**159**。突變 370→**369**（刪 2、加 1「沒點清單的食材名稱不解析（Node 端）」；另 5 條補 `expect`），6 條 `--only` 都紅在指定的那一條。
-`sincefull` 的「從未整套跑過」是條數相減（369 − 366 ＝ 3）；照名稱算其實是 5 條（測試範圍那批 4 條＋這版新加 1 條），刪掉的 2 條把差距抵掉了。
+`sincefull` 的「從未整套跑過」當時是條數相減（369 − 366 ＝ 3），照名稱算其實是 5 條，刪掉的 2 條把差距抵掉了。**2026-09-19 已改成照名稱比對**（`scripts/mutation-lastfull.json` 的基準清單，見「測試現況」）。
 
 ### 全面檢測（2026-09-19，Yolin：「好，請做全面檢測」）
 

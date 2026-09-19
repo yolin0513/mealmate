@@ -5,7 +5,7 @@
 //   上次全面檢測：YYYY-MM-DD、mealmate-vX.Y.Z、…
 //   上次突變整套：YYYY-MM-DD、mealmate-vX.Y.Z、N 條、…
 // 格式對不上就報錯、exit 1 —— 印成「0 天」的話，看起來像剛跑過，這兩行存在的意義就沒了。
-// 純函式（parseCheckLines、daysSince、neverRunCount、chainExcludesMutation）給 doctest 驗。
+// 純函式（parseCheckLines、daysSince、mutationNames、neverRunNames、shouldRecordFull、chainExcludesMutation…）給 doctest 驗。
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -57,12 +57,60 @@ export function daysSince(dateIso, today) {
   return day(t) - day(d);
 }
 
-// 從來沒有整套跑過的突變條數＝現在的總條數 − 上次整套跑的條數
-export function neverRunCount(total, parsed) {
-  const n = total - parsed.mut.count;
-  if (!Number.isInteger(n) || n < 0) throw new Error(`突變條數對不上：現在 ${total} 條、上次整套 ${parsed.mut.count} 條`);
-  return n;
+// ---- 從未整套跑過的突變：按名稱比對（docs/SPEC_sincefull_按名稱計數.md） ----
+// 以前用「現在的條數 − 上次整套的條數」：只要刪過或改名過突變，這個數字就系統性偏低，而偏低的方向正好是「讓人以為不急」
+// （v0.36.1 時條數相減得 3、照名稱算是 5）。改成：現在的突變名稱裡，不在上次整套基準清單上的。改名的算沒跑過（保守）。
+export const LASTFULL_FILE = 'scripts/mutation-lastfull.json';
+
+// mutationtest.mjs 裡每一條的 name（依檔案順序；單引號、雙引號都認）
+export function mutationNames(src) {
+  return [...String(src).matchAll(/^ {4}name: (["'])(.*?)\1,\s*$/gm)].map((m) => m[2]);
 }
+
+export function neverRunNames(currentNames, baselineNames) {
+  const base = new Set(baselineNames);
+  return currentNames.filter((n) => !base.has(n));
+}
+
+// 基準清單本身的問題（空的、有重複）；沒有問題回 []
+export function lastFullProblems(j) {
+  const out = [];
+  if (!Array.isArray(j?.names) || j.names.length === 0) out.push('names 是空的');
+  else if (new Set(j.names).size !== j.names.length) out.push('names 有重複');
+  return out;
+}
+
+// 基準清單的日期、版本、條數跟 STATUS「上次突變整套」那一行一致嗎（兩邊各記一份，漂開了 doctest 要紅）
+export function lastFullMatchesStatus(j, parsed) {
+  return j?.date === parsed?.mut?.date && j?.version === parsed?.mut?.version && (j?.names?.length ?? -1) === parsed?.mut?.count;
+}
+
+export function readLastFull(root = ROOT) {
+  const j = JSON.parse(fs.readFileSync(path.join(root, LASTFULL_FILE), 'utf8'));
+  const problems = lastFullProblems(j);
+  if (problems.length) throw new Error(`${LASTFULL_FILE}：${problems.join('、')}`);
+  return j;
+}
+
+// 什麼時候可以寫基準：人明確下 --record-full（分段補跑，由人確認）；或不帶 --only、每一條都跑到了（沒有中斷、沒有漏跑）。
+// 中斷的話程式根本走不到寫檔那一步；帶 --only 或基準沒過（一條都沒跑）都不寫。
+export function shouldRecordFull({ only, ran, total, recordFlag = false }) {
+  if (recordFlag) return true;
+  return !only && total > 0 && ran === total;
+}
+
+export function writeLastFull(file, { date, version, names }) {
+  const note = '上次整套跑過的突變名稱。npm run sincefull 用它算「幾條從未整套跑過」（照名稱比對，改名的算沒跑過）；mutationtest 不帶 --only 完整跑完時自動重寫，分段補跑時用 npm run sincefull -- --record-full 手動寫。';
+  fs.writeFileSync(file, `${JSON.stringify({ date, version, note, names }, null, 1)}\n`, 'utf8');
+}
+
+export function currentVersion(root = ROOT) {
+  return /APP_VERSION = '([^']+)'/.exec(fs.readFileSync(path.join(root, 'js/version.js'), 'utf8'))?.[1] ?? null;
+}
+export function taiwanToday(now = new Date()) {
+  return new Date(now.getTime() + 8 * 3600000).toISOString().slice(0, 10);
+}
+// 修訂一 D3 的 neverRunCount（條數相減）由上面的 neverRunNames 取代（2026-09-19）。
 
 // npm test 的鏈不能含 mutationtest（它會暫時改寫原始碼、跑三十分鐘以上；是獨立指令）
 export function chainExcludesMutation(pkg) {
@@ -84,14 +132,27 @@ function versionsSince(version) {
 }
 
 function main() {
+  const current = mutationNames(fs.readFileSync(path.join(ROOT, 'scripts/mutationtest.mjs'), 'utf8'));
+  // 分段補跑完整套之後，由人確認再寫基準：npm run sincefull -- --record-full（寫的是現在全部的突變名稱、今天、現在的版本）
+  if (process.argv.includes('--record-full')) {
+    const rec = { date: taiwanToday(), version: currentVersion(), names: current };
+    writeLastFull(path.join(ROOT, LASTFULL_FILE), rec);
+    console.log(`已寫入 ${LASTFULL_FILE}：${rec.date}、${rec.version}、${current.length} 條。記得把 STATUS「上次突變整套」那一行改成同樣的日期、版本、條數（doctest 會比對）。`);
+    return;
+  }
   const parsed = parseCheckLines(fs.readFileSync(path.join(ROOT, 'docs/STATUS.md'), 'utf8'));
   const today = new Date();
-  const never = neverRunCount(mutationCount(), parsed);
+  const missing = neverRunNames(current, readLastFull().names);
+  const never = missing.length;
   const lines = reminderLines(parsed, {
     versFull: versionsSince(parsed.full.version), versMut: versionsSince(parsed.mut.version),
     daysFull: daysSince(parsed.full.date, today), daysMut: daysSince(parsed.mut.date, today), never,
   });
   for (const l of lines) console.log(l);
+  if (process.argv.includes('--list')) {
+    console.log(`\n從未整套跑過的 ${never} 條（不在 ${LASTFULL_FILE} 上）：`);
+    for (const n of missing) console.log(`  · ${n}`);
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

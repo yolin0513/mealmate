@@ -16,6 +16,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, note } from './tap.mjs';
+import { shouldRecordFull, writeLastFull, LASTFULL_FILE, taiwanToday, currentVersion } from './sincefull.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -3043,14 +3044,42 @@ const MUTATIONS = [
     test: "doctest",
     expect: "D2 那一行格式壞掉時",
   },
+  // 「從未整套跑過的條數把減數寫死」（D3）2026-09-19 刪掉：條數相減整個改成照名稱比對（N1），那一行已經不存在。
   {
-    name: "從未整套跑過的條數把減數寫死",
-    why: "寫死成某個數字的話，條數一變提醒就不準（規格原本就把 105 條誤寫成 349 條過）。",
+    name: "從未整套跑過改回條數相減",
+    why: "刪過或改名過突變時，條數相減會系統性偏低，讓人以為不急（v0.36.1 時條數相減得 3、照名稱算是 5）。",
     file: "scripts/sincefull.mjs",
-    find: "  const n = total - parsed.mut.count;",
-    replace: "  const n = total - 349;",
+    find: "  return currentNames.filter((n) => !base.has(n));",
+    replace: "  return currentNames.slice(0, Math.max(0, currentNames.length - base.size));",
     test: "doctest",
-    expect: "D3 從未整套跑過",
+    expect: "N1（對照）",
+  },
+  {
+    name: "基準清單與 STATUS 的比對永遠通過",
+    why: "json 跟 STATUS 各記一份上次整套的日期、版本、條數，漂開了沒人會發現。",
+    file: "scripts/sincefull.mjs",
+    find: "  return j?.date === parsed?.mut?.date && j?.version === parsed?.mut?.version && (j?.names?.length ?? -1) === parsed?.mut?.count;",
+    replace: "  return true;",
+    test: "doctest",
+    expect: "N2（對照）",
+  },
+  {
+    name: "帶 --only 或沒跑完也寫基準清單",
+    why: "只跑幾條就把基準改成「全部都跑過」，從未整套跑過的條數會歸零、提醒就失效了。",
+    file: "scripts/sincefull.mjs",
+    find: "  return !only && total > 0 && ran === total;",
+    replace: "  return total > 0;",
+    test: "doctest",
+    expect: "N3 帶 --only",
+  },
+  {
+    name: "基準清單是空的也當成沒問題",
+    why: "基準空了，每一條都會被算成從未整套跑過；或反過來讓壞掉的檔案悄悄通過。",
+    file: "scripts/sincefull.mjs",
+    find: "  if (!Array.isArray(j?.names) || j.names.length === 0) out.push('names 是空的');\n  else if",
+    replace: "  if (false) out.push('names 是空的');\n  else if",
+    test: "doctest",
+    expect: "N4（對照）",
   },
   {
     name: "判斷 npm test 鏈裡沒有 mutationtest 的函式永遠通過",
@@ -3264,6 +3293,7 @@ for (const t of TESTS) {
   if (!r.passed) baselineOk = false;
 }
 
+let ran = 0; // 實際跑到（改壞、跑測試、還原）的條數；整套完整跑完才寫 mutation-lastfull.json
 if (baselineOk) {
   section('逐條突變');
   for (const m of SELECTED) {
@@ -3285,6 +3315,7 @@ if (baselineOk) {
       clearPending();
     }
     const restored = fs.readFileSync(full, 'utf8') === original;
+    ran += 1;
     // expect（選填）：紅的一定要是這一條。改食譜檔或 foodtags.json 的突變一定會讓「recipes.json 是最新的」紅，
     // 只看有沒有紅的話，新斷言有沒有在檢查東西根本看不出來（2026-09-19 補早餐時發現）。
     const expectHit = !m.expect || result.out.split('\n').some((l) => l.includes('✗') && l.includes(m.expect));
@@ -3295,6 +3326,13 @@ if (baselineOk) {
   }
 } else {
   note('基準沒過，不跑突變（先把測試修綠）');
+}
+
+// 不帶 --only、每一條都跑到了 → 重寫「上次整套」的基準清單（docs/SPEC_sincefull_按名稱計數.md）。
+// 帶 --only、基準沒過、中途被殺掉，都不會走到這裡寫檔。分段補跑的由人確認後用 npm run sincefull -- --record-full。
+if (shouldRecordFull({ only, ran, total: MUTATIONS.length })) {
+  writeLastFull(path.join(ROOT, LASTFULL_FILE), { date: taiwanToday(), version: currentVersion(ROOT), names: MUTATIONS.map((m) => m.name) });
+  note(`整套完整跑完：已重寫 ${LASTFULL_FILE}（${MUTATIONS.length} 條）。記得把 STATUS「上次突變整套」那一行改成同樣的日期、版本、條數`);
 }
 
 done('mutationtest');
