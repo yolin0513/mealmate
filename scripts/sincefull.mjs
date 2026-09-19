@@ -24,7 +24,28 @@ export function parseCheckLines(statusText) {
   const m = MUT_RE.exec(text);
   if (!m) throw new Error('STATUS 找不到「上次突變整套：日期、版本、N 條、…」那一行（或格式對不上）');
   for (const d of [f[1], m[1]]) if (Number.isNaN(new Date(`${d}T00:00:00+08:00`).getTime())) throw new Error(`STATUS 的日期看不懂：${d}`);
-  return { full: { date: f[1], version: f[2] }, mut: { date: m[1], version: m[2], count: Number(m[3]) } };
+  // 耗時（SPEC_嫩莢豆芽與蛋白質門檻 §8）：「約 N 秒」或「無紀錄」；兩行都一定要有這個欄位，缺了就是格式壞了
+  const lineOf = (prefix) => text.split('\n').find((l) => l.startsWith(prefix)) ?? '';
+  const ft = /總耗時 (無紀錄|約 [\d,]+ 秒)/.exec(lineOf('上次全面檢測：'));
+  if (!ft) throw new Error('STATUS「上次全面檢測」那一行找不到「總耗時 約 N 秒」或「總耗時 無紀錄」');
+  const mt = /、耗時 (無紀錄|約 [\d,]+ 秒)/.exec(lineOf('上次突變整套：'));
+  if (!mt) throw new Error('STATUS「上次突變整套」那一行找不到「耗時 約 N 秒」或「耗時 無紀錄」');
+  return { full: { date: f[1], version: f[2], took: ft[1] }, mut: { date: m[1], version: m[2], count: Number(m[3]), took: mt[1] } };
+}
+
+// 「約 14,800 秒」→「約 14,800 秒（約 4.1 小時）」；「無紀錄」照實印（不印 0、不省略）
+export function tookText(took) {
+  if (took === '無紀錄') return '無紀錄';
+  const sec = Number(String(took).replace(/[^\d]/g, ''));
+  return sec >= 3600 ? `${took}（約 ${(sec / 3600).toFixed(1)} 小時）` : sec >= 60 ? `${took}（約 ${Math.round(sec / 60)} 分鐘）` : String(took);
+}
+
+// 每版回報最後那兩行。純函式：版數、天數、條數由呼叫端算好餵進來
+export function reminderLines(parsed, { versFull, versMut, daysFull, daysMut, never }) {
+  return [
+    `距上次全面檢測（${parsed.full.version}，${parsed.full.date}）：${versFull} 版／${daysFull} 天；上次實測耗時${tookText(parsed.full.took)}`,
+    `距上次突變整套（${parsed.mut.version}，${parsed.mut.date}）：${versMut} 版／${daysMut} 天；其中 ${never} 條從未整套跑過；上次實測耗時${tookText(parsed.mut.took)}`,
+  ];
 }
 
 // 以台灣的日曆日算：今天 − 那一天
@@ -66,8 +87,11 @@ function main() {
   const parsed = parseCheckLines(fs.readFileSync(path.join(ROOT, 'docs/STATUS.md'), 'utf8'));
   const today = new Date();
   const never = neverRunCount(mutationCount(), parsed);
-  console.log(`距上次全面檢測（${parsed.full.version}，${parsed.full.date}）：${versionsSince(parsed.full.version)} 版／${daysSince(parsed.full.date, today)} 天`);
-  console.log(`距上次突變整套（${parsed.mut.version}，${parsed.mut.date}）：${versionsSince(parsed.mut.version)} 版／${daysSince(parsed.mut.date, today)} 天；其中 ${never} 條從未整套跑過`);
+  const lines = reminderLines(parsed, {
+    versFull: versionsSince(parsed.full.version), versMut: versionsSince(parsed.mut.version),
+    daysFull: daysSince(parsed.full.date, today), daysMut: daysSince(parsed.mut.date, today), never,
+  });
+  for (const l of lines) console.log(l);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

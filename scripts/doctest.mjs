@@ -17,7 +17,7 @@ import { DEFAULT_RULES } from '../js/planner.js';
 import { MEAL_ROLES, VEG_MIN_DISHES } from '../js/planner.js';
 import { STORE_NAMES } from '../js/db.js';
 import { NUTRIENT_ORDER } from '../js/foods.js';
-import { parseCheckLines, neverRunCount, chainExcludesMutation } from './sincefull.mjs';
+import { parseCheckLines, neverRunCount, chainExcludesMutation, reminderLines } from './sincefull.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -197,6 +197,17 @@ section('STATUS：上次全面檢測／上次突變整套的兩行紀錄（npm r
   ok(chainExcludesMutation(pkg), 'D4 package.json 的 test 鏈裡沒有 mutationtest');
   ok(!chainExcludesMutation({ scripts: { test: 'node scripts/datatest.mjs && node scripts/mutationtest.mjs' } }), 'D4（對照）含 mutationtest 的假鏈會被判成不合格');
   ok(typeof pkg.scripts.mutationtest === 'string' && pkg.scripts.mutationtest.includes('scripts/mutationtest.mjs'), 'D4 npm run mutationtest 這個獨立指令還在');
+  // D5 兩行提醒要帶上次實測耗時（SPEC_嫩莢豆芽與蛋白質門檻 §8：被低估成半小時、實際要半天的工作，很容易一直往後排）
+  const nums = { versFull: 1, versMut: 1, daysFull: 2, daysMut: 2, never: 3 };
+  if (parsed?.full?.took && parsed?.mut?.took) {
+    const lines = reminderLines(parsed, nums);
+    ok(lines.length === 2 && lines[0].includes(`上次實測耗時${parsed.full.took}`) && lines[1].includes(`上次實測耗時${parsed.mut.took}`),
+      `D5 兩行都帶 STATUS 記的實測耗時：${lines.join('｜')}`);
+  } else ok(false, `D5 STATUS 那兩行讀不到耗時欄位（${JSON.stringify(parsed)}）`);
+  const noRecord = STATUS.replace(/總耗時 約 [\d,]+ 秒/, '總耗時 無紀錄').replace(/、耗時 約 [\d,]+ 秒/, '、耗時 無紀錄');
+  ok(noRecord !== STATUS, '（前提）改成「無紀錄」的那一份真的跟原文不同');
+  const nrLines = reminderLines(parseCheckLines(noRecord), nums);
+  ok(nrLines.every((l) => l.includes('上次實測耗時無紀錄')), `D5（對照）耗時寫「無紀錄」時照實印「無紀錄」，不省略、不印 0：${nrLines.join('｜')}`);
 }
 
 section('STATUS：追加優化那兩項的宣稱');

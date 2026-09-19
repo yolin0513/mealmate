@@ -3061,6 +3061,15 @@ const MUTATIONS = [
     test: "doctest",
     expect: "D4（對照）",
   },
+  {
+    name: "sincefull 耗時無紀錄時省略整段",
+    why: "突變整套被低估成半小時、實際要 3.8 小時，才會一直往後排；沒有紀錄也要照實講「無紀錄」。",
+    file: "scripts/sincefull.mjs",
+    find: "  if (took === '無紀錄') return '無紀錄';",
+    replace: "  if (took === '無紀錄') return '';",
+    test: "doctest",
+    expect: "D5（對照）",
+  },
 ];
 
 const only = (() => {

@@ -150,12 +150,12 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
 | 測試範圍：不做挑選器、每版照舊全跑；`mutationtest` 拆出 `npm test`；全面檢測兩行紀錄；`npm run sincefull` 提醒 | ✅ 完成（2026-09-19） | 未 bump（只動 scripts 與文件） |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 64、aliastest 26、unittest 69、edutest 13、copytest 7、recipetest 159、membertest 127、nutritiontest 149、plannertest 461、shoppingtest 148、timelinetest 71、doctest 136；
+Node 端：datatest 64、aliastest 26、unittest 69、edutest 13、copytest 7、recipetest 159、membertest 127、nutritiontest 149、plannertest 461、shoppingtest 148、timelinetest 71、doctest 139；
 瀏覽器端（puppeteer）：shelltest 161、familytest 90、recipeviewtest 146、backuptest 30、weekviewtest 192、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 111（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **369 條**，是獨立指令、不在 `npm test` 裡。**整套在 2026-09-19 對 `mealmate-v0.36.0` 跑過一次（366 條：359 紅、7 條沒紅，見「全面檢測（2026-09-19）」一節）**；之後加的 4 條（測試範圍那批）只跑過 `--only`。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **370 條**，是獨立指令、不在 `npm test` 裡。**整套在 2026-09-19 對 `mealmate-v0.36.0` 跑過一次（366 條：359 紅、7 條沒紅，見「全面檢測（2026-09-19）」一節）**；之後加的 4 條（測試範圍那批）只跑過 `--only`。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
-每版跑什麼見工作慣例第 15 條；每版回報最後附 `npm run sincefull` 印的兩行（距上次全面檢測、距上次突變整套）。下面兩行是固定格式，`sincefull` 與 `doctest` 會讀，改格式會紅：
+每版跑什麼見工作慣例第 15 條；每版回報最後附 `npm run sincefull` 印的兩行（距上次全面檢測、距上次突變整套，各帶上次實測耗時；耗時欄位寫「無紀錄」就照實印「無紀錄」）。下面兩行是固定格式，`sincefull` 與 `doctest` 會讀，改格式會紅：
 上次全面檢測：2026-09-19、mealmate-v0.36.0、不是全綠（鏈 26 支全綠；突變 366 條 359 紅、7 條沒紅；`assertaudit` 12 項全過；`checkmutations` 0 過期）、總耗時 約 14,800 秒（約 4.1 小時，含一次逾時中斷與重跑）、最慢五支 layouttest 101.5、plannertest 75.9、weekviewtest 53.4、recipeviewtest 36.6、racetest 30.0 秒
 上次突變整套：2026-09-19、mealmate-v0.36.0、366 條、359 紅 7 條沒紅、耗時 約 13,500 秒（分兩段：前 309 條 10,800 秒被逾時中斷，其餘 57 條 2,723 秒）
 （更早的一次：2026-09-13、`mealmate-v0.7.0`，全面檢測全綠、突變 105 條全綠，耗時無紀錄。）
@@ -1403,11 +1403,11 @@ v0.11.0 明確放寬過前兩條，這是回歸。**實測查到的根因**（�
     · **唯一的放寬**：只改 `docs/**`、`*.md` 的 commit → 跑 `doctest`＋`copytest` 就好（兩支純 Node、幾秒）。改到文件以外的任何檔，一律全跑；`git status` 一眼看得出來。
     · **為什麼全跑**：26 支一輪約 448 秒；v0.23.0–v0.35.0 十三版回放「受影響測試挑選器」，11 版要跑 24–27 支、時間跟全套一樣 ——
       13 版裡 10 版改到排菜器或成員模組，而幾乎每支瀏覽器測試都在 `page.evaluate` 裡直接用它們造資料（v0.33.0 買菜頁 320 寬溢出 3px 就是這層涵蓋抓到的）。
-      真正貴的突變整套（30–40 分鐘）早就只跑 `--only`。這不違反共用慣例 §5.7（解除義務、不是設上限；本 App 規定每版要跑哪些的照本 App）。
+      真正貴的突變整套（2026-09-19 對 v0.36.0 的 366 條實測約 3.8 小時）早就只跑 `--only`。這不違反共用慣例 §5.7（解除義務、不是設上限；本 App 規定每版要跑哪些的照本 App）。
     · 以前這裡是一張「改到 X → 跑 Y」的人工對照表，2026-09-19 刪掉：它漏過一次（`data/units.json`，unittest 紅了一版沒被發現），而且到最後還有 datatest、doctest、redlinetest、scenariotest、pwatest 五支一列都沒被點到；全跑就沒有「漏」這回事。
     · **沒有放寬的那一條：新的斷言仍然必須經突變驗證會紅**（`npm run mutationtest -- --only <關鍵字>`）。
 16. **瀏覽器測試的點擊一律 `clickEl()`**（先捲到中央再點）；要量 toast 文字就等 `#toast.show`，要等它走就 `waitToastGone()`。
-17. **全面檢測怎麼跑**（Yolin 指定才跑；跑的期間不要編輯任何檔案）：`npm run checkmutations`（幾秒，先確認沒有過期的突變）→ `npm test`（26 支）→ `npm run assertaudit`（會跑完整套件並分析假斷言，約 25 分）→ `npm run mutationtest`（整套，2026-09-19 時 370 條，約 30–40 分）。
+17. **全面檢測怎麼跑**（Yolin 指定才跑；跑的期間不要編輯任何檔案）：`npm run checkmutations`（幾秒，先確認沒有過期的突變）→ `npm test`（26 支）→ `npm run assertaudit`（會跑完整套件並分析假斷言；2026-09-19 實測 433 秒）→ `npm run mutationtest`（整套；2026-09-19 對 v0.36.0 的 366 條實測約 3.8 小時，**不要設逾時**）。全部加起來約 4.1 小時。
     跑完更新「測試現況」那兩行固定格式的紀錄（上次全面檢測：日期、版本、結果、總耗時、最慢五支秒數；上次突變整套：日期、版本、條數、結果、耗時）。**只跑 `--only` 子集永遠看不到過期的突變**，那是 M2 到 M5 之間漏掉一條的原因。
 19. **UI 產生的計畫是隨機 seed —— 需要「特定情境」的斷言不可以靠按鈕。**
     `js/views/week.js` 的「產生菜單」與「重新產生」都走 `newSeed: true`，seed 取自 `Date.now()`。
