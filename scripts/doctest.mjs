@@ -17,6 +17,7 @@ import { DEFAULT_RULES } from '../js/planner.js';
 import { MEAL_ROLES, VEG_MIN_DISHES } from '../js/planner.js';
 import { STORE_NAMES } from '../js/db.js';
 import { NUTRIENT_ORDER } from '../js/foods.js';
+import { parseCheckLines, neverRunCount, chainExcludesMutation } from './sincefull.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -164,6 +165,39 @@ everyOf([...new Set(statusTests)], (t) => pkg.scripts.test.includes(`scripts/${t
 const storeLine = /IndexedDB `mealmate`（([^）]+)）/.exec(STATUS)?.[1] ?? '';
 ok(storeLine.length > 10, `（文件）STATUS 列了 store：${storeLine}`);
 everyOf(STORE_NAMES, (s) => storeLine.includes(s), 'db.js 的每一個 store 都列在 STATUS 的部署表裡');
+
+section('STATUS：上次全面檢測／上次突變整套的兩行紀錄（npm run sincefull 讀它；SPEC_測試範圍_修訂一 §2-3、§2-4）');
+{
+  // D1 兩段式：先斷言那兩行在，再斷言 sincefull 的解析器讀得出日期、版本、條數
+  const fullLine = STATUS.split('\n').find((l) => l.startsWith('上次全面檢測：'));
+  const mutLine = STATUS.split('\n').find((l) => l.startsWith('上次突變整套：'));
+  ok(!!fullLine && !!mutLine, '（文件）STATUS 有「上次全面檢測：」「上次突變整套：」兩行');
+  let parsed = null;
+  try { parsed = parseCheckLines(STATUS); } catch (e) { parsed = { error: e.message }; }
+  ok(!!parsed?.full && /^\d{4}-\d{2}-\d{2}$/.test(parsed.full.date) && /^mealmate-v\d+\.\d+\.\d+$/.test(parsed.full.version)
+    && /^\d{4}-\d{2}-\d{2}$/.test(parsed.mut?.date) && /^mealmate-v\d+\.\d+\.\d+$/.test(parsed.mut?.version) && parsed.mut.count > 0,
+    `D1 sincefull 讀得出兩行的日期、版本、條數（${JSON.stringify(parsed)}）`);
+  // D2 格式對不上 → 丟錯，不是回傳一個看起來像「剛跑過」的結果
+  const broken = STATUS.replace(/^上次突變整套：(\d{4}-\d{2}-\d{2})、/m, '上次突變整套：$1 ');
+  ok(broken !== STATUS, '（前提）故意寫壞的那一份真的跟原文不同');
+  let threw = false;
+  try { parseCheckLines(broken); } catch { threw = true; }
+  ok(threw, 'D2 那一行格式壞掉時，sincefull 的解析器丟錯（不印 0 天）');
+  let threwEmpty = false;
+  try { parseCheckLines(''); } catch { threwEmpty = true; }
+  ok(threwEmpty, 'D2 整份 STATUS 讀不到那兩行時也丟錯');
+  // D3 從未整套跑過的條數＝突變實際總條數（從 mutationtest.mjs 數）− STATUS 記的上次整套條數
+  if (parsed?.mut) {
+    const never = neverRunCount(mutCount, parsed);
+    eq(never, mutCount - parsed.mut.count, `D3 從未整套跑過 ${never} 條＝現在 ${mutCount} 條 − 上次整套 ${parsed.mut.count} 條`);
+    ok(never >= 0, 'D3 而且不是負數');
+    eq(neverRunCount(parsed.mut.count + 7, parsed), 7, 'D3（對照）總條數多 7 條時，從未整套跑過的也跟著是 7 —— 不是寫死的');
+  }
+  // D4 npm test 的鏈裡沒有 mutationtest（它會暫時改寫原始碼、跑三十分鐘以上），但它的 npm script 還在
+  ok(chainExcludesMutation(pkg), 'D4 package.json 的 test 鏈裡沒有 mutationtest');
+  ok(!chainExcludesMutation({ scripts: { test: 'node scripts/datatest.mjs && node scripts/mutationtest.mjs' } }), 'D4（對照）含 mutationtest 的假鏈會被判成不合格');
+  ok(typeof pkg.scripts.mutationtest === 'string' && pkg.scripts.mutationtest.includes('scripts/mutationtest.mjs'), 'D4 npm run mutationtest 這個獨立指令還在');
+}
 
 section('STATUS：追加優化那兩項的宣稱');
 ok(STATUS.includes('午餐是 `[\'main\',\'side\',\'side\',\'staple\']`') || STATUS.includes("午餐是 `['main','side','side','staple']`"),

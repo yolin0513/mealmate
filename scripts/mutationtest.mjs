@@ -3019,6 +3019,43 @@ const MUTATIONS = [
     test: "recipetest",
     expect: "名稱、食材、步驟都沒有禁用詞",
   },
+  // ---- 2026-09-19 測試範圍修訂一：mutationtest 拆出 npm test、全面檢測兩行紀錄、sincefull ----
+  {
+    name: "sincefull 讀不出「上次突變整套」那一行",
+    why: "解析的 regex 跟 STATUS 的格式漂開時，每版回報那兩行提醒就印不出來。",
+    file: "scripts/sincefull.mjs",
+    find: String.raw`const MUT_RE = /^上次突變整套：(\d{4}-\d{2}-\d{2})、(mealmate-v\d+\.\d+\.\d+)、(\d+) 條、/m;`,
+    replace: String.raw`const MUT_RE = /^上次突變整套：(\d{4}-\d{2}-\d{2})、(mealmate-v\d+\.\d+\.\d+)、(\d+) 條，/m;`,
+    test: "doctest",
+    expect: "D1 sincefull 讀得出",
+  },
+  {
+    name: "sincefull 格式壞掉時回傳 0 天而不是報錯",
+    why: "印成「0 天」看起來像剛跑過突變整套，這兩行提醒存在的意義就沒了。",
+    file: "scripts/sincefull.mjs",
+    find: "  if (!m) throw new Error('STATUS 找不到「上次突變整套：日期、版本、N 條、…」那一行（或格式對不上）');",
+    replace: "  if (!m) return { full: { date: f[1], version: f[2] }, mut: { date: new Date().toISOString().slice(0, 10), version: f[2], count: 0 } };",
+    test: "doctest",
+    expect: "D2 那一行格式壞掉時",
+  },
+  {
+    name: "從未整套跑過的條數把減數寫死",
+    why: "寫死成某個數字的話，條數一變提醒就不準（規格原本就把 105 條誤寫成 349 條過）。",
+    file: "scripts/sincefull.mjs",
+    find: "  const n = total - parsed.mut.count;",
+    replace: "  const n = total - 349;",
+    test: "doctest",
+    expect: "D3 從未整套跑過",
+  },
+  {
+    name: "判斷 npm test 鏈裡沒有 mutationtest 的函式永遠通過",
+    why: "mutationtest 跑的時候會暫時改寫原始碼、要三十分鐘以上，不能又被塞回 npm test。",
+    file: "scripts/sincefull.mjs",
+    find: String.raw`  return !s.split('&&').some((seg) => /\bmutationtest\b/.test(seg));`,
+    replace: "  return true;",
+    test: "doctest",
+    expect: "D4（對照）",
+  },
 ];
 
 const only = (() => {
