@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf } from './tap.mjs';
 import { FORBIDDEN } from './copyrules.mjs';
@@ -18,7 +19,7 @@ import { DEFAULT_RULES } from '../js/planner.js';
 import { MEAL_ROLES, VEG_MIN_DISHES } from '../js/planner.js';
 import { STORE_NAMES } from '../js/db.js';
 import { NUTRIENT_ORDER } from '../js/foods.js';
-import { parseCheckLines, chainExcludesMutation, reminderLines, mutationNames, neverRunNames, lastFullMatchesStatus, lastFullProblems, shouldRecordFull, writeLastFull } from './sincefull.mjs';
+import { parseCheckLines, chainExcludesMutation, reminderLines, mutationNames, neverRunNames, lastFullMatchesStatus, lastFullProblems, shouldRecordFull, writeLastFull, FULL_LIMITS, overLimitLine } from './sincefull.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -213,6 +214,24 @@ section('STATUS：上次全面檢測／上次突變整套的兩行紀錄（npm r
   // N4 基準清單非空、沒有重複
   eq(lastFullProblems(lastfull), [], `N4 基準清單 ${lastfull.names?.length} 條，非空、沒有重複`);
   ok(lastFullProblems({ names: [] }).length > 0 && lastFullProblems({ names: ['甲', '甲'] }).length > 0, 'N4（對照）空清單、有重複的清單都會被抓到');
+  // D6 整套的上限（共用慣例 v3 §5.7：上限由各 App 自己定，超過才在回報最前面提一行）
+  const limitTxt = /距上次突變整套 \*\*(\d+) 版\*\*，或從未整套跑過的突變 \*\*(\d+) 條\*\*/.exec(STATUS);
+  ok(!!limitTxt, `（文件）STATUS 寫了整套的上限（${limitTxt ? limitTxt[0] : '找不到那一句'}）`);
+  eq([Number(limitTxt?.[1]), Number(limitTxt?.[2])], [FULL_LIMITS.versions, FULL_LIMITS.never],
+    `D6 STATUS 寫的上限＝sincefull 的 FULL_LIMITS（${JSON.stringify(FULL_LIMITS)}）`);
+  const overVers = overLimitLine({ versMut: FULL_LIMITS.versions + 1, never: 0 });
+  ok(typeof overVers === 'string' && overVers.includes(`${FULL_LIMITS.versions + 1} 版`) && overVers.includes('建議這一批做完就跑'),
+    `D6 版數超過上限 → 多印一行講出是哪一項：${overVers}`);
+  const overNever = overLimitLine({ versMut: 0, never: FULL_LIMITS.never + 1 });
+  ok(typeof overNever === 'string' && overNever.includes(`${FULL_LIMITS.never + 1} 條`) && !overNever.includes('版（上限'),
+    `D6 條數超過上限 → 只講條數那一項：${overNever}`);
+  eq(overLimitLine({ versMut: FULL_LIMITS.versions, never: FULL_LIMITS.never }), null,
+    'D6（對照）剛好在上限上 → 不提（沒超過就照舊只印兩行）');
+  // D6 真實入口：直接跑 npm run sincefull 那支程式。現在沒超過上限，所以第一行就該是「距上次全面檢測」——
+  // 多印一行提醒就代表「沒超過也在提」，那行提醒就會被當成雜訊忽略。
+  const cliOut = execFileSync(process.execPath, [path.join(ROOT, 'scripts/sincefull.mjs')], { cwd: ROOT, encoding: 'utf8' }).split(/\r?\n/).filter(Boolean);
+  ok(cliOut.length === 2 && cliOut[0].startsWith('距上次全面檢測（') && cliOut[1].startsWith('距上次突變整套（'),
+    `D6（真實入口）現在沒超過上限 → sincefull 只印那兩行、不多印提醒：${JSON.stringify(cliOut)}`);
   // D4 npm test 的鏈裡沒有 mutationtest（它會暫時改寫原始碼、跑三十分鐘以上），但它的 npm script 還在
   ok(chainExcludesMutation(pkg), 'D4 package.json 的 test 鏈裡沒有 mutationtest');
   ok(!chainExcludesMutation({ scripts: { test: 'node scripts/datatest.mjs && node scripts/mutationtest.mjs' } }), 'D4（對照）含 mutationtest 的假鏈會被判成不合格');

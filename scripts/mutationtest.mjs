@@ -3345,6 +3345,43 @@ const MUTATIONS = [
     test: "layouttest",
     expect: "（前提）「我的＋自己加的＋🔒」的列",
   },
+  // ---- 2026-09-21 共用慣例 v3：整套的上限提示（SPEC_共用慣例更新_v3.md，MealMate 那一列）----
+  {
+    name: "整套的上限跟 STATUS 寫的對不上",
+    why: "兩邊各記一份，漂開了就等於沒有上限：STATUS 說 10 版、程式等到 12 版才提，看文件的人不會知道。",
+    file: "scripts/sincefull.mjs",
+    find: "export const FULL_LIMITS = { versions: 10, never: 40 };",
+    replace: "export const FULL_LIMITS = { versions: 12, never: 40 };",
+    test: "doctest",
+    expect: "D6 STATUS 寫的上限＝sincefull 的 FULL_LIMITS",
+  },
+  {
+    name: "剛好在上限上也報「已超過」",
+    why: "上限是「超過才提」。剛好等於上限就喊超過，提醒會提早一版出現、也跟 STATUS 寫的對不上。",
+    file: "scripts/sincefull.mjs",
+    find: "  if (versMut > limits.versions) over.push(",
+    replace: "  if (versMut >= limits.versions) over.push(",
+    test: "doctest",
+    expect: "D6（對照）剛好在上限上",
+  },
+  {
+    name: "超過上限也不提",
+    why: "這一行是整個上限機制唯一的輸出；不印的話，距上次整套幾版沒有人會注意到。",
+    file: "scripts/sincefull.mjs",
+    find: "  return over.length ? `已超過上限（${over.join('；')}），建議這一批做完就跑` : null;",
+    replace: "  return null;",
+    test: "doctest",
+    expect: "D6 版數超過上限",
+  },
+  {
+    name: "沒超過上限也照樣印那一行",
+    why: "每一版都印「已超過上限」，它就會跟「已讀」一樣被跳過，真的超過時沒有人看得出來。",
+    file: "scripts/sincefull.mjs",
+    find: "  return over.length ? `已超過上限（${over.join('；')}），建議這一批做完就跑` : null;",
+    replace: "  return `已超過上限（${over.join('；')}），建議這一批做完就跑`;",
+    test: "doctest",
+    expect: "D6（真實入口）現在沒超過上限",
+  },
 ];
 
 const only = (() => {
