@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadContext, buildRecipes, summarize, outputFor } from './build-recipes.mjs';
-import { validateRecipe, USER_DEFAULT_STEP, tagsOfFood, proteinGroupOf } from '../js/recipeschema.js';
+import { validateRecipe, USER_DEFAULT_STEP, tagsOfFood, proteinGroupOf, PROCESSED_CATS } from '../js/recipeschema.js';
 import { fitsDiet, versionFor } from '../js/members.js';
 import { estimate } from '../js/nutrition.js';
 
@@ -181,6 +181,62 @@ section('豆芽是蔬菜：不因為名稱裡有「黃豆」「黑豆」就算�
   everyOf(sprouts, (f) => proteinGroupOf(f, new Set()) === null, '黃豆芽、黑豆芽不算豆製品（蔬菜類不走名稱規則）');
   const SOY = { R4700901: '傳統豆腐', R4700202: '五香豆干', H1150201: '豆漿(無糖)', H1100101: '毛豆仁' };
   everyOf(Object.entries(SOY), ([id, name]) => idx.byId.get(id)?.name === name && proteinGroupOf(idx.byId.get(id), new Set()) === 'soy', '（對照）傳統豆腐、五香豆干、無糖豆漿、毛豆仁仍是豆製品');
+}
+
+section('使用者自己的食譜：加工品的葷素由他說了算（2026-09-21，Yolin：「有些蛋餅皮有加豬油是葷的，但也有素的蛋餅皮」）');
+{
+  const uctx = { resolve: ctx.resolve, foodTags: ctx.foodTags, allowMissingGrams: true, relaxRequired: true };
+  const CREPE = 'R2700301';  // 冷凍蛋餅皮：加工調理食品，資料庫標了 meat（豬油）＋ allium（蔥）
+  const BACON = 'R5100801';  // 培根：加工調理食品，只有 meat
+  const crepe = idx.byId.get(CREPE);
+  ok(!!crepe && PROCESSED_CATS.has(crepe.cat) && tagsOfFood(crepe, ctx.foodTags).has('meat') && tagsOfFood(crepe, ctx.foodTags).has('allium'),
+    `（前提）冷凍蛋餅皮是加工品類（${crepe?.cat}）、資料庫標了肉與五辛：${[...tagsOfFood(crepe, ctx.foodTags)].join('、')}`);
+  const userDish = (over = {}) => ({
+    id: 'r-user-crepe', name: '素蛋餅', role: 'breakfast', servings: 2, time: 10, method: 'pan', vegMode: 'nativeVeg',
+    texture: 'normal', season: [], source: 'user', vegModeConfirmed: true,
+    ingredients: [{ food: CREPE, label: '蛋餅皮', grams: 100, track: 'base' }, { food: '高麗菜', label: '高麗菜', grams: 100, track: 'base' }],
+    steps: [{ stage: 'base', type: 'cook', text: '煎熟' }], ...over,
+  });
+  // U1 選過素葷 → 存得進去；肉的標籤不寫進這道菜，五辛的照常寫
+  const u1 = validateRecipe(userDish(), uctx);
+  eq(u1.errors, [], `U1 使用者選過素葷、加工品標成素 → 存得進去：${JSON.stringify(u1.errors)}`);
+  // 兩件事拆成兩條，好讓兩條突變各自指得到（「不寫進去」壞掉 vs「連別的標籤一起丟」）
+  eq(u1.recipe?.tags.includes('meat'), false, 'U1 肉的標籤沒寫進這道菜');
+  eq(u1.recipe?.tags.includes('allium'), true, 'U1 同一樣食材的五辛標籤還在（只讓位葷素那兩個）');
+  eq(u1.recipe?.proteins.includes('meat'), false, 'U1 也不拿去算蛋白質來源');
+  // U2 沒選過素葷（表單預設就是「素」）→ 照舊擋，但訊息點名那樣食材、講得出下一步
+  const u2 = validateRecipe(userDish({ vegModeConfirmed: false }), uctx).errors;
+  ok(u2.some((e) => e.includes('蛋餅皮') && e.includes('素葷')), `U2 沒選過素葷 → 擋下，訊息點名食材並講下一步：${u2.join('｜')}`);
+  noneOf(u2, (e) => /但這道菜標成「素」/.test(e), 'U2 不再丟舊的那句（同一件事只講一次）');
+  // U3 原型食材照舊擋（豬絞肉是肉類，不是加工品類）
+  const u3 = validateRecipe(userDish({ ingredients: [{ food: '豬絞肉', label: '豬絞肉', grams: 100, track: 'base' }] }), uctx).errors;
+  ok(u3.some((e) => /是葷的/.test(e)), `U3 原型的豬絞肉標成素 → 照舊擋：${u3.join('｜')}`);
+  // U4 內建食譜照舊擋
+  const u4 = validateRecipe({ ...userDish(), source: 'builtin' }, { ...uctx, relaxRequired: false }).errors;
+  ok(u4.some((e) => /是葷的/.test(e)), `U4 內建食譜的同一道 → 照舊擋：${u4.join('｜')}`);
+  // U5 標成葷、沒有任何帶肉的食材：有加工品類 → 不擋；全是原型 → 照舊擋
+  const meatOnly = (ings) => validateRecipe(userDish({ vegMode: 'meatOnly', ingredients: ings }), uctx).errors;
+  eq(meatOnly([{ food: '冬粉', label: '冬粉', grams: 100, track: 'base' }, { food: '高麗菜', label: '高麗菜', grams: 100, track: 'base' }]), [], 'U5 標成葷、食材有加工品類（冬粉）→ 不擋（他買的那一款是葷的）');
+  ok(meatOnly([{ food: '高麗菜', label: '高麗菜', grams: 100, track: 'base' }, { food: '毛豆仁', label: '毛豆仁', grams: 100, track: 'base' }]).some((e) => /沒有肉或海鮮/.test(e)), 'U5（對照）全是原型蔬菜、豆類 → 照舊擋');
+  // U6 可分流、整道沒有肉：葷那欄有加工品類 → 不擋（對照組在上面「查不到的食材」那一段）
+  const splitDish = (meatIng) => validateRecipe(userDish({
+    vegMode: 'splittable', splitServings: { veg: 1, meat: 1 },
+    ingredients: [{ food: '高麗菜', label: '高麗菜', grams: 100, track: 'base' }, { food: '豆干', label: '豆干', grams: 50, track: 'veg' }, meatIng],
+    steps: [{ stage: 'base', type: 'cook', text: '炒香' }, { stage: 'split', type: 'split', text: '分兩鍋' }, { stage: 'veg', type: 'cook', text: '素的加豆干' }, { stage: 'meat', type: 'cook', text: '葷的加料' }],
+  }), uctx).errors;
+  eq(splitDish({ food: CREPE, label: '蛋餅皮', grams: 50, track: 'meat' }), [], 'U6 可分流、葷那欄是加工品類 → 不擋');
+  // U7 真的排得到：被推翻的那道，全素的家人吃得到
+  ok(versionFor(u1.recipe, 'vegan') !== null && versionFor(u1.recipe, 'veganNoAllium') === null,
+    `U7 被推翻的那道，五辛素的家人吃得到（${versionFor(u1.recipe, 'vegan')}）；不吃五辛的仍吃不到（蛋餅皮有蔥，五辛標籤沒被動）`);
+  eq(versionFor({ ...u1.recipe, tags: [...u1.recipe.tags, 'meat'] }, 'vegan'), null, 'U7（對照）同一道帶著肉的標籤時，全素的家人吃不到 —— 差別就在那個標籤');
+  // U8 查不到的食材那條保守規則不變：同一道菜同時有被推翻的加工品與查不到的食材 → 全素家人仍然排不到
+  const both = validateRecipe(userDish({
+    ingredients: [{ food: BACON, label: '素培根', grams: 50, track: 'base' }, { food: '', label: '某牌素火腿', grams: 50, track: 'base' }],
+  }), uctx);
+  eq(both.errors, [], `U8（前提）推翻的加工品＋查不到的食材，選過素葷就存得進去：${JSON.stringify(both.errors)}`);
+  eq([both.recipe?.tags.includes('meat'), both.recipe?.tags.includes('unresolved')], [false, true], 'U8 肉的標籤拿掉了，但查不到的那樣照舊標 unresolved');
+  eq(versionFor(both.recipe, 'veganNoAllium'), null, 'U8 全素（不吃五辛）的家人仍然排不到 —— 查不到的食材那條保守規則沒被順手放寬');
+  eq(versionFor(both.recipe, 'lactoOvo'), 'all', 'U8（對照）蛋、奶、五辛都吃的家人照樣吃得到');
 }
 
 section('每個食材都對到食藥署編號');
@@ -441,7 +497,9 @@ section('使用者自己加的菜：食藥署查不到的食材也可以存，�
   const vegPot = validateRecipe({ ...splitBase, ingredients: [{ food: '小黃瓜', label: '小黃瓜', grams: 300, track: 'base' }, { food: '', label: '某牌素肚', grams: 100, track: 'veg' }, { food: '豬肉片', label: '豬肉片', grams: 200, track: 'meat' }] }, userCtx);
   eq(vegPot.errors, [], `可分流、查不到的食材放素那鍋也收：${JSON.stringify(vegPot.errors)}`);
   eq([versionFor(vegPot.recipe, 'lactoOvo'), versionFor(vegPot.recipe, 'vegan')], ['veg', null], '放在素那鍋 → 蛋奶素吃素版、全素保守地不排');
-  const noMeatAtAll = validateRecipe({ ...splitBase, ingredients: [{ food: '小黃瓜', label: '小黃瓜', grams: 300, track: 'base' }, { food: '', label: '某牌素肚', grams: 100, track: 'veg' }, { food: '豆干', label: '豆干', grams: 100, track: 'meat' }] }, userCtx).errors;
+  // 葷那欄用毛豆仁（豆類，原型食材）：2026-09-21 起，使用者自己的食譜只要葷那欄有一樣**加工品類**就不擋（R3），
+  // 而豆干的食藥署類別正是「加工調理食品及其他類」—— 用它的話這條對照組就驗不到「整道沒有肉還標可分流」那一條了。
+  const noMeatAtAll = validateRecipe({ ...splitBase, ingredients: [{ food: '小黃瓜', label: '小黃瓜', grams: 300, track: 'base' }, { food: '', label: '某牌素肚', grams: 100, track: 'veg' }, { food: '毛豆仁', label: '毛豆仁', grams: 100, track: 'meat' }] }, userCtx).errors;
   ok(noMeatAtAll.some((e) => /整道都沒有肉或海鮮/.test(e)), '（對照）查不到的食材不在葷那鍋、整道也沒別的肉 → 照樣講「其實是素的」');
 
   // 營養：沒算進去的食材讓每個有數字的欄位都標成部分估算；整道都查不到 → 未估算（null），不是 0

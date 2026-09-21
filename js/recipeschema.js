@@ -45,6 +45,13 @@ export const CAT_TAGS = {
 };
 export const TAG_LABELS = { meat: '肉', seafood: '海鮮', egg: '蛋', dairy: '奶', allium: '五辛', peanut: '花生', gluten: '麩質', sweet: '含精緻糖', processed: '加工肉／醃漬', wholegrain: '全穀雜糧', unresolved: '有食材查不到營養資料' };
 
+/**
+ * 「加工品類」：同一個名字買到的那一款，成分可能不一樣（素的蛋餅皮 vs 含豬油的蛋餅皮）。
+ * 使用者**自己的**食譜裡，這幾類食材的葷素以他選的為準（Yolin 2026-09-19：「新增食譜時的葷素可以由使用者自行判斷」）。
+ * 原型食材（肉類、魚貝類…）不在此列，照舊擋。
+ */
+export const PROCESSED_CATS = new Set(['加工調理食品及其他類', '糕餅點心類', '調味料及香辛料類']);
+
 /** 加工肉、醃漬品：加工調理食品類裡帶肉／海鮮的，或名稱看得出來的。給「避開加工肉與醃漬」開關用。 */
 const PROCESSED_NAME_RX = /培根|火腿|香腸|臘肉|臘腸|貢丸|魚丸|肉鬆|肉乾|醃|漬|榨菜|酸菜|泡菜|鹹菜|菜脯|蘿蔔乾/; // 蘿蔔乾＝菜脯（食藥署名稱），每 100 g 鈉約 3279 mg
 export function isProcessedFood(food, fTags) {
@@ -145,6 +152,7 @@ export function validateRecipe(recipe, ctx) {
   const vegProteins = new Set();
   const meatProteins = new Set();
   const tracksSeen = new Set();
+  const procCatTracks = [];    // 加工品類食材落在哪幾欄（R2、R3：他標成葷時，這幾類算得上「肉」）
   let sugarGrams = 0;          // 糖類食材總克數（推導「含精緻糖」）
   let processed = false;
   let wholegrain = false;
@@ -179,8 +187,23 @@ export function validateRecipe(recipe, ctx) {
       }
     }
     let fTags = new Set();
+    let overrideCase = false;   // 這一樣是「使用者自己的食譜＋加工品類＋他標成素」，資料庫的葷標籤讓位給他
     if (food) {
       fTags = tagsOfFood(food, ctx.foodTags);
+      if (PROCESSED_CATS.has(food.cat)) procCatTracks.push(track);
+      // 使用者自己的食譜裡，加工品類的葷素由他說了算（R1）。但**表單預設就是「素」**，所以要他真的點過一次素葷才算他的判斷：
+      // 沒有這一條，加了含豬油的蛋餅皮、沒碰素葷就存，會從「被擋下」變成「靜默排給素食家人」。跟 v0.18.0 對查不到的食材用同一個機制。
+      const userSaysVeg = r.vegMode === 'nativeVeg' || (r.vegMode === 'splittable' && track !== 'meat');
+      overrideCase = r.source === 'user' && userSaysVeg && PROCESSED_CATS.has(food.cat) && (fTags.has('meat') || fTags.has('seafood'));
+      if (overrideCase) {
+        if (r.vegModeConfirmed === true) {
+          // 推翻：這兩個標籤不寫進這道菜（不然 members.versionFor 照樣不排給素食家人），也不拿去算蛋白質來源與加工判定。
+          // 同一樣食材的蛋、奶、五辛、過敏原標籤照常生效。
+          fTags = new Set([...fTags].filter((t) => t !== 'meat' && t !== 'seafood'));
+        } else {
+          err(`${where} 在食材資料庫裡是葷的（${food.name}）。買到的是素的那一款的話，在「素葷」自己選一次，這道菜就存得進去。`);
+        }
+      }
       for (const t of fTags) {
         tags.add(t);
         if (track !== 'meat') vegTags.add(t);
@@ -195,7 +218,8 @@ export function validateRecipe(recipe, ctx) {
       if (food.cat === '糖類' && isPosNum(ing?.grams)) sugarGrams += ing.grams;
       if (isProcessedFood(food, fTags)) processed = true;
       if (fTags.has('wholegrain')) wholegrain = true;
-      const nonVeg = fTags.has('meat') || fTags.has('seafood');
+      // 推翻的那幾樣上面已經各自講過話（或已經讓位），不要再講一次舊訊息
+      const nonVeg = !overrideCase && (fTags.has('meat') || fTags.has('seafood'));
       if (nonVeg && r.vegMode === 'nativeVeg') err(`${where} 是葷的（${food.name}），但這道菜標成「素」`);
       if (nonVeg && r.vegMode === 'splittable' && track !== 'meat') err(`${where} 是葷的（${food.name}），要放在「${TRACK_LABELS.meat}」那一欄，現在在「${TRACK_LABELS[track]}」`);
     }
@@ -233,11 +257,14 @@ export function validateRecipe(recipe, ctx) {
 
   if (r.vegMode === 'splittable') {
     for (const t of TRACKS) if (!tracksSeen.has(t)) err(`「可分流（一鍋兩吃）」的菜，「${TRACK_LABELS[t]}」那一欄還沒有食材`);
-    if (!tags.has('meat') && !tags.has('seafood') && !normIngredients.some((x) => x.unresolved && x.track === 'meat')) err('這道菜標成「可分流（一鍋兩吃）」，但整道都沒有肉或海鮮 —— 那它其實是素的，請把「誰能吃」改成「素」。');
+    // 使用者自己的食譜：葷那一欄有加工品類（他買的那一款是葷的，例如含豬油的蛋餅皮）→ 由他決定，不擋（R3）
+    const userMeatProcCat = r.source === 'user' && procCatTracks.includes('meat');
+    if (!tags.has('meat') && !tags.has('seafood') && !normIngredients.some((x) => x.unresolved && x.track === 'meat') && !userMeatProcCat) err('這道菜標成「可分流（一鍋兩吃）」，但整道都沒有肉或海鮮 —— 那它其實是素的，請把「誰能吃」改成「素」。');
   }
   // 原本寫「meatOnly 的菜裡沒有任何葷食材」—— 使用者回報看不懂。這是給人看的訊息，不是給程式看的。
   // 使用者自己選了「葷」、肉就是那個查不到的食材（滷豬耳朵）→ 由使用者決定，不擋
-  if (r.vegMode === 'meatOnly' && !tags.has('meat') && !tags.has('seafood') && !unresolvedLabels.length) {
+  // 使用者自己的食譜、食材裡有加工品類 → 由他決定，不擋（R2；標成「葷」一定是他動手點的，表單預設是素）
+  if (r.vegMode === 'meatOnly' && !tags.has('meat') && !tags.has('seafood') && !unresolvedLabels.length && !(r.source === 'user' && procCatTracks.length)) {
     err('這道菜標成「葷」，但食材裡沒有肉或海鮮。如果它其實吃素的人也能吃，請把「誰能吃」改成「素」。');
   }
 

@@ -293,6 +293,9 @@ function mealBlock({ slot, slotIndex, plan, mondayIso, recipesById, members }) {
       // 「自己加的」＋🔒 或「僅葷食成員」＋🔒 就變成第五個子元素，「⋯」被擠到下一行（使用者回報）。
       // 現在不管掛幾個標籤，「⋯」永遠是最後一欄。
       h('div', { class: 'meal-badges', dataset: { field: 'itemBadges' } },
+        // 自己加的食譜掛「我的」（樣式與食譜清單一致）：加工品的葷素是使用者自己標的，讓他在菜單上就看得出來
+        // （Yolin 2026-09-19：「使用者再看到菜單後自行決定是否可以給素食者吃」）。全部自訂食譜都掛，不只掛被推翻的那幾道。
+        r?.source === 'user' ? pill('我的', 'accent') : null,
         it.extraMeat ? pill('僅葷食成員', 'accent') : null,
         it.added ? pill('自己加的') : null,
         it.locked ? h('span', { class: 'lock', title: '已鎖定', 'aria-label': '已鎖定' }, '🔒') : null),

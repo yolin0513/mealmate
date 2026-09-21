@@ -206,7 +206,8 @@ try {
   // 全素不吃五辛的家人吃得到的蛋白質菜變少，蛋豆奶加分把主菜收窄，Node 端量到 200 次裡有 2 次沒鎖的主菜完全沒變（改之前 0 次），
   // 這條就偶發紅。改成比畫面上所有的菜（主菜、配菜、湯、主食），全部一模一樣的機率幾乎是 0。
   const afterItems = await allItemIds(page);
-  ok(afterItems.length === beforeItems.length && afterItems.some((id, i) => id !== beforeItems[i]), `（對照）沒鎖的菜有變（換了 seed；${beforeItems.length} 道裡）`, JSON.stringify({ beforeAll, afterAll }));
+  // 「長度不同」本來就算有變（2026-09-21 統籌者指出原本寫成「長度相同而且有不同」，把那種情況誤判成沒變）。
+  ok(afterItems.length !== beforeItems.length || afterItems.some((id, i) => id !== beforeItems[i]), `（對照）沒鎖的菜有變（換了 seed；${beforeItems.length} 道裡）`, JSON.stringify({ beforeAll, afterAll }));
   eq(afterAll.length, 14, '仍然 14 個主菜');
 
   section('外食');
@@ -254,6 +255,57 @@ try {
   ok(extraModal.includes('其他幾道他們吃得到'), '也講了同一餐他們吃得到什麼');
   await page.keyboard.press('Escape');
   await sleep(200);
+
+  // U10（2026-09-21）：本週頁替使用者自己的食譜掛「我的」小標 —— 排到誰的菜，在菜單上就看得出來。
+  // 真實的一週不一定會排到自訂食譜，所以自己造情境：建一道使用者食譜，塞進午餐的一道菜，再看畫面。
+  section('本週頁：自己的食譜掛「我的」小標');
+  const mineInfo = await page.evaluate(async () => {
+    const store = await import('./js/store.js');
+    const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js');
+    const id = store.newUserRecipeId();
+    const { errors } = await store.saveUserRecipe({ id, name: '我的滷雞腳', role: 'side', servings: 2, time: 20, method: 'braise',
+      vegMode: 'meatOnly', vegModeConfirmed: true, texture: 'normal', season: [],
+      ingredients: [{ food: '', label: '雞腳', grams: 300, track: 'base' }], steps: [] });
+    if (errors.length) return { errors };
+    const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+    const slot = plan.slots.find((s) => s.meal === 'lunch' && s.kind === 'cook' && s.items.some((it) => it.role === 'side'));
+    const target = slot.items.find((it) => it.role === 'side');
+    const was = target.recipeId;
+    target.recipeId = id;
+    await store.savePlan(plan);
+    return { recipeId: id, was, pos: target.pos, day: slot.date };
+  });
+  ok(typeof mineInfo.recipeId === 'string' && typeof mineInfo.was === 'string',
+    `（前提）建好一道自己的食譜並塞進午餐（${JSON.stringify(mineInfo)}）`);
+  await goto(page, '#/family');
+  await titleIs(page, '家人');
+  await goto(page, '#/');
+  await titleIs(page, '本週菜單');
+  await page.waitForSelector(`.meal-item[data-item="${mineInfo.recipeId}"]`);
+  const mineRow = await page.$eval(`.meal-item[data-item="${mineInfo.recipeId}"]`, (el) => ({
+    name: el.querySelector('.meal-name')?.textContent ?? '',
+    pills: [...el.querySelectorAll('[data-field="itemBadges"] .pill')].map((p) => p.textContent.trim()),
+  }));
+  eq(mineRow.name, '我的滷雞腳', '（前提）那一列畫的就是剛剛塞進去的自訂食譜');
+  ok(mineRow.pills.includes('我的'), `U10 自己的食譜那一列掛「我的」：${JSON.stringify(mineRow.pills)}`);
+  const builtinRows = await page.$$eval('.meal-item', (els, mineId) => els.filter((e) => e.dataset.item !== mineId).map((e) => ({
+    id: e.dataset.item,
+    pills: [...e.querySelectorAll('[data-field="itemBadges"] .pill')].map((p) => p.textContent.trim()),
+  })), mineInfo.recipeId);
+  ok(builtinRows.length >= 10, `（母體）畫面上另外有 ${builtinRows.length} 道菜，全是內建食譜`);
+  noneOf(builtinRows, (r) => r.pills.includes('我的'), 'U10（對照）內建食譜那些列一個「我的」都沒有');
+  await page.evaluate(async (info) => {
+    const store = await import('./js/store.js');
+    const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js');
+    const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+    for (const s of plan.slots) for (const it of s.items) if (it.recipeId === info.recipeId) it.recipeId = info.was;
+    await store.savePlan(plan);
+    await store.deleteUserRecipe(info.recipeId);
+  }, { recipeId: mineInfo.recipeId, was: mineInfo.was });
+  await goto(page, '#/family');
+  await titleIs(page, '家人');
+  await goto(page, '#/');
+  await titleIs(page, '本週菜單');
 
   section('每日估計與目標對照');
   await page.waitForSelector('[data-card="day"][data-day="0"] [data-field="dayEstimate"]');

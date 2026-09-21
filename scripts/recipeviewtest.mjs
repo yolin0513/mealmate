@@ -533,6 +533,41 @@ try {
     eq(blankSaved, ['現成的，加熱或直接盛盤即可'], `空白的那一步被濾掉、存成預設那一句（${JSON.stringify(blankSaved)}）`);
     await page.evaluate(async () => { const s = await import('./js/store.js'); const r = s.userRecipes().find((x) => x.name === '滷雞腳空白步驟'); if (r) await s.deleteUserRecipe(r.id); });
 
+    // U9（2026-09-21）：加工品的葷素由使用者說了算，但他要真的選過一次 —— 表單預設就是「素」，預設不是判斷。
+    // 走真實表單：加一樣資料庫標成葷的加工品（冷凍蛋餅皮，含豬油），不碰素葷直接存 → 擋下並講得出下一步；點一次「素」→ 存得進去。
+    await goto(page, '#/recipes/new');
+    await titleIs(page, '新增食譜');
+    await page.waitForSelector('[data-field="recipeName"]');
+    await page.type('[data-field="recipeName"]', '素的蛋餅');
+    await page.$eval('[data-field="time"]', (el) => { el.value = '10'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.type('[data-ingredient="0"] [data-field="ingLabel"]', '冷凍蛋餅皮');
+    await sleep(200);
+    await page.select('[data-ingredient="0"] [data-field="ingUnit"]', '克');
+    await page.$eval('[data-ingredient="0"] [data-field="ingQty"]', (el) => { el.value = '100'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await sleep(150);
+    const confirmShown = await page.$eval('[data-field="vegConfirm"]', (el) => !el.hidden && el.textContent).catch(() => false);
+    ok(confirmShown && String(confirmShown).includes('蛋餅皮'), `（前提）畫面上出現「這一樣在資料庫裡是葷的」的提示：${String(confirmShown).replace(/\s+/g, ' ').slice(0, 70)}`);
+    await waitToastGone(page);
+    await clickEl(page, '[data-action="saveRecipe"]');
+    await page.waitForSelector('[data-field="errors"]:not([hidden]) li');
+    const crepeErrs = await page.$$eval('[data-field="errors"] li', (els) => els.map((e) => e.textContent));
+    ok(crepeErrs.some((e) => e.includes('蛋餅皮') && e.includes('素葷')), `U9 沒碰素葷就存 → 擋下，訊息講得出下一步：${crepeErrs.join('｜')}`);
+    // 點一次「素」（提示裡那三顆按鈕之一；上面那排 chip 點「已經選著的那一顆」不會觸發）
+    await clickEl(page, '[data-field="vegConfirm"] [data-action="confirmVeg"][data-value="nativeVeg"]');
+    await sleep(150);
+    await waitToastGone(page);
+    await clickEl(page, '[data-action="saveRecipe"]');
+    await page.waitForFunction(() => document.getElementById('topTitle')?.textContent === '素的蛋餅' || document.querySelector('[data-field="errors"]')?.hidden === false);
+    eq(await textOf(page, '#topTitle'), '素的蛋餅', 'U9 點過一次「素」之後，同一道菜存得進去');
+    const crepeSaved = await page.evaluate(async () => {
+      const s = await import('./js/store.js');
+      const r = s.userRecipes().find((x) => x.name === '素的蛋餅');
+      return r ? { tags: r.tags, vegMode: r.vegMode, confirmed: r.vegModeConfirmed === true } : null;
+    });
+    ok(crepeSaved && !crepeSaved.tags.includes('meat') && crepeSaved.tags.includes('allium') && crepeSaved.confirmed,
+      `U9 存下來的食譜不帶肉的標籤、五辛的標籤還在：${JSON.stringify(crepeSaved)}`);
+    await page.evaluate(async () => { const s = await import('./js/store.js'); const r = s.userRecipes().find((x) => x.name === '素的蛋餅'); if (r) await s.deleteUserRecipe(r.id); });
+
     // 編輯一道舊食譜：存的時候資料庫還不認得那個名稱（食材欄是空的），之後別名補上了（「雞腳」就是這樣補的）。
     // 使用者打開編輯、不碰那個框、直接按存 —— 靠 validateRecipe「沒有 food 就用名稱解析」那一段才對得上食材；
     // 新增食譜走不到它（打字當下就對到了），所以要從編輯舊食譜這條路測（2026-09-19 全面檢測補的）。

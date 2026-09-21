@@ -26,7 +26,8 @@ const reuse = process.argv.includes('--reuse');
 // 不跑的：自己、突變測試（它會改原始碼）、非測試工具
 const SKIP = new Set(['tap.mjs', 'browserlib.mjs', 'serve.mjs', 'srcscan.mjs', 'copyrules.mjs', 'checkmutations.mjs',
   'assertaudit.mjs', 'mutationtest.mjs',
-  'build-foods.mjs', 'build-recipes.mjs', 'bump-version.mjs', 'findfood.mjs', 'make-icons.mjs', 'screenshots.mjs']);
+  'build-foods.mjs', 'build-recipes.mjs', 'bump-version.mjs', 'findfood.mjs', 'make-icons.mjs', 'screenshots.mjs',
+  'sincefull.mjs']);  // sincefull 是提醒用的工具，沒有斷言（2026-09-19 修訂一加進 repo 時漏了，這一項從那時起就紅）
 const testFiles = fs.readdirSync(path.join(ROOT, 'scripts'))
   .filter((f) => f.endsWith('.mjs') && !f.startsWith('.') && !SKIP.has(f))
   .sort();

@@ -69,6 +69,14 @@ try {
       ],
     };
     await store.saveUserRecipe(mine);
+    // 自己的葷食譜：本週頁「我的」＋「僅葷食成員」＋🔒 那一列要用（2026-09-21 U11）
+    const mineMeat = {
+      id: store.newUserRecipeId(), name: '阿公的紅燒豬五花', role: 'main', servings: 4, time: 40,
+      method: 'braise', vegMode: 'meatOnly', vegModeConfirmed: true, texture: 'soft', season: [],
+      ingredients: [{ food: '', label: '豬五花肉', grams: 400 }, { food: '', label: '醬油', grams: 30, pantry: true }],
+      steps: [{ stage: 'base', type: 'cook', text: '五花肉煎香，加醬油與水小火燒到軟。' }],
+    };
+    await store.saveUserRecipe(mineMeat);
     await store.toggleFavorite(mine.id);
     await store.toggleFavorite('r-mapo-tofu-split');
     await store.setWantThisWeek('r-mapo-tofu-split', true);
@@ -85,13 +93,16 @@ try {
     const bIdx = plan.slots.findIndex((s) => s.meal === 'breakfast' && s.day === 1);
     plan.slots[bIdx] = { ...plan.slots[bIdx], kind: 'skip', items: [] };
     plan.slots.find((s) => s.kind === 'cook' && s.items.length).items[0].locked = true;
-    // 本週頁最擠的兩種列（使用者 2026-09-17 回報「⋯」被擠到下一行的就是第一種）：
-    //   · 自己加的 ＋ 🔒 → 角色標籤、菜名、「自己加的」、🔒、「⋯」
-    //   · 加菜 ＋ 🔒 → 角色標籤、菜名、「僅葷食成員」、🔒、「⋯」
+    // 本週頁最擠的兩種列（使用者 2026-09-17 回報「⋯」被擠到下一行的就是第一種；
+    // 2026-09-21 起自己的食譜多掛一個「我的」，所以兩種都改用自訂食譜，變成三個小標＋「⋯」）：
+    //   · 我的 ＋ 自己加的 ＋ 🔒 → 角色標籤、菜名、三個小標、「⋯」
+    //   · 我的 ＋ 僅葷食成員 ＋ 🔒 → 同上
     const busy = plan.slots.find((s) => s.kind === 'cook' && s.meal === 'lunch' && s.items.some((it) => it.extraMeat));
     if (busy) {
-      busy.items.push({ recipeId: 'r-basil-eggplant', role: 'side', pos: Math.max(...busy.items.map((it) => it.pos)) + 1, locked: true, added: true, reasons: ['你自己加的，已鎖定'] });
-      busy.items.find((it) => it.extraMeat).locked = true;
+      busy.items.push({ recipeId: mine.id, role: 'side', pos: Math.max(...busy.items.map((it) => it.pos)) + 1, locked: true, added: true, reasons: ['你自己加的，已鎖定'] });
+      const extra = busy.items.find((it) => it.extraMeat);
+      extra.locked = true;
+      extra.recipeId = mineMeat.id;
     }
     await store.savePlan({ ...plan, diagnostics });
 
@@ -260,6 +271,7 @@ try {
         extra: el.dataset.extra === 'meat',
         empty: el.classList.contains('empty'),
         badges: el.querySelectorAll('.meal-badges > *').length,
+        badgeTexts: [...el.querySelectorAll('.meal-badges > *')].map((b) => b.textContent.trim()),
         // 同一列＝兩者在垂直方向真的有重疊（不是靠 top 差多少猜的）
         sameRow: Math.min(m.bottom, n.bottom) - Math.max(m.top, n.top) > 2,
         gapToRight: Math.round(row.right - m.right),
@@ -661,6 +673,21 @@ try {
       rows.filter((r) => r.gapToRight > 2).slice(0, 3).map((r) => `${r.where} 離右緣 ${r.gapToRight}px`).join(' ／ '));
     noneOf(rows, (r) => r.overflows, '沒有任何一列的「⋯」被推出畫面');
     everyOf(rows, (r) => r.menuW >= 44 && r.menuH >= 44, `每一顆「⋯」都按得到（最小 ${Math.min(...rows.map((r) => r.menuW))}×${Math.min(...rows.map((r) => r.menuH))}px）`);
+
+    // U11（2026-09-21）：自己的食譜多掛一個「我的」之後，最擠的兩種列各有三個小標。
+    // 上面那四條 everyOf／noneOf 的母體已經含這兩種列，這裡把「它們真的在樣本裡」釘住 ——
+    // 沒有這兩條，哪天塞資料的地方改掉、最擠的組合從樣本裡消失，上面照樣全綠。
+    const has = (r, ...want) => want.every((w) => r.badgeTexts.includes(w));
+    const mineAdded = rows.filter((r) => has(r, '我的', '自己加的', '🔒'));
+    const mineExtra = rows.filter((r) => has(r, '我的', '僅葷食成員', '🔒'));
+    ok(mineAdded.length >= SCALES.length * WIDTHS.length, `（前提）「我的＋自己加的＋🔒」的列 ${mineAdded.length} 列（每種字級×寬度都有）`);
+    ok(mineExtra.length >= SCALES.length * WIDTHS.length, `（前提）「我的＋僅葷食成員＋🔒」的列 ${mineExtra.length} 列`);
+    const tightest = [...mineAdded, ...mineExtra];
+    everyOf(tightest, (r) => r.badges === 3, `U11 最擠的兩種列真的掛了三個小標（${JSON.stringify(tightest[0]?.badgeTexts)}）`);
+    everyOf(tightest, (r) => r.sameRow && r.gapToRight <= 2 && !r.overflows,
+      'U11 三個小標的那兩種列，「⋯」照樣跟菜名同一列、釘在最右邊、沒被推出畫面',
+      tightest.filter((r) => !(r.sameRow && r.gapToRight <= 2 && !r.overflows)).slice(0, 3)
+        .map((r) => `${r.where}（同列 ${r.sameRow}、離右緣 ${r.gapToRight}px、溢出 ${r.overflows}）`).join(' ／ '));
   }
 
   section('每日目標：名稱／輸入框／單位三欄對齊（三種字級 × 三種寬度）');

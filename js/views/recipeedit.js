@@ -7,7 +7,7 @@ import { navigate } from '../router.js';
 import * as store from '../store.js';
 import { searchFoods, displayNameOf, aliasTermsOf, foodFamilies } from '../foods.js';
 import { entryUnitsFor, entryToGrams, gramsToEntry } from '../units.js';
-import { validateRecipe, ROLES, ROLE_LABELS, VEG_MODES, VEG_MODE_LABELS, METHODS, METHOD_LABELS, TEXTURES, TEXTURE_LABELS, TRACKS, TRACK_LABELS, STAGES, STAGE_LABELS } from '../recipeschema.js';
+import { validateRecipe, ROLES, ROLE_LABELS, VEG_MODES, VEG_MODE_LABELS, METHODS, METHOD_LABELS, TEXTURES, TEXTURE_LABELS, TRACKS, TRACK_LABELS, STAGES, STAGE_LABELS, PROCESSED_CATS, tagsOfFood } from '../recipeschema.js';
 
 const MONTHS = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
 
@@ -259,12 +259,28 @@ export default async function recipeEditView({ id = null, from = null } = {}) {
     const resolve = store.recipeCtx().resolve;
     return d.ingredients.map((ing) => (ing.food ? '' : String(ing.label ?? '').trim())).filter((t) => t && !resolve(t));
   }
+  // 資料庫標成葷的加工品（含豬油的蛋餅皮這種），而使用者把這道菜放在素的那一邊：他的選擇為準，但要他真的選過一次。
+  // 表單預設就是「素」，而點「已經選著的那一顆」chip 不會觸發 —— 所以跟查不到的食材共用下面那塊提示（有三顆明確的按鈕）。
+  function dbMeatProcNames() {
+    const idx = store.foodsIndex();
+    if (!idx || d.vegMode === 'meatOnly') return [];
+    return d.ingredients.map((ing) => {
+      if (d.vegMode === 'splittable' && (ing.track ?? 'base') === 'meat') return '';
+      const f = ing.food ? idx.byId.get(ing.food) : null;
+      if (!f || !PROCESSED_CATS.has(f.cat)) return '';
+      const t = tagsOfFood(f, store.foodTags());
+      return (t.has('meat') || t.has('seafood')) ? (String(ing.label ?? '').trim() || displayNameOf(f, idx)) : '';
+    }).filter(Boolean);
+  }
   function updateVegConfirm() {
     const names = unresolvedNames();
-    vegConfirm.hidden = !(names.length && !d.vegModeConfirmed);
+    const dbMeat = dbMeatProcNames();
+    vegConfirm.hidden = !((names.length || dbMeat.length) && !d.vegModeConfirmed);
     if (vegConfirm.hidden) return;
     vegConfirm.replaceChildren(
-      h('p', { class: 'sm' }, `資料庫裡查不到「${names.join('、')}」，系統判斷不了這道菜是葷是素（素食家人可能會被排到）。請自己選一次這道菜誰能吃：`),
+      names.length
+        ? h('p', { class: 'sm' }, `資料庫裡查不到「${names.join('、')}」，系統判斷不了這道菜是葷是素（素食家人可能會被排到）。請自己選一次這道菜誰能吃：`)
+        : h('p', { class: 'sm' }, `「${dbMeat.join('、')}」在食材資料庫裡是葷的（同一種東西有葷有素，例如蛋餅皮）。買到的是素的那一款的話，請自己選一次這道菜誰能吃：`),
       h('div', { class: 'row-actions' }, ...VEG_MODES.map((v) => h('button', { class: 'btn btn-sm', type: 'button', dataset: { action: 'confirmVeg', value: v }, onclick: () => setVegMode(v) }, VEG_MODE_LABELS[v]))),
     );
   }
