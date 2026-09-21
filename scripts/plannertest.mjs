@@ -1190,6 +1190,38 @@ section('早餐輪替：一週裡不要一直回到同幾道（2026-09-19 補 14
   eq(slots, 112, '（母體）4 組種子 × 4 週 × 7 天 ＝ 112 個早餐');
   ok(within7 / slots <= WITHIN7_MAX, `同一道早餐 7 天內再出現 ${(100 * within7 / slots).toFixed(1)}%（≤ ${100 * WITHIN7_MAX}%；原本 14%）`);
   ok(worstWeek <= 2, `同一週同一道最多 ${worstWeek} 次（≤ 2）`);
+
+  // B-T5（2026-09-21）：新補的兩道台式現成早餐要真的排得到，不是加了卻永遠輸掉的死菜。
+  // 兩道各自有「適用的家庭」：可分流那道全家都吃得了；純葷那道只有全葷家庭排得到（早餐格沒有「加菜」，
+  // 有素食成員時 hardBlock 會因為 diet 擋掉純葷的菜）。所以兩種家庭各量一次。
+  const bfFams = {
+    全葷: [{ ...newMember(), name: '爸' }],
+    全家全素: [{ ...newMember(), name: '姊', diet: 'veganNoAllium' }],
+  };
+  const bfServed = {};
+  for (const [fname, fm] of Object.entries(bfFams)) {
+    const eatable = recipes.filter((r) => r.role === 'breakfast' && fm.every((m) => versionFor(r, m.diet) !== null));
+    ok(eatable.length >= 15, `（前提）${fname}家庭吃得到的早餐 ${eatable.length} 道 —— 母體非空，下面「排得到」才算數`);
+    const hit = new Map();
+    for (const seed of ['b1', 'b2', 'b3', 'b4']) {
+      let hist = [];
+      for (let w = 0; w < 4; w += 1) {
+        const { plan: pw } = gen({ members: fm, seed: `${seed}-${w}`, mondayIso: addDays(MONDAY, 7 * w), history: hist });
+        hist = [...hist, ...historyRowsOf(pw)];
+        for (const s of pw.slots) {
+          if (s.meal !== 'breakfast' || s.kind !== 'cook' || !s.items[0]) continue;
+          hit.set(s.items[0].recipeId, (hit.get(s.items[0].recipeId) ?? 0) + 1);
+        }
+      }
+    }
+    bfServed[fname] = hit;
+  }
+  ok((bfServed.全葷.get('r-bf-xiaolongbao-soymilk') ?? 0) >= 1,
+    `B-T5 純葷的「小籠包配豆漿」在全葷家庭排得到（4 組種子 × 4 週裡 ${bfServed.全葷.get('r-bf-xiaolongbao-soymilk') ?? 0} 次）`);
+  ok((bfServed.全家全素.get('r-bf-bao-soymilk-split') ?? 0) >= 1,
+    `B-T5 可分流的「包子配豆漿」在全家全素的家庭也排得到（吃素菜包那一版；${bfServed.全家全素.get('r-bf-bao-soymilk-split') ?? 0} 次）`);
+  eq(bfServed.全家全素.get('r-bf-xiaolongbao-soymilk') ?? 0, 0,
+    'B-T5（對照）純葷那道在全家全素的家庭一次都排不到 —— 早餐格沒有「僅葷食成員」的加菜，純葷的菜就是排不進去');
 }
 
 section('保存天數要蓋得過買菜日之間的間隔（不然離買菜日最遠那天沒葷菜可挑）');

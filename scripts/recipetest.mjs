@@ -28,11 +28,11 @@ const s = summarize(recipes);
 // 數量門檻。M5 是 PLAN §8 的 170 道（主菜 80、配菜 50、湯 25）；2026-09-14 使用者要求「多加一些有份量的菜」
 // 補到 217 道（主菜 102、配菜 56、湯 34），門檻跟著墊高，退化會紅。
 // 主菜裡素食成員吃得到的（nativeVeg ＋ splittable）要 ≥ 55 —— 補的多半是葷菜，素食保障不能被稀釋。
-ok(s.count >= 237, `${s.count} 道（≥ 237；2026-09-19 補了 14 道早餐）`);
+ok(s.count >= 248, `${s.count} 道（≥ 248；2026-09-21 補了 9 道全素配菜／湯與 2 道台式現成早餐）`);
 ok((s.roles.main ?? 0) >= 100, `主菜 ${s.roles.main} 道（≥ 100）`);
-ok((s.roles.side ?? 0) >= 55, `配菜 ${s.roles.side} 道（≥ 55）`);
-ok((s.roles.soup ?? 0) >= 33, `湯 ${s.roles.soup} 道（≥ 33）`);
-ok((s.roles.breakfast ?? 0) >= 39, `早餐 ${s.roles.breakfast} 道（≥ 39；2026-09-18 補了 6 道有主食的，2026-09-19 再補 14 道）`);
+ok((s.roles.side ?? 0) >= 62, `配菜 ${s.roles.side} 道（≥ 62；2026-09-21 補了 6 道全素無五辛的）`);
+ok((s.roles.soup ?? 0) >= 37, `湯 ${s.roles.soup} 道（≥ 37；2026-09-21 補了 3 道全素無五辛的）`);
+ok((s.roles.breakfast ?? 0) >= 41, `早餐 ${s.roles.breakfast} 道（≥ 41；2026-09-18 補了 6 道有主食的，2026-09-19 再補 14 道，2026-09-21 補了 2 道台式現成的）`);
 ok((s.roles.staple ?? 0) >= 6, `主食 ${s.roles.staple} 道（≥ 6）`);
 ok((s.vegModes.nativeVeg ?? 0) >= 8, `素的 ${s.vegModes.nativeVeg} 道（≥ 8）`);
 ok((s.vegModes.splittable ?? 0) >= 8, `可分流的 ${s.vegModes.splittable} 道（≥ 8）`);
@@ -566,6 +566,34 @@ section('全素無五辛的蛋白質配菜與湯（2026-09-21，SPEC_全素無�
     return ing ? ing.grams / r.servings : 0;
   };
   everyOf(added9, (r) => starGrams(r) >= 40, `V3 每一道每份的主角食材都 ≥ 40 克（${added9.map((r) => `${r.name} ${Math.round(starGrams(r))}`).join('、')}）`);
+}
+
+section('台式現成早餐：包子這一路（2026-09-21，SPEC_台式現成早餐 R1–R8）');
+{
+  const BAO = 'r-bf-bao-soymilk-split';
+  const XLB = 'r-bf-xiaolongbao-soymilk';
+  const byIdB = new Map(recipes.map((r) => [r.id, r]));
+  const newBf = [BAO, XLB].map((id) => byIdB.get(id)).filter(Boolean);
+  eq(newBf.length, 2, `（前提）兩道新早餐都在（${newBf.map((r) => r.name).join('、')}）`);
+  // B-T1 這一路的賣點是快：買現成、蒸熱就吃
+  everyOf(newBf, (r) => r.role === 'breakfast', 'B-T1 兩道都是早餐');
+  everyOf(newBf, (r) => r.time <= 15, `B-T1 兩道都在 15 分鐘內（${newBf.map((r) => `${r.name} ${r.time} 分`).join('、')}）`);
+  everyOf(newBf, (r) => r.includesStaple === true, 'B-T1 兩道都標了「含主食」（包子本身就是主食）');
+  // B-T2 包子那道：吃葷的拿到肉包版、不吃五辛的全素家人拿到素菜包版
+  const bao = byIdB.get(BAO);
+  eq(bao.vegMode, 'splittable', '（前提）包子那道是可分流的');
+  const baoTracks = new Set(bao.ingredients.map((i) => i.track ?? 'base'));
+  ok(baoTracks.has('veg') && baoTracks.has('meat'), `（前提）素、葷兩欄各有自己的包子（${[...baoTracks].join('、')}）`);
+  eq([versionFor(bao, 'omni'), versionFor(bao, 'veganNoAllium')], ['meat', 'veg'], 'B-T2 吃葷的拿肉包那一版、不吃五辛的全素家人拿素菜包那一版');
+  eq(versionFor(bao, 'lactoOvo'), 'veg', 'B-T2 蛋奶素的家人也拿素菜包那一版');
+  // 素菜包的葷素交給看得到包裝的人判斷（食藥署描述只寫「麵粉、蔬菜等」，看不出五辛與蛋奶）
+  const vegBaoIng = bao.ingredients.find((i) => i.track === 'veg');
+  ok(/全素/.test(vegBaoIng.label), `B-T2 素菜包那一樣的名稱講明要買哪一種：「${vegBaoIng.label}」`);
+  // B-T4 既有守則不變：純葷那道真的只有吃葷的人吃得到
+  const xlb = byIdB.get(XLB);
+  eq([versionFor(xlb, 'omni'), versionFor(xlb, 'lactoOvo'), versionFor(xlb, 'veganNoAllium')], ['all', null, null],
+    'B-T4 小籠包那道是純葷的：只有吃葷的家人吃得到');
+  ok(xlb.tags.includes('meat'), `B-T4 而且它帶肉的標籤（${JSON.stringify(xlb.tags)}）—— 小籠包的食藥署描述寫了豬肉，標籤是照描述補的`);
 }
 
 done('recipetest');

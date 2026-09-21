@@ -176,6 +176,13 @@ section('過敏原標籤：罐頭麵筋的花生（2026-09-21，SPEC_高蛋白�
     `（前提）兩筆罐頭都在：${idxT.byId.get('R4900101')?.name}、${idxT.byId.get('R4900201')?.name}`);
   ok(tags.peanut.includes('R4900101'), `H11 花生麵筋罐頭標了 peanut（peanut 一共 ${tags.peanut.length} 筆）`);
   ok(!tags.peanut.includes('R4900201'), 'H11（對照）香菇麵筋罐頭沒有被順手標上（描述沒提花生，不編造）');
+
+  // 2026-09-21 補台式早餐：冷凍豬肉包子、小籠包的食藥署描述都寫了豬肉，而「加工調理食品」這個分類推不出肉。
+  // 沒標的話，可分流那道的葷欄等於沒有肉（驗證器會擋），而且純葷的小籠包會被當成素的排給素食家人。
+  ok(tags.meat.includes('R2300901') && tags.meat.includes('R2301101'),
+    `冷凍豬肉包子與小籠包都標了 meat（meat 一共 ${tags.meat.length} 筆）`);
+  ok(!tags.meat.includes('R2301201') && !tags.meat.includes('R2300401'),
+    '（對照）冷凍素菜包子、冷凍豆沙包沒有被順手標上 —— 它們的描述只寫「麵粉、蔬菜等」「麵粉、紅豆沙等」，看不出動物成分就不編造');
 }
 
 done('datatest');

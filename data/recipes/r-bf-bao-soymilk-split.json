@@ -1,0 +1,58 @@
+{
+  "id": "r-bf-bao-soymilk-split",
+  "name": "包子配豆漿（肉包／素菜包）",
+  "role": "breakfast",
+  "servings": 4,
+  "splitServings": {
+    "veg": 2,
+    "meat": 2
+  },
+  "time": 12,
+  "method": "steam",
+  "vegMode": "splittable",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    {
+      "food": "無糖豆漿",
+      "label": "無糖豆漿（每人約一杯）",
+      "grams": 1000,
+      "track": "base"
+    },
+    {
+      "food": "冷凍素菜包子",
+      "label": "冷凍素菜包 4 顆（選包裝標示「全素」的那一種）",
+      "grams": 360,
+      "track": "veg"
+    },
+    {
+      "food": "冷凍豬肉包子",
+      "label": "冷凍肉包 4 顆",
+      "grams": 284,
+      "track": "meat"
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "蒸鍋水燒開，或電鍋外鍋一杯水；豆漿溫熱備用。買素菜包的時候看一下包裝，標「全素」的才不含蛋、奶與五辛。"
+    },
+    {
+      "stage": "split",
+      "type": "split",
+      "text": "兩種包子分開蒸，或中間隔開，免得肉包的油滴到素菜包上。"
+    },
+    {
+      "stage": "veg",
+      "type": "cook",
+      "text": "素食那邊：素菜包不必解凍，直接蒸十分鐘。"
+    },
+    {
+      "stage": "meat",
+      "type": "cook",
+      "text": "葷食那邊：肉包不必解凍，直接蒸十分鐘，用筷子戳中心不黏就好了。"
+    }
+  ]
+}

@@ -1080,6 +1080,7 @@ const MUTATIONS = [
     find: "\"role\": \"main\",",
     replace: "\"role\": \"side\",",
     test: "recipetest",
+    expect: "含牛肉的主菜",
   },
   {
     name: "一道雞肉主菜被改成配菜（雞肉主菜少於門檻）",
@@ -1088,6 +1089,7 @@ const MUTATIONS = [
     find: "\"role\": \"main\",",
     replace: "\"role\": \"side\",",
     test: "recipetest",
+    expect: "含雞肉的主菜",
   },
   {
     name: "烤的主菜少一道（烹法變化少於門檻）",
@@ -1096,6 +1098,7 @@ const MUTATIONS = [
     find: "\"method\": \"bake\",",
     replace: "\"method\": \"pan\",",
     test: "recipetest",
+    expect: "烤的主菜",
   },
   {
     name: "味噌湯少一道（被換成鹽）",
@@ -1104,6 +1107,7 @@ const MUTATIONS = [
     find: "{ \"food\": \"味噌\", \"label\": \"味噌\", \"grams\": 45, \"track\": \"base\", \"pantry\": true }",
     replace: "{ \"food\": \"鹽\", \"label\": \"鹽\", \"grams\": 3, \"track\": \"base\", \"pantry\": true }",
     test: "recipetest",
+    expect: "味噌湯",
   },
   {
     name: "三杯小卷順手寫進米酒",
@@ -1112,6 +1116,7 @@ const MUTATIONS = [
     find: "加醬油與糖，翻炒 2 分鐘到醬汁收乾、小卷剛熟。",
     replace: "加醬油、糖與一大匙米酒，翻炒 2 分鐘到醬汁收乾、小卷剛熟。",
     test: "recipetest",
+    expect: "內建食譜的名稱、食材、步驟、備註都沒有用到酒",
   },
   {
     name: "奶油沒有標成奶製品",
@@ -1969,6 +1974,7 @@ const MUTATIONS = [
     find: '"取出後淋一點醬油和香油。牙口不好的長輩也很好入口。"',
     replace: '"取出後淋一點醬油和香油。保證牙口不好的長輩也很好入口。"',
     test: 'copytest',
+    expect: "所有文案、食譜、衛教引用都不含禁用詞",
   },
   // ---- 衛教引用 ----
   {
@@ -2922,8 +2928,8 @@ const MUTATIONS = [
     name: "冷凍蛋餅皮沒有標成肉",
     why: "內容物有豬油；不標的話蛋餅會被當成素的，排給素食的家人。",
     file: "data/foodtags.json",
-    find: "      \"R2700301\",\n      \"R5600201\"\n    ],",
-    replace: "      \"R5600201\"\n    ],",
+    find: "      \"R2700301\",\n      \"R5600201\",",
+    replace: "      \"R5600201\",",
     test: "recipetest",
     expect: "冷凍蛋餅皮",
   },
@@ -2931,8 +2937,8 @@ const MUTATIONS = [
     name: "豬肉酥沒有標成肉",
     why: "豬肉酥（肉鬆）是加工調理食品類，分類推不出肉。",
     file: "data/foodtags.json",
-    find: "      \"R2700301\",\n      \"R5600201\"\n    ],",
-    replace: "      \"R2700301\"\n    ],",
+    find: "      \"R2700301\",\n      \"R5600201\",\n      \"R2300901\",",
+    replace: "      \"R2700301\",\n      \"R2300901\",",
     test: "recipetest",
     expect: "豬肉酥：標了",
   },
@@ -3554,6 +3560,52 @@ const MUTATIONS = [
     replace: "export const VEG_PROTEIN_BONUS = 0;",
     test: "scenariotest",
     expect: "V8 這一週姊排不到蛋豆奶菜的午晚餐只剩",
+  },
+  // ---- 2026-09-21 台式現成早餐（SPEC_台式現成早餐.md）----
+  {
+    name: "包子那道要蒸 40 分鐘",
+    why: "這一路的賣點就是快（買現成、蒸熱就吃）；40 分鐘的話它只排得進週末，等於補了一道用不到的菜。",
+    file: "data/recipes/r-bf-bao-soymilk-split.json",
+    find: "  \"time\": 12,\n  \"method\": \"steam\",",
+    replace: "  \"time\": 40,\n  \"method\": \"steam\",",
+    test: "recipetest",
+    expect: "B-T1 兩道都在 15 分鐘內",
+  },
+  {
+    name: "素菜包被放進共用那一欄（素那一欄就空了）",
+    why: "可分流的菜三欄都要有東西。素菜包放共用欄的話，素食家人那一欄沒有自己的包子，整道菜連驗證都過不了、根本進不了食譜庫。",
+    file: "data/recipes/r-bf-bao-soymilk-split.json",
+    find: "      \"grams\": 360,\n      \"track\": \"veg\"",
+    replace: "      \"grams\": 360,\n      \"track\": \"base\"",
+    test: "recipetest",
+    expect: "（前提）兩道新早餐都在",
+  },
+  {
+    name: "素菜包那一樣沒講要買標示全素的",
+    why: "食藥署的描述只寫「麵粉、蔬菜等」，看不出有沒有五辛、蛋、奶。這道菜的素版排給全素家人，靠的就是「買的時候看包裝標示」這句話。",
+    file: "data/recipes/r-bf-bao-soymilk-split.json",
+    find: "冷凍素菜包 4 顆（選包裝標示「全素」的那一種）",
+    replace: "冷凍素菜包 4 顆",
+    test: "recipetest",
+    expect: "B-T2 素菜包那一樣的名稱講明要買哪一種",
+  },
+  {
+    name: "冷凍豬肉包子、小籠包沒有標 meat",
+    why: "兩筆的食藥署描述都寫了豬肉，而分類推不出來。不標的話小籠包會被當成素的排給素食家人。",
+    file: "data/foodtags.json",
+    find: "      \"R2300901\",\n      \"R2301101\"",
+    replace: "      \"R2300901\"",
+    test: "datatest",
+    expect: "冷凍豬肉包子與小籠包都標了 meat",
+  },
+  {
+    name: "包子那道從早餐池子裡消失",
+    why: "加了卻排不到的菜等於沒加。這條把它從早餐改成配菜（早餐池子少一道），B-T5 的「排得到」就不成立。",
+    file: "data/recipes.json",
+    find: "{\"id\":\"r-bf-bao-soymilk-split\",\"name\":\"包子配豆漿（肉包／素菜包）\",\"role\":\"breakfast\"",
+    replace: "{\"id\":\"r-bf-bao-soymilk-split\",\"name\":\"包子配豆漿（肉包／素菜包）\",\"role\":\"side\"",
+    test: "plannertest",
+    expect: "B-T5 可分流的「包子配豆漿」在全家全素的家庭也排得到",
   },
 ];
 

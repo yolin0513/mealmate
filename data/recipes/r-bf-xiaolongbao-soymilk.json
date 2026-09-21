@@ -1,0 +1,56 @@
+{
+  "id": "r-bf-xiaolongbao-soymilk",
+  "name": "小籠包配豆漿",
+  "role": "breakfast",
+  "servings": 4,
+  "time": 12,
+  "method": "steam",
+  "vegMode": "meatOnly",
+  "texture": "soft",
+  "season": [],
+  "includesStaple": true,
+  "ingredients": [
+    {
+      "food": "小籠包",
+      "label": "冷凍小籠包（每人 6 顆）",
+      "grams": 480,
+      "track": "base"
+    },
+    {
+      "food": "無糖豆漿",
+      "label": "無糖豆漿（每人約一杯）",
+      "grams": 1000,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲（配醋吃，可省略）",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "烏醋",
+      "label": "烏醋",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "蒸籠鋪蒸籠紙或抹薄油，免得小籠包底部黏住；薑切細絲。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "水滾後放上小籠包，不必解凍，蒸八到十分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "薑絲泡烏醋當沾料；豆漿溫熱一起端上桌。"
+    }
+  ]
+}
