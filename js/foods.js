@@ -9,7 +9,9 @@
 // 子字串搜尋只用在使用者打字找食材的畫面（searchFoods），而且排在精確命中之後。
 // 搜「豬」會撈到「馬齒莧（俗名豬母乳）」、搜「雞」會撈到「鷹嘴豆」——那是搜尋，不是解析。
 
-export function indexFoods(foodsJson, aliasesJson) {
+// foodTags（data/foodtags.json 的 tags）也掛在索引上：拿到 idx 的地方就拿得到標籤，不必再把它一路傳進排菜器
+// （2026-09-21 高蛋白食材那條規則要排除帶肉／海鮮標籤的食材，而那些標籤推不出來、只在 foodtags.json 裡）。
+export function indexFoods(foodsJson, aliasesJson, foodTags = {}) {
   // foods.json 裡每筆的 n 是**陣列**（12 個鍵名重複 2,151 次會佔掉整個檔案三分之一），
   // 順序由檔案自己的 nutrients 欄位宣告 —— 讀檔時照那個順序還原成物件，
   // 建檔端與讀檔端就不會各自寫死一份順序而悄悄對不上（那會讓每個營養值都錯位）。
@@ -26,7 +28,7 @@ export function indexFoods(foodsJson, aliasesJson) {
     for (const a of f.aliases) if (!byAlias.has(a)) byAlias.set(a, f);
   }
   const aliasMap = new Map(Object.entries(aliasesJson?.aliases ?? {}));
-  return { list, byId, byName, byAlias, aliasMap, version: foodsJson.version, units: foodsJson.units, source: foodsJson.source };
+  return { list, byId, byName, byAlias, aliasMap, foodTags: foodTags ?? {}, version: foodsJson.version, units: foodsJson.units, source: foodsJson.source };
 }
 
 /** 口語詞或編號 → 食材；解析不到回 null（不會回「最像的」）。 */

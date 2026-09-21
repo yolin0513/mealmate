@@ -49,8 +49,8 @@ export async function init() {
   const [foods, aliases, units, recipes, edu, foodtags] = await Promise.all([
     tryLoad('foods.json'), tryLoad('aliases.json'), tryLoad('units.json'), tryLoad('recipes.json'), tryLoad('edu.json'), tryLoad('foodtags.json'),
   ]);
-  if (foods) state.foods = indexFoods(foods, aliases ?? { aliases: {} });
   state.foodTags = foodtags?.tags ?? {};
+  if (foods) state.foods = indexFoods(foods, aliases ?? { aliases: {} }, state.foodTags);
   state.units = units;
   if (recipes) { state.recipes = recipes.recipes; state.recipesMeta = { foodsVersion: recipes.foodsVersion, count: recipes.recipes.length }; }
   if (edu) state.edu = new Map(edu.entries.map((e) => [e.id, e]));

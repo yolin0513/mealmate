@@ -27,7 +27,8 @@ import {
   riceKindOf, riceKindOfFood, RICE_KINDS, RICE_KIND_LABELS, RICE_KIND_HINT, DEFAULT_RULES, wantMissReason,
   starFoods, STAR_PENALTY, STAR_WINDOW_DAYS, historyRowsOf as rowsOf,
   isProteinDish, proteinDishFor, vegProteinMisses, VEG_PROTEIN_BONUS, VEG_PROTEIN_EARLY_BONUS,
-  proteinDishKind, VEG_PROTEIN_MIN_GRAMS, VEG_PROTEIN_VEG_GRAMS,
+  proteinDishKind, proteinDishMatch, VEG_PROTEIN_MIN_GRAMS, VEG_PROTEIN_VEG_GRAMS,
+  HIGH_PROTEIN_PER_100G, HIGH_PROTEIN_PER_SERVING, HIGH_PROTEIN_EXCLUDED_CATS,
 } from '../js/planner.js';
 import { displayNameOf } from '../js/foods.js';
 import { versionFor as vFor } from '../js/members.js';
@@ -40,7 +41,9 @@ const foods = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foods.json'), 'ut
 const aliases = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/aliases.json'), 'utf8'));
 const units = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/units.json'), 'utf8'));
 const recipes = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/recipes.json'), 'utf8')).recipes;
-const idx = indexFoods(foods, aliases);
+// 標籤跟著索引走（2026-09-21）：高蛋白質那條路要排除帶肉／海鮮標籤的食材，而香腸、培根的標籤只在 foodtags.json 裡
+const foodTags = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foodtags.json'), 'utf8')).tags;
+const idx = indexFoods(foods, aliases, foodTags);
 const byId = new Map(recipes.map((r) => [r.id, r]));
 const MONDAY = '2026-09-14'; // 週一
 const cookSlots = (plan) => plan.slots.filter((s) => s.kind === 'cook');
@@ -683,7 +686,9 @@ section('素食成員每餐一道蛋、豆製品或奶類的菜（2026-09-18 Yol
   ok(idx.byId.get('E5910101')?.n.protein > VEG_PROTEIN_VEG_GRAMS, `（前提）金針菜乾每 100 克 ${idx.byId.get('E5910101')?.n.protein} 克 —— 比每 100 克的話它會過`);
   eq(proteinDishKind(fakeDish('E5910101', 40), 'all', idx), null, '乾貨對照：金針菜乾每份 10 克 → 不算（看每份吃到的，不看每 100 克）');
   ok(idx.byId.get('R2000101')?.cat !== '蔬菜類' && 80 * idx.byId.get('R2000101').n.protein / 100 >= VEG_PROTEIN_VEG_GRAMS, '（前提）乾麵條不是蔬菜類，每份 80 克的蛋白質超過 4 克');
-  eq(proteinDishKind(fakeDish('R2000101', 320), 'all', idx), null, '非蔬菜類對照：乾麵條每份 80 克 → 不算（這條只給蔬菜類）');
+  // 2026-09-21 起這一條被兩道門擋著：蔬菜那條路只給蔬菜類，高蛋白那條路要每 100 克 ≥ 14（乾麵條 11.6）。
+  eq(proteinDishKind(fakeDish('R2000101', 320), 'all', idx), null,
+    `非蔬菜類對照：乾麵條每份 80 克 → 不算（不是蔬菜類；每 100 克 ${idx.byId.get('R2000101').n.protein} 克也不到高蛋白那條的 ${HIGH_PROTEIN_PER_100G}）`);
   // T9：靠黃豆芽達標時，理由句不說它是豆製品的菜（點名那樣食材、只講份量）；靠豆腐達標的照舊（下面那段）
   {
     const fiveSpice = { ...newMember(), name: '妹', diet: 'vegan' };
@@ -701,6 +706,74 @@ section('素食成員每餐一道蛋、豆製品或奶類的菜（2026-09-18 Yol
     ok(rsPea.some((t) => t.includes('妹這一餐吃得到份量夠的豌豆芽')) && !rsPea.some((t) => t.includes('黃豆芽')),
       `靠豌豆芽達標的菜，理由句點名的是豌豆芽：${rsPea.find((t) => t.includes('妹這一餐')) ?? rsPea.join('｜')}`);
   }
+  // ---- 高蛋白質的食材也算（2026-09-21，SPEC_高蛋白食材也算 R1–R4）----
+  // 通則：每 100 克 ≥ 14 克、而且這道菜每份從它吃到 ≥ 6 克 → 達標。排除穀物類、澱粉類與帶肉／海鮮標籤的。
+  {
+    const MIEN = 'R1700201';   // 麵腸(未調味) 20.6／100 克
+    const GLUTEN = 'R1700101'; // 麵筋(未調味) 42.5
+    const NOODLE = 'R2000101'; // 乾麵條 11.6
+    const MISUA = 'R1900301';  // 麵線 11.7
+    const GERM = 'A0310101';   // 小麥胚芽 31.4，但屬穀物類
+    const SAUSAGE = 'R5300201'; // 香腸 17.0，foodtags 標了 meat
+    // H1 紅燒麵腸：前提是它真的存在、真的含麵腸、每份吃到的蛋白質 ≥ 6 克（不是靠別的食材過關）
+    const mienChang = byName('紅燒麵腸');
+    const mienIng = mienChang?.ingredients.find((i) => i.food === MIEN);
+    ok(!!mienIng && !mienIng.pantry && mienIng.grams / mienChang.servings * idx.byId.get(MIEN).n.protein / 100 >= HIGH_PROTEIN_PER_SERVING,
+      `（前提）紅燒麵腸含麵腸 ${mienIng?.grams} 克／${mienChang?.servings} 份 → 每份 ${(mienIng.grams / mienChang.servings * idx.byId.get(MIEN).n.protein / 100).toFixed(1)} 克蛋白質`);
+    const h1 = proteinDishMatch(mienChang, 'all', idx);
+    eq([h1?.kind, h1?.food?.id], ['highprotein', MIEN], 'H1 紅燒麵腸達標，走的是高蛋白質食材那條路、點得出是麵腸');
+    // H2 含量門檻：每份吃到的蛋白質夠，但食材本身每 100 克不到 14 → 不算（主食不能靠這條路達標）
+    ok(idx.byId.get(NOODLE).n.protein < HIGH_PROTEIN_PER_100G && 80 * idx.byId.get(NOODLE).n.protein / 100 >= HIGH_PROTEIN_PER_SERVING,
+      `（前提）乾麵條每 100 克 ${idx.byId.get(NOODLE).n.protein} 克（不到 ${HIGH_PROTEIN_PER_100G}），但每份 80 克吃到 ${(80 * idx.byId.get(NOODLE).n.protein / 100).toFixed(1)} 克`);
+    ok(idx.byId.get(MISUA).n.protein < HIGH_PROTEIN_PER_100G && 80 * idx.byId.get(MISUA).n.protein / 100 >= HIGH_PROTEIN_PER_SERVING,
+      `（前提）麵線每 100 克 ${idx.byId.get(MISUA).n.protein} 克，每份 80 克吃到 ${(80 * idx.byId.get(MISUA).n.protein / 100).toFixed(1)} 克`);
+    eq(proteinDishKind(fakeDish(NOODLE, 320), 'all', idx), null, `H2 乾麵條每份 80 克 → 不算（每 100 克不到 ${HIGH_PROTEIN_PER_100G} 克）`);
+    eq(proteinDishKind(fakeDish(MISUA, 320), 'all', idx), null, 'H2 麵線每份 80 克 → 也不算（同一條門檻）');
+    // H3 每份門檻：含量夠高但吃得少 → 不算（幾克乾香菇那種）
+    ok(idx.byId.get(GLUTEN).n.protein >= HIGH_PROTEIN_PER_100G, `（前提）麵筋每 100 克 ${idx.byId.get(GLUTEN).n.protein} 克，含量這一關一定過`);
+    eq(proteinDishKind(fakeDish(GLUTEN, 56), 'all', idx), null, `H3 麵筋每份 14 克（${(14 * 42.5 / 100).toFixed(2)} 克蛋白質）→ 不算`);
+    eq(proteinDishKind(fakeDish(GLUTEN, 60), 'all', idx), 'highprotein', `H3（對照）每份 15 克（${(15 * 42.5 / 100).toFixed(2)} 克）→ 算`);
+    // H4 類別排除：小麥胚芽兩個門檻都過，但它是穀物類（主食）
+    const germ = idx.byId.get(GERM);
+    ok(germ.n.protein >= HIGH_PROTEIN_PER_100G && HIGH_PROTEIN_EXCLUDED_CATS.has(germ.cat) && 20 * germ.n.protein / 100 >= HIGH_PROTEIN_PER_SERVING,
+      `（前提）小麥胚芽每 100 克 ${germ.n.protein} 克、屬 ${germ.cat}、每份 20 克吃到 ${(20 * germ.n.protein / 100).toFixed(1)} 克 —— 兩個門檻都過，只差在類別`);
+    eq(proteinDishKind(fakeDish(GERM, 80), 'all', idx), null, 'H4 穀物類的小麥胚芽 → 不算（這條路不給主食）');
+    // H5 肉／海鮮排除：香腸兩個門檻都過，但它帶 meat
+    const sausage = idx.byId.get(SAUSAGE);
+    ok(sausage.n.protein >= HIGH_PROTEIN_PER_100G && foodTags.meat.includes(SAUSAGE) && 75 * sausage.n.protein / 100 >= HIGH_PROTEIN_PER_SERVING,
+      `（前提）香腸每 100 克 ${sausage.n.protein} 克、foodtags 標了 meat、每份 75 克吃到 ${(75 * sausage.n.protein / 100).toFixed(1)} 克`);
+    eq(proteinDishKind(fakeDish(SAUSAGE, 300), 'all', idx), null, 'H5 帶肉的香腸 → 不算（別讓葷菜靠這條路達標）');
+    // H6 既有四條路的結果一道都不變；而且同一道菜兩條路都符合時，照舊回既有的那一條（不是看食材排在第幾個）
+    eq(proteinDishKind(fakeDish('R4700901', 100), 'all', idx), 'soy', 'H6 豆腐照舊回 soy');
+    eq(proteinDishKind(byName('韓式涼拌黃豆芽'), 'all', idx), 'vegprotein', 'H6 黃豆芽照舊回 vegprotein');
+    eq(proteinDishKind(byName('涼拌四季豆'), 'all', idx), null, 'H6 涼拌四季豆照舊不算');
+    const bothDish = { id: 'r-fake-both', role: 'side', servings: 4, vegMode: 'nativeVeg', ingredients: [{ food: MIEN, label: '麵腸', grams: 400, track: 'base' }, { food: 'R4700901', label: '豆腐', grams: 100, track: 'base' }] };
+    ok(proteinDishMatch(bothDish, 'all', idx)?.food?.id === 'R4700901' && proteinDishKind(bothDish, 'all', idx) === 'soy',
+      'H6 一道菜同時有麵腸（排在前面）與豆腐 → 照舊回 soy：既有那四條路先判整道菜，不是誰排前面算誰');
+    // H8 全部內建食譜掃一遍：靠新路達標的恰好是預期的那幾道，主食那幾道一道都沒混進來
+    const viaHigh = recipes.flatMap((r) => ['all', 'veg', 'meat'].map((v) => ({ r, v, m: proteinDishMatch(r, v, idx) })))
+      .filter((x) => x.m?.kind === 'highprotein');
+    ok(recipes.length > 200, `（母體）掃了 ${recipes.length} 道內建食譜 × 3 個版本`);
+    eq([...new Set(viaHigh.map((x) => x.r.name))], ['紅燒麵腸'], `H8 靠高蛋白質食材達標的內建食譜恰好是紅燒麵腸一道（${viaHigh.length} 個版本）`);
+    // 對照組點名的六道（規格 §4 H8 列的）：byName 是前綴比對，「三杯杏鮑菇」的菜名是「三杯雞／三杯杏鮑菇」，所以照實際菜名寫
+    const H8_CONTROL = ['麻醬涼麵', '青菜豆皮麵線', '饅頭夾蛋', '傳統飯糰（油條肉鬆）', '芋頭飯', '三杯雞／三杯杏鮑菇'];
+    const h8Control = H8_CONTROL.map((n) => recipes.find((r) => r.name === n));
+    ok(h8Control.every(Boolean), `（前提）對照組那 ${H8_CONTROL.length} 道都在食譜庫裡：${h8Control.map((r) => r?.name ?? '（找不到）').join('、')}`);
+    noneOf(h8Control, (r) => ['all', 'veg', 'meat'].some((v) => proteinDishMatch(r, v, idx)?.kind === 'highprotein'),
+      'H8（對照）麵、飯、饅頭、菇那幾道都沒有因為這條路達標');
+    // H9 理由句：靠麵腸達標時點名麵腸，不說它是「豆製品」的菜
+    {
+      const sis = { ...newMember(), name: '妹', diet: 'vegan' };
+      const famH = [{ ...newMember(), name: '爸' }, sis];
+      const ctxH = buildContext({ recipes, members: famH, idx, units });
+      const stH = { slotItems: [{ recipeId: byName('蒜炒空心菜').id, role: 'main', pos: 0 }], dayRecipes: () => new Set(), lastServed: () => null, timesServedWithin: () => 0, dayProteins: () => new Set(), prevDayMealProteins: () => new Set(), fishCount: () => 0, rangeHas: () => false, placedWant: new Set(), starCount: () => 0 };
+      ok(proteinDishFor(mienChang, sis, idx), '（前提）吃五辛的全素家人吃得到紅燒麵腸，而且對她算達標');
+      const rsH = scoreSoft(mienChang, { role: 'side', meal: 'dinner', date: '2026-09-16', day: 2 }, ctxH, stH, () => 0).reasons;
+      ok(rsH.some((t) => t.includes('妹這一餐吃得到份量夠的麵腸')), `H9 理由句點名麵腸：${rsH.find((t) => t.includes('妹這一餐')) ?? rsH.join('｜')}`);
+      noneOf(rsH, (t) => t.includes('豆製品'), 'H9 靠麵腸達標時，理由句不說它是「豆製品」的菜');
+    }
+  }
+
   const vegan = { ...newMember(), name: '姊', diet: 'veganNoAllium' };
   eq(proteinDishFor(byName('番茄炒蛋'), vegan, idx), false, '全素的姊吃不了番茄炒蛋 → 對她不算');
 
@@ -748,7 +821,10 @@ section('素食成員每餐一道蛋、豆製品或奶類的菜（2026-09-18 Yol
   // 開著 有蛋奶素 0%、有全素 13.7–15.2%、全家全素 6.0–7.4%（改之前 0%、6.8–8.3%、3.3–5.4% —— 四季豆、豌豆莢不再算豆製品）；
   // 關著 28.3–32.1%、42.6–45.5%、32.7–37.2%。有全素上升最多：涼拌四季豆不含五辛，原本是全素又不吃五辛的家人少數算得上的配菜。
   // 有全素的 20% 守的是「修正誤判之後」的現況，不是滿意的水準；docs/SPEC_全素蛋白質食譜補充.md 做了之後要往下收（統籌者裁決一 §3）。
-  const LIMIT = { 有蛋奶素: [0.23, 0.05], 有全素: [0.37, 0.2], 全家全素: [0.27, 0.12] };
+  // 2026-09-21 高蛋白質食材也算（紅燒麵腸）之後重量，同樣 6 組種子組 × 8 × 3 週（改動前→改動後，各組的最差）：
+  // 有蛋奶素 0%→0%（不變）；有全素 16.1%→16.1%（**一點都沒動**：混合家庭的午晚餐主菜格走 requireMeaty，純素主菜一次都排不進去）；
+  // 全家全素 8.6%→4.5%。所以全家全素的上限從 12% 往下收到 10%（照補遺第 12 條，最差之上留約 5 個百分點）；另外兩個不動。
+  const LIMIT = { 有蛋奶素: [0.23, 0.05], 有全素: [0.37, 0.2], 全家全素: [0.27, 0.1] };
   const SOY_RX = /豆腐|豆干|豆皮|麵腸|百頁/;
   const run = (members, vegProtein) => {
     const ctx = buildContext({ recipes, members, idx, units });

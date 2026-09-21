@@ -166,4 +166,16 @@ section('類別覆寫：吃嫩莢的豆類歸蔬菜（Yolin：「四季豆是屬
   ok(!!threw && threw.includes('ZZ99999'), `覆寫表有原始資料找不到的編號 → 丟錯並點名（${threw ?? '沒有丟錯'}）`);
 }
 
+section('過敏原標籤：罐頭麵筋的花生（2026-09-21，SPEC_高蛋白食材也算 R5）');
+{
+  // 花生麵筋罐頭的食藥署內容物描述寫了花生，分類（加工調理食品）推不出來 —— foodtags 要明列，
+  // 不然對花生過敏的家人會被排到。這是查到的成分，不是從名稱推定的（香菇麵筋罐頭的描述沒提花生）。
+  const tags = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foodtags.json'), 'utf8')).tags;
+  const idxT = indexFoods(JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foods.json'), 'utf8')), { aliases: {} });
+  ok(idxT.byId.get('R4900101')?.name === '花生麵筋罐頭' && idxT.byId.get('R4900201')?.name === '香菇麵筋罐頭',
+    `（前提）兩筆罐頭都在：${idxT.byId.get('R4900101')?.name}、${idxT.byId.get('R4900201')?.name}`);
+  ok(tags.peanut.includes('R4900101'), `H11 花生麵筋罐頭標了 peanut（peanut 一共 ${tags.peanut.length} 筆）`);
+  ok(!tags.peanut.includes('R4900201'), 'H11（對照）香菇麵筋罐頭沒有被順手標上（描述沒提花生，不編造）');
+}
+
 done('datatest');

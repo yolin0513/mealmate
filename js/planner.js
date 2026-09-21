@@ -14,7 +14,7 @@ import { estimate } from './nutrition.js';
 import { versionFor, watchFields, DIET_LABELS } from './members.js';
 import { shelfDaysFor } from './units.js';
 import { NUTRIENT_LABELS, foodFamilies, displayNameOf } from './foods.js';
-import { ROLE_LABELS, METHOD_LABELS, proteinGroupOf } from './recipeschema.js';
+import { ROLE_LABELS, METHOD_LABELS, proteinGroupOf, tagsOfFood } from './recipeschema.js';
 
 export const MEALS = ['breakfast', 'lunch', 'dinner'];
 export const MEAL_LABELS = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐' };
@@ -146,29 +146,55 @@ export const VEG_PROTEIN_LABEL = '蛋、豆製品或奶類';
  */
 export const VEG_PROTEIN_VEG_GRAMS = 4;
 /**
- * 這道菜的這個版本靠哪一樣算達標：'egg' | 'dairy' | 'soy' | 'vegprotein'，都不是回 null。
- * 蛋、奶、豆製品看份量（每人 ≥ VEG_PROTEIN_MIN_GRAMS 克這樣食材）；蔬菜類看每份吃到的蛋白質（≥ VEG_PROTEIN_VEG_GRAMS 克）。
- * 任一食材達標即可，不累加；常備品、沒有編號、沒有克數的食材不算；蛋白質沒有資料（null）的蔬菜不算。
+ * 高蛋白質的食材（麵腸、麵筋、素肉這一類）份量夠也算達標（Yolin 2026-09-21：「麵腸等高蛋白質食材也算」）。
+ * 是通則、不是名稱清單：看**每 100 克的含量**與**每份吃到幾克**，兩個都要過。
+ * 14：乾麵條 11.6、麵線 11.7 之上留 2.4 的距離（主食不能因為這條路達標）；冷凍素雞塊 14.2 在裡面。
+ */
+export const HIGH_PROTEIN_PER_100G = 14;
+/** 6：約等於 40 克豆干或半顆蛋以上。擋掉「只放幾克乾香菇」那種靠含量高、份量極少的食材。 */
+export const HIGH_PROTEIN_PER_SERVING = 6;
+/** 這兩類不走高蛋白那條路：小麥胚芽 31.4、薏仁 14.1 這些含量夠，但它們是主食，不是「那一餐的蛋白質來源」。 */
+export const HIGH_PROTEIN_EXCLUDED_CATS = new Set(['穀物類', '澱粉類']);
+/**
+ * 這道菜的這個版本靠哪一樣算達標：'egg' | 'dairy' | 'soy' | 'vegprotein' | 'highprotein'，都不是回 null。
+ * 蛋、奶、豆製品看份量（每人 ≥ VEG_PROTEIN_MIN_GRAMS 克這樣食材）；蔬菜類看每份吃到的蛋白質（≥ VEG_PROTEIN_VEG_GRAMS 克）；
+ * 其餘食材看「每 100 克 ≥ HIGH_PROTEIN_PER_100G 且每份 ≥ HIGH_PROTEIN_PER_SERVING 克」（排除穀物類、澱粉類與帶肉／海鮮標籤的）。
+ * 任一食材達標即可，不累加；常備品、沒有編號、沒有克數的食材不算；蛋白質沒有資料（null）的不算。
  */
 export function proteinDishKind(recipe, version, idx) {
   return proteinDishMatch(recipe, version, idx)?.kind ?? null;
+}
+/** 高蛋白質那條路（2026-09-21）：一樣食材每 100 克 ≥ 14 克、這道菜每份從它吃到 ≥ 6 克 → 達標。 */
+function highProteinFood(f, perServing, foodTags) {
+  const protein = f.n?.protein;
+  if (typeof protein !== 'number') return false;                       // 沒有資料的不算（不當 0、也不當達標）
+  if (HIGH_PROTEIN_EXCLUDED_CATS.has(f.cat)) return false;
+  const tags = tagsOfFood(f, foodTags);
+  if (tags.has('meat') || tags.has('seafood')) return false;           // 香腸、培根：素食成員本來就吃不到，別讓葷菜靠這條路達標
+  return protein >= HIGH_PROTEIN_PER_100G && perServing * protein / 100 >= HIGH_PROTEIN_PER_SERVING;
 }
 /** 同 proteinDishKind，另外回是哪一樣食材讓它達標：{ kind, food } 或 null（理由句要點名那樣食材）。 */
 export function proteinDishMatch(recipe, version, idx) {
   if (!recipe || !idx) return null;
   const tracks = version === 'veg' ? ['base', 'veg'] : version === 'meat' ? ['base', 'meat'] : ['base', 'veg', 'meat'];
   const sideServ = version === 'veg' ? (recipe.splitServings?.veg ?? 1) : (recipe.splitServings?.meat ?? recipe.servings);
+  const rows = [];
   for (const ing of recipe.ingredients ?? []) {
     const track = ing.track ?? 'base';
     if (!tracks.includes(track) || ing.pantry || !ing.food || !(ing.grams > 0)) continue;
     const f = idx.byId.get(ing.food);
     if (!f) continue;
-    const perServing = ing.grams / (track === 'base' ? recipe.servings : sideServ);
+    rows.push({ f, perServing: ing.grams / (track === 'base' ? recipe.servings : sideServ) });
+  }
+  // 既有的四條路先判**整道菜**，判定結果一道都不變：一道菜同時有麵腸與豆干時，照舊回 soy（不是看哪一樣排在前面）
+  for (const { f, perServing } of rows) {
     const kind = f.cat === '蛋類' ? 'egg' : f.cat === '乳品類' ? 'dairy' : proteinGroupOf(f, new Set()) === 'soy' ? 'soy' : null;
     if (kind && perServing >= VEG_PROTEIN_MIN_GRAMS) return { kind, food: f };
     const protein = f.n?.protein;
     if (f.cat === '蔬菜類' && typeof protein === 'number' && perServing * protein / 100 >= VEG_PROTEIN_VEG_GRAMS) return { kind: 'vegprotein', food: f };
   }
+  // 都沒有，才看高蛋白質的食材
+  for (const { f, perServing } of rows) if (highProteinFood(f, perServing, idx.foodTags)) return { kind: 'highprotein', food: f };
   return null;
 }
 /** 這道菜的這個版本（'veg' | 'meat' | 'all'）是不是一道蛋、豆製品、奶類，或蛋白質較多的蔬菜菜。看食材，不看營養估算。 */
@@ -688,9 +714,10 @@ export function scoreSoft(recipe, { role, meal, date, day }, ctx, state, rng) {
       const extraPending = ctx.mixedHome && !(state.slotItems ?? []).some((it) => it.extraMeat) ? 1 : 0;
       const later = vegRoles.length - placedN - 1 - extraPending;
       score += (later >= 1 ? VEG_PROTEIN_EARLY_BONUS : VEG_PROTEIN_BONUS) * (gives.length / lacking.length);
-      // 靠「蔬菜類、每份蛋白質夠」達標的（黃豆芽）照 Yolin 的分類是蔬菜，不說它是豆製品的菜：點名那樣食材、只講份量（R6）
+      // 靠「蔬菜類、每份蛋白質夠」（黃豆芽）或「高蛋白質的食材」（麵腸）達標的，都不說它是豆製品的菜：
+      // 點名那樣食材、只講份量（v0.37.0 R6 的句型，2026-09-21 高蛋白那條沿用）
       const matches = gives.map((m) => proteinDishMatchFor(recipe, m, ctx.idx));
-      if (matches.every((x) => x?.kind === 'vegprotein')) {
+      if (matches.every((x) => x?.kind === 'vegprotein' || x?.kind === 'highprotein')) {
         const foods = [...new Set(matches.map((x) => displayNameOf(x.food, ctx.idx)))];
         reasons.push(`${gives.map((m) => m.name).join('、')}這一餐吃得到份量夠的${foods.join('、')}`);
       } else reasons.push(`${gives.map((m) => m.name).join('、')}這一餐吃得到的${VEG_PROTEIN_LABEL}的菜`);

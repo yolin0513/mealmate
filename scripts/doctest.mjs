@@ -227,11 +227,18 @@ section('STATUS：上次全面檢測／上次突變整套的兩行紀錄（npm r
     `D6 條數超過上限 → 只講條數那一項：${overNever}`);
   eq(overLimitLine({ versMut: FULL_LIMITS.versions, never: FULL_LIMITS.never }), null,
     'D6（對照）剛好在上限上 → 不提（沒超過就照舊只印兩行）');
-  // D6 真實入口：直接跑 npm run sincefull 那支程式。現在沒超過上限，所以第一行就該是「距上次全面檢測」——
-  // 多印一行提醒就代表「沒超過也在提」，那行提醒就會被當成雜訊忽略。
+  // D6 真實入口：直接跑 npm run sincefull 那支程式，驗它印的跟 STATUS 寫的上限一致。
+  // 不寫死「現在沒超過」—— 2026-09-21 那一版加了 10 條突變就真的超過了，寫死現況的斷言會跟著紅。
+  // 判準刻意不經 overLimitLine：那支函式正是被驗的對象，拿它當標準答案就成了「自己跟自己比」。
   const cliOut = execFileSync(process.execPath, [path.join(ROOT, 'scripts/sincefull.mjs')], { cwd: ROOT, encoding: 'utf8' }).split(/\r?\n/).filter(Boolean);
-  ok(cliOut.length === 2 && cliOut[0].startsWith('距上次全面檢測（') && cliOut[1].startsWith('距上次突變整套（'),
-    `D6（真實入口）現在沒超過上限 → sincefull 只印那兩行、不多印提醒：${JSON.stringify(cliOut)}`);
+  const cliMut = cliOut.find((l) => l.startsWith('距上次突變整套（')) ?? '';
+  const cliVers = Number(/：(\d+) 版/.exec(cliMut)?.[1]);
+  const cliNever = Number(/其中 (\d+) 條/.exec(cliMut)?.[1]);
+  ok(Number.isFinite(cliVers) && Number.isFinite(cliNever) && cliOut.some((l) => l.startsWith('距上次全面檢測（')),
+    `（前提）sincefull 印得出那兩行，而且讀得到版數與條數（${cliVers} 版／${cliNever} 條）`);
+  const overNow = cliVers > Number(limitTxt?.[1]) || cliNever > Number(limitTxt?.[2]);
+  ok(cliOut.length === (overNow ? 3 : 2) && (overNow ? cliOut[0].startsWith('已超過上限（') : cliOut[0].startsWith('距上次全面檢測（')),
+    `D6（真實入口）現在 ${cliVers} 版／${cliNever} 條，${overNow ? '超過' : '沒超過'} STATUS 寫的上限 → sincefull ${overNow ? '在最前面多印一行提醒' : '只印那兩行'}：${JSON.stringify(cliOut)}`);
   // D4 npm test 的鏈裡沒有 mutationtest（它會暫時改寫原始碼、跑三十分鐘以上），但它的 npm script 還在
   ok(chainExcludesMutation(pkg), 'D4 package.json 的 test 鏈裡沒有 mutationtest');
   ok(!chainExcludesMutation({ scripts: { test: 'node scripts/datatest.mjs && node scripts/mutationtest.mjs' } }), 'D4（對照）含 mutationtest 的假鏈會被判成不合格');
