@@ -554,10 +554,12 @@ try {
     ok(crepeErrs.some((e) => e.includes('蛋餅皮') && e.includes('素葷')), `U9 沒碰素葷就存 → 擋下，訊息講得出下一步：${crepeErrs.join('｜')}`);
     // 點一次「素」（提示裡那三顆按鈕之一；上面那排 chip 點「已經選著的那一顆」不會觸發）
     await clickEl(page, '[data-field="vegConfirm"] [data-action="confirmVeg"][data-value="nativeVeg"]');
-    await sleep(150);
+    // 等提示自己收起來，代表表單已經收下那一次點選（上一輪存檔留下的錯誤區還開著，
+    // 所以底下不能用「錯誤區出現」當等待條件 —— 那個條件一開始就成立，會讓等待立刻結束、標題還沒換就去比對）。
+    await page.waitForFunction(() => document.querySelector('[data-field="vegConfirm"]')?.hidden === true);
     await waitToastGone(page);
     await clickEl(page, '[data-action="saveRecipe"]');
-    await page.waitForFunction(() => document.getElementById('topTitle')?.textContent === '素的蛋餅' || document.querySelector('[data-field="errors"]')?.hidden === false);
+    await page.waitForFunction(() => document.getElementById('topTitle')?.textContent === '素的蛋餅', { timeout: 20000 });
     eq(await textOf(page, '#topTitle'), '素的蛋餅', 'U9 點過一次「素」之後，同一道菜存得進去');
     const crepeSaved = await page.evaluate(async () => {
       const s = await import('./js/store.js');

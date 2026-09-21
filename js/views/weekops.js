@@ -42,15 +42,23 @@ export async function toggleLock({ plan, slotIndex, pos }) {
  *   指定「配菜」位置時池子裡只有 56 道配菜，三杯雞、蔥爆牛肉那些主菜根本不在裡面，搜「雞」自然是空的。
  *   素食成員吃不了的照樣標出來，決定權在使用者（App 不擋）。
  */
+/** 選單一次列幾道；其中至少留幾個位置給「其他角色」的菜（同角色的菜再多也不能把清單佔滿）。 */
+const PICKER_MAX = 60;
+const PICKER_OTHER_MIN = 12;
 async function pickRecipe({ title, pool, members, note = null, roleHint = null }) {
   const list = h('div', { class: 'list picker-list', dataset: { list: 'assignPicker' } });
   const input = h('input', { class: 'field', type: 'search', placeholder: '找菜名或食材', 'aria-label': '搜尋', dataset: { field: 'pickerSearch' } });
   let close = null;
   const draw = () => {
     const hits = pool.filter((r) => matchesQuery(r, input.value));
-    // 同角色的排前面，其他角色接在後面（各自維持原本的順序）
-    const rows = roleHint ? [...hits.filter((r) => r.role === roleHint), ...hits.filter((r) => r.role !== roleHint)] : hits;
-    list.replaceChildren(...rows.slice(0, 60).map((r) => {
+    // 同角色的排前面，其他角色接在後面（各自維持原本的順序）。
+    // 同角色的**不能把整份清單佔滿**：2026-09-21 配菜補到 62 道時就發生了 —— 指定配菜的格子，前 60 筆全是配菜，
+    // 主菜、湯一道都看不到，等於 v0.30.0 那個使用者回報（「搜雞永遠是空的」）又回來了一半。
+    const same = roleHint ? hits.filter((r) => r.role === roleHint) : hits;
+    const other = roleHint ? hits.filter((r) => r.role !== roleHint) : [];
+    const sameMax = PICKER_MAX - Math.min(other.length, PICKER_OTHER_MIN);
+    const rows = roleHint ? [...same.slice(0, sameMax), ...other] : hits;
+    list.replaceChildren(...rows.slice(0, PICKER_MAX).map((r) => {
       const cannot = members.filter((m) => versionFor(r, m.diet) === null);
       const otherRole = roleHint && r.role !== roleHint;
       return h('button', {

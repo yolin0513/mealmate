@@ -15,6 +15,7 @@ import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadContext, buildRecipes, summarize, outputFor } from './build-recipes.mjs';
 import { validateRecipe, USER_DEFAULT_STEP, tagsOfFood, proteinGroupOf, PROCESSED_CATS } from '../js/recipeschema.js';
 import { fitsDiet, versionFor } from '../js/members.js';
+import { proteinDishMatch, starFoods } from '../js/planner.js';
 import { estimate } from '../js/nutrition.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -508,6 +509,63 @@ section('使用者自己加的菜：食藥署查不到的食材也可以存，�
   ok(est.perServing.kcal != null && est.partial.kcal.includes('豬耳朵') && est.partial.protein.includes('豬耳朵'), `查得到的青蔥照算，熱量、蛋白質都標成部分估算（${Math.round(est.perServing.kcal)} kcal，＊豬耳朵）`);
   const onlyEar = validateRecipe({ ...base, vegModeConfirmed: true, ingredients: [{ food: '', label: '豬耳朵', grams: 300 }] }, userCtx).recipe;
   ok(Object.values(estimate(onlyEar, idx, { version: 'all' }).perServing).every((v) => v === null), '整道都查不到 → 每一欄都是未估算（null），不是 0');
+}
+
+section('全素無五辛的蛋白質配菜與湯（2026-09-21，SPEC_全素無五辛蛋白質配菜 R1–R3）');
+{
+  // 這批菜存在的理由就是「不吃五辛的全素家人吃得到，而且那一餐有蛋白質來源」。
+  // 九道的 id 寫死在這裡（母體＝9，不是「至少 1」）——漏掉一道、或哪一道被改成別的角色，前提那條就會紅。
+  const VEG_SIDES = ['r-edamame-corn', 'r-braised-baiye-tofu', 'r-tofu-skin-bokchoy', 'r-mien-chang-pepper', 'r-cold-tofu-strips', 'r-frozen-tofu-cabbage'];
+  const VEG_SOUPS = ['r-kelp-tofu-soup', 'r-tofu-skin-cabbage-soup', 'r-edamame-corn-soup'];
+  const NEW_IDS = [...VEG_SIDES, ...VEG_SOUPS];
+  const byIdV = new Map(recipes.map((r) => [r.id, r]));
+  const added9 = NEW_IDS.map((id) => byIdV.get(id)).filter(Boolean);
+  eq(added9.length, NEW_IDS.length, `（前提）九道新菜每一道都在食譜庫裡（${added9.map((r) => r.name).join('、')}）`);
+  eq(VEG_SIDES.map((id) => byIdV.get(id)?.role), Array(6).fill('side'), '（前提）六道是配菜');
+  eq(VEG_SOUPS.map((id) => byIdV.get(id)?.role), Array(3).fill('soup'), '（前提）三道是湯');
+
+  // V1 吃得到、達標、標籤乾淨
+  everyOf(added9, (r) => versionFor(r, 'veganNoAllium') !== null, 'V1 九道菜，不吃五辛的全素家人每一道都吃得到',
+    added9.filter((r) => versionFor(r, 'veganNoAllium') === null).map((r) => r.name).join('、'));
+  const kindOf = (r) => proteinDishMatch(r, 'all', idx)?.kind ?? null;
+  everyOf(added9, (r) => ['soy', 'highprotein'].includes(kindOf(r)), 'V1 九道菜每一道都算「那一餐的蛋白質來源」（豆製品或高蛋白質食材）',
+    added9.map((r) => `${r.name}=${kindOf(r)}`).join('、'));
+  const BAD_TAGS = ['allium', 'egg', 'dairy', 'meat', 'seafood'];
+  everyOf(added9, (r) => BAD_TAGS.every((t) => !r.tags.includes(t)), 'V1 九道菜的標籤裡沒有五辛、蛋、奶、肉、海鮮',
+    added9.filter((r) => BAD_TAGS.some((t) => r.tags.includes(t))).map((r) => `${r.name}${JSON.stringify(r.tags)}`).join('、'));
+  everyOf(added9, (r) => r.alliumOptional !== true, 'V1 九道菜一道都沒有用「五辛可省略」這個出口（不吃五辛的人不必看但書）');
+  // 對照組：既有的味噌豆腐湯就是靠 alliumOptional，證明上面那條不是恆真
+  eq(byIdV.get('r-miso-tofu-soup')?.alliumOptional, true, 'V1（對照）既有的味噌豆腐湯確實是用那個出口的 —— 上面那條有分辨力');
+
+  // V2 主角要分散（同一樣主角的菜排在一起會互相扣分，補了也救不到）
+  const star1 = (r) => starFoods(r, 'all', idx)[0] ?? null;
+  const sideStars = VEG_SIDES.map((id) => star1(byIdV.get(id)));
+  eq(sideStars.filter(Boolean).length, 6, `（前提）六道配菜每一道都認得出主角（${sideStars.join('、')}）`);
+  ok(new Set(sideStars).size >= 5, `V2 六道配菜的主角至少 5 種不同的食材（規格的門檻；實際 ${new Set(sideStars).size} 種）`);
+  // 規格只要求 ≥5，實際做到 6 道全不重複。驗到 6 才抓得到「某一道的主角改成跟別道一樣」——
+  // 只驗 ≥5 的話，六種掉到五種照樣綠，那條斷言就分辨不出東西。
+  eq(new Set(sideStars).size, 6, 'V2 六道配菜的主角實際上完全不重複');
+  const DRIED_TOFU_FAMILY = ['R4700202', 'R4700203', 'R4700301', 'R4700201'];
+  ok(sideStars.filter((k) => DRIED_TOFU_FAMILY.includes(k)).length <= 1, `V2 主角是豆干家族的配菜最多 1 道（實際 ${sideStars.filter((k) => DRIED_TOFU_FAMILY.includes(k)).length} 道；池子裡已經有 8 道豆干的菜）`);
+  eq(sideStars.filter((k) => k === 'R4701101').length, 0, 'V2 沒有一道的主角是小三角油豆腐（配菜、主菜各已經有一道）');
+  const soupStars = VEG_SOUPS.map((id) => star1(byIdV.get(id)));
+  eq(soupStars.filter((k) => k === 'R4701201').length, 0, `V2 三道湯的主角都不是嫩豆腐（既有三道豆腐湯的主角都是它）：${soupStars.join('、')}`);
+  eq(new Set(soupStars).size, 3, 'V2 三道湯的主角彼此不同');
+  const starCount = new Map();
+  for (const k of [...sideStars, ...soupStars]) starCount.set(k, (starCount.get(k) ?? 0) + 1);
+  ok(Math.max(...starCount.values()) <= 2, `V2 九道裡同一個主角最多出現 2 次（${[...starCount].map(([k, n]) => `${k}×${n}`).join('、')}）`);
+
+  // V3 時間：湯要排得進平日晚餐（現有兩道 45–55 分的豆腐湯就是卡在這裡）
+  everyOf(VEG_SOUPS.map((id) => byIdV.get(id)), (r) => r.time <= 25, 'V3 三道湯都在 25 分鐘內',
+    VEG_SOUPS.map((id) => `${byIdV.get(id)?.name} ${byIdV.get(id)?.time}`).join('、'));
+  ok(VEG_SIDES.filter((id) => byIdV.get(id).time <= 20).length >= 5, `V3 六道配菜裡 ${VEG_SIDES.filter((id) => byIdV.get(id).time <= 20).length} 道在 20 分鐘內（≥ 5）`);
+  // 每份的豆製品克數要穩穩過門檻，不要壓線（壓線的話改個配方就掉出去了）
+  const starGrams = (r) => {
+    const k = star1(r);
+    const ing = r.ingredients.find((i) => i.food === k);
+    return ing ? ing.grams / r.servings : 0;
+  };
+  everyOf(added9, (r) => starGrams(r) >= 40, `V3 每一道每份的主角食材都 ≥ 40 克（${added9.map((r) => `${r.name} ${Math.round(starGrams(r))}`).join('、')}）`);
 }
 
 done('recipetest');

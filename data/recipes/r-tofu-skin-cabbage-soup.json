@@ -1,0 +1,79 @@
+{
+  "id": "r-tofu-skin-cabbage-soup",
+  "name": "豆皮白菜湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 22,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "豆腐皮",
+      "label": "豆皮（切片）",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "大白菜",
+      "label": "大白菜（切片）",
+      "grams": 180,
+      "track": "base"
+    },
+    {
+      "food": "乾香菇",
+      "label": "乾香菇（泡開切片）",
+      "grams": 12,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔片",
+      "grams": 50,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 8,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "白胡椒粉",
+      "label": "白胡椒粉",
+      "grams": 1,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "豆皮切片；乾香菇泡開切片，泡菇水留著；大白菜切片。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "一千二百毫升水加泡菇水煮滾，下香菇、薑片與胡蘿蔔煮五分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下大白菜煮到變軟，約六分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "最後下豆皮煮三分鐘，加鹽與白胡椒粉調味。"
+    }
+  ]
+}

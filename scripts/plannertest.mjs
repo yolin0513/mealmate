@@ -754,7 +754,8 @@ section('素食成員每餐一道蛋、豆製品或奶類的菜（2026-09-18 Yol
     const viaHigh = recipes.flatMap((r) => ['all', 'veg', 'meat'].map((v) => ({ r, v, m: proteinDishMatch(r, v, idx) })))
       .filter((x) => x.m?.kind === 'highprotein');
     ok(recipes.length > 200, `（母體）掃了 ${recipes.length} 道內建食譜 × 3 個版本`);
-    eq([...new Set(viaHigh.map((x) => x.r.name))], ['紅燒麵腸'], `H8 靠高蛋白質食材達標的內建食譜恰好是紅燒麵腸一道（${viaHigh.length} 個版本）`);
+    eq([...new Set(viaHigh.map((x) => x.r.name))].sort(), ['紅燒麵腸', '麵腸炒青椒'].sort(),
+      `H8 靠高蛋白質食材達標的內建食譜恰好是麵腸那兩道（${viaHigh.length} 個版本；2026-09-21 補配菜時多了麵腸炒青椒）`);
     // 對照組點名的六道（規格 §4 H8 列的）：byName 是前綴比對，「三杯杏鮑菇」的菜名是「三杯雞／三杯杏鮑菇」，所以照實際菜名寫
     const H8_CONTROL = ['麻醬涼麵', '青菜豆皮麵線', '饅頭夾蛋', '傳統飯糰（油條肉鬆）', '芋頭飯', '三杯雞／三杯杏鮑菇'];
     const h8Control = H8_CONTROL.map((n) => recipes.find((r) => r.name === n));
@@ -821,12 +822,20 @@ section('素食成員每餐一道蛋、豆製品或奶類的菜（2026-09-18 Yol
   // 開著 有蛋奶素 0%、有全素 13.7–15.2%、全家全素 6.0–7.4%（改之前 0%、6.8–8.3%、3.3–5.4% —— 四季豆、豌豆莢不再算豆製品）；
   // 關著 28.3–32.1%、42.6–45.5%、32.7–37.2%。有全素上升最多：涼拌四季豆不含五辛，原本是全素又不吃五辛的家人少數算得上的配菜。
   // 有全素的 20% 守的是「修正誤判之後」的現況，不是滿意的水準；docs/SPEC_全素蛋白質食譜補充.md 做了之後要往下收（統籌者裁決一 §3）。
-  // 2026-09-21 高蛋白質食材也算（紅燒麵腸）之後重量，同樣 6 組種子組 × 8 × 3 週（改動前→改動後，各組的最差）：
-  // 有蛋奶素 0%→0%（不變）；有全素 16.1%→16.1%（**一點都沒動**：混合家庭的午晚餐主菜格走 requireMeaty，純素主菜一次都排不進去）；
-  // 全家全素 8.6%→4.5%。所以全家全素的上限從 12% 往下收到 10%（照補遺第 12 條，最差之上留約 5 個百分點）；另外兩個不動。
-  const LIMIT = { 有蛋奶素: [0.23, 0.05], 有全素: [0.37, 0.2], 全家全素: [0.27, 0.1] };
+  // 2026-09-21 補 6 道配菜＋3 道湯（全素、不含五辛）之後重量，6 組種子組 × 8 × 3 週，各組的最差／最好：
+  //   開著（上限）：有蛋奶素 0%、有全素 16.1%→**2.7%**、全家全素 4.5%→**2.1%**
+  //   關著（對照組下限）：有蛋奶素 ≥23.2%、有全素 ≥29.8%、全家全素 ≥17.0%（新菜讓關著的時候也偶爾撈得到，所以下限跟著鬆）
+  // 兩邊都照補遺第 12 條留約 5 個百分點。v0.37.0 那句「20% 守的是修正誤判之後的現況，不是滿意的水準」已經不適用：
+  // 現在守的是補菜之後的水準，有全素 8%、全家全素 7%。
+  const LIMIT = { 有蛋奶素: [0.18, 0.05], 有全素: [0.25, 0.08], 全家全素: [0.12, 0.07] };
   const SOY_RX = /豆腐|豆干|豆皮|麵腸|百頁/;
+  // V4（2026-09-21）：證明上面那組新門檻真的是靠 2026-09-21 補的那九道全素無五辛配菜／湯撐著，不是本來就過。
+  // 平常這個清單是空的（＝整個食譜庫）；對應的突變把那九個 id 填進來，「有全素」那條就要紅。
+  const NEW_VEG_DISHES_OUT = [];
+  const statsPool = recipes.filter((r) => !NEW_VEG_DISHES_OUT.includes(r.id));
+  ok(statsPool.length === recipes.length - NEW_VEG_DISHES_OUT.length, `（前提）統計用的池子 ${statsPool.length} 道（拿掉 ${NEW_VEG_DISHES_OUT.length} 道）`);
   const run = (members, vegProtein) => {
+    const recipes = statsPool;   // 這一段以下的 recipes 都是池子（拿掉清單上那幾道之後的）
     const ctx = buildContext({ recipes, members, idx, units });
     const out = { meals: 0, miss: 0, empty: 0, ge4: 0, soyDish: 0, soy3: 0, days: 0, windows: 0, dishes: new Set(), vegMin: 99 };
     for (let sd = 0; sd < 8; sd += 1) {

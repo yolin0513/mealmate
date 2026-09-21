@@ -1,0 +1,81 @@
+{
+  "id": "r-braised-baiye-tofu",
+  "name": "滷百頁豆腐",
+  "role": "side",
+  "servings": 4,
+  "time": 20,
+  "method": "braise",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "百頁豆腐",
+      "label": "百頁豆腐（切厚片）",
+      "grams": 300,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔（切滾刀）",
+      "grams": 80,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "老薑片",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 28,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "糖",
+      "label": "糖",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "八角",
+      "label": "八角一顆",
+      "grams": 1,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "百頁豆腐切一公分厚片；胡蘿蔔切滾刀塊；薑切片。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，百頁豆腐兩面各煎一分半到微焦。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加薑片、胡蘿蔔、醬油、糖、八角與半杯水，蓋鍋小火滷十分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "開蓋轉中火收汁，翻面讓每一片都裹上滷汁。"
+    }
+  ]
+}

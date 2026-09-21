@@ -19,7 +19,8 @@ export function loadContext() {
   const foods = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foods.json'), 'utf8'));
   const aliases = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/aliases.json'), 'utf8'));
   const foodtags = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foodtags.json'), 'utf8'));
-  const idx = indexFoods(foods, aliases);
+  // 標籤也掛進索引（2026-09-21）：App 端的 idx 帶 foodTags，這裡不帶的話，用 loadContext 的測試看到的索引跟 App 不一樣
+  const idx = indexFoods(foods, aliases, foodtags.tags);
   return { idx, foodsVersion: foods.version, ctx: { resolve: (t) => resolveFood(t, idx), foodTags: foodtags.tags } };
 }
 

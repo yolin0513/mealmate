@@ -1,0 +1,79 @@
+{
+  "id": "r-frozen-tofu-cabbage",
+  "name": "凍豆腐燒白菜",
+  "role": "side",
+  "servings": 4,
+  "time": 20,
+  "method": "braise",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "冷凍豆腐",
+      "label": "凍豆腐（切塊）",
+      "grams": 280,
+      "track": "base"
+    },
+    {
+      "food": "大白菜",
+      "label": "大白菜（切片）",
+      "grams": 250,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔片",
+      "grams": 50,
+      "track": "base"
+    },
+    {
+      "food": "乾香菇",
+      "label": "乾香菇（泡開切片）",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 8,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 20,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "凍豆腐解凍後擠掉水分切塊；乾香菇泡開切片，泡菇水留著；大白菜切片。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香薑片與香菇，下大白菜炒到出水變軟。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加凍豆腐、胡蘿蔔、醬油與泡菇水，蓋鍋小火燒八分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "開蓋翻拌，讓凍豆腐的孔洞吸滿湯汁再起鍋。"
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "id": "r-tofu-skin-bokchoy",
+  "name": "豆皮炒青江菜",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "豆腐皮",
+      "label": "豆皮（切寬條）",
+      "grams": 240,
+      "track": "base"
+    },
+    {
+      "food": "青江菜",
+      "label": "青江菜（切段）",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔絲",
+      "grams": 50,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 8,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "豆皮切三公分寬條；青江菜切段，菜梗與菜葉分開；胡蘿蔔與薑切絲。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油爆香薑絲，下豆皮與胡蘿蔔絲炒兩分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "先下菜梗炒一分鐘，再下菜葉大火炒三十秒。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加鹽拌勻起鍋，菜葉不要炒到出水。"
+    }
+  ]
+}

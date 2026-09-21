@@ -1,0 +1,66 @@
+{
+  "id": "r-edamame-corn-soup",
+  "name": "玉米毛豆湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 20,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "毛豆仁",
+      "label": "毛豆仁",
+      "grams": 240,
+      "track": "base"
+    },
+    {
+      "food": "甜玉米",
+      "label": "甜玉米（切段）",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔塊",
+      "grams": 60,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑片",
+      "grams": 8,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "甜玉米切段；胡蘿蔔切塊；毛豆仁解凍瀝乾。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "一千二百毫升水煮滾，下玉米段、胡蘿蔔與薑片煮十分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下毛豆仁再煮五分鐘，煮到豆仁軟但不糊。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加鹽調味起鍋。"
+    }
+  ]
+}

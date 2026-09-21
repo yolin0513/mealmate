@@ -1,0 +1,73 @@
+{
+  "id": "r-kelp-tofu-soup",
+  "name": "海帶豆腐湯",
+  "role": "soup",
+  "servings": 4,
+  "time": 20,
+  "method": "soup",
+  "vegMode": "nativeVeg",
+  "texture": "soft",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "傳統豆腐",
+      "label": "傳統豆腐（切塊）",
+      "grams": 360,
+      "track": "base"
+    },
+    {
+      "food": "海帶",
+      "label": "海帶（切小段）",
+      "grams": 80,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔片",
+      "grams": 50,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑絲",
+      "grams": 10,
+      "track": "base"
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 4,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "香油",
+      "label": "香油",
+      "grams": 5,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "豆腐切二公分方塊；海帶切小段；胡蘿蔔切片；薑切絲。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "一千二百毫升水煮滾，下海帶、胡蘿蔔與薑絲煮八分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "輕輕放入豆腐塊，轉小火再煮五分鐘，不要大滾免得豆腐散開。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "加鹽調味，起鍋前滴幾滴香油。"
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "id": "r-mien-chang-pepper",
+  "name": "麵腸炒青椒",
+  "role": "side",
+  "servings": 4,
+  "time": 15,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "麵腸",
+      "label": "麵腸（切斜片）",
+      "grams": 280,
+      "track": "base"
+    },
+    {
+      "food": "青椒",
+      "label": "青椒（切條）",
+      "grams": 200,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔片",
+      "grams": 50,
+      "track": "base"
+    },
+    {
+      "food": "薑",
+      "label": "薑末",
+      "grams": 8,
+      "track": "base"
+    },
+    {
+      "food": "醬油",
+      "label": "醬油",
+      "grams": 15,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "麵腸切斜片；青椒去籽切條；胡蘿蔔切片；薑切末。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，麵腸片下鍋煎到兩面微焦，約三分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "撥到鍋邊，下薑末與胡蘿蔔片炒香，再下青椒大火炒一分半。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "沿鍋邊淋醬油，拌炒三十秒讓麵腸吸進醬香起鍋。"
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "id": "r-cold-tofu-strips",
+  "name": "涼拌豆干絲",
+  "role": "side",
+  "servings": 4,
+  "time": 10,
+  "method": "cold",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "豆干絲",
+      "label": "豆干絲",
+      "grams": 240,
+      "track": "base"
+    },
+    {
+      "food": "小黃瓜",
+      "label": "小黃瓜絲",
+      "grams": 150,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔絲",
+      "grams": 50,
+      "track": "base"
+    },
+    {
+      "food": "香油",
+      "label": "香油",
+      "grams": 10,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "烏醋",
+      "label": "烏醋",
+      "grams": 8,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 2,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "小黃瓜與胡蘿蔔切細絲，撒一點鹽抓一下靜置五分鐘後擠乾水分。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "豆干絲放滾水裡燙三十秒撈起，沖冷水瀝乾。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "豆干絲與兩種蔬菜絲拌在一起。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "淋香油與烏醋，拌勻放冰箱冰十分鐘更入味。"
+    }
+  ]
+}

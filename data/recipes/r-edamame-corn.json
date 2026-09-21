@@ -1,0 +1,74 @@
+{
+  "id": "r-edamame-corn",
+  "name": "毛豆炒玉米",
+  "role": "side",
+  "servings": 4,
+  "time": 12,
+  "method": "stirfry",
+  "vegMode": "nativeVeg",
+  "texture": "normal",
+  "season": [],
+  "ingredients": [
+    {
+      "food": "毛豆仁",
+      "label": "毛豆仁（冷凍的解凍即可）",
+      "grams": 240,
+      "track": "base"
+    },
+    {
+      "food": "玉米粒",
+      "label": "冷凍玉米粒",
+      "grams": 180,
+      "track": "base"
+    },
+    {
+      "food": "胡蘿蔔",
+      "label": "胡蘿蔔丁",
+      "grams": 60,
+      "track": "base"
+    },
+    {
+      "food": "沙拉油",
+      "label": "沙拉油",
+      "grams": 12,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "鹽",
+      "label": "鹽",
+      "grams": 3,
+      "track": "base",
+      "pantry": true
+    },
+    {
+      "food": "白胡椒粉",
+      "label": "白胡椒粉",
+      "grams": 1,
+      "track": "base",
+      "pantry": true
+    }
+  ],
+  "steps": [
+    {
+      "stage": "base",
+      "type": "prep",
+      "text": "毛豆仁與玉米粒解凍瀝乾；胡蘿蔔切小丁。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "滾水下毛豆仁煮三分鐘撈起，顏色會更綠。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "熱鍋下油，先炒胡蘿蔔丁與玉米粒兩分鐘。"
+    },
+    {
+      "stage": "base",
+      "type": "cook",
+      "text": "下毛豆仁拌炒一分鐘，加鹽與白胡椒粉調味起鍋。"
+    }
+  ]
+}

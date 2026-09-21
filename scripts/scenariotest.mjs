@@ -96,6 +96,39 @@ try {
     ok(extras >= 5, `加入素食成員之後，這一週有 ${extras} 道「僅葷食成員」的加菜`);
   }
 
+  // V8（2026-09-21）：真實入口驗 2026-09-21 補的九道全素無五辛配菜／湯真的排得到、畫面上看得見。
+  // 前置先在瀏覽器端算這一週排到幾道（情境不成立就紅，不靜默跳過）；再到畫面上比對菜名。
+  {
+    const NEW_IDS = ['r-edamame-corn', 'r-braised-baiye-tofu', 'r-tofu-skin-bokchoy', 'r-mien-chang-pepper', 'r-cold-tofu-strips', 'r-frozen-tofu-cabbage',
+      'r-kelp-tofu-soup', 'r-tofu-skin-cabbage-soup', 'r-edamame-corn-soup'];
+    const newInWeek = await page.evaluate(async (ids) => {
+      const store = await import('./js/store.js');
+      const { mondayOf, weekKeyOf, isoDate } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const byId = new Map(store.allRecipes().map((r) => [r.id, r]));
+      const hit = plan.slots.filter((s) => s.kind === 'cook').flatMap((s) => s.items)
+        .filter((it) => ids.includes(it.recipeId));
+      return { count: hit.length, names: [...new Set(hit.map((it) => byId.get(it.recipeId)?.name))] };
+    }, NEW_IDS);
+    ok(newInWeek.count >= 1, `（前提）姊改成全素之後重排，這一週排到 ${newInWeek.count} 道新補的配菜／湯：${newInWeek.names.join('、')}`);
+    const onScreen = await page.$$eval('.meal-item .meal-name', (els) => els.map((e) => e.textContent.trim()));
+    ok(newInWeek.names.some((n) => onScreen.includes(n)), `V8 那幾道在本週頁上看得到：${newInWeek.names.filter((n) => onScreen.includes(n)).join('、')}`);
+    // 「這幾餐排不到蛋、豆製品或奶類的菜」那張卡（data-card="vegProteinMiss"，沒有缺的餐就整張不畫）。
+    // 這裡不能只驗「卡不在」——卡不在也可能是選擇器打錯，所以連同計畫裡實際缺的餐數一起比對。
+    const vpNow = await page.evaluate(async () => {
+      const store = await import('./js/store.js');
+      const { mondayOf, weekKeyOf, isoDate, vegProteinMisses } = await import('./js/planner.js');
+      const plan = await store.getPlan(weekKeyOf(mondayOf(isoDate(new Date()))));
+      const byId = new Map(store.allRecipes().map((r) => [r.id, r]));
+      const misses = vegProteinMisses(plan, store.members(), byId, store.foodsIndex());
+      const card = document.querySelector('[data-card="vegProteinMiss"]');
+      return { misses: misses.length, cardText: card ? card.textContent.replace(/\s+/g, ' ').slice(0, 80) : null };
+    });
+    ok(vpNow.misses <= 3, `V8 這一週姊排不到蛋豆奶菜的午晚餐只剩 ${vpNow.misses} 餐（補菜之前同一份計畫是 2 餐以上；14 餐裡）`);
+    ok(vpNow.misses === 0 ? vpNow.cardText === null : typeof vpNow.cardText === 'string',
+      `V8 那張卡跟計畫一致：缺 ${vpNow.misses} 餐 → ${vpNow.cardText === null ? '整張卡不畫' : `卡上寫「${vpNow.cardText}」`}`);
+  }
+
   section('D 加入慢性病成員：留意欄位一路跟著出現');
   await goto(page, '#/family/new');
   await titleIs(page, '新增家人');

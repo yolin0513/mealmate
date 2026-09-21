@@ -169,6 +169,10 @@ try {
     const firstOther = picker.roles.findIndex((r) => r !== 'side');
     ok(firstOther > 5, `同角色（配菜）排在前面，其他角色從第 ${firstOther + 1} 筆開始`);
     ok(picker.roles.includes('main'), '主菜也在清單裡（以前只列配菜，搜「雞」永遠是空的）');
+    // 2026-09-21：配菜補到 62 道（> 清單上限 60）之後，同角色的差點把整份清單佔滿。
+    // 母體是「這一格的角色（配菜）現在有幾道」——比上限還多，所以這條不是恆真。
+    ok(picker.roles.filter((r) => r === 'side').length > 40, `（前提）同角色（配菜）本身就有 ${picker.roles.filter((r) => r === 'side').length} 道在清單裡，池子裡的配菜比清單上限還多`);
+    ok(picker.roles.filter((r) => r !== 'side').length >= 10, `同角色再多也留位置給別的角色：清單裡有 ${picker.roles.filter((r) => r !== 'side').length} 道主菜／湯／早餐`);
     everyOf(picker.roles.map((r, i) => ({ r, pill: picker.pills[i] })), (x) => (x.r === 'side' ? x.pill === '' : x.pill.length > 0), '同角色的不標、其他角色標出是主菜／湯／早餐');
     await page.type('[data-field="pickerSearch"]', '三杯');
     await sleep(200);
