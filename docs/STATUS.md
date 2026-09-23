@@ -8,7 +8,7 @@
 
 **現在正在做什麼：沒有。** 最後一版 `mealmate-v0.41.0`（2026-09-23）：麵腸、麵筋這類份量夠的高蛋白質食材有自己的蛋白質輪替群組 `highprotein`，判準搬到 `recipeschema.js` 只定義一次（見「高蛋白質食材的輪替群組（v0.41.0）」一節）。
 同一天之前還做了兩件 docs＋scripts 的收尾（都沒 bump、不算一版）：共用慣例副本更新到 **v5**，以及 **09-21 突變整套的收尾**（新基準、三條沒紅依根因處理、清掉 worktree，見「突變整套（2026-09-21）」一節）。
-個資普查已回報（2026-09-23），結果不進 repo。之後共用慣例副本更新到 **v6**（docs-only，見「共用慣例副本更新到 v6」一節）。之後補了 `checkmutations` 查 `expect`（抄 StockDiary，見「突變的 expect 都找得到（v6 §5.9）」一節），再把推送的閘門搬進 repo、副本更新到 **v7**（見「共用慣例副本更新到 v7」一節）。**推送一律 `bash scripts/pushgate.sh`。** **下一件：目前沒有人交辦。**
+個資普查已回報（2026-09-23），結果不進 repo。之後共用慣例副本更新到 **v6**（docs-only，見「共用慣例副本更新到 v6」一節）。之後補了 `checkmutations` 查 `expect`（抄 StockDiary，見「突變的 expect 都找得到（v6 §5.9）」一節），再把推送的閘門搬進 repo、副本更新到 **v7**（見「共用慣例副本更新到 v7」一節）。**推送一律 `bash scripts/pushgate.sh`。** 2026-09-24 凌晨跑了全面檢測（對 `2841ac1`／v0.41.0）：26 支全綠、突變 442 條全部紅、`assertaudit` 1 項紅（已修），見「全面檢測（2026-09-24）」一節。**下一件：共用慣例 v8 副本（統籌者寫工單中）。**
 再前一版 `mealmate-v0.40.0`：補 6 道全素無五辛配菜＋3 道湯（前一個 commit）、補 2 道台式現成早餐（後一個 commit）。
 再前三版 `v0.39.0`：麵腸這類高蛋白質的食材也算蛋白質來源；`v0.38.0`：使用者自己的食譜裡加工品的葷素由他說了算＋本週頁「我的」小標；`v0.37.0`：嫩莢與豆芽歸蔬菜。
 v0.38.0 的「要真的點過一次素葷才算使用者的判斷」**Yolin 已核准**（2026-09-21，原話：「可以做此判斷，但要有提示」）—— 重點在**要有提示**，不能靜默擋下；現在那句訊息點名食材並講得出下一步，符合。
@@ -183,11 +183,11 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
 Node 端：datatest 74、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 149、plannertest 513、shoppingtest 150、timelinetest 71、doctest 162；
 瀏覽器端（puppeteer）：shelltest 161、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 197、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 115（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **442 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-21 對 `mealmate-v0.40.0` 跑（428 條：425 紅、3 條沒紅，見「突變整套（2026-09-21）」一節）**；再前一次是 2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **442 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
-· **突變整套**＝`npm run mutationtest` 不帶 `--only` 跑完全部 428 條（每條都把對應的那一支測試整支跑一次）。**實測約 16,600 秒（約 4.6 小時）**，2026-09-21 對 v0.40.0 量的（2026-09-19 對 v0.36.0 的 366 條是約 13,500 秒）。
-· **全面檢測**＝鏈 26 支（`npm test`）＋突變整套＋`assertaudit`＋`checkmutations`。**實測總耗時約 14,800 秒（約 4.1 小時）**，同一次量的。
+· **突變整套**＝`npm run mutationtest` 不帶 `--only` 跑完全部 442 條（每條都把對應的那一支測試整支跑一次）。**實測約 17,119 秒（約 4.8 小時）**，2026-09-24 對 v0.41.0 量的（09-21 的 428 條約 16,600 秒、09-19 的 366 條約 13,500 秒）。
+· **全面檢測**＝鏈 26 支（`npm test`）＋突變整套＋`assertaudit`＋`checkmutations`。**實測總耗時約 18,165 秒（約 5.0 小時）**，2026-09-24 同一次量的（其中 26 支合計 514 秒、`assertaudit` 528 秒、突變整套 17,119 秒）；09-19 那次約 14,800 秒。
 · 對照：`npm test` 26 支一輪約 448 秒（7.5 分鐘），每版都跑。貴的是突變整套，所以上限只針對它。
 
 **整套的上限（共用慣例 §5.7，2026-09-21）：距上次突變整套 **10 版**，或從未整套跑過的突變 **40 條**。**
@@ -199,8 +199,8 @@ Node 端：datatest 74、aliastest 30、unittest 72、edutest 13、copytest 7、
 摘要（日期、commit、範圍、條數、結果、耗時、沒紅的清單）照舊寫進本檔「上次突變整套」那一行與該次的章節，那是進版控的證據。
 
 每版跑什麼見工作慣例第 15 條；每版回報最後附 `npm run sincefull` 印的兩行（距上次全面檢測、距上次突變整套，各帶上次實測耗時；耗時欄位寫「無紀錄」就照實印「無紀錄」）。「幾條從未整套跑過」照名稱比對 `scripts/mutation-lastfull.json`（上次整套實際跑過的突變名稱；改名的算沒跑過），`--list` 列出名稱；`mutationtest` 不帶 `--only` 完整跑完時自動重寫它，分段補跑的由人確認後 `npm run sincefull -- --record-full`；它跟下面那一行的日期、版本、條數不一致 `doctest` 會紅。下面兩行是固定格式，`sincefull` 與 `doctest` 會讀，改格式會紅：
-上次全面檢測：2026-09-19、mealmate-v0.36.0、不是全綠（鏈 26 支全綠；突變 366 條 359 紅、7 條沒紅；`assertaudit` 12 項全過；`checkmutations` 0 過期）、總耗時 約 14,800 秒（約 4.1 小時，含一次逾時中斷與重跑）、最慢五支 layouttest 101.5、plannertest 75.9、weekviewtest 53.4、recipeviewtest 36.6、racetest 30.0 秒
-上次突變整套：2026-09-21、mealmate-v0.40.0、428 條、425 紅 3 條沒紅、耗時 約 16,600 秒（約 4.6 小時，一次跑完、沒設逾時；基準 `5d5c9eb`，在 repo 外的 git worktree 跑；log 沒有逐條計時，耗時照起訖時間推算）
+上次全面檢測：2026-09-24、mealmate-v0.41.0、不是全綠（鏈 26 支全綠；突變 442 條全部紅、0 條沒紅；`assertaudit` 12 項 11 過 1 紅——`selfcheck.mjs` 沒列進略過清單，已修；`checkmutations` 0 過期）、總耗時 約 18,165 秒（約 5.0 小時，一次跑完、沒設逾時；2026-09-23 23:50 開始、09-24 04:53 結束；基準 `2841ac1`）、最慢五支 plannertest 115、layouttest 103、weekviewtest 57、recipeviewtest 46、racetest 32 秒（versionmixtest 也是 32）
+上次突變整套：2026-09-24、mealmate-v0.41.0、442 條、442 紅 0 條沒紅、耗時 約 17,119 秒（約 4.8 小時，一次跑完、沒設逾時；基準 `2841ac1`，在 repo 外的 git worktree 跑；全面檢測的一部分，見「全面檢測（2026-09-24）」一節）
 （更早的一次：2026-09-13、`mealmate-v0.7.0`，全面檢測全綠、突變 105 條全綠，耗時無紀錄。）
 
 食譜現況：**248 道**（主菜 102、配菜 62、湯 37、早餐 41、主食 6）。
@@ -402,6 +402,19 @@ Yolin 2026-09-21：「麵筋如果蛋白質高也可以列入」（回答「麵�
      一併檢查 v0.41.0 新增的 7 條：只有 G2 帶數字（「G2 麵筋每份 10 克」）→ `G2 麵筋每份`；v0.39.0 的 H2、H3 同樣 → `H2 乾麵條每份`、`H3 麵筋每份`。
   2. 修完後的驗紅紀錄沒落檔 → 補在上面，v0.41.0 的在該節。
   改完用 `--only` 重驗那 6 條（兩條 layouttest、早餐、G2、H2、H3）：**6 條全部紅在改過的 `expect`**；`checkmutations` 0 過期。
+
+### 全面檢測（2026-09-24，Dispatch 2026-09-23 夜裡交辦；照 v7 §5.7）
+
+· **基準** `2841ac1`（`mealmate-v0.41.0`），在 repo 外的 git worktree 跑（系統暫存目錄；`node_modules`、`data/raw` 用 junction 接回主 repo），跑之前主工作區乾淨、本機＝遠端。
+  完整 log：主 repo 的 `.logs/2026-09-23_2841ac1_fullcheck.log`（日期是開跑那天；被 ignore、不進 repo）；log 開頭記開始時間與 commit，每一步記回傳值與秒數，結尾記總耗時。**不設逾時**，一次跑完。
+· **結果**：`checkmutations` 0 過期；**26 支全綠**（逐支計時，最慢五支見「上次全面檢測」那一行）；**突變整套 442 條全部紅、0 條沒紅**（17,119 秒）；**`assertaudit` 12 項 11 過 1 紅**。總耗時 18,165 秒。
+  09-21 那次沒紅的 3 條、09-23 新增的 14 條（輪替群組、expect 檢查等），這次全部紅在指定的斷言。
+· **`assertaudit` 那一項**：「每一支測試都有把斷言寫進來」把 `scripts/selfcheck.mjs` 當成測試——它是 v7 推送閘門的自查工具（2026-09-23 `f936202` 加進 repo），沒有斷言。
+  **根因**：`assertaudit` 用「`scripts/*.mjs` 扣掉略過清單」當測試的母體，新加的工具沒進略過清單就會紅；而 `assertaudit` 不在 `npm test` 裡，只有全面檢測才跑，所以那一版的 26 支全綠也看不到。
+  **同一件事第二次**：2026-09-19 `sincefull.mjs` 也是這樣漏的（略過清單的註解有寫）。修法照舊：把 `selfcheck.mjs` 加進略過清單（兩支 `.sh` 不是 `.mjs`，本來就不在母體）；修完在主 repo 重跑 `assertaudit` 12 項全過。
+  沒有刪任何斷言或突變。結構性的改法（例如母體改成 `package.json` 的測試鏈，或把 `assertaudit` 的這一項搬進 `doctest` 讓每版都跑到）留給 Yolin 決定，見回報。
+· **收尾**：新基準（2026-09-24、v0.41.0、442 條）搬回主 repo 的 `scripts/mutation-lastfull.json`；worktree 先還原被改寫的基準檔、只拆兩個 junction（主 repo 的 `node_modules` 102 項、`data/raw` 2 項拆前拆後一樣），再**不加 `--force`** 移除（回傳 0）。
+· 踩坑（監看用的指令，不在 repo）：數進度時用 `grep -cE '^  [✓✗] 【'`，這個環境的 grep 字元類不認多位元組字元，數到 0；改用 `(✓|✗)` 交替才對。拿來當「有沒有沒紅」的監看，會靜默失效——幸好監看用的是 `^  ✗ 【`（沒有字元類），實測有效。
 
 ### 共用慣例副本更新到 v7（2026-09-23，未 bump、不算一版；`docs/SPEC_共用慣例更新_v7.md`）
 
@@ -1735,7 +1748,8 @@ v0.11.0 明確放寬過前兩條，這是回歸。**實測查到的根因**（�
     · 以前這裡是一張「改到 X → 跑 Y」的人工對照表，2026-09-19 刪掉：它漏過一次（`data/units.json`，unittest 紅了一版沒被發現），而且到最後還有 datatest、doctest、redlinetest、scenariotest、pwatest 五支一列都沒被點到；全跑就沒有「漏」這回事。
     · **沒有放寬的那一條：新的斷言仍然必須經突變驗證會紅**（`npm run mutationtest -- --only <關鍵字>`）。
 16. **瀏覽器測試的點擊一律 `clickEl()`**（先捲到中央再點）；要量 toast 文字就等 `#toast.show`，要等它走就 `waitToastGone()`。
-17. **全面檢測怎麼跑**（Yolin 指定才跑；跑的期間不要編輯任何檔案）：`npm run checkmutations`（幾秒，先確認沒有過期的突變）→ `npm test`（26 支）→ `npm run assertaudit`（會跑完整套件並分析假斷言；2026-09-19 實測 433 秒）→ `npm run mutationtest`（整套；2026-09-19 對 v0.36.0 的 366 條實測約 3.8 小時，**不要設逾時**）。全部加起來約 4.1 小時。
+17. **全面檢測怎麼跑**（Yolin 指定才跑；跑的期間不要編輯任何檔案）：`npm run checkmutations`（幾秒，先確認沒有過期的突變）→ `npm test`（26 支）→ `npm run assertaudit`（會跑完整套件並分析假斷言；2026-09-24 實測 528 秒）→ `npm run mutationtest`（整套；2026-09-24 對 v0.41.0 的 442 條實測約 4.8 小時，**不要設逾時**）。全部加起來約 5.0 小時。
+    2026-09-24 的做法可以照抄：執行腳本放主 repo 的 `.logs/`（被 ignore），逐支計時、一支紅了也繼續跑，每一步寫 `RESULT|名稱|回傳值|秒數`；worktree 的 `node_modules`、`data/raw` 用 junction 接回主 repo，收的時候先只拆 junction（PowerShell `(Get-Item 路徑).Delete()`，不遞迴），再不加 `--force` 移除 worktree。
     跑完更新「測試現況」那兩行固定格式的紀錄（上次全面檢測：日期、版本、結果、總耗時、最慢五支秒數；上次突變整套：日期、版本、條數、結果、耗時）。**只跑 `--only` 子集永遠看不到過期的突變**，那是 M2 到 M5 之間漏掉一條的原因。
 19. **UI 產生的計畫是隨機 seed —— 需要「特定情境」的斷言不可以靠按鈕。**
     `js/views/week.js` 的「產生菜單」與「重新產生」都走 `newSeed: true`，seed 取自 `Date.now()`。

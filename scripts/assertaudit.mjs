@@ -27,7 +27,8 @@ const reuse = process.argv.includes('--reuse');
 const SKIP = new Set(['tap.mjs', 'browserlib.mjs', 'serve.mjs', 'srcscan.mjs', 'copyrules.mjs', 'checkmutations.mjs',
   'assertaudit.mjs', 'mutationtest.mjs',
   'build-foods.mjs', 'build-recipes.mjs', 'bump-version.mjs', 'findfood.mjs', 'make-icons.mjs', 'screenshots.mjs',
-  'sincefull.mjs']);  // sincefull 是提醒用的工具，沒有斷言（2026-09-19 修訂一加進 repo 時漏了，這一項從那時起就紅）
+  'sincefull.mjs',   // sincefull 是提醒用的工具，沒有斷言（2026-09-19 修訂一加進 repo 時漏了，這一項從那時起就紅）
+  'selfcheck.mjs']);  // 推送閘門的公開前自查（2026-09-23 v7 搬進 repo 時漏了；2026-09-24 全面檢測抓到——同一件事第二次）
 const testFiles = fs.readdirSync(path.join(ROOT, 'scripts'))
   .filter((f) => f.endsWith('.mjs') && !f.startsWith('.') && !SKIP.has(f))
   .sort();
