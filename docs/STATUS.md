@@ -8,7 +8,7 @@
 
 **現在正在做什麼：沒有。** 最後一版 `mealmate-v0.41.0`（2026-09-23）：麵腸、麵筋這類份量夠的高蛋白質食材有自己的蛋白質輪替群組 `highprotein`，判準搬到 `recipeschema.js` 只定義一次（見「高蛋白質食材的輪替群組（v0.41.0）」一節）。
 同一天之前還做了兩件 docs＋scripts 的收尾（都沒 bump、不算一版）：共用慣例副本更新到 **v5**，以及 **09-21 突變整套的收尾**（新基準、三條沒紅依根因處理、清掉 worktree，見「突變整套（2026-09-21）」一節）。
-個資普查已回報（2026-09-23），結果不進 repo。之後共用慣例副本更新到 **v6**（docs-only，見「共用慣例副本更新到 v6」一節）。之後補了 `checkmutations` 查 `expect`（抄 StockDiary，見「突變的 expect 都找得到（v6 §5.9）」一節），再把推送的閘門搬進 repo、副本更新到 **v7**（見「共用慣例副本更新到 v7」一節）。**推送一律 `bash scripts/pushgate.sh`。** 2026-09-24 凌晨跑了全面檢測（對 `2841ac1`／v0.41.0）：26 支全綠、突變 442 條全部紅、`assertaudit` 1 項紅（已修），見「全面檢測（2026-09-24）」一節。**下一件：共用慣例 v8 副本（統籌者寫工單中）。**
+個資普查已回報（2026-09-23），結果不進 repo。之後共用慣例副本更新到 **v6**（docs-only，見「共用慣例副本更新到 v6」一節）。之後補了 `checkmutations` 查 `expect`（抄 StockDiary，見「突變的 expect 都找得到（v6 §5.9）」一節），再把推送的閘門搬進 repo、副本更新到 **v7**（見「共用慣例副本更新到 v7」一節）。**推送一律 `bash scripts/pushgate.sh`。** 2026-09-24 凌晨跑了全面檢測（對 `2841ac1`／v0.41.0）：26 支全綠、突變 442 條全部紅、`assertaudit` 1 項紅（已修），見「全面檢測（2026-09-24）」一節。之後 `assertaudit` 的母體改成測試鏈（Yolin 選 A，見該節）。**下一件：`docs/SPEC_共用慣例更新_v8.md`（副本＋自查補洞，進行中）。**
 再前一版 `mealmate-v0.40.0`：補 6 道全素無五辛配菜＋3 道湯（前一個 commit）、補 2 道台式現成早餐（後一個 commit）。
 再前三版 `v0.39.0`：麵腸這類高蛋白質的食材也算蛋白質來源；`v0.38.0`：使用者自己的食譜裡加工品的葷素由他說了算＋本週頁「我的」小標；`v0.37.0`：嫩莢與豆芽歸蔬菜。
 v0.38.0 的「要真的點過一次素葷才算使用者的判斷」**Yolin 已核准**（2026-09-21，原話：「可以做此判斷，但要有提示」）—— 重點在**要有提示**，不能靜默擋下；現在那句訊息點名食材並講得出下一步，符合。
@@ -180,10 +180,10 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
 | 高蛋白質食材的輪替群組 `highprotein`（麵腸、麵筋；判準只定義一次） | ✅ 完成（2026-09-23） | `mealmate-v0.41.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 74、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 149、plannertest 513、shoppingtest 150、timelinetest 71、doctest 162；
+Node 端：datatest 74、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 149、plannertest 513、shoppingtest 150、timelinetest 71、doctest 169；
 瀏覽器端（puppeteer）：shelltest 161、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 197、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 115（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **442 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **447 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
 · **突變整套**＝`npm run mutationtest` 不帶 `--only` 跑完全部 442 條（每條都把對應的那一支測試整支跑一次）。**實測約 17,119 秒（約 4.8 小時）**，2026-09-24 對 v0.41.0 量的（09-21 的 428 條約 16,600 秒、09-19 的 366 條約 13,500 秒）。
@@ -402,6 +402,17 @@ Yolin 2026-09-21：「麵筋如果蛋白質高也可以列入」（回答「麵�
      一併檢查 v0.41.0 新增的 7 條：只有 G2 帶數字（「G2 麵筋每份 10 克」）→ `G2 麵筋每份`；v0.39.0 的 H2、H3 同樣 → `H2 乾麵條每份`、`H3 麵筋每份`。
   2. 修完後的驗紅紀錄沒落檔 → 補在上面，v0.41.0 的在該節。
   改完用 `--only` 重驗那 6 條（兩條 layouttest、早餐、G2、H2、H3）：**6 條全部紅在改過的 `expect`**；`checkmutations` 0 過期。
+
+### assertaudit 的母體改成測試鏈（2026-09-24，Yolin 選 A；未 bump、不算一版）
+
+· **為什麼**：`assertaudit` 以前把「`scripts/*.mjs` 扣掉略過清單」當測試的母體——預設所有東西都是測試、除非有人記得排除。新加的工具沒進略過清單就會紅，
+  而 `assertaudit` 只在全面檢測才跑，所以要好幾小時後才看得到：2026-09-19 `sincefull.mjs`、2026-09-24 `selfcheck.mjs` 各漏一次。同一個洞第二次，就不再用「下次記得」處理。
+· **改法**：母體改成 **package.json 的測試鏈**（`sincefull.auditTargets`／`testsInChain`）——只有登記過的才是測試，丟一支工具進 `scripts/` 不會被當成測試，不需要任何人記得任何事。略過清單整個拿掉。
+  舊做法有一個順帶的好處：新測試忘了登記進測試鏈，照樣會被掃到。改成登記制之後補一道「孤兒」：檔名是 `*test.mjs` 卻不在測試鏈的就紅（`orphanTests`）；`mutationtest` 刻意不在鏈裡，列為唯一例外並寫明理由（`CHAIN_EXEMPT`）。
+· **「這個檢查什麼時候會跑」**：母體與孤兒的斷言放在 `doctest`（T1–T3），**每一版都跑得到**，不必等全面檢測；`assertaudit` 自己也照新母體跑、多兩條（測試檔都存在、沒有孤兒）。
+· **測試**：doctest 162 → 169（T1 母體＝測試鏈 26 支且檔案都在；T2 scripts/ 底下的真實工具不被當成測試＋合成的「丟一支 newtool.mjs 進去」；T3 沒有孤兒＋對照組）。`assertaudit` 12 → 14 項，實跑全過。
+· **驗紅紀錄（2026-09-24，`--only`，5 條全部紅在指定的斷言）**：母體回到「scripts/ 底下有什麼就算什麼」→ T2 紅（**這一條就是「丟一支工具進 scripts/ 不會再讓它紅」的證明**）；
+  從真實入口在 `assertaudit` 硬塞一支工具進測試名單 → 「每一支測試都有把斷言寫進來」紅（那一項檢查本身沒壞）；測試鏈解析不出任何測試 → T1 紅；孤兒永遠抓不到 → T3 對照紅；拿掉 `mutationtest` 例外 → T3 紅。
 
 ### 全面檢測（2026-09-24，Dispatch 2026-09-23 夜裡交辦；照 v7 §5.7）
 

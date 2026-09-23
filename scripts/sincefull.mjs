@@ -132,6 +132,32 @@ export function chainExcludesMutation(pkg) {
   return !s.split('&&').some((seg) => /\bmutationtest\b/.test(seg));
 }
 
+/** package.json 測試鏈登記的測試，依序、不含副檔名（`node scripts/xxx.mjs && …`）。 */
+export function testsInChain(pkg) {
+  const s = pkg?.scripts?.test;
+  if (typeof s !== 'string') return [];
+  return [...s.matchAll(/node scripts\/([\w-]+)\.mjs/g)].map((m) => m[1]);
+}
+
+/**
+ * assertaudit 要掃哪些測試（2026-09-24 起）：**只認測試鏈登記過的**，不看 scripts/ 底下有什麼檔。
+ * 以前是「scripts/*.mjs 扣掉略過清單」——預設所有東西都是測試、除非有人記得排除，
+ * 新加的工具沒進略過清單就會紅（2026-09-19 sincefull.mjs、2026-09-24 selfcheck.mjs 各一次，都要等全面檢測才發現）。
+ * scriptFiles 只拿來確認登記的測試檔真的存在；不在裡面的照樣列出來，讓呼叫端的斷言喊出來。
+ */
+export function auditTargets(pkg, scriptFiles) {
+  void scriptFiles;
+  return testsInChain(pkg).map((n) => `${n}.mjs`);
+}
+
+/** 檔名像測試（*test.mjs）卻沒登記進測試鏈的——新測試忘了登記，npm test 不會跑、assertaudit 也不會掃。 */
+export const CHAIN_EXEMPT = new Set(['mutationtest']); // 刻意不在鏈裡：它會改寫原始碼、要跑幾小時（doctest D4）
+export function orphanTests(pkg, scriptFiles) {
+  const chain = new Set(testsInChain(pkg));
+  return scriptFiles.filter((f) => /test\.mjs$/.test(f)).map((f) => f.replace(/\.mjs$/, ''))
+    .filter((n) => !chain.has(n) && !CHAIN_EXEMPT.has(n));
+}
+
 export function mutationCount(root = ROOT) {
   return (fs.readFileSync(path.join(root, 'scripts/mutationtest.mjs'), 'utf8').match(/^ {4}name: /gm) ?? []).length;
 }

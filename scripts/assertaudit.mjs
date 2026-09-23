@@ -18,23 +18,23 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, note, everyOf } from './tap.mjs';
+import { auditTargets, orphanTests } from './sincefull.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const OUT = path.join(ROOT, 'assert-audit.jsonl');
 const reuse = process.argv.includes('--reuse');
 
-// 不跑的：自己、突變測試（它會改原始碼）、非測試工具
-const SKIP = new Set(['tap.mjs', 'browserlib.mjs', 'serve.mjs', 'srcscan.mjs', 'copyrules.mjs', 'checkmutations.mjs',
-  'assertaudit.mjs', 'mutationtest.mjs',
-  'build-foods.mjs', 'build-recipes.mjs', 'bump-version.mjs', 'findfood.mjs', 'make-icons.mjs', 'screenshots.mjs',
-  'sincefull.mjs',   // sincefull 是提醒用的工具，沒有斷言（2026-09-19 修訂一加進 repo 時漏了，這一項從那時起就紅）
-  'selfcheck.mjs']);  // 推送閘門的公開前自查（2026-09-23 v7 搬進 repo 時漏了；2026-09-24 全面檢測抓到——同一件事第二次）
-const testFiles = fs.readdirSync(path.join(ROOT, 'scripts'))
-  .filter((f) => f.endsWith('.mjs') && !f.startsWith('.') && !SKIP.has(f))
-  .sort();
+// 掃哪些測試：**只認 package.json 測試鏈登記過的**（sincefull.auditTargets）。
+// 以前是「scripts/*.mjs 扣掉略過清單」，新加的工具沒進略過清單就會紅——2026-09-19 sincefull.mjs、2026-09-24 selfcheck.mjs 各一次。
+// 改成登記制之後，丟一個工具進 scripts/ 不會被當成測試；新測試忘了登記的，由下面的「孤兒」那一條擋。
+const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const scriptFiles = fs.readdirSync(path.join(ROOT, 'scripts')).filter((f) => !f.startsWith('.'));
+const testFiles = auditTargets(pkg, scriptFiles);
 
 section('前置：把每條斷言與它的母體大小記下來');
-ok(testFiles.length >= 20, `${testFiles.length} 支測試要掃：${testFiles.map((f) => f.replace('.mjs', '')).join('、')}`);
+ok(testFiles.length >= 20, `${testFiles.length} 支測試要掃（package.json 測試鏈）：${testFiles.map((f) => f.replace('.mjs', '')).join('、')}`);
+everyOf(testFiles, (f) => scriptFiles.includes(f), '測試鏈登記的每一支測試檔都存在');
+eq(orphanTests(pkg, scriptFiles), [], '沒有「檔名像測試、卻沒登記進測試鏈」的孤兒（mutationtest 刻意不在鏈裡，除外）');
 if (!reuse) {
   fs.rmSync(OUT, { force: true });
   for (const f of testFiles) {

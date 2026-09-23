@@ -20,7 +20,7 @@ import { DEFAULT_RULES } from '../js/planner.js';
 import { MEAL_ROLES, VEG_MIN_DISHES } from '../js/planner.js';
 import { STORE_NAMES } from '../js/db.js';
 import { NUTRIENT_ORDER } from '../js/foods.js';
-import { parseCheckLines, chainExcludesMutation, reminderLines, mutationNames, neverRunNames, lastFullMatchesStatus, lastFullProblems, shouldRecordFull, writeLastFull, FULL_LIMITS, overLimitLine } from './sincefull.mjs';
+import { parseCheckLines, chainExcludesMutation, reminderLines, mutationNames, neverRunNames, lastFullMatchesStatus, lastFullProblems, shouldRecordFull, writeLastFull, FULL_LIMITS, overLimitLine, auditTargets, orphanTests } from './sincefull.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -375,6 +375,30 @@ section('突變的 expect 都找得到（A2；共用慣例 v6 §5.9，2026-09-23
   const good = "{ name: 'g', file: 'target.txt', find: 'alpha', replace: 'omega', test: 'faketest', expect: 'A2 假的斷言訊息' },";
   const badExpect = "{ name: 'b', file: 'target.txt', find: 'alpha', replace: 'omega', test: 'faketest', expect: 'A2 打錯的訊息' },";
   eq([runIn(good), runIn(badExpect)], [0, 1], 'A4 checkmutations 的回傳值：乾淨 → 0；有一條 expect 找不到 → 非 0');
+}
+
+section('assertaudit 的母體＝測試鏈（2026-09-24，Yolin 選 A）：丟一個工具進 scripts/ 不會被當成測試');
+{
+  // 以前是「scripts/*.mjs 扣掉略過清單」：新工具沒進略過清單就紅，而 assertaudit 只在全面檢測才跑——
+  // 2026-09-19 sincefull.mjs、2026-09-24 selfcheck.mjs 各漏一次。這一段在 doctest 裡，每一版都跑得到。
+  const scriptFiles = fs.readdirSync(path.join(ROOT, 'scripts')).filter((f) => !f.startsWith('.'));
+  const targets = auditTargets(pkg, scriptFiles);
+  eq(targets.length, 26, `T1 assertaudit 要掃的＝測試鏈的 ${targets.length} 支（package.json）`);
+  everyOf(targets, (f) => scriptFiles.includes(f), 'T1 測試鏈登記的每一支測試檔都存在');
+  // 新行為：scripts/ 底下真的有的工具，不會被當成測試
+  const TOOLS = ['selfcheck.mjs', 'sincefull.mjs', 'checkmutations.mjs', 'build-recipes.mjs'];
+  ok(TOOLS.every((f) => scriptFiles.includes(f)), `（前提）這幾支工具真的在 scripts/ 底下：${TOOLS.join('、')}`);
+  noneOf(TOOLS, (f) => targets.includes(f), 'T2 scripts/ 底下的工具不會被 assertaudit 當成測試');
+  // 合成的：往 scripts/ 丟一支新工具——它不會變成要掃的測試
+  const fakePkg = { scripts: { test: 'node scripts/alphatest.mjs && node scripts/betatest.mjs' } };
+  eq(auditTargets(fakePkg, ['alphatest.mjs', 'betatest.mjs', 'newtool.mjs']), ['alphatest.mjs', 'betatest.mjs'],
+    'T2（合成）丟一支 newtool.mjs 進 scripts/ → 要掃的仍然只有測試鏈那兩支');
+  // 孤兒：檔名像測試、卻沒登記進測試鏈（新測試忘了登記，npm test 不會跑）
+  eq(orphanTests(pkg, scriptFiles), [], 'T3 沒有孤兒測試（mutationtest 刻意不在鏈裡，除外）');
+  detects((files) => orphanTests(fakePkg, files).length > 0, {
+    shouldHit: [['alphatest.mjs', 'gammatest.mjs'], ['betatest.mjs', 'deltatest.mjs', 'newtool.mjs']],
+    shouldMiss: [['alphatest.mjs', 'betatest.mjs'], ['alphatest.mjs', 'newtool.mjs'], ['mutationtest.mjs', 'betatest.mjs']],
+  }, 'T3（對照）沒登記的 *test.mjs 抓得到；工具與 mutationtest 不算孤兒');
 }
 
 done('doctest');
