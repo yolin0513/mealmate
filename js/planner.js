@@ -14,7 +14,7 @@ import { estimate } from './nutrition.js';
 import { versionFor, watchFields, DIET_LABELS } from './members.js';
 import { shelfDaysFor } from './units.js';
 import { NUTRIENT_LABELS, foodFamilies, displayNameOf } from './foods.js';
-import { ROLE_LABELS, METHOD_LABELS, proteinGroupOf, tagsOfFood } from './recipeschema.js';
+import { ROLE_LABELS, METHOD_LABELS, proteinGroupOf, isHighProteinFood, HIGH_PROTEIN_PER_100G, HIGH_PROTEIN_PER_SERVING, HIGH_PROTEIN_EXCLUDED_CATS } from './recipeschema.js';
 
 export const MEALS = ['breakfast', 'lunch', 'dinner'];
 export const MEAL_LABELS = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐' };
@@ -147,14 +147,9 @@ export const VEG_PROTEIN_LABEL = '蛋、豆製品或奶類';
 export const VEG_PROTEIN_VEG_GRAMS = 4;
 /**
  * 高蛋白質的食材（麵腸、麵筋、素肉這一類）份量夠也算達標（Yolin 2026-09-21：「麵腸等高蛋白質食材也算」）。
- * 是通則、不是名稱清單：看**每 100 克的含量**與**每份吃到幾克**，兩個都要過。
- * 14：乾麵條 11.6、麵線 11.7 之上留 2.4 的距離（主食不能因為這條路達標）；冷凍素雞塊 14.2 在裡面。
+ * 判準（兩個常數、排除的類別）2026-09-23 搬到 recipeschema.js，那邊的蛋白質輪替群組 highprotein 用同一個；這裡重新匯出，舊的引用照舊能用。
  */
-export const HIGH_PROTEIN_PER_100G = 14;
-/** 6：約等於 40 克豆干或半顆蛋以上。擋掉「只放幾克乾香菇」那種靠含量高、份量極少的食材。 */
-export const HIGH_PROTEIN_PER_SERVING = 6;
-/** 這兩類不走高蛋白那條路：小麥胚芽 31.4、薏仁 14.1 這些含量夠，但它們是主食，不是「那一餐的蛋白質來源」。 */
-export const HIGH_PROTEIN_EXCLUDED_CATS = new Set(['穀物類', '澱粉類']);
+export { HIGH_PROTEIN_PER_100G, HIGH_PROTEIN_PER_SERVING, HIGH_PROTEIN_EXCLUDED_CATS };
 /**
  * 這道菜的這個版本靠哪一樣算達標：'egg' | 'dairy' | 'soy' | 'vegprotein' | 'highprotein'，都不是回 null。
  * 蛋、奶、豆製品看份量（每人 ≥ VEG_PROTEIN_MIN_GRAMS 克這樣食材）；蔬菜類看每份吃到的蛋白質（≥ VEG_PROTEIN_VEG_GRAMS 克）；
@@ -164,15 +159,8 @@ export const HIGH_PROTEIN_EXCLUDED_CATS = new Set(['穀物類', '澱粉類']);
 export function proteinDishKind(recipe, version, idx) {
   return proteinDishMatch(recipe, version, idx)?.kind ?? null;
 }
-/** 高蛋白質那條路（2026-09-21）：一樣食材每 100 克 ≥ 14 克、這道菜每份從它吃到 ≥ 6 克 → 達標。 */
-function highProteinFood(f, perServing, foodTags) {
-  const protein = f.n?.protein;
-  if (typeof protein !== 'number') return false;                       // 沒有資料的不算（不當 0、也不當達標）
-  if (HIGH_PROTEIN_EXCLUDED_CATS.has(f.cat)) return false;
-  const tags = tagsOfFood(f, foodTags);
-  if (tags.has('meat') || tags.has('seafood')) return false;           // 香腸、培根：素食成員本來就吃不到，別讓葷菜靠這條路達標
-  return protein >= HIGH_PROTEIN_PER_100G && perServing * protein / 100 >= HIGH_PROTEIN_PER_SERVING;
-}
+/** 高蛋白質那條路（2026-09-21）：一樣食材每 100 克 ≥ 14 克、這道菜每份從它吃到 ≥ 6 克 → 達標。判準在 recipeschema.isHighProteinFood。 */
+const highProteinFood = isHighProteinFood;
 /** 同 proteinDishKind，另外回是哪一樣食材讓它達標：{ kind, food } 或 null（理由句要點名那樣食材）。 */
 export function proteinDishMatch(recipe, version, idx) {
   if (!recipe || !idx) return null;
@@ -265,7 +253,7 @@ const RED_MEAT = new Set(['beef', 'pork', 'lamb']);
 /** 本週頁與家人頁都會帶的那句話（使用者要求保留）。 */
 export const BALANCE_NOTE = '這是一般飲食常識的安排，不是營養處方。';
 export const HEARTY_HINT = '燉肉、油炸、重口味這類比較豐盛的主菜，一週排幾道；排了豐盛的菜，前後幾餐會傾向清淡一點。只影響排菜的先後，不會把菜拿掉。';
-const PROTEIN_LABELS = { pork: '豬', chicken: '雞', beef: '牛', lamb: '羊', duck: '鴨鵝', meat: '肉', fish: '魚', shellfish: '蝦蟹貝', egg: '蛋', soy: '豆製品' };
+const PROTEIN_LABELS = { pork: '豬', chicken: '雞', beef: '牛', lamb: '羊', duck: '鴨鵝', meat: '肉', fish: '魚', shellfish: '蝦蟹貝', egg: '蛋', soy: '豆製品', highprotein: '高蛋白素料' };
 
 // ---------- 日期（一律本地日期字串，不用 toISOString，避免時區差一天） ----------
 const pad2 = (n) => String(n).padStart(2, '0');

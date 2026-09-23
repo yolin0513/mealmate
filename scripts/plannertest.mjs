@@ -31,6 +31,8 @@ import {
   HIGH_PROTEIN_PER_100G, HIGH_PROTEIN_PER_SERVING, HIGH_PROTEIN_EXCLUDED_CATS,
 } from '../js/planner.js';
 import { displayNameOf } from '../js/foods.js';
+import { validateRecipe } from '../js/recipeschema.js';
+import { resolveFood } from '../js/foods.js';
 import { versionFor as vFor } from '../js/members.js';
 import { FORBIDDEN } from './copyrules.mjs';
 import { shelfDaysFor } from '../js/units.js';
@@ -772,6 +774,41 @@ section('素食成員每餐一道蛋、豆製品或奶類的菜（2026-09-18 Yol
       const rsH = scoreSoft(mienChang, { role: 'side', meal: 'dinner', date: '2026-09-16', day: 2 }, ctxH, stH, () => 0).reasons;
       ok(rsH.some((t) => t.includes('妹這一餐吃得到份量夠的麵腸')), `H9 理由句點名麵腸：${rsH.find((t) => t.includes('妹這一餐')) ?? rsH.join('｜')}`);
       noneOf(rsH, (t) => t.includes('豆製品'), 'H9 靠麵腸達標時，理由句不說它是「豆製品」的菜');
+    }
+    // ---- 2026-09-23 高蛋白質食材的輪替群組（SPEC_高蛋白食材的輪替群組 G5、G6）----
+    // 食譜當場用 validateRecipe 驗（不讀已經建好的 recipes.json）：群組是驗證器推出來的，這樣改到它才看得到
+    const rctx = { resolve: (t) => resolveFood(t, idx), foodTags };
+    const rawMien = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/recipes/r-braised-mien-chang.json'), 'utf8'));
+    // G5 蛋白質輪替：當天另一餐已經有 highprotein → 麵腸主菜少 25 分；已經有的是豆腐（soy）→ 不扣
+    {
+      const mienMain = validateRecipe(rawMien, rctx).recipe;
+      ok(mienMain.role === 'main' && mienMain.proteins.includes('highprotein'), `（前提）紅燒麵腸是主菜、群組 ${JSON.stringify(mienMain.proteins)}`);
+      const ctxG = buildContext({ recipes, members: [], idx, units });
+      const stubG = (dayP) => ({ slotItems: [], placedWant: new Set(), lastServed: () => null, timesServedWithin: () => 0, dayProteins: () => new Set(dayP), prevDayMealProteins: () => new Set(), fishCount: () => 0, rangeHas: () => false, balance: { load: 0, count: 0, fried: 0, processed: 0, redMeat: 0 }, heartySlot: () => null, heartyMealsOn: () => [], sodiumHighYesterday: () => false, starCount: () => 0, dayRecipes: () => new Set() });
+      const slotG = { role: 'main', meal: 'dinner', date: '2026-09-16', day: 2 };
+      const g = (dayP) => scoreSoft(mienMain, slotG, ctxG, stubG(dayP), () => 0);
+      const none = g([]); const same = g(['highprotein']); const tofuDay = g(['soy']);
+      eq(Math.round(none.score - same.score), 25, 'G5 當天另一餐已經有麵腸這類 → 麵腸主菜少 25 分');
+      ok(same.reasons.some((t) => t.includes('高蛋白素料') && t.includes('今天另一餐也是')), `G5 理由句講得出來：${same.reasons.find((t) => t.startsWith('蛋白質來源')) ?? same.reasons.join('｜')}`);
+      eq(Math.round(none.score - tofuDay.score), 0, 'G5（對照）當天另一餐是豆腐（soy）→ 麵腸主菜不扣分（麵腸是小麥、豆腐是黃豆，不是同一種）');
+    }
+    // G6 判準只有一份：排菜器的「達標」與驗證器的「群組」，對同一批假菜（含邊界值）結論一致
+    {
+      const CAT = '加工調理食品及其他類';
+      const fk = (id, protein) => ({ id, name: `假食材${id}`, cat: CAT, state: '', aliases: [], unitWeight: null, n: { protein } });
+      const foodsG6 = [fk('X1390', 13.9), fk('X1400', 14), fk('X2000', 20)];
+      const idxG6 = { byId: new Map(foodsG6.map((f) => [f.id, f])), foodTags: {} };
+      const ctxG6 = { resolve: (t) => idxG6.byId.get(t) ?? null, foodTags: {} };
+      // 1 人份、只有這一樣食材：每份蛋白質＝克數 × 含量 / 100
+      const dishG6 = (food, grams) => ({ ...rawMien, id: 'r-fake-g6', servings: 1, ingredients: [{ food, label: 'x', grams, track: 'base' }] });
+      const cases = [['每 100 克 13.9', 'X1390', 100, false], ['每 100 克 14', 'X1400', 100, true], ['每份 5.9 克', 'X2000', 29.5, false], ['每份 6 克', 'X2000', 30, true]];
+      const rows = cases.map(([label, food, grams, want]) => ({
+        label, want,
+        planner: proteinDishKind(dishG6(food, grams), 'all', idxG6) === 'highprotein',
+        schema: validateRecipe(dishG6(food, grams), ctxG6).recipe.proteins.includes('highprotein'),
+      }));
+      eq(rows.map((r) => r.planner), cases.map((c) => c[3]), `G6（對照）排菜器對邊界值的判定：${rows.map((r) => `${r.label}→${r.planner}`).join('、')}`);
+      eq(rows.map((r) => r.schema), rows.map((r) => r.planner), `G6 驗證器的群組跟排菜器的達標結論一致：${rows.map((r) => `${r.label}→${r.schema}`).join('、')}`);
     }
   }
 

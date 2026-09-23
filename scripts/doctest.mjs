@@ -278,7 +278,12 @@ ok(STATUS.includes('含 regex 的測試碼一律用 Write 工具直接寫檔'), 
 ok(fs.existsSync(path.join(ROOT, 'scripts/assertaudit.mjs')), '有一支會掃雙反斜線的健檢（assertaudit）');
 ok(STATUS.includes('每條斷言都要能用突變測試證明它真的會紅'), '（文件）慣例 4：每條斷言要有突變證明');
 ok(fs.existsSync(path.join(ROOT, 'scripts/checkmutations.mjs')), '有一支會檢查突變是否過期的工具（checkmutations）');
-ok(STATUS.includes('不動 `D:\\Claude\\App\\TripQuest`') || STATUS.includes('不動 `D:\\Claude\\App\\TripQuest`'), '（文件）慣例 13：不動其他專案');
+// 2026-09-23 起路徑改寫成相對的（共用慣例 v5 §2.4：本機絕對路徑不進 repo），所以比語意、不比字面：
+// 工作慣例第 13 條那一行要講「不動」，而且三個其他 App 都點到名
+{
+  const rule13 = STATUS.split('\n').find((l) => /^13\. /.test(l) && l.includes('不動')) ?? '';
+  ok(['TripQuest', 'JLPT_App', 'StockDiary'].every((a) => rule13.includes(`../${a}`)), `（文件）慣例 13：不動其他專案（${rule13.slice(0, 40)}…）`);
+}
 
 section('PLAN 對齊（2026-09-13 全面檢測抓到五處漂開，逐條補守）');
 // 這五條在檢測前都是綠的 —— 因為根本沒有人守。文件漂開是靜默的：

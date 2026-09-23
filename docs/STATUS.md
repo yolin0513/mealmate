@@ -1,20 +1,18 @@
 # MealMate 專案狀態（docs/STATUS.md）
 
-> 最後更新：2026-09-21（全素無五辛配菜＋台式現成早餐；v0.40.0）。線上版本 **`mealmate-v0.40.0`**。
+> 最後更新：2026-09-23（高蛋白質食材的輪替群組；v0.41.0）。線上版本 **`mealmate-v0.41.0`**。
 > repo `yolin0513/mealmate`，GitHub Pages `https://yolin0513.github.io/mealmate/`。
 > 給接手的工作階段快速接手用。規劃細節見 `PLAN.md`（唯一真相來源），實測見 `FEASIBILITY.md`，資料與衛教來源見 `SOURCES.md`。
 
 ## 目前進行中／交接（2026-09-23，寫給下一個 Session）
 
-**現在正在做什麼：沒有。** 2026-09-23 做了兩件 docs＋scripts 的收尾（都沒 bump、不算一版）：
-共用慣例副本更新到 **v5**（見「共用慣例副本更新到 v5」一節），以及 **09-21 突變整套的收尾**（新基準搬回 `scripts/mutation-lastfull.json`、三條沒紅的處理、清掉 worktree，見「突變整套（2026-09-21）」一節）。
-**下一件：`docs/SPEC_高蛋白食材的輪替群組.md`**（Dispatch 2026-09-23：整套收尾做完才轉交，建議 effort medium）。
-工作區裡另有一份未追蹤的 `docs/SPEC_個資普查.md`，2026-09-23 做收尾時出現、不是本 Session 建的，**沒有人交辦，不動**。
-最後一版 `mealmate-v0.40.0`：補 6 道全素無五辛配菜＋3 道湯（前一個 commit）、補 2 道台式現成早餐（後一個 commit）。
+**現在正在做什麼：沒有。** 最後一版 `mealmate-v0.41.0`（2026-09-23）：麵腸、麵筋這類份量夠的高蛋白質食材有自己的蛋白質輪替群組 `highprotein`，判準搬到 `recipeschema.js` 只定義一次（見「高蛋白質食材的輪替群組（v0.41.0）」一節）。
+同一天之前還做了兩件 docs＋scripts 的收尾（都沒 bump、不算一版）：共用慣例副本更新到 **v5**，以及 **09-21 突變整套的收尾**（新基準、三條沒紅依根因處理、清掉 worktree，見「突變整套（2026-09-21）」一節）。
+**下一件：`docs/SPEC_個資普查.md`**（統籌者放的、已依 Yolin 判定改到第三版；Dispatch 2026-09-23 說輪替群組做完後再正式發——**沒收到交辦前不動**）。
+再前一版 `mealmate-v0.40.0`：補 6 道全素無五辛配菜＋3 道湯（前一個 commit）、補 2 道台式現成早餐（後一個 commit）。
 再前三版 `v0.39.0`：麵腸這類高蛋白質的食材也算蛋白質來源；`v0.38.0`：使用者自己的食譜裡加工品的葷素由他說了算＋本週頁「我的」小標；`v0.37.0`：嫩莢與豆芽歸蔬菜。
 v0.38.0 的「要真的點過一次素葷才算使用者的判斷」**Yolin 已核准**（2026-09-21，原話：「可以做此判斷，但要有提示」）—— 重點在**要有提示**，不能靜默擋下；現在那句訊息點名食材並講得出下一步，符合。
 之後做了共用慣例副本更新到 **v3**（`docs/SPEC_共用慣例更新_v3.md`，未 bump、不算一版）：副本整份覆寫、STATUS 寫明整套的上限、`sincefull` 超過上限多印一行、`doctest` D6。
-突變整套已在 2026-09-21 對 v0.40.0 跑完（428 條、425 紅、3 條沒紅），2026-09-23 收尾完。`docs/SPEC_高蛋白食材的輪替群組.md` 是針對 v0.39.0 回報的「紅燒麵腸沒有輪替群組」。
 （v0.40.0 順手做掉了：目標是 `data/recipes/` 的 6 條突變補上 `expect` —— 那一類 21 條現在全部都帶了。）
 （`docs/SPEC_sincefull_按名稱計數.md` 與「依賴排菜結果的舊突變重跑一輪」都已做完，結果見「全面檢測（2026-09-19）」一節。）
 之後做了測試範圍的調整（docs＋scripts、不算一版，`docs/SPEC_測試範圍.md`＋`docs/SPEC_測試範圍_修訂一.md`）：**MealMate 不做受影響測試挑選器，每版照舊跑完 26 支**；`mutationtest` 拆出 `npm test`；全面檢測留兩行紀錄；每版回報加兩行提醒（`npm run sincefull`）。見下面「測試範圍」一節。
@@ -84,7 +82,7 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
 
 下面是 Yolin 口頭交代過、或開發途中踩到才定下來的規則。「工作慣例」一節是原本的清單，這裡是補的；兩邊衝突以這裡為準。
 
-1. **跨專案唯讀**：`D:\Claude\App\TripQuest`、`D:\Claude\App\JLPT_App`、`D:\Claude\App\StockDiary` 的任何檔案都**不改**，可以讀來抄慣例。（工作慣例第 1 條原本寫「動到其他專案才要問」，Yolin 後來明講是唯讀。）
+1. **跨專案唯讀**：同一層的其他 App（`../TripQuest`、`../JLPT_App`、`../StockDiary`）的任何檔案都**不改**，可以讀來抄慣例。（工作慣例第 1 條原本寫「動到其他專案才要問」，Yolin 後來明講是唯讀。）
 2. **不准用 AskUserQuestion 或任何互動式提示框**。Yolin 常從手機看，提示框點不到會卡死。需要決定的事：純文字列選項＋建議，停下來等（常經由 Dispatch 轉達）。
 3. **全程繁體中文**，含思考／判斷過程的敘述。程式碼、變數名、檔名、專有名詞維持原樣。
 4. **已預先授權** commit／push／部署，不必逐次請示；commit 訊息結尾加當下系統給的 `Co-Authored-By` 署名行（模型名照系統給的，不要自己寫死）。
@@ -111,6 +109,11 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
     推翻只拿掉 `meat`／`seafood` 兩個標籤，蛋、奶、五辛、過敏原照常生效。內建食譜的葷素是資料、不是判斷，不給推翻。
     **表單的預設值不算使用者的判斷**：新增食譜的「素葷」預設是「素」，所以要 `vegModeConfirmed`（他真的點過一次）才算數 —— 同 v0.18.0 對查不到的食材的做法。
 15. **拿掉任何 `export` 前想一下版本混搭**：手機上可能還有十分鐘前的舊 view（帶 `?v=` 的）去 import 新的無版本模組。舊 view 在 link 階段就死，只能靠 `router.setRenderError` 的「這一頁畫不出來」卡救（v0.28.0 加的）。新增 export 則是反方向的風險（新 view 配到快取裡的舊模組），同一張卡接得到。
+16. **「某樣食材算不算○○」：看含量，不看名稱或分類。**（Yolin 的一貫原則，三次同一個邏輯：豆芽 2026-09-19「如果他們的蛋白質含量很高也可以排菜」、麵腸 09-21「麵腸等高蛋白質食材也算」、麵筋 09-21「麵筋如果蛋白質高也可以列入」；統籌者 2026-09-21 整理成通則）
+    往後遇到同類問題，先問能不能用含量訂門檻，不要用名稱清單，也不必再逐案問。同一個事實只定義一次（例：高蛋白質食材的判準只在 `recipeschema.isHighProteinFood`，達標與輪替群組都引用它）。
+17. **突變的 `expect` 會跟斷言訊息漂移。**（2026-09-23，09-21 突變整套 3 條沒紅裡有 2 條是這個：v0.40.0 改了斷言訊息，`expect` 沒跟上，斷言其實有紅、只是「紅錯地方」）
+    改任何斷言的訊息文字時，一起搜 `scripts/mutationtest.mjs` 裡含舊文字的 `expect`；`expect` 盡量寫**不帶會變動數字的前綴**（例：「H8 靠高蛋白質食材達標的內建食譜恰好是」，不寫道數）。
+    `checkmutations` 只查 `find` 還在不在，**看不到 `expect` 過期**——只有整套或 `--only` 真的跑那一條才會發現。候選通則，已請 Dispatch 轉統籌者列 v6 候選。
 
 ## 進度
 
@@ -163,12 +166,13 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
 | 全面檢測的七條沒紅突變：3 條補固定情境、2 條改走真實路徑、2 條刪（等價突變、`ing.query` 死碼） | ✅ 完成（2026-09-19） | `mealmate-v0.36.1` |
 | 嫩莢與豆芽歸蔬菜；素食成員那一餐的達標改看每份蛋白質（蔬菜 ≥ 4 克） | ✅ 完成（2026-09-19） | `mealmate-v0.37.0` |
 | 測試範圍：不做挑選器、每版照舊全跑；`mutationtest` 拆出 `npm test`；全面檢測兩行紀錄；`npm run sincefull` 提醒 | ✅ 完成（2026-09-19） | 未 bump（只動 scripts 與文件） |
+| 高蛋白質食材的輪替群組 `highprotein`（麵腸、麵筋；判準只定義一次） | ✅ 完成（2026-09-23） | `mealmate-v0.41.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 74、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 180、membertest 127、nutritiontest 149、plannertest 501、shoppingtest 150、timelinetest 71、doctest 155；
+Node 端：datatest 74、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 149、plannertest 513、shoppingtest 150、timelinetest 71、doctest 156；
 瀏覽器端（puppeteer）：shelltest 161、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 197、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 115（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **429 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-21 對 `mealmate-v0.40.0` 跑（428 條：425 紅、3 條沒紅，見「突變整套（2026-09-21）」一節）**；再前一次是 2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **436 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-21 對 `mealmate-v0.40.0` 跑（428 條：425 紅、3 條沒紅，見「突變整套（2026-09-21）」一節）**；再前一次是 2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
 · **突變整套**＝`npm run mutationtest` 不帶 `--only` 跑完全部 428 條（每條都把對應的那一支測試整支跑一次）。**實測約 16,600 秒（約 4.6 小時）**，2026-09-21 對 v0.40.0 量的（2026-09-19 對 v0.36.0 的 366 條是約 13,500 秒）。
@@ -335,8 +339,28 @@ Node 端：datatest 74、aliastest 30、unittest 72、edutest 13、copytest 7、
 突變 404→**414**（新增 10 條，全部帶 `expect`）；另有 1 條舊的（「靠黃豆芽達標時理由句也說是豆製品的菜」）因為條件多了一個分支更新 `find` 與 `expect`，重跑仍紅。
 `assertaudit` 12 項全過（往後只要新增 `scripts/` 底下的檔就當版跑，Dispatch 2026-09-21 定的）；`checkmutations` 0 過期。
 
-**待決（記在這裡，這一版不做）**：紅燒麵腸在**蛋白質輪替**上沒有群組（`proteinGroupOf` 不回 `soy`，這一版照規格沒動它），
-所以它不會跟豆腐、豆干互斥 —— 同一天排了紅燒麵腸又排豆腐，輪替那條規則不會攔。要不要給麵筋類一個群組，等統籌者決定。
+**（已處理，v0.41.0）**：當時記的待決是「紅燒麵腸在蛋白質輪替上沒有群組」。統籌者同一天稍早判過「不給群組」，後來被 Yolin 推翻（「麵筋如果蛋白質高也可以列入」）；
+v0.41.0 給了自己的群組 `highprotein`（跟 `soy` 分開，所以跟豆腐、豆干**不**互斥——那是刻意的），見「高蛋白質食材的輪替群組（v0.41.0）」一節。
+
+### 高蛋白質食材的輪替群組（2026-09-23，v0.41.0；`docs/SPEC_高蛋白食材的輪替群組.md`）
+
+Yolin 2026-09-21：「麵筋如果蛋白質高也可以列入」（回答「麵腸、麵筋要不要有蛋白質輪替群組」；推翻統籌者同一天稍早的「不給群組」）。設計原則見「常設規則補遺」第 16 條：看含量，不看名稱。
+· **R1**：`validateRecipe` 逐樣食材：沒有既有群組（`proteinGroupOf` 回 null）、而且符合高蛋白判準 → 群組 `highprotein`（也照欄位寫進 `vegProteins`／`meatProteins`）。
+  份數照 `proteinDishMatch` 的取法：共用那一欄除以 `servings`，素／葷那一欄除以各自的份數。常備品、沒填克數的不算。
+· **R2 判準只定義一次**：兩個常數、排除類別、判斷函式搬到 `recipeschema.js`（`isHighProteinFood`，一字不改搬過去），`planner.js` 引用並重新匯出三個常數，`highProteinFood` 名稱保留。
+  既有 5 條突變的 `find` 一字不變、只改 `file`。標籤看資料庫（`foodTags`），不看使用者自己食譜裡的葷素推翻——跟排菜器的達標判定一致。
+· **R3** `PROTEIN_LABELS.highprotein = '高蛋白素料'`，理由句「蛋白質來源：高蛋白素料（今天另一餐也是）」。
+· **R4 重建後實際變動**：只有 **紅燒麵腸**（主菜）、**麵腸炒青椒**（配菜）兩道的 `proteins` 從 `[]` 變成 `["highprotein"]`，其他欄位與其他 246 道一個都沒變。內建食譜裡沒有用麵筋的菜。
+  離門檻最近的沒進群組的：乾香菇每份最多 5.2 克（白蘿蔔燉香菇）、切片乾酪每份最多 5.5 克（起司焗烤馬鈴薯蛋）——乾酪（乳品類）沒有既有群組，哪天有一道每份 ≥ 6 克的起司菜，它會進 `highprotein`、理由句寫「高蛋白素料」。記在這裡，現在沒有這種菜。
+· **R5**：使用者自己的食譜走同一段，下次編輯存檔才重算，不做遷移。
+· **測試（G1–G7）**：recipetest 207 → 224（G1、G1b 可分流按各欄份數、G2、G3、G4 與前置）；plannertest 507 → 513（G5 直接比 `scoreSoft`、G6 邊界值 13.9／14、5.9／6，兩邊結論一致）。
+  新突變 7 條（R1 拿掉、只看每 100 克、沒有每份門檻、不檢查既有群組、份數不分欄、併進 soy、自己一份門檻），都帶 `expect`、都紅在指定的斷言；
+  v0.39.0 的 H1–H9 那 8 條照舊紅在指定的斷言（G7）。G5 的前置斷言另外手動突變驗紅（R1 拿掉 → 前提紅）。
+  G5、G6 的假菜當場用 `validateRecipe` 驗（plannertest 讀的是已經建好的 `recipes.json`，驗證器的突變看不到）。
+· 順手：`doctest` 的「慣例 13：不動其他專案」原本逐字比對磁碟機開頭的路徑，路徑改成相對之後改成比語意（第 13 條那一行講「不動」、點到三個 App），手動突變驗紅。
+· **R6**：`plannertest` 三種家庭的「沒有蛋豆奶的餐」、「主角三天內 ≥ 4 次」、豆製品每天幾道／同一樣豆製品三天內 3 次，**改動前後逐行完全相同**，門檻不動。
+  另外量了會受影響的指標（24 週 × 全家全素／有全素，改動前用記憶體裡拿掉 `highprotein` 模擬）：同一天排到兩道麵腸菜 0 → 0 天——既有的「主角食材三天內不要太常出現」本來就把它們錯開了。
+  新群組多擋的是「不同食材、同一群組」（例如麵筋菜＋麵腸菜同一天），內建食譜目前沒有；G5 用確定性斷言證明扣分本身有效。
 
 ### 突變整套（2026-09-21 跑、2026-09-23 收尾；未 bump、不算一版）
 
@@ -1642,7 +1666,7 @@ v0.11.0 明確放寬過前兩條，這是回歸。**實測查到的根因**（�
 10. **資料授權標示**：食藥署資料 → 家人分頁「關於與資料來源」與每個「怎麼算的」底部（`eduNode('fda.tfnd.attribution')`）。國健署引用只用文字、不用圖像。
 11. 每版流程：`npm run bump -- mealmate-vX.Y.Z` → `npm run build-recipes`（有改食譜時）→ `npm test`（26 支，不含突變）全綠＋`npm run checkmutations`＋新斷言的 `npm run mutationtest -- --only <關鍵字>`（第 15 條）→ commit/push → `curl https://yolin0513.github.io/mealmate/js/version.js` 確認線上版本 → `npm run screenshots` → 回報最後附 `npm run sincefull` 的兩行。
 12. 打真網路的測試：**沒有**。`build-foods.mjs --download` 是開發者本機工具，不進 `npm test`。
-13. 不動 `D:\Claude\App\TripQuest`、`D:\Claude\App\JLPT_App`、`D:\Claude\App\StockDiary` 的任何檔案（可讀，用來抄慣例：`layouttest`／`uikittest` 的全頁掃描、`racetest`／`versionmixtest`）。
+13. 不動同一層其他 App（`../TripQuest`、`../JLPT_App`、`../StockDiary`）的任何檔案（可讀，用來抄慣例：`layouttest`／`uikittest` 的全頁掃描、`racetest`／`versionmixtest`）。
 14. **斷言驗語意、不貼字面。**
 15. **每版跑什麼（2026-09-19 起，`docs/SPEC_測試範圍_修訂一.md`）**：
     · **每版**：`npm test`（26 支，不含突變，約 7.5 分鐘）全綠＋`npm run checkmutations`＋這一版新斷言的 `npm run mutationtest -- --only <關鍵字>`。

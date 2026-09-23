@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadContext, buildRecipes, summarize, outputFor } from './build-recipes.mjs';
-import { validateRecipe, USER_DEFAULT_STEP, tagsOfFood, proteinGroupOf, PROCESSED_CATS } from '../js/recipeschema.js';
+import { validateRecipe, USER_DEFAULT_STEP, tagsOfFood, proteinGroupOf, PROCESSED_CATS, HIGH_PROTEIN_PER_100G, HIGH_PROTEIN_PER_SERVING } from '../js/recipeschema.js';
 import { fitsDiet, versionFor } from '../js/members.js';
 import { proteinDishMatch, starFoods } from '../js/planner.js';
 import { estimate } from '../js/nutrition.js';
@@ -594,6 +594,58 @@ section('台式現成早餐：包子這一路（2026-09-21，SPEC_台式現成�
   eq([versionFor(xlb, 'omni'), versionFor(xlb, 'lactoOvo'), versionFor(xlb, 'veganNoAllium')], ['all', null, null],
     'B-T4 小籠包那道是純葷的：只有吃葷的家人吃得到');
   ok(xlb.tags.includes('meat'), `B-T4 而且它帶肉的標籤（${JSON.stringify(xlb.tags)}）—— 小籠包的食藥署描述寫了豬肉，標籤是照描述補的`);
+}
+
+section('高蛋白質食材的輪替群組 highprotein（2026-09-23，SPEC_高蛋白食材的輪替群組 G1–G4）');
+{
+  // Yolin 的一貫原則：看含量，不看名稱或分類。麵腸、麵筋份量夠 → 自己一個蛋白質群組，跟 soy 分開（麵腸是小麥、豆腐是黃豆）。
+  const MIEN = 'R1700201';     // 麵腸(未調味) 20.6／100 克
+  const GLUTEN = 'R1700101';   // 麵筋(未調味) 42.5
+  const DRY_TOFU = 'R4700202'; // 五香豆干 19.3：含量也過門檻，但它本來就是 soy
+  const byNameR = (n) => recipes.find((r) => r.name === n);
+  const perServingProtein = (r, food) => {
+    const ing = r.ingredients.find((i) => i.food === food && !i.pantry);
+    return ing ? ing.grams / r.servings * idx.byId.get(food).n.protein / 100 : 0;
+  };
+  // G1 紅燒麵腸：輪替上終於有蛋白質來源
+  const mien = byNameR('紅燒麵腸');
+  ok(!!mien && perServingProtein(mien, MIEN) >= HIGH_PROTEIN_PER_SERVING,
+    `（前提）紅燒麵腸每份從麵腸吃到 ${perServingProtein(mien, MIEN).toFixed(1)} 克蛋白質（≥ ${HIGH_PROTEIN_PER_SERVING}）`);
+  eq(mien?.proteins, ['highprotein'], 'G1 紅燒麵腸的蛋白質群組是 highprotein（以前是空的，同一天兩道麵腸不會被扣分）');
+
+  // 造假菜：用番茄炒蛋的欄位當骨架，換掉食材（青江菜墊底）
+  const skel = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/recipes/r-tomato-egg.json'), 'utf8'));
+  const fake = (ings) => validateRecipe({ ...skel, id: 'r-fake-hp', name: '假菜', vegMode: 'nativeVeg', servings: 4,
+    ingredients: [{ food: 'E3201202', label: '青江菜', grams: 300, track: 'base' }, ...ings] }, ctx);
+  // G2 克數門檻：含量夠高、吃得少 → 不算
+  ok(idx.byId.get(GLUTEN).n.protein >= HIGH_PROTEIN_PER_100G, `（前提）麵筋每 100 克 ${idx.byId.get(GLUTEN).n.protein} 克，含量這一關一定過`);
+  const g2few = fake([{ food: GLUTEN, label: '麵筋', grams: 40, track: 'base' }]);
+  const g2many = fake([{ food: GLUTEN, label: '麵筋', grams: 60, track: 'base' }]);
+  eq([g2few.errors, g2many.errors], [[], []], '（前提）兩道假菜本身都通過驗證');
+  ok(!g2few.recipe.proteins.includes('highprotein'), `G2 麵筋每份 10 克（${(10 * 42.5 / 100).toFixed(2)} 克蛋白質）→ 不算：${JSON.stringify(g2few.recipe.proteins)}`);
+  eq(g2many.recipe.proteins, ['highprotein'], `G2（對照）每份 15 克（${(15 * 42.5 / 100).toFixed(2)} 克）→ 算`);
+  // G3 不重複加：豆干含量也過門檻，但它已經是 soy
+  ok(idx.byId.get(DRY_TOFU).n.protein >= HIGH_PROTEIN_PER_100G, `（前提）五香豆干每 100 克 ${idx.byId.get(DRY_TOFU).n.protein} 克，高蛋白那一關也過`);
+  eq(fake([{ food: DRY_TOFU, label: '豆干', grams: 160, track: 'base' }]).recipe.proteins, ['soy'], 'G3 豆干的菜只有 soy，不另外加 highprotein');
+  // 可分流：份數照各自那一欄算（素的那一欄除以素的份數）
+  const split = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/recipes/r-asparagus-squid-split.json'), 'utf8'));
+  const vegServ = split.splitServings.veg;
+  const splitMien = validateRecipe({ ...split, ingredients: [...split.ingredients, { food: MIEN, label: '麵腸', grams: 40 * vegServ, track: 'veg' }] }, ctx);
+  ok(splitMien.errors.length === 0 && 40 * vegServ / split.servings * 20.6 / 100 < HIGH_PROTEIN_PER_SERVING,
+    `（前提）可分流的假菜通過驗證；麵腸若除以總份數 ${split.servings} 只剩每份 ${(40 * vegServ / split.servings * 20.6 / 100).toFixed(1)} 克，除以素的 ${vegServ} 份是 ${(40 * 20.6 / 100).toFixed(1)} 克`);
+  ok(splitMien.recipe.vegProteins.includes('highprotein') && !splitMien.recipe.meatProteins.includes('highprotein'),
+    `G1b 可分流的菜：麵腸在素的那一欄 → 素版有 highprotein、葷版沒有（${JSON.stringify(splitMien.recipe.vegProteins)}／${JSON.stringify(splitMien.recipe.meatProteins)}）`);
+  // G4 全部內建食譜掃一遍
+  ok(recipes.length > 200, `（母體）掃了 ${recipes.length} 道內建食譜`);
+  eq(recipes.filter((r) => r.proteins.includes('highprotein')).map((r) => r.name).sort(), ['紅燒麵腸', '麵腸炒青椒'].sort(),
+    'G4 帶 highprotein 的內建食譜恰好是麵腸那兩道');
+  const catOf = (i) => idx.byId.get(i.food)?.cat;
+  const nameOf = (i) => idx.byId.get(i.food)?.name ?? '';
+  const g4Control = recipes.filter((r) => r.ingredients.some((i) => !i.pantry && (catOf(i) === '菇類' || catOf(i) === '穀物類' || /芝麻|花生/.test(nameOf(i)))));
+  ok(g4Control.length >= 30 && g4Control.some((r) => r.ingredients.some((i) => /乾香菇/.test(nameOf(i)))),
+    `（母體）用到菇（含乾香菇）、穀物（麵、飯）、芝麻、花生的菜 ${g4Control.length} 道`);
+  noneOf(g4Control, (r) => r.proteins.includes('highprotein'), 'G4（對照）乾香菇、芝麻、花生、麵條、飯的菜都沒有 highprotein',
+    g4Control.filter((r) => r.proteins.includes('highprotein')).map((r) => r.name).join('、'));
 }
 
 done('recipetest');

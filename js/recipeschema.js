@@ -93,6 +93,30 @@ export function proteinGroupOf(food, tags) {
   return null;
 }
 
+// ---- 高蛋白質的食材（麵腸、麵筋、素肉這一類）：判準**只在這裡定義一次** ----
+// 兩個地方用它：planner 的「素食成員那一餐有沒有蛋白質來源」（v0.39.0，SPEC_高蛋白食材也算）
+// 與下面 validateRecipe 的蛋白質輪替群組 highprotein（SPEC_高蛋白食材的輪替群組）。
+// 「這樣食材在這道菜裡算不算蛋白質來源」是同一個事實，兩邊各寫一份會出現「算達標卻不算來源」的菜。
+/**
+ * Yolin 2026-09-21：「麵腸等高蛋白質食材也算」「麵筋如果蛋白質高也可以列入」。
+ * 是通則、不是名稱清單：看**每 100 克的含量**與**每份吃到幾克**，兩個都要過。
+ * 14：乾麵條 11.6、麵線 11.7 之上留 2.4 的距離（主食不能因為這條路達標）；冷凍素雞塊 14.2 在裡面。
+ */
+export const HIGH_PROTEIN_PER_100G = 14;
+/** 6：約等於 40 克豆干或半顆蛋以上。擋掉「只放幾克乾香菇」那種靠含量高、份量極少的食材。 */
+export const HIGH_PROTEIN_PER_SERVING = 6;
+/** 這兩類不走高蛋白那條路：小麥胚芽 31.4、薏仁 14.1 這些含量夠，但它們是主食，不是「那一餐的蛋白質來源」。 */
+export const HIGH_PROTEIN_EXCLUDED_CATS = new Set(['穀物類', '澱粉類']);
+/** 一樣食材每 100 克 ≥ 14 克、這道菜每份從它吃到 ≥ 6 克 → 算高蛋白質的食材。標籤看資料庫（foodTags），不看使用者的推翻。 */
+export function isHighProteinFood(f, perServing, foodTags) {
+  const protein = f.n?.protein;
+  if (typeof protein !== 'number') return false;                       // 沒有資料的不算（不當 0、也不當達標）
+  if (HIGH_PROTEIN_EXCLUDED_CATS.has(f.cat)) return false;
+  const tags = tagsOfFood(f, foodTags);
+  if (tags.has('meat') || tags.has('seafood')) return false;           // 香腸、培根：素食成員本來就吃不到，別讓葷菜靠這條路達標
+  return protein >= HIGH_PROTEIN_PER_100G && perServing * protein / 100 >= HIGH_PROTEIN_PER_SERVING;
+}
+
 /** 使用者自己加的菜一步都沒寫時，存的那一句（今天頁的做菜順序才有東西可以列）。 */
 export const USER_DEFAULT_STEP = '現成的，加熱或直接盛盤即可';
 
@@ -209,7 +233,11 @@ export function validateRecipe(recipe, ctx) {
         if (track !== 'meat') vegTags.add(t);
         if (track !== 'veg') meatTags.add(t);
       }
-      const pg = proteinGroupOf(food, fTags);
+      // 沒有既有群組、但份量夠的高蛋白質食材（麵腸、麵筋）→ 群組 highprotein（跟 soy 分開：麵腸是小麥、豆腐是黃豆）。
+      // 份數的取法跟 planner.proteinDishMatch 一致：共用那一欄除以 servings，素／葷那一欄除以各自的份數。
+      const hpServ = track === 'veg' ? (r.splitServings?.veg ?? 1) : track === 'meat' ? (r.splitServings?.meat ?? r.servings) : r.servings;
+      const pg = proteinGroupOf(food, fTags)
+        ?? (!ing?.pantry && isPosNum(ing?.grams) && isPosNum(hpServ) && isHighProteinFood(food, ing.grams / hpServ, ctx.foodTags) ? 'highprotein' : null);
       if (pg) {
         proteins.add(pg);
         if (track !== 'meat') vegProteins.add(pg);
