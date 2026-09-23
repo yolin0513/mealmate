@@ -2785,6 +2785,16 @@ const MUTATIONS = [
     find: '.shop-line1 > .shop-qty { max-width: 100%; }',
     replace: '',
     test: 'layouttest',
+    expect: '同一區裡數量欄的右緣對齊',
+  },
+  {
+    name: 'layouttest 不再自己造「數量比一整行寬」的列',
+    why: '2026-09-21 突變整套：固定 seed 排出來的超長數量隨食譜變動消失，右緣那條斷言靜默失效。情境拿掉時前置斷言要喊出來。',
+    file: 'scripts/layouttest.mjs',
+    find: "    { name: '買菜（改過數量）', hash: '#/shopping', manualQty: true, longQty: true },",
+    replace: "    { name: '買菜（改過數量）', hash: '#/shopping', manualQty: true },",
+    test: 'layouttest',
+    expect: '（前提）320px 特大字級的樣本裡有數量比一整行還寬的列',
   },
   // ---- 2026-09-18 Yolin 再提三項：主食格只排設定的米；放寬保存期限時分得出冷凍與不耐放 ----
   {
@@ -2998,12 +3008,12 @@ const MUTATIONS = [
   },
   {
     name: "新補的全素早餐有一道不是早餐",
-    why: "早餐道數門檻 ≥ 39；少一道就該紅。",
+    why: "早餐道數門檻 ≥ 41（2026-09-21 從 39 調上來）；少一道就該紅。",
     file: "data/recipes/r-bf-greens-tofu-skin-misua.json",
     find: "  \"role\": \"breakfast\",",
     replace: "  \"role\": \"side\",",
     test: "recipetest",
-    expect: "道（≥ 39",
+    expect: "道（≥ 41",
   },
   {
     name: "全素早餐有一道平日做不完",
@@ -3450,7 +3460,7 @@ const MUTATIONS = [
     find: "  return protein >= HIGH_PROTEIN_PER_100G && perServing * protein / 100 >= HIGH_PROTEIN_PER_SERVING;",
     replace: "  return perServing * protein / 100 >= 4;",
     test: "plannertest",
-    expect: "H8 靠高蛋白質食材達標的內建食譜恰好是紅燒麵腸一道",
+    expect: "H8 靠高蛋白質食材達標的內建食譜恰好是",
   },
   {
     name: "靠麵腸達標時，理由句說它是「豆製品」的菜",

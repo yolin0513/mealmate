@@ -142,7 +142,7 @@ try {
     { name: '本週（收起三天）', hash: '#/', collapse: [0, 3, 6] },
     { name: '今日煮', hash: `#/today?d=${seeded.today.d}&meal=${seeded.today.meal}` },
     { name: '買菜', hash: '#/shopping' },
-    { name: '買菜（改過數量）', hash: '#/shopping', manualQty: true },
+    { name: '買菜（改過數量）', hash: '#/shopping', manualQty: true, longQty: true },
     // 自己加的項目（名稱與數量放到上限）
     { name: '買菜（自己加的）', hash: '#/shopping', guestsCustom: true },
     // 某一區全部買齊 → 自動收合，標題只剩摘要
@@ -214,12 +214,15 @@ try {
       if (rows.length < 2) continue;
       const parts = rows.map((row) => {
         const name = row.querySelector('.shop-name')?.getBoundingClientRect() ?? null;
-        const qty = row.querySelector('.shop-qty')?.getBoundingClientRect() ?? null;
+        const qtyEl = row.querySelector('.shop-qty');
+        const qty = qtyEl?.getBoundingClientRect() ?? null;
         const line = row.querySelector('.shop-line1')?.getBoundingClientRect() ?? null;
         if (!name || !qty || !line) return null;
         return {
           drop: qty.top - name.top,
           right: qty.right,
+          // 數量本身（不換行）就比一整行寬：這種列靠 max-width 才不會把右緣推出去
+          overLine: qtyEl.scrollWidth > line.width + 0.5,
           // 這一列的名稱＋數量本來就放得下嗎？（放不下的列換行是刻意的，見測試裡的說明）
           fits: name.width + qty.width + 10 <= line.width + 0.5,
         };
@@ -232,6 +235,7 @@ try {
         fitting: parts.filter((p) => p.fits).length,
         fittingDropped: parts.filter((p) => p.fits && p.drop > 8).length,
         wrapped: parts.filter((p) => p.drop > 8).length,
+        overLine: parts.filter((p) => p.overLine).length,
       });
     }
     const pillChars = [...root.querySelectorAll('.pill')].map((e) => e.textContent.trim().length);
@@ -496,6 +500,23 @@ try {
           return wasClosed;
         });
         await new Promise((r) => setTimeout(r, 120));
+        // 「數量比一整行還寬」要自己造：原本靠固定 seed 排出來的「約 21.5 根（1500 g）」，
+        // 食譜一變就不在清單裡了，右緣那條斷言跟著靜默失效（2026-09-21 突變整套抓到；共用慣例 §5.8）。
+        // 用當時那一串真實的字，前面補 hair space（U+200A，約 1–2px，nowrap 下不會被合併），
+        // 補到剛好比一整行寬 3px 以上就停——跟當時一樣只多出幾 px（多太多會變成整頁橫向捲動，那是另一回事）。
+        if (route.longQty) {
+          await page.evaluate(() => {
+            const el = document.querySelector('.shop-section .shop-row:not(.custom-row) .shop-qty');
+            const line = el?.closest('.shop-line1');
+            if (!el || !line) return;
+            const base = '約 21.5 根（1500 g）';
+            el.textContent = base;
+            for (let i = 1; i <= 600 && el.scrollWidth <= line.getBoundingClientRect().width + 3; i += 1) {
+              el.textContent = ' '.repeat(i) + base;
+            }
+          });
+          await new Promise((r) => setTimeout(r, 60));
+        }
         all.push({ width, scale, route: route.name, moreClosed, ...(await scan()) });
       }
     }
@@ -775,6 +796,9 @@ try {
   const withList = all.filter((p) => p.columns.length > 0);
   ok(withList.length >= SCALES.length * WIDTHS.length, `有 ${withList.length} 個組合的畫面上有多列清單（母體不是空的）`);
   everyOf(withList, (p) => p.columns.every((c) => c.rows >= 2), '每一區都至少兩列可以互相比對');
+  const overLineAt = (w, s) => withList.filter((p) => p.width === w && p.scale === s).reduce((n, p) => n + p.columns.reduce((m, c) => m + c.overLine, 0), 0);
+  ok(overLineAt(Math.min(...WIDTHS), 'xl') >= 1,
+    `（前提）${Math.min(...WIDTHS)}px 特大字級的樣本裡有數量比一整行還寬的列（${overLineAt(Math.min(...WIDTHS), 'xl')} 列）——沒有的話，下面「右緣對齊」看不到 max-width 那條規則`);
   noneOf(withList, (p) => p.columns.some((c) => c.rightSpread > 2), '同一區裡數量欄的右緣對齊（差 ≤ 2px）',
     withList.filter((p) => p.columns.some((c) => c.rightSpread > 2)).slice(0, 3).map((p) => `${where(p)}：${Math.max(...p.columns.map((c) => c.rightSpread))}px`).join(' ／ '));
   // 「一律不准換行」在 320px／特大下做不到：「豬里肌肉片」＋「約 0.5 斤（133 g）」加起來就是比一行寬。

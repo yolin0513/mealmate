@@ -194,9 +194,13 @@ section('STATUS：上次全面檢測／上次突變整套的兩行紀錄（npm r
   const curNames = mutationNames(read('scripts/mutationtest.mjs'));
   eq(curNames.length, mutCount, `（前提）照名稱取出的突變 ${curNames.length} 條＝用行數數的 ${mutCount} 條（名稱沒有漏抓）`);
   eq(neverRunNames(['a', 'b', 'c2'], ['a', 'b', 'c']), ['c2'], 'N1（對照）基準 3 條、現在 3 條但 1 條改名 → 從未整套跑過是 1 條（條數相減會得 0）');
-  const never = neverRunNames(curNames, lastfull.names);
-  ok(never.includes('sincefull 耗時無紀錄時省略整段') && !never.includes('某一頁載不起來時 router 不通報（回到只 console.error）'),
-    `N1 真實資料：v0.36.0 之後加的算從未整套跑過、之前就有的不算（現在 ${never.length} 條）`);
+  // 真實的突變名稱＋當下造的基準：拿掉其中一條、多放一條已經刪掉的舊名稱（2026-09-23 起不再寫死某一次基準裡有誰——
+  // 原本寫死「v0.36.0 之後加的那一條」，09-21 整套跑完、基準收進全部 428 條就不成立了；共用慣例 §5.3）
+  const dropped = curNames[Math.floor(curNames.length / 2)];
+  const madeBase = [...curNames.filter((n) => n !== dropped), '（已刪掉的舊突變）'];
+  ok(curNames.length > 1 && !!dropped, `（前提）真實的突變名稱不只一條（${curNames.length} 條）`);
+  const never = neverRunNames(curNames, madeBase);
+  eq(never, [dropped], `N1 真實資料：基準少了「${dropped}」→ 只有它算從未整套跑過；基準裡多的舊名稱、其餘 ${curNames.length - 1} 條都不算`);
   // N2 基準清單的日期、版本、條數跟 STATUS「上次突變整套」那一行一致
   ok(!!lastfull.date && !!lastfull.version && !!parsed?.mut, `（前提）兩邊都讀得到：基準 ${lastfull.date}、${lastfull.version}、${lastfull.names?.length} 條；STATUS ${parsed?.mut?.date}、${parsed?.mut?.version}、${parsed?.mut?.count} 條`);
   ok(lastFullMatchesStatus(lastfull, parsed), 'N2 基準清單與 STATUS 那一行的日期、版本、條數一致');
