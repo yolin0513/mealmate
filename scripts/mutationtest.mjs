@@ -2794,7 +2794,7 @@ const MUTATIONS = [
     find: "    { name: '買菜（改過數量）', hash: '#/shopping', manualQty: true, longQty: true },",
     replace: "    { name: '買菜（改過數量）', hash: '#/shopping', manualQty: true },",
     test: 'layouttest',
-    expect: '（前提）320px 特大字級的樣本裡有數量比一整行還寬的列',
+    expect: '特大字級的樣本裡有數量比一整行還寬的列',
   },
   // ---- 2026-09-18 Yolin 再提三項：主食格只排設定的米；放寬保存期限時分得出冷凍與不耐放 ----
   {
@@ -3008,12 +3008,12 @@ const MUTATIONS = [
   },
   {
     name: "新補的全素早餐有一道不是早餐",
-    why: "早餐道數門檻 ≥ 41（2026-09-21 從 39 調上來）；少一道就該紅。",
+    why: "早餐道數的門檻（2026-09-21 從 39 調到 41）；少一道就該紅。",
     file: "data/recipes/r-bf-greens-tofu-skin-misua.json",
     find: "  \"role\": \"breakfast\",",
     replace: "  \"role\": \"side\",",
     test: "recipetest",
-    expect: "道（≥ 41",
+    expect: "早餐道數門檻：",
   },
   {
     name: "全素早餐有一道平日做不完",
@@ -3415,7 +3415,7 @@ const MUTATIONS = [
     find: "isHighProteinFood(food, ing.grams / hpServ, ctx.foodTags)",
     replace: "isHighProteinFood(food, 1e9, ctx.foodTags)",
     test: "recipetest",
-    expect: "G2 麵筋每份 10 克",
+    expect: "G2 麵筋每份",
   },
   {
     name: "輪替群組沒有每份門檻（掃全部內建食譜）",
@@ -3479,7 +3479,7 @@ const MUTATIONS = [
     find: "export const HIGH_PROTEIN_PER_100G = 14;",
     replace: "export const HIGH_PROTEIN_PER_100G = 10;",
     test: "plannertest",
-    expect: "H2 乾麵條每份 80 克 → 不算",
+    expect: "H2 乾麵條每份",
   },
   {
     name: "高蛋白質的每份門檻從 6 掉到 3",
@@ -3488,7 +3488,7 @@ const MUTATIONS = [
     find: "export const HIGH_PROTEIN_PER_SERVING = 6;",
     replace: "export const HIGH_PROTEIN_PER_SERVING = 3;",
     test: "plannertest",
-    expect: "H3 麵筋每份 14 克",
+    expect: "H3 麵筋每份",
   },
   {
     name: "高蛋白質那條路不排除穀物類、澱粉類",
