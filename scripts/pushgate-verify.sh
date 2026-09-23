@@ -9,6 +9,8 @@ trap 'rm -rf "$T"' EXIT
 git init -q --bare "$T/remote.git"
 git clone -q --no-local "$SRC" "$T/work" || exit 1
 cd "$T/work" || exit 1
+# 驗的是「目前 checkout 的那個 commit」：來源是 detached HEAD 或別的分支時，clone 過來的 main 不一定是它
+git checkout -q -B main
 git remote set-url origin "$T/remote.git"
 git push -q origin main || exit 1
 git config user.name probe
@@ -18,6 +20,7 @@ remote_main() { git --git-dir="$T/remote.git" rev-parse main; }
 probe_commit() { printf '%s\n' "$2" > "docs/$1.md"; git add "docs/$1.md"; git commit -q -m "probe $1"; }
 reset_local() { git reset -q --hard "$(remote_main)"; git checkout -q -- .; }
 FAIL=0
+N=0
 # check <名稱> <預期回傳值> <預期遠端：same|local> <輸出裡必須有的字> <輸出裡不能有的字>
 check() {
   local name="$1" want="$2" wantRemote="$3" must="$4" mustNot="$5"
@@ -28,6 +31,7 @@ check() {
   local outOk=yes
   grep -q -- "$must" "$T/out" || outOk=no
   if [ -n "$mustNot" ] && grep -q -- "$mustNot" "$T/out"; then outOk=no; fi
+  N=$((N + 1))
   local verdict=符合
   if [ "$RC" != "$want" ] || [ "$remoteOk" != yes ] || [ "$outOk" != yes ]; then verdict=不符合; FAIL=1; fi
   printf '%s｜回傳 %s（預期 %s）｜假遠端 %s → %s（預期 %s）｜%s\n' "$name" "$RC" "$want" "${BEFORE:0:7}" "${after:0:7}" "$wantRemote" "$verdict"
@@ -75,5 +79,5 @@ probe_commit g "乾淨的一行"
 run_gate; check "7 全部正常" 0 local "已推送" "擋下"
 
 if [ "$FAIL" -ne 0 ]; then echo "閘門驗法：有不符合的情境"; exit 1; fi
-echo "閘門驗法：7 種全部符合"
+echo "閘門驗法：$N 種全部符合"
 exit 0
