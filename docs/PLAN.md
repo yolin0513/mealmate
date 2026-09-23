@@ -3,7 +3,7 @@
 - 日期：2026-09-12（第二版，使用者回覆「都照建議」後全數定案）
 - 狀態：**規劃定案，尚未開發。** 這份文件是唯一真相來源；交接、工作慣例與開發順序見 `STATUS.md`，實測紀錄見 `FEASIBILITY.md`，被否決與延後的方案集中在本文附錄 A。定案過程見 §11。
 - 規劃：Fable 5.1。開發：Opus 5。
-- 專案資料夾 `D:\Claude\App\MealMate`；**不動 `JLPT_App`／`TripQuest`／`StockDiary` 任何檔案**（只讀，抄慣例）。
+- 專案資料夾：本 repo；**不動 `JLPT_App`／`TripQuest`／`StockDiary` 任何檔案**（只讀，抄慣例）。
 
 ---
 
