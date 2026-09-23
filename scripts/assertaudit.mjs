@@ -104,7 +104,10 @@ eq(doubled, [], '測試碼裡沒有雙反斜線的 regex 跳脫');
 section('6. 突變全部沒過期（find 字串在目標檔案剛好出現一次）');
 // 這一條很重要：平常只跑 `--only <關鍵字>` 的子集，過期的突變躲在沒被選到的那些裡面。
 // 過期＝那條斷言自從程式改動之後就沒有被證明過會紅。
-const check = execFileSync(process.execPath, [path.join(ROOT, 'scripts/checkmutations.mjs')], { cwd: ROOT, encoding: 'utf8' });
+// checkmutations 有過期時回傳非 0（2026-09-23 起）；照樣讀它的輸出，下面的斷言會把每一條列出來
+let check;
+try { check = execFileSync(process.execPath, [path.join(ROOT, 'scripts/checkmutations.mjs')], { cwd: ROOT, encoding: 'utf8' }); }
+catch (e) { check = String(e.stdout ?? ''); }
 const stale = check.split(/\r?\n/).filter((l) => l.startsWith('STALE '));
 const total = Number(/TOTAL (\d+)/.exec(check)?.[1] ?? 0);
 ok(total >= 100, `（母體）檢查了 ${total} 條突變`);

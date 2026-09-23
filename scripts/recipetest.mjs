@@ -153,7 +153,7 @@ section('加工品照食藥署的「內容物描述」判葷素（2026-09-19：�
   everyOf(EXPECT, ([id]) => idx.byId.has(id), '（母體）六樣都在食材資料庫裡');
   for (const [id, label, want] of EXPECT) {
     const got = tagsOf(id);
-    ok(want.every((t) => got.has(t)), `${label}：標了 ${want.join('、')}（實際 ${[...got].join('、') || '沒有'}）`);
+    ok(want.every((t) => got.has(t)), `加工品標籤：${label}：標了 ${want.join('、')}（實際 ${[...got].join('、') || '沒有'}）`);
   }
   // 真的影響到誰吃得到：用到這些食材的菜
   const uses = (id) => recipes.filter((r) => r.ingredients.some((i) => i.food === id && i.track !== 'meat'));

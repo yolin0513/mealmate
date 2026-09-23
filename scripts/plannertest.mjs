@@ -916,7 +916,7 @@ section('素食成員每餐一道蛋、豆製品或奶類的菜（2026-09-18 Yol
     const pct = (o) => o.miss / o.meals;
     ok(on.meals >= 300, `（母體）${fname}：${on.meals} 個午晚餐`);
     ok(pct(off) >= LIMIT[fname][0], `（對照）${fname}：開關關著時，素食成員沒有蛋、豆製品或奶類菜的餐 ${off.miss}/${off.meals}（${Math.round(pct(off) * 100)}%）`);
-    ok(pct(on) <= LIMIT[fname][1], `${fname}：開關開著 → ${on.miss}/${on.meals}（${Math.round(pct(on) * 100)}%，≤ ${LIMIT[fname][1] * 100}%）`);
+    ok(pct(on) <= LIMIT[fname][1], `蛋豆奶開關開著：${fname} → ${on.miss}/${on.meals}（${Math.round(pct(on) * 100)}%，≤ ${LIMIT[fname][1] * 100}%）`);
     eq(on.empty, 0, `${fname}：沒有排出空格（加分，不是硬擋）`);
     eq(on.ge4, 0, `${fname}：主角食材三天內出現 4 次以上的段落仍然是 0（第 4 項那條優先）`);
     ok(on.vegMin >= 3, `${fname}：素食成員每一餐仍吃得到 ≥ 3 道`);

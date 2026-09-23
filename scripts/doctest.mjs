@@ -11,7 +11,8 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { ok, eq, section, done, everyOf, noneOf } from './tap.mjs';
+import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
+import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX } from './checkmutations.mjs';
 import { FORBIDDEN } from './copyrules.mjs';
 import { CONDITION_FIELDS, DIETS, DIET_LABELS, CONDITIONS, KIDNEY_FIELDS, BASE_DISPLAY_FIELDS } from '../js/members.js';
 import { DEFAULTS, FONT_SCALES } from '../js/prefs.js';
@@ -323,5 +324,57 @@ ok(PLAN.includes('晚餐 主菜 → 配菜 → 配菜 → 湯 → 主食'), '（
 eq(MEAL_ROLES.lunch, ['main', 'side', 'side', 'staple'], '程式：午餐的位置順序');
 eq(MEAL_ROLES.dinner, ['main', 'side', 'side', 'soup', 'staple'], '程式：晚餐的位置順序');
 ok(PLAN.includes('位置 `pos`'), '（文件）PLAN 講了每道菜記的是位置不是角色');
+
+section('突變的 expect 都找得到（A2；共用慣例 v6 §5.9，2026-09-23 抄 StockDiary 的 expectProblems）');
+{
+  // 秒級：expect 過期（斷言訊息改了、expect 沒跟上）的突變會「紅錯地方」，以前要等整套跑到那一條才看得到
+  const readRel = (rel) => { const p = path.join(ROOT, rel); return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null; };
+  const MUTS = loadMutations(read('scripts/mutationtest.mjs')) ?? [];
+  const withExpect = MUTS.filter((m) => m.expect != null);
+  ok(withExpect.length >= 100, `（前提）帶 expect 的突變有 ${withExpect.length} 條（全部 ${MUTS.length} 條）`);
+  everyOf(withExpect, (m) => expectProblems(m, readRel).length === 0,
+    'A2 每一條 expect 都是對應測試原始碼裡的一段字面（打錯字、過期的永遠不會命中）',
+    withExpect.filter((m) => expectProblems(m, readRel).length).slice(0, 3).map((m) => `${m.name}：${expectProblems(m, readRel).join('；')}`).join(' ／ '));
+  // 對照組：合成的假突變，跑同一個檢查。正例含 StockDiary 點名的坑——拿執行時才組出來的字（插值之後的）當 expect
+  const REAL_TEST = 'doctest';
+  const REAL_LINE = 'A2 每一條 expect 都是對應測試原始碼裡的一段字面';
+  const fakeTestSrc = 'ok(x, `${label}：標了 ${want}`);';
+  const fakeRead = (rel) => (rel === 'scripts/fake-a2.mjs' ? fakeTestSrc : readRel(rel));
+  detects((m) => expectProblems(m, fakeRead).length > 0, {
+    shouldHit: [
+      { name: '假：打錯字', test: REAL_TEST, expect: REAL_LINE + '（打錯）' },
+      { name: '假：空字串', test: REAL_TEST, expect: '   ' },
+      { name: '假：測試不存在', test: 'no-such-test', expect: REAL_LINE },
+      { name: '假：執行時才組出來的字', test: 'fake-a2', expect: '豬肉酥：標了' },
+    ],
+    shouldMiss: [
+      { name: '假：正確', test: REAL_TEST, expect: REAL_LINE },
+      { name: '假：原始碼裡照字寫著的那一段', test: 'fake-a2', expect: '：標了 ' },
+      { name: '假：沒帶 expect', test: REAL_TEST },
+    ],
+  }, 'A2（對照）expect 檢查抓得到打錯字、空字串、測試不存在、插值後的字，也不會誤殺正確的');
+  // 沒帶 expect 的只准變少：新突變一律帶 expect
+  const missing = MUTS.length - withExpect.length;
+  ok(missing <= EXPECT_MISSING_MAX && missingExpectOverLimit(MUTS) === null,
+    `A3 沒帶 expect 的突變 ${missing} 條（上限 ${EXPECT_MISSING_MAX}，只准變少）`);
+  detects((ms) => missingExpectOverLimit(ms, 2) !== null, {
+    shouldHit: [[{}, {}, {}], [{ expect: 'x' }, {}, {}, {}]],
+    shouldMiss: [[{}, {}], [{ expect: 'x' }, {}, {}], []],
+  }, 'A3（對照）上限 2：沒帶 expect 的有 3 條 → 擋；2 條或更少 → 放行');
+  // 回傳值：有過期時一定要回非 0（接在 && 後面的指令才擋得住）。把腳本複製到暫存資料夾、餵一份假的突變清單實際執行
+  const runIn = (mutationsLiteral) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-checkmut-'));
+    fs.mkdirSync(path.join(dir, 'scripts'));
+    fs.copyFileSync(path.join(ROOT, 'scripts/checkmutations.mjs'), path.join(dir, 'scripts/checkmutations.mjs'));
+    fs.writeFileSync(path.join(dir, 'scripts/mutationtest.mjs'), `const MUTATIONS = [\n${mutationsLiteral}\n];\n`);
+    fs.writeFileSync(path.join(dir, 'scripts/faketest.mjs'), 'ok(x, "A2 假的斷言訊息");\n');
+    fs.writeFileSync(path.join(dir, 'target.txt'), 'alpha beta\n');
+    try { execFileSync(process.execPath, [path.join(dir, 'scripts/checkmutations.mjs')], { cwd: dir, encoding: 'utf8' }); return 0; }
+    catch (e) { return e.status ?? -1; } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  };
+  const good = "{ name: 'g', file: 'target.txt', find: 'alpha', replace: 'omega', test: 'faketest', expect: 'A2 假的斷言訊息' },";
+  const badExpect = "{ name: 'b', file: 'target.txt', find: 'alpha', replace: 'omega', test: 'faketest', expect: 'A2 打錯的訊息' },";
+  eq([runIn(good), runIn(badExpect)], [0, 1], 'A4 checkmutations 的回傳值：乾淨 → 0；有一條 expect 找不到 → 非 0');
+}
 
 done('doctest');
