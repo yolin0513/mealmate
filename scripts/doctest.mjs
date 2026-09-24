@@ -13,9 +13,10 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX } from './checkmutations.mjs';
-import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT } from './gatescan.mjs';
+import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts } from './gatescan.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
-import { outputProblems } from './build-recipes.mjs';
+import { outputProblems, writeAtomically } from './build-recipes.mjs';
+import { selfControls as bgControls, names } from './buildguard-verify.mjs';
 import { rawProblems, foodsProblems, REQUIRED_FIELDS, NUTRIENT_KEYS, nutrientOrder } from './build-foods.mjs';
 import { FORBIDDEN } from './copyrules.mjs';
 import { CONDITION_FIELDS, DIETS, DIET_LABELS, CONDITIONS, KIDNEY_FIELDS, BASE_DISPLAY_FIELDS } from '../js/members.js';
@@ -448,6 +449,31 @@ section('F8 產資料的工具：資料不見、壞掉、變少時停下、點�
   eq(foodsProblems([food('A1', '甲類')], prevF, { allowShrink: true }), [], 'F8-5（對照）加 --allow-shrink → 放行');
   const realF = JSON.parse(read('data/foods.json'));
   eq(foodsProblems(realF.foods, realF), [], `F8-6（真實資料不誤擋）現有 ${realF.foods.length} 種食材對現有的 foods.json → 沒有問題`);
+  // F8-7 寫檔那一步也要能失敗、而且不中斷（2026-09-24 補充說明四）：用假的 fs 造三種失敗，stop 要被叫到、例外不能漏出來
+  const fakeFs = ({ write, rename, rm, exists }) => {
+    const calls = [];
+    return { calls, writeFileSync: (p) => { calls.push('write'); if (write) throw new Error(write); },
+      renameSync: () => { calls.push('rename'); if (rename) throw new Error(rename); },
+      rmSync: () => { calls.push('rm'); if (rm) throw new Error(rm); }, existsSync: () => exists };
+  };
+  const tryWrite = (opts) => {
+    const fx = fakeFs(opts); let stopped = null; let leaked = null;
+    try { writeAtomically('/x/data/recipes.json', '{}', (lines) => { stopped = lines; }, fx); } catch (e) { leaked = e.message; }
+    return { stopped, leaked, calls: fx.calls };
+  };
+  const w1 = tryWrite({ write: 'EISDIR', exists: true });
+  ok(w1.leaked === null && w1.stopped?.some((l) => l.includes('recipes.json.tmp') && l.includes('已經有東西')) && !w1.calls.includes('rm'),
+    `F8-7 暫存檔的位置本來就有東西（寫不進去）→ 點名那個位置、不去刪不是自己寫的東西、例外沒漏出來（${(w1.stopped ?? []).join('；')}｜呼叫 ${w1.calls.join(',')}｜漏出 ${w1.leaked}）`);
+  const w2 = tryWrite({ rename: 'EPERM', rm: 'EBUSY' });
+  ok(w2.leaked === null && w2.stopped?.some((l) => l.includes('失敗：EPERM')) && w2.stopped?.some((l) => l.includes('刪不掉') && l.includes('EBUSY')),
+    `F8-7 換上失敗、清理也失敗（檔被鎖住）→ 兩件都點名、不中斷（${(w2.stopped ?? []).join('；')}｜漏出 ${w2.leaked}）`);
+  const w3 = tryWrite({});
+  ok(w3.stopped === null && w3.leaked === null && w3.calls.join(',') === 'write,rename', 'F8-7（對照）都成功 → 不叫 stop、寫了再換上');
+  // F8-8 驗法的判準（只在錯誤訊息的位置找點名；兩個方向的對照組）每版都跑，不等手動跑矩陣才發現壞了
+  const bgc = bgControls();
+  ok(bgc.length >= 10 && bgc.every((c) => c.ok), `F8-8 buildguard 驗法的對照組 ${bgc.filter((c) => c.ok).length}/${bgc.length} 對（${bgc.filter((c) => !c.ok).map((c) => c.label).join('；') || '全對'}）`);
+  ok(names('處理 r-foo.json …\n✗ 沒有寫檔：\n  - 一道食譜都沒有（0 道）', 'r-foo') === false,
+    'F8-8 只出現在正常進度訊息裡的單位名，不算點名（「出現過」不等於「是理由」）');
 }
 
 section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24，SPEC_檢查器修補；每版都跑）');
@@ -569,7 +595,11 @@ section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣
   // G3 被掃的檔讀不到 → 停（不是 0 個問題）
   // 比對「為什麼」不通過（§5.11 第一層）：2026-09-24 第一版只看回傳值是 false——讀不到的時候，
   // 登記的例外也一條都沒用到，就算「讀不到就停」被拿掉，照樣是 false（突變證明它沒紅）
-  const run = (root) => { const lines = []; const res = main(root, (l) => lines.push(l)); return { res, text: lines.join('\n') }; };
+  // 暫存目錄不是 git repo：追蹤清單用走訪結果代替（跳脫掃描的孤兒核對另外在 G6 驗）
+  const run = (root, listTracked = walkScripts) => { const lines = []; const res = main(root, (l) => lines.push(l), listTracked); return { res, text: lines.join('\n') }; };
+  // 暫存目錄要放的檔：被掃的三支＋孤兒檢查、跳脫掃描登記了例外的（不放，例外用不到，原樣就不通過）
+  const seedFiles = [...new Set([...TARGETS, ...ORPHAN_EXEMPT.map((e) => e.file), ...ESCAPE_EXEMPT.map((e) => e.file)])];
+  const seed = (root) => { for (const rel of seedFiles) { fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.copyFileSync(path.join(ROOT, rel), path.join(root, rel)); } };
   const emptyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gatescan-'));
   const g3 = run(emptyRoot);
   ok(g3.res === false && (g3.text.match(/讀不到或是空的：/g) ?? []).length === TARGETS.length,
@@ -577,7 +607,7 @@ section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣
   // G4 登記的例外沒用到 → 不通過（那一行改掉了，例外就該拿掉）
   const copyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gatescan-'));
   // 孤兒檢查登記了例外的那兩支也要放：不放的話例外用不到，原樣就不通過（2026-09-24 加孤兒檢查時這條前提紅了才發現）
-  for (const rel of [...TARGETS, ...ORPHAN_EXEMPT.map((e) => e.file)]) { fs.mkdirSync(path.dirname(path.join(copyRoot, rel)), { recursive: true }); fs.copyFileSync(path.join(ROOT, rel), path.join(copyRoot, rel)); }
+  seed(copyRoot);
   ok(run(copyRoot).res === true, '（前提）原樣複本 gatescan 通過');
   const gate = path.join(copyRoot, 'scripts/pushgate.sh');
   fs.writeFileSync(gate, fs.readFileSync(gate, 'utf8').replace('if [ ! -f "$REG" ]; then', 'if [ -z "$(cat "$REG" 2>/dev/null)" ]; then'));
@@ -589,16 +619,33 @@ section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣
   // G5 孤兒（v9 F4，每版都跑）：專案裡有推送指令、卻沒登記進掃描清單的腳本要報出來。
   // 暫存目錄放被掃的三支＋兩支登記了例外的，先確認基準通過；再丟一支沒登記的推送腳本，理由要點名它
   const orphanRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gatescan-'));
-  for (const rel of [...TARGETS, ...ORPHAN_EXEMPT.map((e) => e.file)]) {
-    fs.mkdirSync(path.dirname(path.join(orphanRoot, rel)), { recursive: true });
-    fs.copyFileSync(path.join(ROOT, rel), path.join(orphanRoot, rel));
-  }
+  seed(orphanRoot);
   ok(run(orphanRoot).res === true, '（前提）孤兒檢查的暫存目錄：原樣通過');
   fs.writeFileSync(path.join(orphanRoot, 'scripts/quickpush.sh'), '#!/usr/bin/env bash\ngit add -A && git commit -m wip\n' + 'git ' + 'push origin main\n');
   const g5 = run(orphanRoot);
   ok(g5.res === false && g5.text.includes('孤兒｜scripts/quickpush.sh'),
     'G5 丟一支有推送指令、卻沒登記的腳本 → gatescan 判不通過，理由點名那一支（孤兒｜scripts/quickpush.sh）');
   fs.rmSync(orphanRoot, { recursive: true, force: true });
+  // G6 跳脫掃描擴到 repo 裡所有腳本（2026-09-24 補充說明四；以前只掃 TARGETS 三支）＋孤兒核對
+  const escRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gatescan-'));
+  seed(escRoot);
+  ok(run(escRoot).res === true, '（前提）跳脫掃描的暫存目錄：原樣通過');
+  const BS = String.fromCharCode(92);
+  fs.mkdirSync(path.join(escRoot, 'tools'), { recursive: true });
+  fs.writeFileSync(path.join(escRoot, 'tools/deploy.sh'), "#!/usr/bin/env bash\ngrep -E '^" + BS + "s+foo' out.txt\n");
+  const g6a = run(escRoot);
+  ok(g6a.res === false && g6a.text.includes('跳脫｜tools/deploy.sh:2'),
+    'G6-1 跳脫掃描：不在 TARGETS、也不在 scripts/ 的腳本裡有 grep 樣式帶反斜線 → 判不通過，點名那一行（跳脫｜tools/deploy.sh:2）');
+  fs.rmSync(path.join(escRoot, 'tools'), { recursive: true });
+  const g6b = run(escRoot, (r) => [...walkScripts(r), 'node_modules/x/evil.sh']);
+  ok(g6b.res === false && g6b.text.includes('跳脫掃描的孤兒｜node_modules/x/evil.sh'),
+    'G6-2 跳脫掃描的孤兒：git 有追蹤、目錄走訪卻沒走到的腳本 → 判不通過，點名它');
+  const g6c = run(escRoot, () => { throw new Error('not a git repository'); });
+  ok(g6c.res === false && g6c.text.includes('跳脫掃描壞了：取不到 git 追蹤的檔案清單'),
+    'G6-3 取不到 git 追蹤清單 → 判不通過、講明是檢查器壞了（不是 0 個孤兒）');
+  fs.rmSync(escRoot, { recursive: true, force: true });
+  const walked = /跳脫掃描：走了 (\d+) 支/.exec(g1.out);
+  ok(walked && Number(walked[1]) >= 50, `G6-4 真實 repo：跳脫掃描走了 ${walked ? walked[1] : '（沒有這一行）'} 支腳本（母體要涵蓋 scripts/、js/、根目錄）`);
 }
 
 done('doctest');

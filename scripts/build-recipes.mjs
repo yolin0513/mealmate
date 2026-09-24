@@ -79,6 +79,29 @@ export function outputProblems(recipes, prev, { allowShrink = false } = {}) {
   return out;
 }
 
+/**
+ * 先寫暫存檔、成功才換上（v9 F8）；寫失敗也要點名、不能中斷（2026-09-24 補充說明四）。
+ * · 只清自己寫出來的暫存檔：寫都沒寫成（例如那個位置本來就有同名資料夾、或被防毒鎖住），就不碰它——
+ *   以前不管有沒有寫成都去刪，刪不掉就在 catch 裡再丟一次例外，吐出堆疊、設計好的理由印不出來。
+ * · 清理本身失敗也不中斷：把「暫存檔刪不掉、留在哪裡」一起點名，照樣走 stop()。
+ */
+export function writeAtomically(out, text, stop, fsx = fs) {
+  const tmp = `${out}.tmp`;
+  const rel = (p) => path.relative(ROOT, p).split(path.sep).join('/');
+  let wrote = false;
+  try { fsx.writeFileSync(tmp, text, 'utf8'); wrote = true; fsx.renameSync(tmp, out); }
+  catch (e) {
+    const lines = [`寫 ${rel(out)} 失敗：${e.message}`];
+    if (wrote) {
+      try { fsx.rmSync(tmp, { force: true }); }
+      catch (e2) { lines.push(`暫存檔 ${rel(tmp)} 刪不掉、留在原地：${e2.message}`); }
+    } else if (fsx.existsSync(tmp)) {
+      lines.push(`${rel(tmp)} 那個位置已經有東西（不是這次寫的，沒有動它）`);
+    }
+    stop(lines);
+  }
+}
+
 if (process.argv[1] && process.argv[1].endsWith('build-recipes.mjs')) {
   const stop = (lines) => { console.error('✗ 沒有寫檔：'); for (const l of lines) console.error(`  - ${l}`); process.exit(1); };
   // 每一個輸入都要在：讀不到就點名是哪一個，不要丟一串 ENOENT
@@ -100,9 +123,7 @@ if (process.argv[1] && process.argv[1].endsWith('build-recipes.mjs')) {
   if (problems.length) stop(problems);
   // 先寫暫存檔，成功才換上：寫到一半失敗不會留下半份 recipes.json
   const out = { ...outputFor(recipes, foodsVersion), generatedAt: today() };
-  const tmp = `${OUT}.tmp`;
-  try { fs.writeFileSync(tmp, JSON.stringify(out), 'utf8'); fs.renameSync(tmp, OUT); }
-  catch (e) { fs.rmSync(tmp, { force: true }); stop([`寫 ${path.relative(ROOT, OUT)} 失敗：${e.message}`]); }
+  writeAtomically(OUT, JSON.stringify(out), stop);
   const s = summarize(recipes);
   console.log(`✓ ${s.count} 道食譜 → ${path.relative(ROOT, OUT)} ${(fs.statSync(OUT).size / 1024).toFixed(0)}KB`);
   console.log('  角色', s.roles);

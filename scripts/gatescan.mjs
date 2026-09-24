@@ -9,6 +9,7 @@
 // 用法：node scripts/gatescan.mjs
 
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -93,6 +94,64 @@ export function orphanScripts(root) {
   return { orphans, hits, scanned, unreadable };
 }
 
+/**
+ * 跳脫掃描（shell-regex）擴到 repo 裡所有腳本（2026-09-24 Dispatch 補充說明四）：以前只掃 TARGETS 那三支。
+ * · 母體：整棵樹走一遍，副檔名是腳本的都算（加 package.json——npm scripts 就是 shell 指令列），不需要誰記得登記。
+ *   不走 .git、node_modules、.logs（不是 repo 的內容）。TARGETS 那三支由上面的完整掃描負責，這裡不重複。
+ * · 孤兒：拿 git 追蹤的檔案清單核對——被追蹤的腳本卻沒被走到（例如放在不走的目錄底下），一律報出來。
+ *   取不到清單 → 停（檢查器壞了，不是 0 個孤兒）。
+ * · 登記的例外（ESCAPE_EXEMPT）每一條都要真的用到。
+ */
+const WALK_SKIP = new Set(['.git', 'node_modules', '.logs']);
+const isScriptFile = (name) => SCRIPT_EXT.test(name) || name === 'package.json';
+export const ESCAPE_EXEMPT = [
+  { file: 'scripts/mutationtest.mjs', contains: '會誤報 printf',
+    reason: '突變的說明字串（講 gatescan 自己被誤報過的那一行），是資料不是指令' },
+  { file: 'scripts/mutationtest.mjs', contains: 'replace: "    test: (l) => /',
+    reason: 'gatescan 自己的突變：把 shell-regex 判準改回舊寫法的替換字串，是資料不是指令' },
+];
+export function walkScripts(root) {
+  const out = [];
+  const walk = (rel) => {
+    for (const d of fs.readdirSync(path.join(root, rel), { withFileTypes: true })) {
+      const r = rel ? `${rel}/${d.name}` : d.name;
+      if (d.isDirectory()) { if (!WALK_SKIP.has(d.name)) walk(r); }
+      else if (d.isFile() && isScriptFile(d.name)) out.push(r);
+    }
+  };
+  walk('');
+  return out.sort();
+}
+export function gitTrackedScripts(root) {
+  const txt = execFileSync('git', ['-c', 'core.quotepath=false', 'ls-files'], { cwd: root, encoding: 'utf8' });
+  return txt.split('\n').filter(Boolean).filter((f) => isScriptFile(path.posix.basename(f)));
+}
+/** 回 { ok, scanned, lines, hits: [..], orphans: [..], unusedExempt: [..], error } */
+export function escapeScan(root, listTracked = gitTrackedScripts) {
+  let files;
+  try { files = walkScripts(root); } catch (e) { return { ok: false, error: `走不完目錄：${e.message}` }; }
+  let tracked;
+  try { tracked = listTracked(root); } catch (e) { return { ok: false, error: `取不到 git 追蹤的檔案清單：${e.message}` }; }
+  if (!files.length || !tracked.length) return { ok: false, error: `走到 ${files.length} 支、追蹤清單 ${tracked.length} 支——有一邊是空的` };
+  const rule = LINE_RULES.find((r) => r.id === 'shell-regex');
+  const used = new Set(); const hits = []; let lines = 0; let scanned = 0;
+  for (const rel of files) {
+    if (TARGETS.includes(rel)) continue;
+    const text = fs.readFileSync(path.join(root, rel), 'utf8');
+    scanned += 1; lines += text.split('\n').length;
+    text.split('\n').forEach((l, i) => {
+      if (isComment(l) || !rule.test(l)) return;
+      const ex = ESCAPE_EXEMPT.findIndex((e) => e.file === rel && l.includes(e.contains));
+      if (ex >= 0) { used.add(ex); return; }
+      hits.push(`${rel}:${i + 1}｜${l.trim().slice(0, 120)}`);
+    });
+  }
+  const walked = new Set(files);
+  const orphans = tracked.filter((f) => !walked.has(f));
+  const unusedExempt = ESCAPE_EXEMPT.filter((_, i) => !used.has(i)).map((e) => `${e.file}｜${e.contains}`);
+  return { ok: !hits.length && !orphans.length && !unusedExempt.length, scanned, lines, hits, orphans, unusedExempt, error: null };
+}
+
 /** 掃一段文字：回 [{ id, line, text }]（逐行寫法）＋ 整支檔案的寫法。 */
 export function scanText(text) {
   const hits = [];
@@ -128,7 +187,7 @@ export function controlSamples() {
   };
 }
 
-export function main(root = ROOT, log = console.log) {
+export function main(root = ROOT, log = console.log, listTracked = gitTrackedScripts) {
   let ok = true;
   // 對照組先跑：每一種寫法都要抓得到
   const samples = controlSamples();
@@ -167,6 +226,16 @@ export function main(root = ROOT, log = console.log) {
   }
   ORPHAN_EXEMPT.forEach((e, i) => { if (!usedEx.has(i)) { log(`孤兒的登記例外沒用到（那支檔改掉了？拿掉這條例外）｜${e.file}`); ok = false; } });
   log(`孤兒檢查：掃了 ${orph.scanned} 支腳本，其中 ${orph.hits} 支有推送指令`);
+  // 跳脫掃描：repo 裡所有腳本
+  const es = escapeScan(root, listTracked);
+  if (es.error) { log(`跳脫掃描壞了：${es.error}（檢查器壞了，不是 0 個問題）`); ok = false; }
+  else {
+    for (const h of es.hits) log(`跳脫｜${h}｜grep／sed 的樣式含反斜線、寫在 shell 指令列上`);
+    for (const f of es.orphans) log(`跳脫掃描的孤兒｜${f}｜git 有追蹤、目錄走訪卻沒走到`);
+    for (const u of es.unusedExempt) log(`跳脫掃描的登記例外沒用到｜${u}`);
+    if (!es.ok) ok = false;
+    log(`跳脫掃描：走了 ${es.scanned} 支腳本（不含上面三支）、${es.lines} 行；登記的例外 ${ESCAPE_EXEMPT.length} 條`);
+  }
   log(`查了：${TARGETS.length} 支檔案、${lines} 行；寫法 ${LINE_RULES.length + FILE_RULES.length} 種；登記的例外 ${EXCEPTIONS.length} 條`);
   log(ok ? 'gatescan 通過' : 'gatescan 不通過');
   return ok;

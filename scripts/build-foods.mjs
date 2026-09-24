@@ -21,6 +21,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
+import { writeAtomically } from './build-recipes.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const RAW_DIR = path.join(ROOT, 'data/raw');
@@ -303,14 +304,12 @@ function latestRaw() {
 }
 
 async function main() {
+  const stop = (lines) => { console.error('✗ 沒有寫檔：'); for (const l of lines) console.error(`  - ${l}`); process.exit(1); };
   let raw = process.argv.includes('--download') ? await download() : latestRaw();
-  if (!raw) {
-    console.error('data/raw/ 裡沒有 tfnd-YYYY-MM-DD.json；用 --download 抓一份');
-    process.exit(1);
-  }
+  // 跟其他停下的理由一樣走 stop()：驗法只在「✗ 沒有寫檔：」之後找點名（2026-09-24 補充說明四）
+  if (!raw) stop(['data/raw/ 裡沒有 tfnd-YYYY-MM-DD.json；用 --download 抓一份']);
   const version = /tfnd-(\d{4}-\d{2}-\d{2})\.json$/.exec(raw)[1];
   console.log(`讀 ${path.relative(ROOT, raw)} …`);
-  const stop = (lines) => { console.error('✗ 沒有寫檔：'); for (const l of lines) console.error(`  - ${l}`); process.exit(1); };
   let rows;
   try { rows = JSON.parse(fs.readFileSync(raw, 'utf8')); } catch (e) { stop([`原始資料 ${path.relative(ROOT, raw)} 讀不出來（JSON 壞掉？）：${e.message}`]); }
   // 以下檢查都在類別覆寫之前（v9 F8）：以前空陣列、欄位名稱改了、只剩一部分，都是被「類別覆寫表的編號找不到」碰巧擋下——
@@ -336,10 +335,8 @@ async function main() {
     units,
     foods,
   };
-  // 先寫暫存檔，成功才換上：寫到一半失敗不會留下半份 foods.json
-  const tmp = `${OUT}.tmp`;
-  try { fs.writeFileSync(tmp, JSON.stringify(out), 'utf8'); fs.renameSync(tmp, OUT); }
-  catch (e) { fs.rmSync(tmp, { force: true }); stop([`寫 ${path.relative(ROOT, OUT)} 失敗：${e.message}`]); }
+  // 先寫暫存檔，成功才換上：寫到一半失敗不會留下半份 foods.json；寫失敗、清理失敗都點名、不中斷（見 build-recipes 的 writeAtomically）
+  writeAtomically(OUT, JSON.stringify(out), stop);
 
   const cats = {};
   for (const f of foods) cats[f.cat] = (cats[f.cat] ?? 0) + 1;
