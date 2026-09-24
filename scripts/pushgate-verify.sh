@@ -3,6 +3,11 @@
 # 完全不碰 GitHub：在暫存目錄建 bare repo 當假遠端，複製本 repo **已 commit 的內容**過去（閘門要先 commit 才驗得到）。
 # 用法（在 repo 根目錄）：bash scripts/pushgate-verify.sh。全部符合回傳 0；任何一種不符合回傳 1。
 set -u
+# 驗法自己也用 git：執行環境裡有 git 自己認得的變數就不跑（同閘門的入口檢查；清單是另一份，第 23 種拿它逐一去打閘門）
+GIT_ENV_EXPECT="GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_CEILING_DIRECTORIES GIT_DISCOVERY_ACROSS_FILESYSTEM GIT_NAMESPACE GIT_REPLACE_REF_BASE GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS"
+for v in $GIT_ENV_EXPECT; do
+  if [ -n "${!v+x}" ]; then echo "閘門驗法：執行環境裡有 $v（git 自己認得它），先 unset 再跑"; exit 1; fi
+done
 SRC="$(git rev-parse --show-toplevel)" || exit 1
 T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
@@ -214,16 +219,34 @@ s22() { fresh
     check "22 問不到遠端的 main" 3 local "遠端 main=（讀不到）" "已推送"
   fi; }
 
+# 23 執行環境裡有 git 自己認得的變數（GIT_DIR 之類）→ 閘門在任何 git 呼叫之前就停（回 6）、點名那個變數，不跑自查、不推
+#    清單裡每一個逐一設定（指向不存在的地方）各跑一次；另加「GIT_DIR 設成空字串」也要擋。對照（沒設要放行）是第 7 種
+s23() { fresh
+  probe_commit w "乾淨的一行"
+  BEFORE="$(remote_main)"; : > "$T/out"; RC=6; local v r n=0
+  for v in $GIT_ENV_EXPECT; do
+    n=$((n + 1))
+    env "$v=$T/no-such-place" bash scripts/pushgate.sh > "$T/out1" 2>&1; r=$?
+    cat "$T/out1" >> "$T/out"
+    if [ "$r" != 6 ] || ! grep -q -- "【擋下：執行環境】$v 有設定" "$T/out1"; then RC="$r"; echo "23｜$v 沒擋下（回傳 $r）" >> "$T/out"; fi
+  done
+  env GIT_DIR= bash scripts/pushgate.sh > "$T/out1" 2>&1; r=$?
+  cat "$T/out1" >> "$T/out"
+  if [ "$r" != 6 ]; then RC="$r"; echo "23｜GIT_DIR 設成空字串沒擋下（回傳 $r）" >> "$T/out"; fi
+  if precondition "23 執行環境有 git 自己認得的變數" '[ "$n" -ge 15 ]' "清單要逐一打過（實際 $n 個）"; then
+    check "23 執行環境有 git 自己認得的變數" 6 same "【擋下：執行環境】" "查了："
+  fi; }
+
 # 7 全部正常 → 推上去、假遠端＝本機
 s7() { fresh
   probe_commit g "乾淨的一行"
   run_gate; check "7 全部正常" 0 local "已推送" "擋下"; }
 
-ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22"
-ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 7}"
-# 順序清單要恰好是 22 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
+ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23"
+ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 7}"
+# 順序清單要恰好是 23 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
 if [ "$(printf '%s\n' $ORDER | sort -n | tr '\n' ' ')" != "$(printf '%s\n' $ALL | sort -n | tr '\n' ' ')" ]; then
-  echo "閘門驗法：順序清單不是恰好 22 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
+  echo "閘門驗法：順序清單不是恰好 23 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
 fi
 echo "順序：$ORDER"
 for n in $ORDER; do "s$n"; done

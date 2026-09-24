@@ -769,6 +769,13 @@ section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣
   const g7b = run(envRoot);
   ok(g7b.res === false && g7b.text.includes(`讀環境變數｜scripts/pushgate.sh｜${knob}`),
     'G7-2 賦值那一行自己讀自己（X="${X:-預設}"）也算讀環境變數——只看「有沒有賦值」會躲過去');
+  // G7-3 間接讀取（變數名不在字面上：process.env[k]、${!v}）→ 列成「(間接)」，沒登記就不通過（2026-09-25：閘門入口拒絕 GIT_DIR 用的正是這種讀法，原本掃描看不到）
+  fs.writeFileSync(gatePath, gateOrig);
+  const scPath = path.join(envRoot, 'scripts/selfcheck.mjs');
+  fs.appendFileSync(scPath, "\nconst someKey = 'X';\nvoid process.env[" + 'someKey];\n');
+  const g7c = run(envRoot);
+  ok(g7c.res === false && g7c.text.includes('讀環境變數｜scripts/selfcheck.mjs｜(間接)'),
+    'G7-3 間接讀取環境變數（process.env[變數]）→ 判不通過、列成「(間接)」');
   fs.rmSync(envRoot, { recursive: true, force: true });
   const walked = /跳脫掃描：走了 (\d+) 支/.exec(g1.out);
   ok(walked && Number(walked[1]) >= 50, `G6-4 真實 repo：跳脫掃描走了 ${walked ? walked[1] : '（沒有這一行）'} 支腳本（母體要涵蓋 scripts/、js/、根目錄）`);

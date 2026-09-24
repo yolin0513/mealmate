@@ -42,6 +42,7 @@ export const CASES = [
     replace: '  git log -p --no-color --format= -U0 origin/main..HEAD > "$T/k.diff"',
     expect: ['11'], must: '11 ++ 開頭的新增行｜前置不成立', mustNot: '取不到 diff' },
   // ---- 擋法表（2026-09-25，F9 補）：每一種必備情境一條只紅它的突變；共用的一環另列一條 ----
+  { label: '擋法表｜23 執行環境有 git 自己認得的變數 → 入口不拒絕', find: '  if [ -n "${!v+x}" ]; then echo "【擋下：執行環境】', replace: '  if false; then echo "【擋下：執行環境】', expect: ['23'] },
   { label: '擋法表｜2 自查的對照組沒命中就停 → 拿掉', file: 'scripts/selfcheck.mjs', find: '    if (!ctl) ok = false;', replace: '    void ctl;', expect: ['2'] },
   { label: '擋法表｜3 取不到使用者名稱就丟例外 → 改成回 false（隱式：被對照組接住、理由不對）', file: 'scripts/selfcheck.mjs',
     find: "{ test: () => { throw new Error('取不到使用者名稱'); } }", replace: '{ test: () => false }', expect: ['3'] },

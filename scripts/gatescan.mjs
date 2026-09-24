@@ -48,6 +48,8 @@ export const LINE_RULES = [
 export const ENV_ALLOW = [
   { file: 'scripts/selfcheck.mjs', name: 'USERNAME', reason: '取本機使用者名稱當成個資樣式（Windows）；取不到就丟例外（閘門驗法第 3 種）' },
   { file: 'scripts/selfcheck.mjs', name: 'USER', reason: '同上（其他平台）' },
+  { file: 'scripts/pushgate.sh', name: '(間接)', reason: '入口拒絕 git 自己認得的環境變數（GIT_DIR 之類）：逐一 ${!v+x} 讀，是為了擋，不是拿來改行為' },
+  { file: 'scripts/pushgate-verify.sh', name: '(間接)', reason: '同上：驗法自己在入口拒絕同一類變數' },
   { file: 'scripts/pushgate-verify.sh', name: 'PATH', reason: '驗法把假 git 放在 PATH 最前面造失敗路徑（F10）；系統的環境變數，不是測試開關' },
   { file: 'scripts/pushgate-verify.sh', name: 'PUSHGATE_VERIFY_ORDER', reason: '驗法（不是正式閘門）的情境順序，只改先後、不改任何判準（M6：換順序跑結論要一樣）' },
 ];
@@ -66,9 +68,14 @@ export function envReads(text, isShell) {
         if (r.includes(m[1])) selfRef.add(m[1]);
       }
     }
-    return [...reads].filter((n) => !assigned.has(n) || selfRef.has(n)).sort();
+    // 間接讀取（`${!v}`、`printenv`）：變數名不在字面上，上面那條抓不到——整類列成「(間接)」，要用就得登記理由（2026-09-25）
+    const out = [...reads].filter((n) => !assigned.has(n) || selfRef.has(n));
+    if (lines.some((l) => /\$\{!/.test(l) || /\bprintenv\b/.test(l))) out.push('(間接)');
+    return out.sort();
   }
   for (const l of lines) for (const m of l.matchAll(/process\.env(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[\s*['"]([A-Za-z_][A-Za-z0-9_]*)['"]\s*\])/g)) reads.add(m[1] ?? m[2]);
+  // JS 的間接讀取：鍵不是字面、或整包拿（Object.keys／entries／values、展開）
+  if (lines.some((l) => /process\.env\[\s*[^'"\s]/.test(l) || /Object\.(keys|entries|values)\(\s*process\.env\b/.test(l) || /\.\.\.process\.env\b/.test(l))) reads.add('(間接)');
   return [...reads].sort();
 }
 
@@ -259,6 +266,8 @@ export function main(root = ROOT, log = console.log, listTracked = gitTrackedScr
     envReads('LOG=".logs/x"\nlocal N=1\necho "$LOG $N"', true).length === 0,
     envReads('# 註解裡的 $' + 'SECRET_KNOB 不算', true).length === 0,
     envReads('PUSHGATE_REMOTE="${' + 'PUSHGATE_REMOTE:-origin}"\ngit push "$' + 'PUSHGATE_REMOTE" main', true).join(',') === 'PUSHGATE_REMOTE',
+    envReads('for v in $list; do [ -n "${' + '!v+x}" ] && exit 6; done', true).join(',') === '(間接)',
+    envReads('const k = pick();\nconst x = process.env[' + 'k];', false).join(',') === '(間接)',
   ];
   const envCtlOk = envCtl.every(Boolean);
   log(`對照組｜env-read｜${envCtl.filter(Boolean).length}/${envCtl.length} 對${envCtlOk ? '' : '｜檢查器壞了：讀環境變數的判準抓不到已知的樣本、或誤報了賦值與註解'}`);

@@ -3603,6 +3603,15 @@ const MUTATIONS = [
     test: "doctest",
     expect: "G7-1 閘門讀了沒登記的環境變數",
   },
+  {
+    name: "gatescan 看不到間接讀取環境變數",
+    why: "變數名不在字面上（process.env[k]、${!v}）時，原本的掃描完全看不到（2026-09-25：閘門入口拒絕 GIT_DIR 用的正是這種讀法）。",
+    file: "scripts/gatescan.mjs",
+    find: "  if (lines.some((l) => /process\\.env\\[\\s*[^'\"\\s]/.test(l) || /Object\\.(keys|entries|values)\\(\\s*process\\.env\\b/.test(l) || /\\.\\.\\.process\\.env\\b/.test(l))) reads.add('(間接)');",
+    replace: "  if (false) reads.add('(間接)');",
+    test: "doctest",
+    expect: "G7-3 間接讀取環境變數",
+  },
   // ---- 2026-09-24 F1 必敗對照組（SPEC_檢查器修補）----
   {
     name: "tap 一條斷言都沒有就結束也算通過",
