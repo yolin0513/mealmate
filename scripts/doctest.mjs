@@ -13,6 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX } from './checkmutations.mjs';
+import { main, scanText, controlSamples, TARGETS } from './gatescan.mjs';
 import { FORBIDDEN } from './copyrules.mjs';
 import { CONDITION_FIELDS, DIETS, DIET_LABELS, CONDITIONS, KIDNEY_FIELDS, BASE_DISPLAY_FIELDS } from '../js/members.js';
 import { DEFAULTS, FONT_SCALES } from '../js/prefs.js';
@@ -399,6 +400,51 @@ section('assertaudit 的母體＝測試鏈（2026-09-24，Yolin 選 A）：丟�
     shouldHit: [['alphatest.mjs', 'gammatest.mjs'], ['betatest.mjs', 'deltatest.mjs', 'newtool.mjs']],
     shouldMiss: [['alphatest.mjs', 'betatest.mjs'], ['alphatest.mjs', 'newtool.mjs'], ['mutationtest.mjs', 'betatest.mjs']],
   }, 'T3（對照）沒登記的 *test.mjs 抓得到；工具與 mutationtest 不算孤兒');
+}
+
+section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣例 v9 §5.16，每版都跑）');
+{
+  // G1 從真實入口跑：回傳值 0、對照組每一種都抓到、查的檔數正確（0 命中要附查了多少）
+  let g1 = { code: 0, out: '' };
+  try { g1.out = execFileSync(process.execPath, [path.join(ROOT, 'scripts/gatescan.mjs')], { cwd: ROOT, encoding: 'utf8' }); }
+  catch (e) { g1 = { code: e.status ?? -1, out: String(e.stdout ?? '') }; }
+  const ctlLines = g1.out.split('\n').filter((l) => l.startsWith('對照組｜'));
+  ok(g1.code === 0 && ctlLines.length === 7 && ctlLines.every((l) => /｜(\d+)\/\1 抓到$/.test(l)) && g1.out.includes('查了：3 支檔案'),
+    `G1 gatescan 通過：回傳 ${g1.code}、對照組 ${ctlLines.length} 種全部抓到、${(/查了：[^；]*/.exec(g1.out) ?? ['（沒有「查了」）'])[0]}`);
+  // G2 每一種寫法：該抓的抓到、不該抓的不抓（反例含 2026-09-24 被誤報的那一行）
+  const S = controlSamples();
+  const hitsId = ([id, text]) => scanText(text).some((h) => h.id === id);
+  detects(hitsId, {
+    shouldHit: Object.entries(S).flatMap(([id, list]) => list.map((t) => [id, t])),
+    shouldMiss: [
+      ['pipe', 'git push -q origin main'], ['pipe', 'git fetch -q origin main || exit 1'],
+      ['or-true', 'git push -q origin main || exit 2'],
+      ['empty-catch', 'catch (e) { check = String(e.stdout); }'],
+      ['plus3-header', "if (inHunk && l.startsWith('+')) out.push(l.slice(1));"],
+      ['absence', 'ok(fs.existsSync(p), "在")'],
+      ['shell-regex', 'printf "%s\\n" "$NS" | grep -qE "^[1-9]"'],
+      ['pipe', '# 註解裡講 git push | tail 不算'],
+      ['format-no-meta', "git log --format=%B%n%an <%ae> && git log -p --format= -U0"],
+    ],
+  }, 'G2（對照）七種壞寫法都抓得到；正確寫法、註解、2026-09-24 誤報過的那一行不抓');
+  // G3 被掃的檔讀不到 → 停（不是 0 個問題）
+  // 比對「為什麼」不通過（§5.11 第一層）：2026-09-24 第一版只看回傳值是 false——讀不到的時候，
+  // 登記的例外也一條都沒用到，就算「讀不到就停」被拿掉，照樣是 false（突變證明它沒紅）
+  const run = (root) => { const lines = []; const res = main(root, (l) => lines.push(l)); return { res, text: lines.join('\n') }; };
+  const emptyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gatescan-'));
+  const g3 = run(emptyRoot);
+  ok(g3.res === false && (g3.text.match(/讀不到或是空的：/g) ?? []).length === TARGETS.length,
+    `G3 被掃的檔讀不到時，gatescan 判不通過、理由是「讀不到或是空的」（${(g3.text.match(/讀不到或是空的：/g) ?? []).length}/${TARGETS.length} 支）`);
+  // G4 登記的例外沒用到 → 不通過（那一行改掉了，例外就該拿掉）
+  const copyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gatescan-'));
+  for (const rel of TARGETS) { fs.mkdirSync(path.dirname(path.join(copyRoot, rel)), { recursive: true }); fs.copyFileSync(path.join(ROOT, rel), path.join(copyRoot, rel)); }
+  ok(run(copyRoot).res === true, '（前提）原樣複本 gatescan 通過');
+  const gate = path.join(copyRoot, 'scripts/pushgate.sh');
+  fs.writeFileSync(gate, fs.readFileSync(gate, 'utf8').replace('if [ ! -f "$REG" ]; then', 'if [ -z "$(cat "$REG" 2>/dev/null)" ]; then'));
+  const g4 = run(copyRoot);
+  ok(g4.res === false && g4.text.includes('登記的例外沒用到') && !g4.text.includes('命中｜'),
+    'G4 登記的例外那一行改掉之後，gatescan 判不通過、理由是「登記的例外沒用到」（不是別的命中）');
+  fs.rmSync(emptyRoot, { recursive: true, force: true }); fs.rmSync(copyRoot, { recursive: true, force: true });
 }
 
 done('doctest');

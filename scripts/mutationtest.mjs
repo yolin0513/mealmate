@@ -3398,6 +3398,43 @@ const MUTATIONS = [
     test: "doctest",
     expect: "D6（對照）剛好在上限上",
   },
+  // ---- 2026-09-24 gatescan：推送閘門、自查、驗法的壞寫法掃描（共用慣例 v9 §5.16）----
+  {
+    name: "gatescan 的管線樣式失效",
+    why: "拿掉一種寫法的樣式，那一種的對照組要報「檢查器壞了」，gatescan 回非 0（v9 §5.16）。",
+    file: "scripts/gatescan.mjs",
+    find: "    test: (l) => /(selfcheck|\\bgit\\s+(push|ls-remote|fetch|log|diff|show)\\b)/.test(l) && hasPipe(l) },",
+    replace: "    test: () => false },",
+    test: "doctest",
+    expect: "G1 gatescan 通過",
+  },
+  {
+    name: "gatescan 的 shell 樣式回到「整行有反斜線就算」",
+    why: "會誤報 printf \"%s\\n\" … | grep -qE \"^[1-9]\" 這種 grep 樣式本身沒有反斜線的行。",
+    file: "scripts/gatescan.mjs",
+    find: "    test: (l) => [...l.matchAll(/\\b(grep|sed)\\b[^|;]*?(['\"])((?:(?!\\2).)*)\\2/g)].some((m) => m[3].includes('\\\\')) },",
+    replace: "    test: (l) => /\\b(grep|sed)\\b/.test(l) && l.includes('\\\\') },",
+    test: "doctest",
+    expect: "G2（對照）",
+  },
+  {
+    name: "gatescan 讀不到被掃的檔時當成 0 個問題",
+    why: "檢查器故障時要停下，不是放行（v9 §5.13）。",
+    file: "scripts/gatescan.mjs",
+    find: "    if (!text || !text.trim()) { log(`讀不到或是空的：${rel}（檢查器壞了，不是 0 個問題）`); ok = false; continue; }",
+    replace: "    if (!text || !text.trim()) continue;",
+    test: "doctest",
+    expect: "G3 被掃的檔讀不到時",
+  },
+  {
+    name: "gatescan 登記的例外沒用到也照樣通過",
+    why: "那一行改掉了，例外就該拿掉；不然例外清單會爛掉，將來同一行換成真的壞寫法也被放過。",
+    file: "scripts/gatescan.mjs",
+    find: "${e.file}｜${e.id}｜${e.contains}`); ok = false; } });",
+    replace: "${e.file}｜${e.id}｜${e.contains}`); } });",
+    test: "doctest",
+    expect: "G4 登記的例外那一行改掉之後",
+  },
   // ---- 2026-09-24 assertaudit 的母體＝測試鏈（Yolin 選 A）----
   {
     name: "assertaudit 的母體回到「scripts/ 底下有什麼就算什麼」",
