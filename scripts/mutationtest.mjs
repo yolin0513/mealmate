@@ -3398,6 +3398,16 @@ const MUTATIONS = [
     test: "doctest",
     expect: "D6（對照）剛好在上限上",
   },
+  // ---- 2026-09-24 M5：gatescan 的孤兒檢查（v9 F4）----
+  {
+    name: "gatescan 的孤兒檢查只報已登記例外的那幾支",
+    why: "新寫一支推送腳本卻沒登記，它不會被掃、也不會走閘門——孤兒檢查要把它報出來（v9 F4）。",
+    file: "scripts/gatescan.mjs",
+    find: "      if (!TARGETS.includes(rel)) orphans.push(rel);",
+    replace: "      if (!TARGETS.includes(rel) && ORPHAN_EXEMPT.some((e) => e.file === rel)) orphans.push(rel);",
+    test: "doctest",
+    expect: "G5 丟一支有推送指令",
+  },
   // ---- 2026-09-24 v9 盤點的三件修正：shelltest 的 regex 擷取、checkmutations 的 find 次數、assertaudit 的靜態掃描 ----
   {
     name: "shelltest 的 regex 擷取改回只看 .test(／.exec(",

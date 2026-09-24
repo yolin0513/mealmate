@@ -13,7 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX } from './checkmutations.mjs';
-import { main, scanText, controlSamples, TARGETS } from './gatescan.mjs';
+import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT } from './gatescan.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
 import { FORBIDDEN } from './copyrules.mjs';
 import { CONDITION_FIELDS, DIETS, DIET_LABELS, CONDITIONS, KIDNEY_FIELDS, BASE_DISPLAY_FIELDS } from '../js/members.js';
@@ -473,14 +473,29 @@ section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣
     `G3 被掃的檔讀不到時，gatescan 判不通過、理由是「讀不到或是空的」（${(g3.text.match(/讀不到或是空的：/g) ?? []).length}/${TARGETS.length} 支）`);
   // G4 登記的例外沒用到 → 不通過（那一行改掉了，例外就該拿掉）
   const copyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gatescan-'));
-  for (const rel of TARGETS) { fs.mkdirSync(path.dirname(path.join(copyRoot, rel)), { recursive: true }); fs.copyFileSync(path.join(ROOT, rel), path.join(copyRoot, rel)); }
+  // 孤兒檢查登記了例外的那兩支也要放：不放的話例外用不到，原樣就不通過（2026-09-24 加孤兒檢查時這條前提紅了才發現）
+  for (const rel of [...TARGETS, ...ORPHAN_EXEMPT.map((e) => e.file)]) { fs.mkdirSync(path.dirname(path.join(copyRoot, rel)), { recursive: true }); fs.copyFileSync(path.join(ROOT, rel), path.join(copyRoot, rel)); }
   ok(run(copyRoot).res === true, '（前提）原樣複本 gatescan 通過');
   const gate = path.join(copyRoot, 'scripts/pushgate.sh');
   fs.writeFileSync(gate, fs.readFileSync(gate, 'utf8').replace('if [ ! -f "$REG" ]; then', 'if [ -z "$(cat "$REG" 2>/dev/null)" ]; then'));
   const g4 = run(copyRoot);
-  ok(g4.res === false && g4.text.includes('登記的例外沒用到') && !g4.text.includes('命中｜'),
+  // 比對指名到那一條例外的完整訊息：只比「登記的例外沒用到」的話，孤兒那邊的「孤兒的登記例外沒用到」也會讓它通過
+  ok(g4.res === false && g4.text.includes('登記的例外沒用到（那一行改掉了？拿掉這條例外）｜scripts/pushgate.sh｜absence') && !g4.text.includes('命中｜'),
     'G4 登記的例外那一行改掉之後，gatescan 判不通過、理由是「登記的例外沒用到」（不是別的命中）');
   fs.rmSync(emptyRoot, { recursive: true, force: true }); fs.rmSync(copyRoot, { recursive: true, force: true });
+  // G5 孤兒（v9 F4，每版都跑）：專案裡有推送指令、卻沒登記進掃描清單的腳本要報出來。
+  // 暫存目錄放被掃的三支＋兩支登記了例外的，先確認基準通過；再丟一支沒登記的推送腳本，理由要點名它
+  const orphanRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gatescan-'));
+  for (const rel of [...TARGETS, ...ORPHAN_EXEMPT.map((e) => e.file)]) {
+    fs.mkdirSync(path.dirname(path.join(orphanRoot, rel)), { recursive: true });
+    fs.copyFileSync(path.join(ROOT, rel), path.join(orphanRoot, rel));
+  }
+  ok(run(orphanRoot).res === true, '（前提）孤兒檢查的暫存目錄：原樣通過');
+  fs.writeFileSync(path.join(orphanRoot, 'scripts/quickpush.sh'), '#!/usr/bin/env bash\ngit add -A && git commit -m wip\n' + 'git ' + 'push origin main\n');
+  const g5 = run(orphanRoot);
+  ok(g5.res === false && g5.text.includes('孤兒｜scripts/quickpush.sh'),
+    'G5 丟一支有推送指令、卻沒登記的腳本 → gatescan 判不通過，理由點名那一支（孤兒｜scripts/quickpush.sh）');
+  fs.rmSync(orphanRoot, { recursive: true, force: true });
 }
 
 done('doctest');

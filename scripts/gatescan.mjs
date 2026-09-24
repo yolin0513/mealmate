@@ -62,6 +62,39 @@ export const EXCEPTIONS = [
     reason: '驗法用 --format= 只是數前置情境的行數，不是掃個資；掃描由 selfcheck.mjs 負責（它另外取 %B、%ae）' },
 ];
 
+/**
+ * 孤兒（v9 F4，2026-09-24）：登記制的配套——專案裡有推送指令（非註解行有 `git push`）、卻沒登記進 TARGETS 的腳本，一律報出來。
+ * 不然新寫一支推送腳本，它不會被這裡掃到，也不會走閘門。掃 scripts/ 與專案根目錄（不遞迴）。
+ */
+export const ORPHAN_DIRS = ['scripts', '.'];
+const SCRIPT_EXT = /\.(sh|bash|mjs|cjs|js|py|ps1)$/;
+const PUSH_RX = /\bgit\s+push\b/;
+/** 有推送指令、但不是推送腳本的：{ file, reason }。每一條都要真的用到。 */
+export const ORPHAN_EXEMPT = [
+  { file: 'scripts/gatescan.mjs', reason: '本檔：對照組樣本（當場組出來的壞寫法字串）裡有 git push，不是真的推送' },
+  { file: 'scripts/doctest.mjs', reason: 'gatescan 的 G2 反例樣本字串裡有 git push，不是真的推送' },
+];
+
+/** 回 { orphans: [相對路徑], hits: 有推送指令的檔數, scanned: 掃了幾個檔, unreadable: [讀不到的目錄] } */
+export function orphanScripts(root) {
+  const orphans = []; const unreadable = [];
+  let hits = 0, scanned = 0;
+  for (const dir of ORPHAN_DIRS) {
+    let names;
+    try { names = fs.readdirSync(path.join(root, dir), { withFileTypes: true }); } catch { unreadable.push(dir); continue; }
+    for (const d of names) {
+      if (!d.isFile() || !SCRIPT_EXT.test(d.name)) continue;
+      const rel = dir === '.' ? d.name : `${dir}/${d.name}`;
+      scanned += 1;
+      const text = fs.readFileSync(path.join(root, rel), 'utf8');
+      if (!text.split('\n').some((l) => !isComment(l) && PUSH_RX.test(l))) continue;
+      hits += 1;
+      if (!TARGETS.includes(rel)) orphans.push(rel);
+    }
+  }
+  return { orphans, hits, scanned, unreadable };
+}
+
 /** 掃一段文字：回 [{ id, line, text }]（逐行寫法）＋ 整支檔案的寫法。 */
 export function scanText(text) {
   const hits = [];
@@ -124,6 +157,18 @@ export function main(root = ROOT, log = console.log) {
     }
   }
   EXCEPTIONS.forEach((e, i) => { if (!used.has(i)) { log(`登記的例外沒用到（那一行改掉了？拿掉這條例外）｜${e.file}｜${e.id}｜${e.contains}`); ok = false; } });
+  // 孤兒：有推送指令、卻沒登記進 TARGETS 的腳本
+  const orph = orphanScripts(root);
+  if (orph.unreadable.length) { log(`孤兒檢查讀不到目錄：${orph.unreadable.join('、')}（檢查器壞了，不是 0 個問題）`); ok = false; }
+  const usedEx = new Set();
+  for (const rel of orph.orphans) {
+    const ex = ORPHAN_EXEMPT.findIndex((e) => e.file === rel);
+    if (ex >= 0) { usedEx.add(ex); log(`孤兒的登記例外｜${rel}｜${ORPHAN_EXEMPT[ex].reason}`); continue; }
+    log(`孤兒｜${rel}｜有推送指令（git push），卻沒登記進 TARGETS：要走閘門就登記進來，不是推送腳本就列進 ORPHAN_EXEMPT 並寫理由`);
+    ok = false;
+  }
+  ORPHAN_EXEMPT.forEach((e, i) => { if (!usedEx.has(i)) { log(`孤兒的登記例外沒用到（那支檔改掉了？拿掉這條例外）｜${e.file}`); ok = false; } });
+  log(`孤兒檢查：掃了 ${orph.scanned} 支腳本，其中 ${orph.hits} 支有推送指令`);
   log(`查了：${TARGETS.length} 支檔案、${lines} 行；寫法 ${LINE_RULES.length + FILE_RULES.length} 種；登記的例外 ${EXCEPTIONS.length} 條`);
   log(ok ? 'gatescan 通過' : 'gatescan 不通過');
   return ok;
