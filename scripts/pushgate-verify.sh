@@ -110,7 +110,9 @@ s10() { fresh
 s11() { fresh
   printf '++ contact: %s\n' "$(printf '%s@%s' tester example-mail.test)" > docs/k.md; git add docs/k.md; git commit -q -m "probe k add"
   git rm -q docs/k.md; git commit -q -m "probe k remove"
-  PP="$(git log -p --no-color --format= -U0 origin/main..HEAD | grep -c '^+++ ')"
+  # 先寫檔再數，不接管線（M4，統籌者 2026-09-24 裁示：不設永久例外）：取 diff 失敗就明講，不靠「數到 0 行≠3」間接擋下
+  if ! git log -p --no-color --format= -U0 origin/main..HEAD > "$T/k.diff"; then echo "11 ++ 開頭的新增行｜取不到 diff｜不符合（情境沒造成，中止）"; FAIL=1; fi
+  PP="$(grep -c '^+++ ' "$T/k.diff")"
   if precondition "11 ++ 開頭的新增行" '[ "$PP" = 3 ]' "diff 裡以「+++ 」開頭的行應該恰好 3 行（兩個檔頭＋那一行內容），實際 $PP 行"; then
     run_gate; check "11 ++ 開頭的新增行" 1 same "來源：新增行" "抽取壞了"
   fi; }

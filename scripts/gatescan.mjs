@@ -56,8 +56,6 @@ export const EXCEPTIONS = [
     reason: '同上：這一行之前先跑了 grep -q -- "$must"，輸出確實在、而且有預期的擋下理由，才看「不能有的字」' },
   { file: 'scripts/pushgate-verify.sh', id: 'plus3-header', contains: "grep -c '^+++ '",
     reason: '第 11 種的前置斷言，刻意數「以 +++ 開頭的行」（兩個檔頭＋那一行內容＝3），不是拿來判斷檔頭' },
-  { file: 'scripts/pushgate-verify.sh', id: 'pipe', contains: "grep -c '^+++ '",
-    reason: '【待 Dispatch 裁示，2026-09-24 回報】照 §5.16 字面是壞寫法（取 diff 的那一行接管線）；實際是故障時停下：git log 失敗會數到 0 行≠3，前置不成立、驗法判失敗，不會放行。要改成先寫檔再 grep，需要個案授權' },
   { file: 'scripts/pushgate-verify.sh', id: 'format-no-meta', contains: '',
     reason: '驗法用 --format= 只是數前置情境的行數，不是掃個資；掃描由 selfcheck.mjs 負責（它另外取 %B、%ae）' },
 ];
