@@ -188,16 +188,42 @@ s20() { fresh
     check "20 取不到檔名清單" 5 same "取不到這次要推的檔名清單" "查了："
   fi; }
 
+# 假的 git（F10）：參數裡出現指定的子指令就失敗，其他交給真的 git。放在 PATH 最前面，閘門（bash）照 PATH 找到它
+fake_git_on() { local word="$1" real; real="$(command -v git)"; mkdir -p "$T/fake-$word"
+  printf '#!/usr/bin/env bash\nfor a in "$@"; do if [ "$a" = "%s" ]; then echo "fake git：故意失敗（%s）" >&2; exit 128; fi; done\nexec "%s" "$@"\n' "$word" "$word" "$real" > "$T/fake-$word/git"
+  chmod +x "$T/fake-$word/git"; }
+# 假的 git 自己的對照組：指定的子指令必須失敗；不相干的 rev-parse、log 必須照常
+fake_ok() { local word="$1" cmd="$2" h l; h="$(PATH="$T/fake-$word:$PATH" git rev-parse HEAD 2>/dev/null)"; l="$(PATH="$T/fake-$word:$PATH" git log -1 --format=%H HEAD 2>/dev/null)"
+  ! PATH="$T/fake-$word:$PATH" eval "$cmd" >/dev/null 2>&1 && [ "$h" = "$(git rev-parse HEAD)" ] && [ "$l" = "$h" ]; }
+
+# 21 讀不到遠端（git fetch 失敗）→ 擋在自查那一關（回 1）、理由「讀不到遠端」，不推
+s21() { fresh
+  fake_git_on fetch
+  probe_commit u "乾淨的一行"
+  if precondition "21 讀不到遠端" 'fake_ok fetch "git fetch -q origin main"' "假的 git：fetch 要失敗；rev-parse、log 要照常"; then
+    BEFORE="$(remote_main)"; PATH="$T/fake-fetch:$PATH" bash scripts/pushgate.sh > "$T/out" 2>&1; RC=$?
+    check "21 讀不到遠端" 1 same "讀不到遠端，自查的範圍不確定" "已推送"
+  fi; }
+
+# 22 推上去之後問不到遠端的 main（git ls-remote 失敗）→ 回 3、講明「讀不到」，不印「已推送」
+s22() { fresh
+  fake_git_on ls-remote
+  probe_commit v "乾淨的一行"
+  if precondition "22 問不到遠端的 main" 'fake_ok ls-remote "git ls-remote origin refs/heads/main"' "假的 git：ls-remote 要失敗；rev-parse、log 要照常"; then
+    BEFORE="$(remote_main)"; PATH="$T/fake-ls-remote:$PATH" bash scripts/pushgate.sh > "$T/out" 2>&1; RC=$?
+    check "22 問不到遠端的 main" 3 local "遠端 main=（讀不到）" "已推送"
+  fi; }
+
 # 7 全部正常 → 推上去、假遠端＝本機
 s7() { fresh
   probe_commit g "乾淨的一行"
   run_gate; check "7 全部正常" 0 local "已推送" "擋下"; }
 
-ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20"
-ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 18 19 20 7}"
-# 順序清單要恰好是 20 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
+ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22"
+ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 7}"
+# 順序清單要恰好是 22 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
 if [ "$(printf '%s\n' $ORDER | sort -n | tr '\n' ' ')" != "$(printf '%s\n' $ALL | sort -n | tr '\n' ' ')" ]; then
-  echo "閘門驗法：順序清單不是恰好 20 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
+  echo "閘門驗法：順序清單不是恰好 22 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
 fi
 echo "順序：$ORDER"
 for n in $ORDER; do "s$n"; done

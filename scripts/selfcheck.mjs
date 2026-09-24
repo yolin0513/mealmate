@@ -12,12 +12,12 @@
 // 推送那一行要用回傳值擋，不要接管線。沒有不能公開的樣式或黑名單：使用者名稱執行時從環境變數取，email 的對照組當場組成。
 // 路徑照附錄 A：磁碟機開頭的路徑、帶使用者名稱的家目錄路徑擋；用 ~、$HOME 寫的泛稱不擋。
 import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // --range <A..B>：只給「拿真實資料確認不會誤擋」這種一次性的檢查用（例如 HEAD~30..HEAD）；閘門不帶，照舊是 <遠端>/main..HEAD
-const argv = process.argv.slice(2);
-const ri = argv.indexOf('--range');
-const range = ri >= 0 ? argv[ri + 1] : `${argv[0] || 'origin'}/main..HEAD`;
-const git = (args) => execFileSync('git', ['-c', 'core.quotepath=off', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+// 「執行 git」是參數（F10 第 1b 點）：測試傳一個會回壞輸出或會失敗的版本，才造得出「抽取對不上」「取不到訊息與作者欄」這些真的 git 造不出來的失敗分支
+export const realGit = (args) => execFileSync('git', ['-c', 'core.quotepath=off', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
 
 /** 照 diff 的結構抽新增行（去掉開頭的 +）。檔頭不算；@@ 之後以 + 開頭的才是內容。 */
 function addedLinesOf(diffText) {
@@ -41,17 +41,18 @@ function numstatAdded(numstatText) {
   return n;
 }
 
-function main() {
+/** 回 true＝通過。git 丟例外就讓它丟出去（CLI 那邊以未處理例外結束、回非 0——故障時停下）。 */
+export function selfcheck(range, git = realGit, log = console.log) {
   const commits = git(['rev-list', range]).split('\n').filter(Boolean);
   const added = addedLinesOf(git(['log', '-p', '--no-color', '--format=', '-U0', range]));
   const numstat = numstatAdded(git(['log', '--numstat', '--format=', range]));
   const meta = git(['log', '--format=%B%n%an <%ae>%n%cn <%ce>', range]).split('\n').filter((l) => l.trim());
-  console.log(`查了：commit ${commits.length} 個；新增行 ${added.length} 行（numstat ${numstat} 行）；commit 訊息與作者欄 ${meta.length} 行`);
+  log(`查了：commit ${commits.length} 個；新增行 ${added.length} 行（numstat ${numstat} 行）；commit 訊息與作者欄 ${meta.length} 行`);
 
   let ok = true;
-  if (commits.length === 0) { console.log('範圍裡沒有 commit：沒有東西可推，當成失敗（避免查錯範圍還顯示通過）'); ok = false; }
-  if (added.length !== numstat) { console.log(`抽取壞了：抽出的新增行 ${added.length} 行，numstat 是 ${numstat} 行（對不上就停，不是「有命中」）`); ok = false; }
-  if (commits.length > 0 && meta.length === 0) { console.log('取不到 commit 訊息與作者欄：範圍裡有 commit，每個 commit 一定有作者欄，當成失敗'); ok = false; }
+  if (commits.length === 0) { log('範圍裡沒有 commit：沒有東西可推，當成失敗（避免查錯範圍還顯示通過）'); ok = false; }
+  if (added.length !== numstat) { log(`抽取壞了：抽出的新增行 ${added.length} 行，numstat 是 ${numstat} 行（對不上就停，不是「有命中」）`); ok = false; }
+  if (commits.length > 0 && meta.length === 0) { log('取不到 commit 訊息與作者欄：範圍裡有 commit，每個 commit 一定有作者欄，當成失敗'); ok = false; }
 
   const user = process.env.USERNAME || process.env.USER || '';
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -73,16 +74,21 @@ function main() {
     const ctl = controls[name].every((c) => re.test(c));
     const inAdded = added.filter((l) => re.test(l)).length;
     const inMeta = meta.filter((l) => re.test(l)).length;
-    console.log(`${name}：對照組命中=${ctl}，新增行命中=${inAdded}，commit 訊息或作者欄命中=${inMeta}`);
+    log(`${name}：對照組命中=${ctl}，新增行命中=${inAdded}，commit 訊息或作者欄命中=${inMeta}`);
     if (!ctl) ok = false;
-    if (inAdded) { console.log(`  命中｜${name}｜來源：新增行 ${inAdded} 行`); ok = false; }
-    if (inMeta) { console.log(`  命中｜${name}｜來源：commit 訊息或作者欄 ${inMeta} 行`); ok = false; }
+    if (inAdded) { log(`  命中｜${name}｜來源：新增行 ${inAdded} 行`); ok = false; }
+    if (inMeta) { log(`  命中｜${name}｜來源：commit 訊息或作者欄 ${inMeta} 行`); ok = false; }
   }
   // 泛稱路徑不該被擋（附錄 A：~、$HOME 不算）——反向的對照：擋了就是樣式寫太寬
   const generic = '~' + '/.cache/x';
-  if (checks.磁碟機或家目錄路徑.test(generic)) { console.log('磁碟機或家目錄路徑：連泛稱路徑也擋（樣式太寬）'); ok = false; }
-  console.log(ok ? '自查通過' : '自查不通過');
-  if (!ok) process.exitCode = 1;
+  if (checks.磁碟機或家目錄路徑.test(generic)) { log('磁碟機或家目錄路徑：連泛稱路徑也擋（樣式太寬）'); ok = false; }
+  log(ok ? '自查通過' : '自查不通過');
+  return ok;
 }
 
-main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const argv = process.argv.slice(2);
+  const ri = argv.indexOf('--range');
+  const range = ri >= 0 ? argv[ri + 1] : `${argv[0] || 'origin'}/main..HEAD`;
+  if (!selfcheck(range)) process.exitCode = 1;
+}

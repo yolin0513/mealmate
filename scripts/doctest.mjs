@@ -9,11 +9,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX } from './checkmutations.mjs';
-import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts } from './gatescan.mjs';
+import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts, escapeScan } from './gatescan.mjs';
+import { selfcheck } from './selfcheck.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
 import { outputProblems, writeAtomically } from './build-recipes.mjs';
 import { selfControls as bgControls, names, registrationDecision as bgDecide, BG_FILES, BG_REG, finalizeRegistration, compare as bgCompare } from './buildguard-verify.mjs';
@@ -629,6 +630,44 @@ section('assertaudit 的靜態掃描（auditrules）：每版都跑、附對照�
   }
 }
 
+section('自查的失敗分支（F10 第 1b 點：node 呼叫的 git；每版都跑）');
+{
+  // 「執行 git」從參數傳進去：真的 git 造不出「抽取對不上」「取不到訊息與作者欄」，用假的 runner 造
+  const fakeRunner = ({ diff, numstat, meta, throwOn = null }) => (args) => {
+    if (throwOn && args.includes(throwOn)) throw new Error('假的 git 失敗');
+    if (args[0] === 'rev-list') return 'c1\n';
+    if (args.includes('-p')) return diff;
+    if (args.includes('--numstat')) return numstat;
+    if (args[0] === 'log') return meta;
+    throw new Error(`假的 runner 沒準備這一種：${args.join(' ')}`);
+  };
+  const DIFF1 = 'diff --git a/f b/f\n--- a/f\n+++ b/f\n@@ -0,0 +1 @@\n+乾淨的一行\n';
+  const META1 = 'probe\nprobe <probe@users.noreply.github.com>\nprobe <probe@users.noreply.github.com>\n';
+  const good = { diff: DIFF1, numstat: '1\t0\tf\n', meta: META1 };
+  const runSc = (opts) => { const lines = []; const res = selfcheck('x..y', fakeRunner(opts), (l) => lines.push(l)); return { res, text: lines.join('\n') }; };
+  const sc0 = runSc(good);
+  ok(sc0.res === true && sc0.text.includes('查了：commit 1 個；新增行 1 行（numstat 1 行）') && sc0.text.includes('自查通過'),
+    'SC-0（對照）假的 runner 輸出一致 → 自查通過（證明假 runner 本身沒把自查弄壞）');
+  const sc1 = runSc({ ...good, numstat: '2\t0\tf\n' });
+  ok(sc1.res === false && sc1.text.includes('抽取壞了：抽出的新增行 1 行，numstat 是 2 行') && !sc1.text.includes('命中｜'),
+    'SC-1 抽出的新增行數跟 numstat 對不上 → 判不通過，理由是「抽取壞了」（不是「有命中」）');
+  const sc2 = runSc({ ...good, meta: '' });
+  ok(sc2.res === false && sc2.text.includes('取不到 commit 訊息與作者欄'),
+    'SC-2 範圍裡有 commit、卻取不到訊息與作者欄 → 判不通過，理由講明');
+  let sc3 = 'returned';
+  try { sc3 = selfcheck('x..y', fakeRunner({ ...good, throwOn: '-p' }), () => {}) ? 'returned-true' : 'returned-false'; } catch { sc3 = 'threw'; }
+  eq(sc3, 'threw', 'SC-3 取 diff 的 git 失敗 → 例外丟出去（CLI 以未處理例外結束、回非 0），不是當成空的通過');
+  // SC-4 真的 git 失敗（F10 第 1b 點第 1 步：用 git 自己認得的 GIT_DIR，程式裡沒有為測試開的分支）
+  const badGitDir = path.join(os.tmpdir(), 'mm-no-such-gitdir');
+  const envBad = { ...process.env, GIT_DIR: badGitDir };
+  const pre = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, env: envBad, encoding: 'utf8' });
+  const ctl = spawnSync(process.execPath, ['scripts/selfcheck.mjs', '--range', 'HEAD~1..HEAD'], { cwd: ROOT, encoding: 'utf8' });
+  ok(!fs.existsSync(badGitDir) && pre.status !== 0 && ctl.status === 0 && ctl.stdout.includes('自查通過'),
+    `（前提）SC-4：GIT_DIR 指向不存在的目錄時真的 git 會失敗（回傳 ${pre.status}）；不帶 GIT_DIR 時同一行自查照常通過（回傳 ${ctl.status}）`);
+  const sc4 = spawnSync(process.execPath, ['scripts/selfcheck.mjs', '--range', 'HEAD~1..HEAD'], { cwd: ROOT, env: envBad, encoding: 'utf8' });
+  ok(sc4.status !== 0 && !sc4.stdout.includes('自查通過'), `SC-4 真的 git 失敗 → 自查回非 0（${sc4.status}）、沒有印「自查通過」`);
+}
+
 section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣例 v9 §5.16，每版都跑）');
 {
   // G1 從真實入口跑：回傳值 0、對照組每一種都抓到、查的檔數正確（0 命中要附查了多少）
@@ -706,6 +745,14 @@ section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣
   ok(g6c.res === false && g6c.text.includes('跳脫掃描壞了：取不到 git 追蹤的檔案清單'),
     'G6-3 取不到 git 追蹤清單 → 判不通過、講明是檢查器壞了（不是 0 個孤兒）');
   fs.rmSync(escRoot, { recursive: true, force: true });
+  // G6-5 真的 git 取不到追蹤清單（F10 第 1b 點第 1 步：GIT_DIR 指向不存在的目錄；G6-3 只驗了傳入會丟例外的函式）
+  const gitDirBefore = process.env.GIT_DIR;
+  let g6e;
+  process.env.GIT_DIR = path.join(os.tmpdir(), 'mm-no-such-gitdir');
+  try { g6e = escapeScan(ROOT); } finally { if (gitDirBefore === undefined) delete process.env.GIT_DIR; else process.env.GIT_DIR = gitDirBefore; }
+  const g6eCtl = escapeScan(ROOT);
+  ok(g6e.ok === false && String(g6e.error).startsWith('取不到 git 追蹤的檔案清單') && g6eCtl.ok === true,
+    `G6-5 真的 git 取不到追蹤清單 → 判成檢查器壞了；（對照）拿掉 GIT_DIR 照常通過（${g6eCtl.ok}）`);
   const walked = /跳脫掃描：走了 (\d+) 支/.exec(g1.out);
   ok(walked && Number(walked[1]) >= 50, `G6-4 真實 repo：跳脫掃描走了 ${walked ? walked[1] : '（沒有這一行）'} 支腳本（母體要涵蓋 scripts/、js/、根目錄）`);
 }

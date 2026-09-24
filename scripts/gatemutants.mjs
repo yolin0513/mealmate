@@ -31,6 +31,9 @@ export const CASES = [
   { label: '不管有沒有動到都看登記（新 clone 一律要先跑）', find: 'if [ -z "$bgtouched" ]; then', replace: 'if false; then', expect: ['17'] },
   { label: '比工作區、不比已 commit 版本', find: 'h="$(git rev-parse "HEAD:$f" 2>/dev/null)"', replace: 'h="$(git hash-object "$f" 2>/dev/null)"', expect: ['18'] },
   { label: '只看最後一個 commit 的檔名', find: 'git log --format= --name-only "$REMOTE/main..HEAD"', replace: 'git log -1 --format= --name-only HEAD', expect: ['19'] },
+  // ---- 閘門第一關：讀不到遠端（F10：第 21 種用假 git 讓 fetch 失敗）----
+  { label: '讀不到遠端時不停（fetch 失敗照樣往下走）', find: 'if ! git fetch -q "$REMOTE" main > "$LOG" 2>&1; then cat "$LOG"; echo "【擋下：自查】讀不到遠端，自查的範圍不確定，不推送"; exit 1; fi',
+    replace: 'git fetch -q "$REMOTE" main > "$LOG" 2>&1', expect: ['21'] },
   // ---- 閘門驗法第 11 種的失敗路徑（F10：假 git 讓取 diff 那一個子指令失敗）----
   { label: '失敗路徑：第 11 種取不到 diff → 明講、判不符合', find: null, fakeGit: FAKE_DIFF,
     expect: ['11'], must: '11 ++ 開頭的新增行｜取不到 diff｜不符合（情境沒造成，中止）' },
@@ -41,7 +44,7 @@ export const CASES = [
   // ---- 改閘門驗法本身的（以前的 M4、M6）----
   { label: 'M6：fresh 不清 hook（預設順序看得出來）', file: VERIFY,
     find: 'fresh() { rm -f "$T/remote.git/hooks/pre-receive" "$T/remote.git/hooks/post-receive"; restore_all; register_work; }',
-    replace: 'fresh() { restore_all; register_work; }', expect: ['6', '7', '12', '17', '18'] },
+    replace: 'fresh() { restore_all; register_work; }', expect: ['6', '7', '12', '17', '18', '22'] },
   { label: 'M4：第 11 種前置斷言改回接管線 → gatescan 點名那一行', file: VERIFY, runner: 'gatescan',
     find: `  PP="$(grep -c '^+++ ' "$T/k.diff")"`, replace: `  PP="$(git log -p --no-color --format= -U0 origin/main..HEAD | grep -c '^+++ ')"`,
     must: '｜pipe｜' },

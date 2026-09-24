@@ -3565,6 +3565,25 @@ const MUTATIONS = [
     test: "doctest",
     expect: "F8-12 登記那一步讀不到雜湊",
   },
+  // ---- 2026-09-24 F10 第 1b 點：自查（node 呼叫的 git）的失敗分支 ----
+  {
+    name: "自查抽取跟 numstat 對不上也不停",
+    why: "F10 失敗分支：真的 git 造不出來，用參數傳入的假 runner 造（2026-09-24）。",
+    file: "scripts/selfcheck.mjs",
+    find: "  if (added.length !== numstat) {",
+    replace: "  if (false) {",
+    test: "doctest",
+    expect: "SC-1 抽出的新增行數跟 numstat 對不上",
+  },
+  {
+    name: "自查取不到訊息與作者欄也不停",
+    why: "F10 失敗分支（統籌者 P3 同型）：拿掉這一道，空的訊息與作者欄會被當成「0 命中、通過」（2026-09-24）。",
+    file: "scripts/selfcheck.mjs",
+    find: "  if (commits.length > 0 && meta.length === 0) {",
+    replace: "  if (false) {",
+    test: "doctest",
+    expect: "SC-2 範圍裡有 commit、卻取不到訊息與作者欄",
+  },
   // ---- 2026-09-24 F1 必敗對照組（SPEC_檢查器修補）----
   {
     name: "tap 一條斷言都沒有就結束也算通過",
