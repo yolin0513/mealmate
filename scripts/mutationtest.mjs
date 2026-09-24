@@ -3517,6 +3517,25 @@ const MUTATIONS = [
     test: "doctest",
     expect: "F8-8 buildguard 驗法的對照組",
   },
+  // ---- 2026-09-24 F8 登記制（推送閘門第零關之二）----
+  {
+    name: "buildguard 登記不管是不是 HEAD",
+    why: "對任意 --rev 跑出來的結果不能登記：證明的是別的版本（2026-09-24 F8 登記制，Dispatch 指定的限制）。",
+    file: "scripts/buildguard-verify.mjs",
+    find: "  if (!isHead) return { action: 'keep', why: '--rev 不是 HEAD：證明的是別的版本，不登記、不動現有的登記' };",
+    replace: "  void isHead;",
+    test: "doctest",
+    expect: "F8-9 --rev 不是 HEAD",
+  },
+  {
+    name: "buildguard 登記不管工作區乾不乾淨",
+    why: "工作區的 build 或驗法跟 HEAD 不一樣時，跑的不是 HEAD 那一份，不能登記（2026-09-24 F8 登記制）。",
+    file: "scripts/buildguard-verify.mjs",
+    find: "  if (dirty.length) return {",
+    replace: "  if (false) return {",
+    test: "doctest",
+    expect: "F8-9 工作區的 build 跟 HEAD 不一樣",
+  },
   // ---- 2026-09-24 F1 必敗對照組（SPEC_檢查器修補）----
   {
     name: "tap 一條斷言都沒有就結束也算通過",
