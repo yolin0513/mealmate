@@ -390,6 +390,7 @@ StockDiary 的六條情境裡有三條共用同一個擋法：改壞一處，三
 | 20 取不到檔名清單 | 第零關之二：取不到就回 5 | 失敗照樣往下走 | 只紅 20 |
 | 21 讀不到遠端（fetch 失敗） | 閘門：fetch 失敗就停 | 失敗照樣往下走 | 只紅 21 |
 | 22 問不到遠端的 main | 閘門第三關：讀不到＝空值≠本機（隱式） | 改成讀不到就當成一樣 | 只紅 22 |
+| 23 執行環境有 git 自己認得的變數（2026-09-25 加） | 閘門入口：設了就停 | 入口不拒絕 | 只紅 23（`49eeaa7`） |
 
 **共同的一環**（兩種以上情境共用同一個擋法；照實列出，不假裝是好幾道防線）
 
@@ -431,3 +432,40 @@ StockDiary 的六條情境裡有三條共用同一個擋法：改壞一處，三
 1. 修正前：新規則對現行閘門跑，回 1，點名 `讀環境變數｜scripts/pushgate.sh｜PUSHGATE_REMOTE`。
 2. 修正後（移除）：gatescan 通過。
 3. 常設：doctest G7-1、G7-2 從暫存目錄造兩種寫法，都判不通過並點名那個變數；G1 驗對照組 5/5。突變 2 條（不看自己讀自己、一律當成已登記），各紅在指定的斷言。
+
+## 底層工具自己認得的環境變數（2026-09-25，JLPT 提出、Dispatch 核准）
+
+**跟上一節是兩類，分開處理**
+
+| 類別 | 例子 | 程式碼裡看得到嗎 | 怎麼守 |
+|---|---|---|---|
+| 程式自己讀的 | `PUSHGATE_REMOTE`（已移除）、自查的 `USERNAME` | 看得到（`$NAME`、`process.env.NAME`） | 登記制＋gatescan 掃描（上一節） |
+| 底層工具自己認得的 | `GIT_DIR`、`GIT_WORK_TREE`… | **看不到**：程式一行都沒讀，git 自己就會讀 | **掃描找不到，只能在入口主動拒絕**（本節） |
+
+設了第二類，整個閘門會對著另一個 repo 或另一份設定跑完全套檢查，然後說通過。
+
+**做法**：`pushgate.sh` 在任何 git 呼叫之前逐一檢查，設了（空字串也算）就停，回 **6**，並點名那個變數。閘門驗法自己也在入口做同樣的檢查。
+
+拒絕的清單共 15 個：
+- 改指 repo 位置的：`GIT_DIR`、`GIT_WORK_TREE`、`GIT_INDEX_FILE`、`GIT_OBJECT_DIRECTORY`、`GIT_ALTERNATE_OBJECT_DIRECTORIES`、`GIT_COMMON_DIR`、`GIT_CEILING_DIRECTORIES`、`GIT_DISCOVERY_ACROSS_FILESYSTEM`、`GIT_NAMESPACE`、`GIT_REPLACE_REF_BASE`。
+- 注入設定的：`GIT_CONFIG`、`GIT_CONFIG_GLOBAL`、`GIT_CONFIG_SYSTEM`、`GIT_CONFIG_COUNT`、`GIT_CONFIG_PARAMETERS`。
+
+**已知限制：清單不保證完整，沒有假裝窮舉**
+- 沒列進來、但同樣會改變 git 行為的：
+  - `GIT_SSH_COMMAND`、`GIT_SSH`、`GIT_ASKPASS`：改連線方式，不改 repo。
+  - `GIT_EXEC_PATH`：換掉 git 的子程式。
+  - `GIT_CONFIG_KEY_<n>`／`GIT_CONFIG_VALUE_<n>`：沒有 `GIT_CONFIG_COUNT` 不會生效，所以只擋 COUNT。
+- **擋不了的**：`HOME`、`XDG_CONFIG_HOME` 會換掉使用者層級的 git 設定。例如用 `url.<x>.insteadOf` 把 origin 改寫到別的地方：推送和第三關的 `ls-remote` 會一起被改寫，比對照樣成立。這兩個變數不能拒絕（每台機器都有）。
+- 同一類的其他底層工具（node 自己認得的 `NODE_OPTIONS` 等）沒有處理。
+
+**對照組**
+- 設了要擋：閘門驗法第 23 種拿**另一份獨立的清單**，逐一設定這 15 個，各跑一次閘門，外加 `GIT_DIR` 設成空字串。每一次都要回 6、點名那個變數、沒跑到自查。閘門那邊的清單漏一個，這裡就會抓到。
+- 沒設要放行：第 7 種（全部正常）。
+- 目前的執行環境裡只有 `GIT_EDITOR`（只決定編輯器），不在清單裡，不會誤擋。
+
+**突變**：拿掉入口的拒絕 → 只紅第 23 種。`gatemutants.mjs` 在 `49eeaa7` 跑 32 條，**全部如預期**，對照組 23 種全部符合。
+
+**順帶補的**：入口拒絕用的是間接讀法 `${!v+x}`（變數名不在字面上），上一節的掃描**完全看不到**，實跑確認過。
+- 掃描補了「間接讀取」這一類：`${!v}`、`printenv`、`process.env[變數]`、整包拿 `process.env`，一律列成「(間接)」，要用就得登記理由。閘門和閘門驗法的入口拒絕各登記一條。
+- 對照組 7 種。寫的時候有一個合成樣本自己寫錯：用了大寫的 `$L`，它本身也會被算成讀環境變數，已改掉。
+- doctest G7-3；突變「看不到間接讀取」→ 紅 G7-3。

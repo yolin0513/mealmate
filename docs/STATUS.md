@@ -134,6 +134,7 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
 18. **推送一律走閘門：`bash scripts/pushgate.sh`。**（共用慣例 v7 §2.5，不得放寬；2026-09-23 本 App 實測重現過「印出自查不通過、照樣推上去」）
     三關，失敗各回不同的值、而且真的停下：**1** 自查沒過（`scripts/selfcheck.mjs`：新增行、commit 訊息與作者欄有命中、任何一類的對照組沒命中、範圍裡沒有 commit、抽出的新增行數不等於 `numstat`、丟例外，都回非 0）；
     **2** 推送失敗（不做後面的確認）；**3** 推送回報成功、遠端 main 卻不等於本機 HEAD（直接 `git ls-remote` 問遠端）；
+    **6**（入口，2026-09-25 起，最先跑）執行環境裡有 git 自己認得、會改指 repo 或設定的變數（`GIT_DIR`、`GIT_WORK_TREE` 等 15 個，空字串也算）——程式碼裡看不到、掃描找不到，只能在入口拒絕；清單不保證完整，見 EVIDENCE。
     **5**（第零關之二，2026-09-24 起；F9）**這次要推的 commit 動到** `build-recipes`、`build-foods`、`buildguard-verify`，卻還沒對 HEAD 跑過 F8 驗法——HEAD 裡三支的雜湊跟 `.logs/buildguard-verified.txt` 不一致、或沒有登記檔；取不到檔名清單也回 5。沒動到就不看（見「F8：產資料的工具故障時停下」一節）。
     **4**（第零關，最先跑）閘門、自查或驗法改過之後還沒跑過驗法——三支檔案目前的雜湊跟 `.logs/pushgate-verified.txt` 的登記不一致、或沒有登記檔。自查前先 `git fetch`：範圍是「遠端 main..HEAD」全部還沒推的 commit，
     追蹤分支若停在一次「推了沒更新」之後，那幾個沒真的推上去的 commit 會落在範圍外。**不接管線**（`… | tail -1 && git push` 的回傳值是 `tail` 的），輸出寫到 `.logs/pushgate.out`（已 gitignore）。
