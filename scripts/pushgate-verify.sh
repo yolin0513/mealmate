@@ -25,7 +25,10 @@ BASE="$(remote_main)"
 restore_all() { git --git-dir="$T/remote.git" update-ref refs/heads/main "$BASE"; git update-ref refs/remotes/origin/main "$BASE"; git reset -q --hard "$BASE"; git checkout -q -- .; }
 # 驗法登記（閘門第零關）：複本裡的閘門也要有登記才走得到後面的關卡——登記複本當下的三支檔案
 GATE_FILES="scripts/pushgate.sh scripts/selfcheck.mjs scripts/pushgate-verify.sh"
-register_work() { local out="" f; for f in $GATE_FILES; do out="${out}${f} $(git hash-object "$f")"$'\n'; done; mkdir -p .logs; printf '%s' "$out" > .logs/pushgate-verified.txt; }
+register_work() { local out="" f; for f in $GATE_FILES; do out="${out}${f} $(git hash-object "$f")"$'\n'; done; mkdir -p .logs; printf '%s' "$out" > .logs/pushgate-verified.txt; register_bg; }
+# 第零關之二（F8 驗法登記）：複本裡同樣登記當下的三支檔案，才走得到後面的關卡；第 15、16 種專驗這一關
+BG_FILES="scripts/build-recipes.mjs scripts/build-foods.mjs scripts/buildguard-verify.mjs"
+register_bg() { local out="" f; for f in $BG_FILES; do out="${out}${f} $(git hash-object "$f")"$'\n'; done; printf '%s' "$out" > .logs/buildguard-verified.txt; }
 register_work
 # 前置斷言：情境沒造成就中止，不讓一個根本沒發生的情境看起來符合
 precondition() { if ! eval "$2"; then echo "$1｜前置不成立：$3｜不符合（情境沒造成，中止）"; FAIL=1; return 1; fi; }
@@ -137,16 +140,28 @@ s14() { fresh
   probe_commit n "乾淨的一行"
   run_gate; check "14 沒有登記檔" 4 same "沒有登記檔" "查了："; }
 
+# 15 build 改過、還沒在 HEAD 跑過 F8 驗法（登記對不上）→ 回 5，停在第零關之二，連自查都沒跑
+s15() { fresh
+  printf '\n// 改過一行\n' >> scripts/build-foods.mjs
+  probe_commit o "乾淨的一行"
+  run_gate; check "15 build 改過沒跑 F8 驗法" 5 same "build-recipes、build-foods 或它們的驗法跟上次全擋時不一樣" "查了："; }
+
+# 16 沒有 F8 驗法的登記檔（新 session、新 clone；或上一次在 HEAD 沒全擋、登記被刪掉）→ 回 5
+s16() { fresh
+  rm -f .logs/buildguard-verified.txt
+  probe_commit p "乾淨的一行"
+  run_gate; check "16 沒有 F8 驗法的登記檔" 5 same "沒有 F8 驗法的登記檔" "查了："; }
+
 # 7 全部正常 → 推上去、假遠端＝本機
 s7() { fresh
   probe_commit g "乾淨的一行"
   run_gate; check "7 全部正常" 0 local "已推送" "擋下"; }
 
-ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14"
-ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 7}"
-# 順序清單要恰好是 14 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
+ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16"
+ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 7}"
+# 順序清單要恰好是 16 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
 if [ "$(printf '%s\n' $ORDER | sort -n | tr '\n' ' ')" != "$(printf '%s\n' $ALL | sort -n | tr '\n' ' ')" ]; then
-  echo "閘門驗法：順序清單不是恰好 14 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
+  echo "閘門驗法：順序清單不是恰好 16 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
 fi
 echo "順序：$ORDER"
 for n in $ORDER; do "s$n"; done

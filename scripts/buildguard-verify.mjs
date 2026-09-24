@@ -60,6 +60,23 @@ export function selfControls() {
   return out;
 }
 
+/**
+ * 登記制（2026-09-24，Yolin 同意、Dispatch 交辦；推送閘門第零關之二比對，對不上回 5）：
+ * 全擋時把這三支的雜湊登記進 `.logs/buildguard-verified.txt`（本機、不進版控）。
+ * 登記的必須是 HEAD：對任意 --rev 跑出來的結果不能登記（那證明的是別的版本）；只跑一部分（--only）也不能。
+ */
+export const BG_FILES = ['scripts/build-recipes.mjs', 'scripts/build-foods.mjs', 'scripts/buildguard-verify.mjs'];
+export const BG_REG = '.logs/buildguard-verified.txt';
+/** 回 { action: 'register'|'delete'|'keep', why } */
+export function registrationDecision({ only, fail, isHead, headMoved, dirty }) {
+  if (only) return { action: 'keep', why: '只跑了一部分（--only），不登記、不動現有的登記' };
+  if (!isHead) return { action: 'keep', why: '--rev 不是 HEAD：證明的是別的版本，不登記、不動現有的登記' };
+  if (fail) return { action: 'delete', why: 'HEAD 沒有全擋：刪掉登記，閘門會擋下推送' };
+  if (headMoved) return { action: 'delete', why: '跑的途中 HEAD 動了：跑的不是現在的 HEAD，刪掉登記' };
+  if (dirty.length) return { action: 'delete', why: `工作區的 ${dirty.join('、')} 跟 HEAD 不一樣（跑的驗法或 build 不是 HEAD 那一份），刪掉登記` };
+  return { action: 'register', why: 'HEAD 全擋：登記三支檔案已 commit 版本的雜湊' };
+}
+
 const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex').slice(0, 12);
 const isFile = (p) => fs.existsSync(p) && fs.statSync(p).isFile();
 const fileSha = (p) => (isFile(p) ? sha(fs.readFileSync(p)) : fs.existsSync(p) ? '（是資料夾）' : '（不存在）');
@@ -96,6 +113,9 @@ function verify(rev, only) {
   for (const c of selfControls()) { console.log(`對照組｜${c.ok ? '對' : '錯'}｜${c.label}`); if (!c.ok) fail += 1; }
   if (fail) { console.log('buildguard 驗法：對照組不對，判準壞了，不往下跑'); return 1; }
 
+  const git = (...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8' }).trim();
+  const headAtStart = git('rev-parse', 'HEAD');
+  const revFull = git('rev-parse', `${rev}^{commit}`);
   const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-bg-'));
   fs.rmSync(wt, { recursive: true });
   execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', '--detach', wt, rev]);
@@ -200,6 +220,18 @@ function verify(rev, only) {
     execFileSync('git', ['-C', repo, 'worktree', 'remove', '--force', wt]);
   }
   console.log(fail ? `buildguard 驗法：有 ${fail} 組沒全擋（或基準不綠、母體數量不符）` : 'buildguard 驗法：每一格都擋下、理由在錯誤訊息的位置點名那個單位、輸出檔沒動、沒有堆疊');
+  // 登記（推送閘門第零關之二比對）
+  const regPath = path.join(repo, BG_REG);
+  let d;
+  try {
+    const dirty = BG_FILES.filter((f) => git('hash-object', f) !== git('rev-parse', `HEAD:${f}`));
+    d = registrationDecision({ only, fail, isHead: revFull === headAtStart, headMoved: git('rev-parse', 'HEAD') !== headAtStart, dirty });
+  } catch (e) { d = { action: 'delete', why: `讀不到雜湊（${e.message.split('\n')[0]}），刪掉登記` }; }
+  if (d.action === 'register') {
+    fs.mkdirSync(path.dirname(regPath), { recursive: true });
+    fs.writeFileSync(regPath, BG_FILES.map((f) => `${f} ${git('rev-parse', `${headAtStart}:${f}`)}\n`).join(''));
+  } else if (d.action === 'delete') fs.rmSync(regPath, { force: true });
+  console.log(`登記｜${d.action === 'register' ? '已登記' : d.action === 'delete' ? '已刪掉' : '沒動'}｜${d.why}`);
   return fail ? 1 : 0;
 }
 

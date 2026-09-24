@@ -16,7 +16,7 @@ import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_M
 import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts } from './gatescan.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
 import { outputProblems, writeAtomically } from './build-recipes.mjs';
-import { selfControls as bgControls, names } from './buildguard-verify.mjs';
+import { selfControls as bgControls, names, registrationDecision as bgDecide, BG_FILES, BG_REG } from './buildguard-verify.mjs';
 import { rawProblems, foodsProblems, REQUIRED_FIELDS, NUTRIENT_KEYS, nutrientOrder } from './build-foods.mjs';
 import { FORBIDDEN } from './copyrules.mjs';
 import { CONDITION_FIELDS, DIETS, DIET_LABELS, CONDITIONS, KIDNEY_FIELDS, BASE_DISPLAY_FIELDS } from '../js/members.js';
@@ -474,6 +474,19 @@ section('F8 產資料的工具：資料不見、壞掉、變少時停下、點�
   ok(bgc.length >= 10 && bgc.every((c) => c.ok), `F8-8 buildguard 驗法的對照組 ${bgc.filter((c) => c.ok).length}/${bgc.length} 對（${bgc.filter((c) => !c.ok).map((c) => c.label).join('；') || '全對'}）`);
   ok(names('處理 r-foo.json …\n✗ 沒有寫檔：\n  - 一道食譜都沒有（0 道）', 'r-foo') === false,
     'F8-8 只出現在正常進度訊息裡的單位名，不算點名（「出現過」不等於「是理由」）');
+  // F8-9 登記制（推送閘門第零關之二）：只有「HEAD、全跑、全擋、途中 HEAD 沒動、工作區三支＝HEAD」才登記
+  const ok0 = { only: null, fail: 0, isHead: true, headMoved: false, dirty: [] };
+  eq(bgDecide(ok0).action, 'register', 'F8-9（對照）HEAD、全跑、全擋、工作區乾淨 → 登記');
+  eq(bgDecide({ ...ok0, isHead: false }).action, 'keep', 'F8-9 --rev 不是 HEAD → 不登記、不動現有的登記（證明的是別的版本）');
+  eq(bgDecide({ ...ok0, only: 'recipes' }).action, 'keep', 'F8-9 只跑一部分（--only）→ 不登記');
+  eq(bgDecide({ ...ok0, fail: 1 }).action, 'delete', 'F8-9 HEAD 沒全擋 → 刪掉登記（閘門會擋下）');
+  eq(bgDecide({ ...ok0, headMoved: true }).action, 'delete', 'F8-9 跑的途中 HEAD 動了 → 刪掉登記');
+  eq(bgDecide({ ...ok0, dirty: ['scripts/build-foods.mjs'] }).action, 'delete', 'F8-9 工作區的 build 跟 HEAD 不一樣 → 刪掉登記');
+  eq([...BG_FILES].sort(), ['scripts/build-foods.mjs', 'scripts/build-recipes.mjs', 'scripts/buildguard-verify.mjs'],
+    'F8-9 登記的三支＝兩支 build＋驗法本身（閘門第零關之二比對的就是這三支）');
+  const gateSrc = read('scripts/pushgate.sh');
+  ok(BG_FILES.every((f) => gateSrc.includes(f)) && gateSrc.includes(BG_REG) && /exit 5/.test(gateSrc),
+    `F8-9 推送閘門比對同樣三支、同一個登記檔（${BG_REG}），對不上回 5`);
 }
 
 section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24，SPEC_檢查器修補；每版都跑）');

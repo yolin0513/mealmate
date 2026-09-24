@@ -51,6 +51,8 @@ export const FILE_RULES = [
 export const EXCEPTIONS = [
   { file: 'scripts/pushgate.sh', id: 'absence', contains: 'if [ ! -f "$REG" ]; then',
     reason: '閘門的條件「沒有登記就擋下」：不存在時走的是擋下（回 4）那一邊，故障時停下，不是「斷言不存在就放行」' },
+  { file: 'scripts/pushgate.sh', id: 'absence', contains: 'if [ ! -f "$BGREG" ]; then',
+    reason: '第零關之二（F8 驗法登記）同一個形狀：沒有登記就擋下（回 5），不是「斷言不存在就放行」' },
   { file: 'scripts/pushgate-verify.sh', id: 'absence', contains: 'mustNot="$5"',
     reason: 'check() 的參數宣告；「不能有的字」之前同一個 check 先比對「必須有的字」——輸出檔不存在或是空的，must 就先不符' },
   { file: 'scripts/pushgate-verify.sh', id: 'absence', contains: 'grep -q -- "$mustNot" "$T/out"',

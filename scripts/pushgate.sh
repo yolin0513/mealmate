@@ -2,7 +2,8 @@
 # 推送的閘門（共用慣例 §2.5）：自查 → 推送 → 比對遠端，每一關失敗都真的停下。
 # 用法（在 repo 根目錄）：bash scripts/pushgate.sh
 # 回傳值：0 推上去了且遠端＝本機；1 自查沒過（沒推）；2 推送失敗（沒做後面的比對）；3 推送回報成功、遠端 main 卻不等於本機 HEAD；
-#         4 閘門、自查或驗法改過之後，還沒跑過驗法（登記對不上或沒有登記）。
+#         4 閘門、自查或驗法改過之後，還沒跑過驗法（登記對不上或沒有登記）；
+#         5 build-recipes、build-foods 或 buildguard-verify 改過之後，還沒在 HEAD 跑過 F8 驗法（登記對不上或沒有登記）。
 # 不接管線：每一步的輸出寫到 .logs/（已在 .gitignore），回傳值直接拿那一步的。
 # 驗法：bash scripts/pushgate-verify.sh（本機假遠端分別製造每一關的失敗）。全部通過時它登記三支檔案的雜湊，本檔推送前比對。
 set -u
@@ -24,6 +25,24 @@ if [ ! -f "$REG" ]; then
 fi
 if [ "$(cat "$REG")" != "$(printf '%s' "$cur")" ]; then
   echo "【擋下：驗法登記】閘門、自查或驗法跟上次驗法通過時不一樣（改過之後還沒跑過驗法），先 commit 再跑 bash scripts/pushgate-verify.sh"; exit 4
+fi
+
+# 第零關之二：F8 驗法登記（2026-09-24 起）。build-recipes、build-foods 的故障矩陣一輪 7 分鐘以上、不進 npm test；
+# 以前寫「改到這兩支就手動跑一次」靠人記得，現在跟上面同一套：HEAD 全擋時才登記，改過沒重跑就推不出去（回 5）。
+# 登記存在本機：新 session 或新 clone 第一次推送前要先跑一輪。
+BGREG=".logs/buildguard-verified.txt"
+BGRUN="node --max-old-space-size=4096 scripts/buildguard-verify.mjs --rev HEAD（7 分鐘以上）"
+bgcur=""
+for f in scripts/build-recipes.mjs scripts/build-foods.mjs scripts/buildguard-verify.mjs; do
+  h="$(git hash-object "$f" 2>/dev/null)"
+  if [ -z "$h" ]; then echo "【擋下：F8 驗法登記】讀不到 $f 的雜湊，不推送"; exit 5; fi
+  bgcur="${bgcur}${f} ${h}"$'\n'
+done
+if [ ! -f "$BGREG" ]; then
+  echo "【擋下：F8 驗法登記】沒有 F8 驗法的登記檔（$BGREG）：新 session、新 clone、或上一次沒全擋，先 commit 再跑 $BGRUN"; exit 5
+fi
+if [ "$(cat "$BGREG")" != "$(printf '%s' "$bgcur")" ]; then
+  echo "【擋下：F8 驗法登記】build-recipes、build-foods 或它們的驗法跟上次全擋時不一樣（改過之後還沒跑過），先 commit 再跑 $BGRUN"; exit 5
 fi
 
 # 第一關：自查。先 fetch：自查的範圍是「追蹤分支..HEAD」，追蹤分支若停在一次「推了但遠端沒更新」之後，
