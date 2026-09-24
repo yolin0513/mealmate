@@ -57,6 +57,7 @@ export function selfControls() {
   // 比對模式的擷取（§5.11 第二層）：抓空的話，「兩邊母體一樣多」就退化成沒比
   const g = groupsOf('版本 x\nbuild-recipes｜刪掉那一道｜248 格｜擋 0｜沒擋 248（其中…）\n    沒擋：r-a.json｜回傳 0\nbuild-foods｜整體｜5 格｜擋 5｜沒擋 0（其中…）\n');
   out.push({ ok: Object.keys(g).length === 2 && g['build-recipes｜刪掉那一道']?.n === 248 && g['build-foods｜整體']?.not === 0, label: '比對模式的擷取｜應抽到｜兩組、格數與沒擋數' });
+  out.push({ ok: versionOf('對照組｜對｜x\n版本 217db3f｜build-recipes sha=…') === '217db3f' && versionOf('沒有版本行') === null, label: '比對模式的版本擷取｜應抽到｜抽不到回 null' });
   return out;
 }
 
@@ -72,9 +73,32 @@ export function registrationDecision({ only, fail, isHead, headMoved, dirty }) {
   if (only) return { action: 'keep', why: '只跑了一部分（--only），不登記、不動現有的登記' };
   if (!isHead) return { action: 'keep', why: '--rev 不是 HEAD：證明的是別的版本，不登記、不動現有的登記' };
   if (fail) return { action: 'delete', why: 'HEAD 沒有全擋：刪掉登記，閘門會擋下推送' };
-  if (headMoved) return { action: 'keep', why: '跑的途中 HEAD 動了：跑的不是現在的 HEAD，不登記（現有的登記對不上新 HEAD 的話，閘門自己會擋）' };
-  if (dirty.length) return { action: 'keep', why: `工作區的 ${dirty.join('、')} 跟 HEAD 不一樣（跑的驗法或 build 不是 HEAD 那一份），不登記——先 commit 再跑` };
+  if (headMoved) return { action: 'delete', why: '跑的途中 HEAD 動了：跑的不是現在的 HEAD，不登記、刪掉舊登記' };
+  if (dirty.length) return { action: 'delete', why: `工作區的 ${dirty.join('、')} 跟 HEAD 不一樣（跑的驗法不是 HEAD 那一份——HEAD 那一版沒被驗過），不登記、刪掉舊登記——先 commit 再跑` };
   return { action: 'register', why: 'HEAD 全擋：登記三支檔案已 commit 版本的雜湊' };
+}
+
+/** 工作區跟 HEAD 不一樣的被守檔（兩個不同的來源：工作區的檔 vs HEAD 裡的 blob）。 */
+export function dirtyGuarded(repo) {
+  const git = (...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8' }).trim();
+  return BG_FILES.filter((f) => git('hash-object', f) !== git('rev-parse', `HEAD:${f}`));
+}
+/**
+ * 跑完之後的登記（F9）：判斷、寫或刪 `.logs/buildguard-verified.txt`。回 { action, why }。
+ * 登記的是 headAtStart 裡「已 commit 版本」的雜湊；讀不到雜湊就刪掉登記（故障時停下，不是放行）。
+ */
+export function finalizeRegistration(repo, { only, fail, revFull, headAtStart }) {
+  const git = (...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8' }).trim();
+  const regPath = path.join(repo, BG_REG);
+  let d;
+  try {
+    d = registrationDecision({ only, fail, isHead: revFull === headAtStart, headMoved: git('rev-parse', 'HEAD') !== headAtStart, dirty: dirtyGuarded(repo) });
+  } catch (e) { d = { action: 'delete', why: `讀不到雜湊（${e.message.split('\n')[0]}），刪掉登記` }; }
+  if (d.action === 'register') {
+    fs.mkdirSync(path.dirname(regPath), { recursive: true });
+    fs.writeFileSync(regPath, BG_FILES.map((f) => `${f} ${git('rev-parse', `${headAtStart}:${f}`)}\n`).join(''));
+  } else if (d.action === 'delete') fs.rmSync(regPath, { force: true });
+  return d;
 }
 
 const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex').slice(0, 12);
@@ -88,8 +112,14 @@ export function groupsOf(log) {
   return g;
 }
 
-function compare(aPath, bPath) {
-  const A = groupsOf(fs.readFileSync(aPath, 'utf8')); const B = groupsOf(fs.readFileSync(bPath, 'utf8'));
+/** log 第一行「版本 xxx｜…」的版本；抽不到回 null。 */
+export const versionOf = (log) => (/^版本 (\S+?)｜/m.exec(String(log)) ?? [])[1] ?? null;
+export function compare(aPath, bPath) {
+  const la = fs.readFileSync(aPath, 'utf8'), lb = fs.readFileSync(bPath, 'utf8');
+  // 「兩邊母體一樣」的前提：兩份是不同版本跑出來的——同一份 log 比兩次、或兩次都跑同一個版本，永遠「相同」
+  const va = versionOf(la), vb = versionOf(lb);
+  if (!va || !vb || va === vb) { console.log(`兩份 log 不是兩個不同的版本（舊 ${va ?? '抽不到'}、新 ${vb ?? '抽不到'}）：拿自己跟自己比，不算比對`); return 1; }
+  const A = groupsOf(la); const B = groupsOf(lb);
   const keys = [...new Set([...Object.keys(A), ...Object.keys(B)])];
   let bad = 0;
   if (!keys.length) { console.log('兩份 log 都抽不到任何一組（擷取壞了，不是「沒有差異」）'); return 1; }
@@ -117,7 +147,7 @@ function verify(rev, only) {
   const headAtStart = git('rev-parse', 'HEAD');
   const revFull = git('rev-parse', `${rev}^{commit}`);
   // F9 第 1 點：登記前先斷言工作區那三支跟 HEAD 一模一樣。開跑前先講，不要跑完 7 分鐘才發現登記不了（跑完登記前還會再查一次）
-  const dirtyNow = () => BG_FILES.filter((f) => git('hash-object', f) !== git('rev-parse', `HEAD:${f}`));
+  const dirtyNow = () => dirtyGuarded(repo);
   if (revFull === headAtStart && !only && dirtyNow().length) console.log(`登記｜先講｜工作區的 ${dirtyNow().join('、')} 跟 HEAD 不一樣：這一輪會跑，但跑完不會登記（先 commit 再跑）`);
   const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-bg-'));
   fs.rmSync(wt, { recursive: true });
@@ -224,16 +254,7 @@ function verify(rev, only) {
   }
   console.log(fail ? `buildguard 驗法：有 ${fail} 組沒全擋（或基準不綠、母體數量不符）` : 'buildguard 驗法：每一格都擋下、理由在錯誤訊息的位置點名那個單位、輸出檔沒動、沒有堆疊');
   // 登記（推送閘門第零關之二比對）
-  const regPath = path.join(repo, BG_REG);
-  let d;
-  try {
-    const dirty = dirtyNow();
-    d = registrationDecision({ only, fail, isHead: revFull === headAtStart, headMoved: git('rev-parse', 'HEAD') !== headAtStart, dirty });
-  } catch (e) { d = { action: 'delete', why: `讀不到雜湊（${e.message.split('\n')[0]}），刪掉登記` }; }
-  if (d.action === 'register') {
-    fs.mkdirSync(path.dirname(regPath), { recursive: true });
-    fs.writeFileSync(regPath, BG_FILES.map((f) => `${f} ${git('rev-parse', `${headAtStart}:${f}`)}\n`).join(''));
-  } else if (d.action === 'delete') fs.rmSync(regPath, { force: true });
+  const d = finalizeRegistration(repo, { only, fail, revFull, headAtStart });
   console.log(`登記｜${d.action === 'register' ? '已登記' : d.action === 'delete' ? '已刪掉' : '沒動'}｜${d.why}`);
   return fail ? 1 : 0;
 }

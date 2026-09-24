@@ -16,7 +16,7 @@ import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_M
 import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts } from './gatescan.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
 import { outputProblems, writeAtomically } from './build-recipes.mjs';
-import { selfControls as bgControls, names, registrationDecision as bgDecide, BG_FILES, BG_REG } from './buildguard-verify.mjs';
+import { selfControls as bgControls, names, registrationDecision as bgDecide, BG_FILES, BG_REG, finalizeRegistration, compare as bgCompare } from './buildguard-verify.mjs';
 import { rawProblems, foodsProblems, REQUIRED_FIELDS, NUTRIENT_KEYS, nutrientOrder } from './build-foods.mjs';
 import { FORBIDDEN } from './copyrules.mjs';
 import { CONDITION_FIELDS, DIETS, DIET_LABELS, CONDITIONS, KIDNEY_FIELDS, BASE_DISPLAY_FIELDS } from '../js/members.js';
@@ -480,10 +480,47 @@ section('F8 產資料的工具：資料不見、壞掉、變少時停下、點�
   eq(bgDecide({ ...ok0, isHead: false }).action, 'keep', 'F8-9 --rev 不是 HEAD → 不登記、不動現有的登記（證明的是別的版本）');
   eq(bgDecide({ ...ok0, only: 'recipes' }).action, 'keep', 'F8-9 只跑一部分（--only）→ 不登記');
   eq(bgDecide({ ...ok0, fail: 1 }).action, 'delete', 'F8-9 HEAD 沒全擋 → 刪掉登記（閘門會擋下）');
-  eq(bgDecide({ ...ok0, headMoved: true }).action, 'keep', 'F8-9 跑的途中 HEAD 動了 → 不登記');
-  eq(bgDecide({ ...ok0, dirty: ['scripts/build-foods.mjs'] }).action, 'keep', 'F8-9 工作區的 build 跟 HEAD 不一樣 → 不登記（F9 第 1 點：有改動就不登記）');
+  eq(bgDecide({ ...ok0, headMoved: true }).action, 'delete', 'F8-9 跑的途中 HEAD 動了 → 不登記、刪掉舊登記');
+  eq(bgDecide({ ...ok0, dirty: ['scripts/build-foods.mjs'] }).action, 'delete', 'F8-9 工作區的 build 跟 HEAD 不一樣 → 不登記、刪掉舊登記（F9 第 1 點）');
   eq([...BG_FILES].sort(), ['scripts/build-foods.mjs', 'scripts/build-recipes.mjs', 'scripts/buildguard-verify.mjs'],
     'F8-9 登記的三支＝兩支 build＋驗法本身（閘門第零關之二比對的就是這三支）');
+  // F8-10 常設情境（Dispatch 2026-09-24：「證據裡實跑過」不等於「有常設情境守著」）：
+  // 從驗法實際走的那一步（finalizeRegistration）進來，在暫時的 git repo 造「被守的檔工作區有改動」→ 必須沒有登記、舊登記被刪。
+  // 缺口的形狀（統籌者在 JLPT 查到）：「工作區跟 HEAD 不一樣」那段一律當成沒改動 → 驗的是工作區、登記的是 HEAD，HEAD 那一版從沒被驗過卻被登記。
+  const gitIn = (dir, ...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8' }).trim();
+  const regRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-bgreg-'));
+  gitIn(regRepo, 'init', '-q');
+  for (const f of BG_FILES) { fs.mkdirSync(path.dirname(path.join(regRepo, f)), { recursive: true }); fs.copyFileSync(path.join(ROOT, f), path.join(regRepo, f)); }
+  gitIn(regRepo, 'add', '-A');
+  gitIn(regRepo, '-c', 'user.name=probe', '-c', 'user.email=probe@users.noreply.github.com', 'commit', '-q', '-m', 'probe');
+  const regHead = gitIn(regRepo, 'rev-parse', 'HEAD');
+  const regFile = path.join(regRepo, BG_REG);
+  // 另一個來源（ls-tree）算出 HEAD 裡的 blob，拿來跟登記比——不拿登記程式自己用的 rev-parse 跟自己比
+  const lsTree = Object.fromEntries(gitIn(regRepo, 'ls-tree', '-r', 'HEAD').split('\n').map((l) => { const [meta, name] = l.split('\t'); return [name, meta.split(' ')[2]]; }));
+  const fin = () => finalizeRegistration(regRepo, { only: null, fail: 0, revFull: regHead, headAtStart: regHead });
+  const clean = fin();
+  const regText = fs.existsSync(regFile) ? fs.readFileSync(regFile, 'utf8') : '';
+  ok(clean.action === 'register' && regText === BG_FILES.map((f) => `${f} ${lsTree[f]}\n`).join('') && BG_FILES.every((f) => /^[0-9a-f]{40}$/.test(lsTree[f] ?? '')),
+    `F8-10（對照）工作區跟 HEAD 一樣 → 登記，內容＝HEAD 裡三支的 blob（用 ls-tree 另外算來比）（${clean.action}）`);
+  fs.writeFileSync(regFile, 'scripts/build-foods.mjs 舊登記\n');
+  fs.appendFileSync(path.join(regRepo, 'scripts/build-foods.mjs'), '\n// 工作區改一行、沒 commit\n');
+  const workBlob = gitIn(regRepo, 'hash-object', 'scripts/build-foods.mjs');
+  ok(fs.existsSync(regFile) && workBlob !== lsTree['scripts/build-foods.mjs'],
+    '（前提）F8-10 的情境真的造成了：舊登記在、工作區的 build-foods 跟 HEAD 裡的 blob 不一樣（兩個不同的來源）');
+  const dirtyRun = fin();
+  ok(dirtyRun.action === 'delete' && !fs.existsSync(regFile),
+    `F8-10 被守的檔工作區有改動時跑完驗法 → 沒有登記、舊登記被刪（${dirtyRun.action}｜${dirtyRun.why}）`);
+  fs.rmSync(regRepo, { recursive: true, force: true });
+  // F8-11「A 跟 B 一樣」要先證明是兩個不同的來源：比對模式拿同一個版本的兩份 log（或同一份比兩次）要判失敗
+  const cmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-bgcmp-'));
+  const logOf = (v) => `版本 ${v}｜build-recipes sha=x\nbuild-recipes｜刪掉那一道｜3 格｜擋 3｜沒擋 0（其中…）\n`;
+  fs.writeFileSync(path.join(cmpDir, 'a.log'), logOf('aaaaaaa')); fs.writeFileSync(path.join(cmpDir, 'b.log'), logOf('bbbbbbb'));
+  const quiet = console.log; console.log = () => {};
+  let cmpSelf, cmpDiff;
+  try { cmpSelf = bgCompare(path.join(cmpDir, 'a.log'), path.join(cmpDir, 'a.log')); cmpDiff = bgCompare(path.join(cmpDir, 'a.log'), path.join(cmpDir, 'b.log')); }
+  finally { console.log = quiet; }
+  ok(cmpSelf === 1 && cmpDiff === 0, `F8-11 比對模式：同一份 log 比兩次 → 判失敗（${cmpSelf}）；兩個不同版本 → 通過（${cmpDiff}）`);
+  fs.rmSync(cmpDir, { recursive: true, force: true });
   const gateSrc = read('scripts/pushgate.sh');
   ok(BG_FILES.every((f) => gateSrc.includes(f)) && gateSrc.includes(BG_REG) && /exit 5/.test(gateSrc),
     `F8-9 推送閘門比對同樣三支、同一個登記檔（${BG_REG}），對不上回 5`);
