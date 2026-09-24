@@ -26,7 +26,7 @@ restore_all() { git --git-dir="$T/remote.git" update-ref refs/heads/main "$BASE"
 # 驗法登記（閘門第零關）：複本裡的閘門也要有登記才走得到後面的關卡——登記複本當下的三支檔案
 GATE_FILES="scripts/pushgate.sh scripts/selfcheck.mjs scripts/pushgate-verify.sh"
 register_work() { local out="" f; for f in $GATE_FILES; do out="${out}${f} $(git hash-object "$f")"$'\n'; done; mkdir -p .logs; printf '%s' "$out" > .logs/pushgate-verified.txt; register_bg; }
-# 第零關之二（F8 驗法登記）：複本裡同樣登記三支的「已 commit 版本」（閘門比的是 HEAD 裡的），才走得到後面的關卡；第 15–18 種專驗這一關
+# 第零關之二（F8 驗法登記）：複本裡同樣登記三支的「已 commit 版本」（閘門比的是 HEAD 裡的），才走得到後面的關卡；第 15–19 種專驗這一關
 BG_FILES="scripts/build-recipes.mjs scripts/build-foods.mjs scripts/buildguard-verify.mjs"
 register_bg() { local out="" f; for f in $BG_FILES; do out="${out}${f} $(git rev-parse "HEAD:$f")"$'\n'; done; printf '%s' "$out" > .logs/buildguard-verified.txt; }
 # 一個動到被守的檔的 commit（build-foods 多一行註解）
@@ -166,16 +166,22 @@ s18() { fresh
   printf '\n// 沒 commit 的改動\n' >> scripts/build-foods.mjs
   run_gate; check "18 登記的是已 commit 版本" 0 local "登記對得上" "擋下"; }
 
+# 19 動到 build 的是前一個 commit、最後一個 commit 是乾淨的 → 照樣回 5（要逐個 commit 看，不能只看最後一個）
+s19() { fresh
+  touch_guarded s
+  probe_commit s2 "乾淨的一行"
+  run_gate; check "19 前一個 commit 動到 build" 5 same "跟上次在 HEAD 全擋時不一樣" "查了："; }
+
 # 7 全部正常 → 推上去、假遠端＝本機
 s7() { fresh
   probe_commit g "乾淨的一行"
   run_gate; check "7 全部正常" 0 local "已推送" "擋下"; }
 
-ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18"
-ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 18 7}"
-# 順序清單要恰好是 18 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
+ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19"
+ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 18 19 7}"
+# 順序清單要恰好是 19 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
 if [ "$(printf '%s\n' $ORDER | sort -n | tr '\n' ' ')" != "$(printf '%s\n' $ALL | sort -n | tr '\n' ' ')" ]; then
-  echo "閘門驗法：順序清單不是恰好 18 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
+  echo "閘門驗法：順序清單不是恰好 19 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
 fi
 echo "順序：$ORDER"
 for n in $ORDER; do "s$n"; done
