@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX } from './checkmutations.mjs';
 import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts, escapeScan } from './gatescan.mjs';
-import { selfcheck } from './selfcheck.mjs';
+import { selfcheck, gitEnvProblems } from './selfcheck.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
 import { outputProblems, writeAtomically } from './build-recipes.mjs';
 import { selfControls as bgControls, names, registrationDecision as bgDecide, BG_FILES, BG_REG, finalizeRegistration, compare as bgCompare } from './buildguard-verify.mjs';
@@ -657,15 +657,22 @@ section('自查的失敗分支（F10 第 1b 點：node 呼叫的 git；每版都
   let sc3 = 'returned';
   try { sc3 = selfcheck('x..y', fakeRunner({ ...good, throwOn: '-p' }), () => {}) ? 'returned-true' : 'returned-false'; } catch { sc3 = 'threw'; }
   eq(sc3, 'threw', 'SC-3 取 diff 的 git 失敗 → 例外丟出去（CLI 以未處理例外結束、回非 0），不是當成空的通過');
-  // SC-4 真的 git 失敗（F10 第 1b 點第 1 步：用 git 自己認得的 GIT_DIR，程式裡沒有為測試開的分支）
-  const badGitDir = path.join(os.tmpdir(), 'mm-no-such-gitdir');
-  const envBad = { ...process.env, GIT_DIR: badGitDir };
-  const pre = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, env: envBad, encoding: 'utf8' });
+  // SC-4 真的 git 失敗（F10 第 1b 點第 1 步：不存在的範圍；程式裡沒有為測試開的分支）。
+  // 2026-09-25 以前用 GIT_DIR 造——自查加了入口拒絕之後，GIT_DIR 會在入口就被擋掉，這條照樣綠但理由變了，所以改造法、並斷言理由不是入口拒絕
+  const pre = spawnSync('git', ['rev-list', 'no-such-ref-for-sc4..HEAD'], { cwd: ROOT, encoding: 'utf8' });
   const ctl = spawnSync(process.execPath, ['scripts/selfcheck.mjs', '--range', 'HEAD~1..HEAD'], { cwd: ROOT, encoding: 'utf8' });
-  ok(!fs.existsSync(badGitDir) && pre.status !== 0 && ctl.status === 0 && ctl.stdout.includes('自查通過'),
-    `（前提）SC-4：GIT_DIR 指向不存在的目錄時真的 git 會失敗（回傳 ${pre.status}）；不帶 GIT_DIR 時同一行自查照常通過（回傳 ${ctl.status}）`);
-  const sc4 = spawnSync(process.execPath, ['scripts/selfcheck.mjs', '--range', 'HEAD~1..HEAD'], { cwd: ROOT, env: envBad, encoding: 'utf8' });
-  ok(sc4.status !== 0 && !sc4.stdout.includes('自查通過'), `SC-4 真的 git 失敗 → 自查回非 0（${sc4.status}）、沒有印「自查通過」`);
+  ok(pre.status !== 0 && ctl.status === 0 && ctl.stdout.includes('自查通過'),
+    `（前提）SC-4：不存在的範圍真的 git 會失敗（回傳 ${pre.status}）；正常範圍同一行自查照常通過（回傳 ${ctl.status}）`);
+  const sc4 = spawnSync(process.execPath, ['scripts/selfcheck.mjs', '--range', 'no-such-ref-for-sc4..HEAD'], { cwd: ROOT, encoding: 'utf8' });
+  ok(sc4.status !== 0 && !sc4.stdout.includes('自查通過') && !sc4.stdout.includes('【擋下：執行環境】'),
+    `SC-4 真的 git 失敗 → 自查回非 0（${sc4.status}）、沒有印「自查通過」，理由不是入口拒絕`);
+  // SC-5 node 這一層的入口拒絕（補充說明十一第 4 點）：前綴、不分大小寫、只放行三個；長得像的（GITHUB_）不攔
+  eq(gitEnvProblems({ GIT_DIR: '', GIT_EDITOR: 'vim', Git_Pager: 'less', GITHUB_TOKEN: 't', git_exec_path: 'x', PATH: '/bin' }), ['GIT_DIR', 'git_exec_path'],
+    'SC-5 自查的入口拒絕：GIT_ 開頭的（空字串、小寫也算）要攔；放行清單（不分大小寫）與只是長得像的 GITHUB_ 不攔');
+  // SC-6 從真實入口：列舉寫法會漏的 GIT_EXEC_PATH，自查在入口就停
+  const sc6 = spawnSync(process.execPath, ['scripts/selfcheck.mjs', '--range', 'HEAD~1..HEAD'], { cwd: ROOT, env: { ...process.env, GIT_EXEC_PATH: path.join(os.tmpdir(), 'mm-no-such-exec') }, encoding: 'utf8' });
+  ok(sc6.status !== 0 && sc6.stdout.includes('【擋下：執行環境】GIT_EXEC_PATH') && !sc6.stdout.includes('查了：'),
+    `SC-6 設了 GIT_EXEC_PATH 跑自查 → 入口就停（回傳 ${sc6.status}）、點名它、沒開始查`);
 }
 
 section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣例 v9 §5.16，每版都跑）');
@@ -774,9 +781,13 @@ section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣
   const scPath = path.join(envRoot, 'scripts/selfcheck.mjs');
   fs.appendFileSync(scPath, "\nconst someKey = 'X';\nvoid process.env[" + 'someKey];\n');
   const g7c = run(envRoot);
-  ok(g7c.res === false && g7c.text.includes('讀環境變數｜scripts/selfcheck.mjs｜(間接)'),
-    'G7-3 間接讀取環境變數（process.env[變數]）→ 判不通過、列成「(間接)」');
+  ok(g7c.res === false && g7c.text.includes('讀環境變數｜scripts/selfcheck.mjs｜(間接:process.env[變數])'),
+    'G7-3 間接讀取環境變數（process.env[變數]）→ 判不通過、按分支列成「(間接:process.env[變數])」（自查登記過另一種間接讀法也照樣報）');
   fs.rmSync(envRoot, { recursive: true, force: true });
+  // G8 對照樣本要打到每一個分支（補充說明十一第 3 點）：每條規則的「分支」行都要 n/n，而且要有 8 條（7 條寫法＋讀環境變數）
+  const branchLines = g1.out.split('\n').filter((l) => l.startsWith('分支｜'));
+  ok(branchLines.length === 8 && branchLines.every((l) => /｜(\d+)\/\1 各有只靠它的樣本$/.test(l)),
+    `G8 每條規則的每個分支都有只靠它的對照樣本（拿掉那個分支就抓不到）：${branchLines.map((l) => l.split('｜').slice(1, 3).join(' ')).join('；')}`);
   const walked = /跳脫掃描：走了 (\d+) 支/.exec(g1.out);
   ok(walked && Number(walked[1]) >= 50, `G6-4 真實 repo：跳脫掃描走了 ${walked ? walked[1] : '（沒有這一行）'} 支腳本（母體要涵蓋 scripts/、js/、根目錄）`);
 }

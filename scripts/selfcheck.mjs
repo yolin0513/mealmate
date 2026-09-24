@@ -86,7 +86,19 @@ export function selfcheck(range, git = realGit, log = console.log) {
   return ok;
 }
 
+/**
+ * node 這一層的入口拒絕（補充說明十一第 4 點；閘門 bash 那一層同樣的規則）：GIT_ 開頭的環境變數 git 自己認得，
+ * 設了（空字串也算）整個自查會對著別的 repo 或設定跑。前綴寫法、不分大小寫，只放行只影響互動介面的三個。
+ * 環境變數從參數傳進來（F10：判斷邏輯抽成純函式，測試傳自己造的 env）。
+ */
+export const GIT_ENV_ALLOW = ['GIT_EDITOR', 'GIT_SEQUENCE_EDITOR', 'GIT_PAGER'];
+export function gitEnvProblems(env) {
+  return Object.keys(env).filter((k) => k.toUpperCase().startsWith('GIT_') && !GIT_ENV_ALLOW.includes(k.toUpperCase())).sort();
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const bad = gitEnvProblems(process.env);
+  if (bad.length) { console.log(`【擋下：執行環境】${bad.join('、')} 有設定：git 自己認得 GIT_ 開頭的變數，自查會對著別的 repo 或設定跑；先 unset 再跑`); process.exit(1); }
   const argv = process.argv.slice(2);
   const ri = argv.indexOf('--range');
   const range = ri >= 0 ? argv[ri + 1] : `${argv[0] || 'origin'}/main..HEAD`;

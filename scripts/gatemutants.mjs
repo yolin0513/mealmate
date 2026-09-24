@@ -42,7 +42,10 @@ export const CASES = [
     replace: '  git log -p --no-color --format= -U0 origin/main..HEAD > "$T/k.diff"',
     expect: ['11'], must: '11 ++ 開頭的新增行｜前置不成立', mustNot: '取不到 diff' },
   // ---- 擋法表（2026-09-25，F9 補）：每一種必備情境一條只紅它的突變；共用的一環另列一條 ----
-  { label: '擋法表｜23 執行環境有 git 自己認得的變數 → 入口不拒絕', find: '  if [ -n "${!v+x}" ]; then echo "【擋下：執行環境】', replace: '  if false; then echo "【擋下：執行環境】', expect: ['23'] },
+  { label: '擋法表｜23 執行環境有 GIT_ 開頭的變數 → 入口不拒絕', find: '  case "$u" in GIT_*)', replace: '  case "$u" in NO_SUCH_PREFIX_*)', expect: ['23'] },
+  { label: '擋法表｜23 名稱不分大小寫 → 不轉大寫（小寫的 git_dir 漏掉）', find: '  u="${v^^}"', replace: '  u="$v"', expect: ['23'] },
+  { label: '擋法表｜25 不該攔的不攔 → 放行清單拿掉（GIT_EDITOR 也被攔）', find: 'GIT_ENV_ALLOW=" GIT_EDITOR GIT_SEQUENCE_EDITOR GIT_PAGER "', replace: 'GIT_ENV_ALLOW=" "', expect: ['25'] },
+  { label: '擋法表｜25 不該攔的不攔 → 前綴太寬（GIT* 誤攔 GITHUB_ACTIONS）', find: '  case "$u" in GIT_*)', replace: '  case "$u" in GIT*)', expect: ['25'] },
   { label: '擋法表｜2 自查的對照組沒命中就停 → 拿掉', file: 'scripts/selfcheck.mjs', find: '    if (!ctl) ok = false;', replace: '    void ctl;', expect: ['2'] },
   { label: '擋法表｜3 取不到使用者名稱就丟例外 → 改成回 false（隱式：被對照組接住、理由不對）', file: 'scripts/selfcheck.mjs',
     find: "{ test: () => { throw new Error('取不到使用者名稱'); } }", replace: '{ test: () => false }', expect: ['3'] },
@@ -53,8 +56,9 @@ export const CASES = [
   { label: '擋法表｜共同的一環：第三關的比對（6、22 共用）→ 整段拿掉', find: 'if [ "$REMOTE_SHA" != "$HEAD_SHA" ]; then', replace: 'if false; then', expect: ['6', '22'] },
   { label: '擋法表｜8 範圍照遠端的實際狀態算（fetch 更新追蹤分支）→ 改成 --dry-run（照樣連得到遠端、但不更新）', find: 'if ! git fetch -q "$REMOTE" main > "$LOG" 2>&1; then', replace: 'if ! git fetch -q --dry-run "$REMOTE" main > "$LOG" 2>&1; then', expect: ['8'] },
   { label: '擋法表｜9 commit 訊息要取 → 不取 %B', file: 'scripts/selfcheck.mjs', find: "'--format=%B%n%an <%ae>%n%cn <%ce>'", replace: "'--format=%an <%ae>%n%cn <%ce>'", expect: ['9'] },
-  { label: '擋法表｜10 作者與提交者信箱要取 → 不取 %ae、%ce', file: 'scripts/selfcheck.mjs', find: "'--format=%B%n%an <%ae>%n%cn <%ce>'", replace: "'--format=%B%n%an%n%cn'", expect: ['10'] },
-  { label: '擋法表｜共同的一環：訊息與作者欄命中就停（9、10 共用）→ 拿掉', file: 'scripts/selfcheck.mjs', find: '    if (inMeta) {', replace: '    if (false) {', expect: ['9', '10'] },
+  { label: '擋法表｜10 作者信箱要取 → 不取 %ae（保留提交者）', file: 'scripts/selfcheck.mjs', find: "'--format=%B%n%an <%ae>%n%cn <%ce>'", replace: "'--format=%B%n%an%n%cn <%ce>'", expect: ['10'] },
+  { label: '擋法表｜24 提交者信箱要取 → 不取 %ce（保留作者）', file: 'scripts/selfcheck.mjs', find: "'--format=%B%n%an <%ae>%n%cn <%ce>'", replace: "'--format=%B%n%an <%ae>%n%cn'", expect: ['24'] },
+  { label: '擋法表｜共同的一環：訊息與作者欄命中就停（9、10、24 共用）→ 拿掉', file: 'scripts/selfcheck.mjs', find: '    if (inMeta) {', replace: '    if (false) {', expect: ['9', '10', '24'] },
   { label: '擋法表｜11 照 diff 結構抽新增行 → 改回「以 +++ 開頭就跳過」（隱式：被 numstat 核對接住、理由不對）', file: 'scripts/selfcheck.mjs',
     find: "    if (inHunk && l.startsWith('+')) out.push(l.slice(1));", replace: "    if (l.startsWith('+') && !l.startsWith('+++')) out.push(l.slice(1));", expect: ['11'] },
   { label: '擋法表｜共同的一環：新增行命中就停（1、8、11 共用；1 本身就是這一環）→ 拿掉', file: 'scripts/selfcheck.mjs', find: '    if (inAdded) {', replace: '    if (false) {', expect: ['1', '8', '11'] },
@@ -63,13 +67,13 @@ export const CASES = [
   { label: '擋法表｜14 沒有登記檔 → 拿掉（隱式：被比對接住、理由不對）', find: 'if [ ! -f "$REG" ]; then', replace: 'if false; then', expect: ['14'] },
   { label: '擋法表｜共同的一環：第零關之二的比對（15、19 共用；15 本身就是這一環）→ 拿掉', find: '  if [ "$(cat "$BGREG")" != "$(printf \'%s\' "$bgcur")" ]; then', replace: '  if false; then', expect: ['15', '19'] },
   { label: '擋法表｜16 沒有 F8 的登記檔 → 拿掉（隱式：被比對接住、理由不對）', find: '  if [ ! -f "$BGREG" ]; then', replace: '  if false; then', expect: ['16'] },
-  { label: '擋法表｜共同的一環：自查放行（5、6 要先過自查才走得到推送那一關；7、12、17、18、22 要推得上去）→ 自查一律判不通過', file: 'scripts/selfcheck.mjs', find: '  return ok;', replace: '  return false;', expect: ['5', '6', '7', '12', '17', '18', '22'] },
+  { label: '擋法表｜共同的一環：自查放行（5、6 要先過自查才走得到推送那一關；7、12、17、18、22 要推得上去）→ 自查一律判不通過', file: 'scripts/selfcheck.mjs', find: '  return ok;', replace: '  return false;', expect: ['5', '6', '7', '12', '17', '18', '22', '25'] },
   { label: '擋法表｜共同的一環：閘門驗法的 check 比對理由 → 不比對，再拿掉 14 的守衛：14 會變成「符合」（這一環是 5、11、14、16 等隱式情境能紅的前提）', file: VERIFY,
     find: '  grep -q -- "$must" "$T/out" || outOk=no', replace: '  true', also: [{ file: GATE, find: 'if [ ! -f "$REG" ]; then', replace: 'if false; then' }], expect: [] },
   // ---- 改閘門驗法本身的（以前的 M4、M6）----
   { label: 'M6：fresh 不清 hook（預設順序看得出來）', file: VERIFY,
     find: 'fresh() { rm -f "$T/remote.git/hooks/pre-receive" "$T/remote.git/hooks/post-receive"; restore_all; register_work; }',
-    replace: 'fresh() { restore_all; register_work; }', expect: ['6', '7', '12', '17', '18', '22'] },
+    replace: 'fresh() { restore_all; register_work; }', expect: ['6', '7', '12', '17', '18', '22', '25'] },
   { label: 'M4：第 11 種前置斷言改回接管線 → gatescan 點名那一行', file: VERIFY, runner: 'gatescan',
     find: `  PP="$(grep -c '^+++ ' "$T/k.diff")"`, replace: `  PP="$(git log -p --no-color --format= -U0 origin/main..HEAD | grep -c '^+++ ')"`,
     must: '｜pipe｜' },
@@ -104,6 +108,7 @@ export function mutate(src, c) {
 /** 環境變數：Windows 上 PATH 的鍵名是 Path，另外加一個 PATH 會變成兩個，要沿用原本的鍵名 */
 function envWithPath(prefixDir) {
   const env = { ...process.env };
+  for (const k of Object.keys(env)) if (k.toUpperCase().startsWith('GIT_')) delete env[k];
   const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH';
   if (prefixDir) env[key] = `${prefixDir}${path.delimiter}${env[key] ?? ''}`;
   return env;

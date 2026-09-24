@@ -4,16 +4,18 @@
 # 回傳值：0 推上去了且遠端＝本機；1 自查沒過（沒推）；2 推送失敗（沒做後面的比對）；3 推送回報成功、遠端 main 卻不等於本機 HEAD；
 #         4 閘門、自查或驗法改過之後，還沒跑過驗法（登記對不上或沒有登記）；
 #         5 這次要推的 commit 動到 build-recipes、build-foods 或 buildguard-verify，卻還沒在 HEAD 跑過 F8 驗法（登記對不上或沒有登記）；取不到檔名清單也回 5。
-#         6 執行環境裡有 git 自己認得、會改指 repo 或設定的變數（GIT_DIR 之類），在任何 git 呼叫之前就停。
+#         6 執行環境裡有 GIT_ 開頭的變數（不分大小寫；只放行 GIT_EDITOR、GIT_SEQUENCE_EDITOR、GIT_PAGER），在任何 git 呼叫之前就停。
 # 不接管線：每一步的輸出寫到 .logs/（已在 .gitignore），回傳值直接拿那一步的。
 # 驗法：bash scripts/pushgate-verify.sh（本機假遠端分別製造每一關的失敗）。全部通過時它登記三支檔案的雜湊，本檔推送前比對。
 set -u
 # 入口：執行環境裡 git 自己認得的變數（2026-09-25，JLPT 提出、Dispatch 核准）。程式碼裡看不到它們、掃描也找不到——
-# git 自己就會讀。設了其中任何一個（空字串也算），整個閘門會對著另一個 repo 或另一份設定跑完全套檢查、然後說通過。
-# 所以在任何 git 呼叫之前主動拒絕（回 6）。清單不保證完整：已知沒列進來的見 docs/EVIDENCE_檢查器修補.md「底層工具自己認得的環境變數」。
-GIT_ENV_REJECT="GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_CEILING_DIRECTORIES GIT_DISCOVERY_ACROSS_FILESYSTEM GIT_NAMESPACE GIT_REPLACE_REF_BASE GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS"
-for v in $GIT_ENV_REJECT; do
-  if [ -n "${!v+x}" ]; then echo "【擋下：執行環境】$v 有設定：git 自己認得它，閘門會對著別的 repo 或設定跑完全套檢查；先 unset $v 再推"; exit 6; fi
+# git 自己就會讀。設了（空字串也算），整個閘門會對著另一個 repo 或另一份設定跑完全套檢查、然後說通過。所以在任何 git 呼叫之前主動拒絕（回 6）。
+# 前綴寫法（補充說明十一第 4 點）：GIT_ 開頭的一律拒絕，只放行登記過、只影響互動介面的（編輯器、分頁器）——逐一列舉一定會漏（例：GIT_EXEC_PATH）。
+# 名稱不分大小寫：Windows 上環境變數不分大小寫，git_dir 跟 GIT_DIR 是同一個。
+GIT_ENV_ALLOW=" GIT_EDITOR GIT_SEQUENCE_EDITOR GIT_PAGER "
+for v in $(compgen -e); do
+  u="${v^^}"
+  case "$u" in GIT_*) case "$GIT_ENV_ALLOW" in *" $u "*) ;; *) echo "【擋下：執行環境】$v 有設定：git 自己認得 GIT_ 開頭的變數，閘門會對著別的 repo 或設定跑完全套檢查；先 unset $v 再推"; exit 6;; esac;; esac
 done
 cd "$(git rev-parse --show-toplevel)" || exit 1
 # 遠端固定是 origin（2026-09-25 移除 PUSHGATE_REMOTE：整個 repo 沒人用，設了它 fetch、自查範圍、推送會一起改指到別的遠端，閘門照樣說通過）
