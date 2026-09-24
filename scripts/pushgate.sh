@@ -8,7 +8,8 @@
 # 驗法：bash scripts/pushgate-verify.sh（本機假遠端分別製造每一關的失敗）。全部通過時它登記三支檔案的雜湊，本檔推送前比對。
 set -u
 cd "$(git rev-parse --show-toplevel)" || exit 1
-REMOTE="${PUSHGATE_REMOTE:-origin}"
+# 遠端固定是 origin（2026-09-25 移除 PUSHGATE_REMOTE：整個 repo 沒人用，設了它 fetch、自查範圍、推送會一起改指到別的遠端，閘門照樣說通過）
+REMOTE=origin
 mkdir -p .logs
 LOG=".logs/pushgate.out"
 

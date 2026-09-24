@@ -38,6 +38,40 @@ export const LINE_RULES = [
 ];
 
 /** 整支檔案的寫法：用 --format= 取新增行，卻沒有另外取 commit 訊息與作者欄。 */
+/**
+ * 讀環境變數（2026-09-25，v10 候選「正式閘門不讀測試用環境變數」；Yolin 核准先做）：
+ * TARGETS 裡讀了、卻沒在同一支檔裡賦值、也沒登記在 ENV_ALLOW 的環境變數，一律報出來。
+ * 起因：pushgate.sh 讀 PUSHGATE_REMOTE（整個 repo 沒人用）——設了它，fetch、自查範圍、推送會一起改指到別的遠端，閘門照樣說通過。
+ * shell：讀＝`$NAME`／`${NAME`（大寫開頭）；賦值＝`NAME=`（含 local／export、指令前綴）。JS：`process.env.NAME`、`process.env['NAME']`。
+ * 登記的每一條都要真的用到，否則算失敗。
+ */
+export const ENV_ALLOW = [
+  { file: 'scripts/selfcheck.mjs', name: 'USERNAME', reason: '取本機使用者名稱當成個資樣式（Windows）；取不到就丟例外（閘門驗法第 3 種）' },
+  { file: 'scripts/selfcheck.mjs', name: 'USER', reason: '同上（其他平台）' },
+  { file: 'scripts/pushgate-verify.sh', name: 'PATH', reason: '驗法把假 git 放在 PATH 最前面造失敗路徑（F10）；系統的環境變數，不是測試開關' },
+  { file: 'scripts/pushgate-verify.sh', name: 'PUSHGATE_VERIFY_ORDER', reason: '驗法（不是正式閘門）的情境順序，只改先後、不改任何判準（M6：換順序跑結論要一樣）' },
+];
+export function envReads(text, isShell) {
+  const lines = text.split('\n').filter((l) => !isComment(l));
+  const reads = new Set();
+  if (isShell) {
+    // 沒賦值過的＝從外面來的；賦值那一行自己讀自己（`X="${X:-預設}"`、`PATH="…:$PATH"`）也是從外面來的——
+    // 只看「有沒有賦值」的話，這種形狀會躲過去（2026-09-25 寫這條時自己的對照組抓到）
+    const assigned = new Set(); const selfRef = new Set();
+    for (const l of lines) {
+      const r = [...l.matchAll(/\$\{?([A-Z_][A-Z0-9_]*)/g)].map((m) => m[1]);
+      r.forEach((n) => reads.add(n));
+      for (const m of l.matchAll(/(?:^|[\s;(])(?:local\s+|export\s+)?([A-Z_][A-Z0-9_]*)=/g)) {
+        assigned.add(m[1]);
+        if (r.includes(m[1])) selfRef.add(m[1]);
+      }
+    }
+    return [...reads].filter((n) => !assigned.has(n) || selfRef.has(n)).sort();
+  }
+  for (const l of lines) for (const m of l.matchAll(/process\.env(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[\s*['"]([A-Za-z_][A-Za-z0-9_]*)['"]\s*\])/g)) reads.add(m[1] ?? m[2]);
+  return [...reads].sort();
+}
+
 export const FILE_RULES = [
   { id: 'format-no-meta', desc: '用 --format= 取新增行，卻沒有另外取 commit 訊息與作者欄（%B、%ae）',
     test: (text) => text.split('\n').some((l) => !isComment(l) && l.includes('--format=') && !l.includes('%B'))
@@ -218,6 +252,29 @@ export function main(root = ROOT, log = console.log, listTracked = gitTrackedScr
     }
   }
   EXCEPTIONS.forEach((e, i) => { if (!used.has(i)) { log(`登記的例外沒用到（那一行改掉了？拿掉這條例外）｜${e.file}｜${e.id}｜${e.contains}`); ok = false; } });
+  // 讀環境變數：對照組先跑（兩個方向），再掃 TARGETS
+  const envCtl = [
+    envReads('REMOTE="${' + 'PUSHGATE_REMOTE:-origin}"\ngit push "$REMOTE" main', true).join(',') === 'PUSHGATE_REMOTE',
+    envReads("const brk = process.env." + "PREPUSH_SELFTEST_BREAK;\nconst u = process.env['" + "X_TEST'];", false).join(',') === 'PREPUSH_SELFTEST_BREAK,X_TEST',
+    envReads('LOG=".logs/x"\nlocal N=1\necho "$LOG $N"', true).length === 0,
+    envReads('# 註解裡的 $' + 'SECRET_KNOB 不算', true).length === 0,
+    envReads('PUSHGATE_REMOTE="${' + 'PUSHGATE_REMOTE:-origin}"\ngit push "$' + 'PUSHGATE_REMOTE" main', true).join(',') === 'PUSHGATE_REMOTE',
+  ];
+  const envCtlOk = envCtl.every(Boolean);
+  log(`對照組｜env-read｜${envCtl.filter(Boolean).length}/${envCtl.length} 對${envCtlOk ? '' : '｜檢查器壞了：讀環境變數的判準抓不到已知的樣本、或誤報了賦值與註解'}`);
+  if (!envCtlOk) ok = false;
+  const envUsed = new Set();
+  for (const rel of TARGETS) {
+    const p = path.join(root, rel);
+    if (!fs.existsSync(p)) continue; // 讀不到的，上面已經判過不通過
+    for (const name of envReads(fs.readFileSync(p, 'utf8'), rel.endsWith('.sh'))) {
+      const i = ENV_ALLOW.findIndex((e) => e.file === rel && e.name === name);
+      if (i >= 0) { envUsed.add(i); continue; }
+      log(`讀環境變數｜${rel}｜${name}｜沒登記：正式閘門不讀測試用的環境變數；真的需要就登記進 ENV_ALLOW 並寫理由`);
+      ok = false;
+    }
+  }
+  ENV_ALLOW.forEach((e, i) => { if (!envUsed.has(i) && fs.existsSync(path.join(root, e.file))) { log(`讀環境變數的登記沒用到（那一行改掉了？拿掉這條登記）｜${e.file}｜${e.name}`); ok = false; } });
   // 孤兒：有推送指令、卻沒登記進 TARGETS 的腳本
   const orph = orphanScripts(root);
   if (orph.unreadable.length) { log(`孤兒檢查讀不到目錄：${orph.unreadable.join('、')}（檢查器壞了，不是 0 個問題）`); ok = false; }

@@ -62,7 +62,7 @@ export const CASES = [
   { label: '擋法表｜14 沒有登記檔 → 拿掉（隱式：被比對接住、理由不對）', find: 'if [ ! -f "$REG" ]; then', replace: 'if false; then', expect: ['14'] },
   { label: '擋法表｜共同的一環：第零關之二的比對（15、19 共用；15 本身就是這一環）→ 拿掉', find: '  if [ "$(cat "$BGREG")" != "$(printf \'%s\' "$bgcur")" ]; then', replace: '  if false; then', expect: ['15', '19'] },
   { label: '擋法表｜16 沒有 F8 的登記檔 → 拿掉（隱式：被比對接住、理由不對）', find: '  if [ ! -f "$BGREG" ]; then', replace: '  if false; then', expect: ['16'] },
-  { label: '擋法表｜共同的一環：放行本身（7、12、17、18、22 都要推得上去）→ 自查一律判不通過', file: 'scripts/selfcheck.mjs', find: '  return ok;', replace: '  return false;', expect: ['7', '12', '17', '18', '22'] },
+  { label: '擋法表｜共同的一環：自查放行（5、6 要先過自查才走得到推送那一關；7、12、17、18、22 要推得上去）→ 自查一律判不通過', file: 'scripts/selfcheck.mjs', find: '  return ok;', replace: '  return false;', expect: ['5', '6', '7', '12', '17', '18', '22'] },
   { label: '擋法表｜共同的一環：閘門驗法的 check 比對理由 → 不比對，再拿掉 14 的守衛：14 會變成「符合」（這一環是 5、11、14、16 等隱式情境能紅的前提）', file: VERIFY,
     find: '  grep -q -- "$must" "$T/out" || outOk=no', replace: '  true', also: [{ file: GATE, find: 'if [ ! -f "$REG" ]; then', replace: 'if false; then' }], expect: [] },
   // ---- 改閘門驗法本身的（以前的 M4、M6）----

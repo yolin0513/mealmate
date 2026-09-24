@@ -208,10 +208,10 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
 | 高蛋白質食材的輪替群組 `highprotein`（麵腸、麵筋；判準只定義一次） | ✅ 完成（2026-09-23） | `mealmate-v0.41.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 76、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 151、plannertest 513、shoppingtest 150、timelinetest 71、doctest 259；
+Node 端：datatest 76、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 151、plannertest 513、shoppingtest 150、timelinetest 71、doctest 262；
 瀏覽器端（puppeteer）：shelltest 162、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 199、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 116（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 44。（2026-09-24 F8 那一輪 `npm test` 數的）
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **480 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **482 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
 · **突變整套**＝`npm run mutationtest` 不帶 `--only` 跑完全部 442 條（每條都把對應的那一支測試整支跑一次）。**實測約 17,119 秒（約 4.8 小時）**，2026-09-24 對 v0.41.0 量的（09-21 的 428 條約 16,600 秒、09-19 的 366 條約 13,500 秒）。

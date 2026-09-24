@@ -674,9 +674,10 @@ section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣
   let g1 = { code: 0, out: '' };
   try { g1.out = execFileSync(process.execPath, [path.join(ROOT, 'scripts/gatescan.mjs')], { cwd: ROOT, encoding: 'utf8' }); }
   catch (e) { g1 = { code: e.status ?? -1, out: String(e.stdout ?? '') }; }
-  const ctlLines = g1.out.split('\n').filter((l) => l.startsWith('對照組｜'));
-  ok(g1.code === 0 && ctlLines.length === 7 && ctlLines.every((l) => /｜(\d+)\/\1 抓到$/.test(l)) && g1.out.includes('查了：3 支檔案'),
-    `G1 gatescan 通過：回傳 ${g1.code}、對照組 ${ctlLines.length} 種全部抓到、${(/查了：[^；]*/.exec(g1.out) ?? ['（沒有「查了」）'])[0]}`);
+  const ctlLines = g1.out.split('\n').filter((l) => l.startsWith('對照組｜') && !l.startsWith('對照組｜env-read｜'));
+  const envCtlLine = g1.out.split('\n').find((l) => l.startsWith('對照組｜env-read｜')) ?? '';
+  ok(g1.code === 0 && ctlLines.length === 7 && ctlLines.every((l) => /｜(\d+)\/\1 抓到$/.test(l)) && /^對照組｜env-read｜(\d+)\/\1 對$/.test(envCtlLine) && g1.out.includes('查了：3 支檔案'),
+    `G1 gatescan 通過：回傳 ${g1.code}、對照組 ${ctlLines.length} 種全部抓到、讀環境變數的對照組「${envCtlLine.slice(4)}」、${(/查了：[^；]*/.exec(g1.out) ?? ['（沒有「查了」）'])[0]}`);
   // G2 每一種寫法：該抓的抓到、不該抓的不抓（反例含 2026-09-24 被誤報的那一行）
   const S = controlSamples();
   const hitsId = ([id, text]) => scanText(text).some((h) => h.id === id);
@@ -753,6 +754,22 @@ section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣
   const g6eCtl = escapeScan(ROOT);
   ok(g6e.ok === false && String(g6e.error).startsWith('取不到 git 追蹤的檔案清單') && g6eCtl.ok === true,
     `G6-5 真的 git 取不到追蹤清單 → 判成檢查器壞了；（對照）拿掉 GIT_DIR 照常通過（${g6eCtl.ok}）`);
+  // G7 正式閘門讀了沒登記的環境變數（2026-09-25；起因：pushgate.sh 的 PUSHGATE_REMOTE，整個 repo 沒人用、設了會讓閘門對著別的遠端說通過）
+  const envRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gatescan-'));
+  seed(envRoot);
+  ok(run(envRoot).res === true, '（前提）讀環境變數的暫存目錄：原樣通過');
+  const gatePath = path.join(envRoot, 'scripts/pushgate.sh');
+  const gateOrig = fs.readFileSync(gatePath, 'utf8');
+  const knob = 'SOME_TEST' + '_KNOB';
+  fs.writeFileSync(gatePath, gateOrig.replace('REMOTE=origin\n', `REMOTE="\${${knob}:-origin}"\n`));
+  const g7a = run(envRoot);
+  ok(g7a.res === false && g7a.text.includes(`讀環境變數｜scripts/pushgate.sh｜${knob}`),
+    `G7-1 閘門讀了沒登記的環境變數（REMOTE="\${${knob}:-origin}"）→ 判不通過，點名那一支、那個變數`);
+  fs.writeFileSync(gatePath, gateOrig.replace('REMOTE=origin\n', `${knob}="\${${knob}:-origin}"\nREMOTE="$${knob}"\n`));
+  const g7b = run(envRoot);
+  ok(g7b.res === false && g7b.text.includes(`讀環境變數｜scripts/pushgate.sh｜${knob}`),
+    'G7-2 賦值那一行自己讀自己（X="${X:-預設}"）也算讀環境變數——只看「有沒有賦值」會躲過去');
+  fs.rmSync(envRoot, { recursive: true, force: true });
   const walked = /跳脫掃描：走了 (\d+) 支/.exec(g1.out);
   ok(walked && Number(walked[1]) >= 50, `G6-4 真實 repo：跳脫掃描走了 ${walked ? walked[1] : '（沒有這一行）'} 支腳本（母體要涵蓋 scripts/、js/、根目錄）`);
 }

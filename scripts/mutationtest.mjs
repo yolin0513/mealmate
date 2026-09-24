@@ -3584,6 +3584,25 @@ const MUTATIONS = [
     test: "doctest",
     expect: "SC-2 範圍裡有 commit、卻取不到訊息與作者欄",
   },
+  // ---- 2026-09-25 正式閘門不讀測試用環境變數（v10 候選，Yolin 核准先做）----
+  {
+    name: "gatescan 讀環境變數不看自己讀自己",
+    why: "`X=\"${X:-預設}\"` 會被當成已賦值而躲過去（2026-09-25 寫這條時自己的對照組抓到）。",
+    file: "scripts/gatescan.mjs",
+    find: "        if (r.includes(m[1])) selfRef.add(m[1]);",
+    replace: "        void r;",
+    test: "doctest",
+    expect: "G7-2 賦值那一行自己讀自己",
+  },
+  {
+    name: "gatescan 讀環境變數一律當成已登記",
+    why: "正式閘門讀了沒登記的環境變數要報出來（起因：pushgate.sh 的 PUSHGATE_REMOTE；2026-09-25）。",
+    file: "scripts/gatescan.mjs",
+    find: "      if (i >= 0) { envUsed.add(i); continue; }",
+    replace: "      envUsed.add(i); continue;",
+    test: "doctest",
+    expect: "G7-1 閘門讀了沒登記的環境變數",
+  },
   // ---- 2026-09-24 F1 必敗對照組（SPEC_檢查器修補）----
   {
     name: "tap 一條斷言都沒有就結束也算通過",
