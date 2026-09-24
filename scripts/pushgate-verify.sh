@@ -49,85 +49,106 @@ check() {
 }
 run_gate() { BEFORE="$(remote_main)"; bash scripts/pushgate.sh > "$T/out" 2>&1; RC=$?; }
 
+# 每一種情境是獨立的函式，開頭一律先把假遠端、本機追蹤分支、本機、hook、登記還原成開始前的狀態（M6，2026-09-24）：
+# 誰先誰後都不影響結果。順序由 PUSHGATE_VERIFY_ORDER 決定，預設是下面那一行；換一個順序跑，每一種的結論要一樣。
+fresh() { rm -f "$T/remote.git/hooks/pre-receive" "$T/remote.git/hooks/post-receive"; restore_all; register_work; }
+
 # 1 要推的檔有命中：當場組出來的合成 email
-probe_commit a "contact: $(printf '%s@%s' tester example-mail.test)"
-run_gate; check "1 自查命中" 1 same "來源：新增行" "已推送"; reset_local
+s1() { fresh
+  probe_commit a "contact: $(printf '%s@%s' tester example-mail.test)"
+  run_gate; check "1 自查命中" 1 same "來源：新增行" "已推送"; }
 
 # 2 自查的對照組弄壞（email 的對照樣本換成不是 email 的字），內容乾淨
-node -e "const fs=require('fs');const f='scripts/selfcheck.mjs';const s=fs.readFileSync(f,'utf8');const a=\"const fakeMail = ['someone', 'example-mail.test'].join('@');\";if(!s.includes(a))process.exit(9);fs.writeFileSync(f,s.replace(a,\"const fakeMail = 'not-an-email';\"))" || { echo "2 對照組：找不到要弄壞的那一行（驗法過期）"; FAIL=1; }
-register_work   # 這一種驗的是自查的對照組，不是登記：改壞之後重新登記，才走得到自查
-probe_commit b "乾淨的一行"
-run_gate; check "2 對照組壞掉" 1 same "對照組命中=false" "已推送"; reset_local; register_work
+s2() { fresh
+  node -e "const fs=require('fs');const f='scripts/selfcheck.mjs';const s=fs.readFileSync(f,'utf8');const a=\"const fakeMail = ['someone', 'example-mail.test'].join('@');\";if(!s.includes(a))process.exit(9);fs.writeFileSync(f,s.replace(a,\"const fakeMail = 'not-an-email';\"))" || { echo "2 對照組：找不到要弄壞的那一行（驗法過期）"; FAIL=1; }
+  register_work   # 這一種驗的是自查的對照組，不是登記：改壞之後重新登記，才走得到自查
+  probe_commit b "乾淨的一行"
+  run_gate; check "2 對照組壞掉" 1 same "對照組命中=false" "已推送"; }
 
 # 3 取不到使用者名稱（自查丟例外）
-probe_commit c "乾淨的一行"
-BEFORE="$(remote_main)"; USERNAME= USER= bash scripts/pushgate.sh > "$T/out" 2>&1; RC=$?
-check "3 取不到使用者名稱" 1 same "取不到使用者名稱" "已推送"; reset_local
+s3() { fresh
+  probe_commit c "乾淨的一行"
+  BEFORE="$(remote_main)"; USERNAME= USER= bash scripts/pushgate.sh > "$T/out" 2>&1; RC=$?
+  check "3 取不到使用者名稱" 1 same "取不到使用者名稱" "已推送"; }
 
 # 4 沒有新 commit
-run_gate; check "4 沒有新 commit" 1 same "範圍裡沒有 commit" "已推送"
+s4() { fresh
+  run_gate; check "4 沒有新 commit" 1 same "範圍裡沒有 commit" "已推送"; }
 
 # 5 推送被拒（pre-receive 回傳 1）→ 停在推送，後面的比對沒跑
-printf '#!/bin/sh\nexit 1\n' > "$T/remote.git/hooks/pre-receive"; chmod +x "$T/remote.git/hooks/pre-receive"
-probe_commit e "乾淨的一行"
-run_gate; check "5 推送被拒" 2 same "擋下：推送失敗" "遠端對不上"
-rm "$T/remote.git/hooks/pre-receive"; reset_local
+s5() { fresh
+  printf '#!/bin/sh\nexit 1\n' > "$T/remote.git/hooks/pre-receive"; chmod +x "$T/remote.git/hooks/pre-receive"
+  probe_commit e "乾淨的一行"
+  run_gate; check "5 推送被拒" 2 same "擋下：推送失敗" "遠端對不上"; }
 
 # 6 推送回報成功、遠端卻沒更新（post-receive 把 main 退回舊值）→ 停在比對遠端
-printf '#!/bin/sh\nwhile read old new ref; do [ "$ref" = refs/heads/main ] && git update-ref refs/heads/main "$old"; done\n' > "$T/remote.git/hooks/post-receive"; chmod +x "$T/remote.git/hooks/post-receive"
-probe_commit f "乾淨的一行"
-run_gate; check "6 推了沒更新" 3 same "擋下：遠端對不上" "已推送"
-rm "$T/remote.git/hooks/post-receive"; reset_local
+s6() { fresh
+  printf '#!/bin/sh\nwhile read old new ref; do [ "$ref" = refs/heads/main ] && git update-ref refs/heads/main "$old"; done\n' > "$T/remote.git/hooks/post-receive"; chmod +x "$T/remote.git/hooks/post-receive"
+  probe_commit f "乾淨的一行"
+  run_gate; check "6 推了沒更新" 3 same "擋下：遠端對不上" "已推送"; }
 
 # 8 本機的追蹤分支跑在遠端前面（例如上一次「推了沒更新」之後），而它指的那個 commit 有命中、從沒真的推上去
 #   → 閘門要先 fetch、照遠端的實際狀態算範圍，照樣查到命中、照樣擋
-probe_commit h "contact: $(printf '%s@%s' tester example-mail.test)"
-git update-ref refs/remotes/origin/main HEAD
-probe_commit h2 "乾淨的一行"
-run_gate; check "8 追蹤分支過時" 1 same "來源：新增行" "已推送"; reset_local
+s8() { fresh
+  probe_commit h "contact: $(printf '%s@%s' tester example-mail.test)"
+  git update-ref refs/remotes/origin/main HEAD
+  probe_commit h2 "乾淨的一行"
+  run_gate; check "8 追蹤分支過時" 1 same "來源：新增行" "已推送"; }
 
 # 9 命中只放在 commit 訊息（檔案內容乾淨）→ 擋在自查，理由指到「commit 訊息或作者欄」
-restore_all
-printf '乾淨的一行\n' > docs/i.md; git add docs/i.md; git commit -q -m "probe i：聯絡 $(printf '%s@%s' tester example-mail.test)"
-run_gate; check "9 命中只在 commit 訊息" 1 same "來源：commit 訊息或作者欄" "已推送"; restore_all
+s9() { fresh
+  printf '乾淨的一行\n' > docs/i.md; git add docs/i.md; git commit -q -m "probe i：聯絡 $(printf '%s@%s' tester example-mail.test)"
+  run_gate; check "9 命中只在 commit 訊息" 1 same "來源：commit 訊息或作者欄" "已推送"; }
 
 # 10 作者信箱是一般信箱（檔案與訊息都乾淨）→ 同上
-printf '乾淨的一行\n' > docs/j.md; git add docs/j.md
-git -c user.name=someone -c user.email="$(printf '%s@%s' someone example-mail.test)" commit -q -m "probe j"
-run_gate; check "10 作者信箱是一般信箱" 1 same "來源：commit 訊息或作者欄" "已推送"; restore_all
+s10() { fresh
+  printf '乾淨的一行\n' > docs/j.md; git add docs/j.md
+  git -c user.name=someone -c user.email="$(printf '%s@%s' someone example-mail.test)" commit -q -m "probe j"
+  run_gate; check "10 作者信箱是一般信箱" 1 same "來源：commit 訊息或作者欄" "已推送"; }
 
 # 11 一行以 ++ 開頭的命中：在一個 commit 加進去、下一個 commit 刪掉（只存在於新增行裡）→ 擋在自查，理由指到「新增行」
-printf '++ contact: %s\n' "$(printf '%s@%s' tester example-mail.test)" > docs/k.md; git add docs/k.md; git commit -q -m "probe k add"
-git rm -q docs/k.md; git commit -q -m "probe k remove"
-PP="$(git log -p --no-color --format= -U0 origin/main..HEAD | grep -c '^+++ ')"
-if precondition "11 ++ 開頭的新增行" '[ "$PP" = 3 ]' "diff 裡以「+++ 」開頭的行應該恰好 3 行（兩個檔頭＋那一行內容），實際 $PP 行"; then
-  run_gate; check "11 ++ 開頭的新增行" 1 same "來源：新增行" "抽取壞了"
-fi
-restore_all
+s11() { fresh
+  printf '++ contact: %s\n' "$(printf '%s@%s' tester example-mail.test)" > docs/k.md; git add docs/k.md; git commit -q -m "probe k add"
+  git rm -q docs/k.md; git commit -q -m "probe k remove"
+  PP="$(git log -p --no-color --format= -U0 origin/main..HEAD | grep -c '^+++ ')"
+  if precondition "11 ++ 開頭的新增行" '[ "$PP" = 3 ]' "diff 裡以「+++ 」開頭的行應該恰好 3 行（兩個檔頭＋那一行內容），實際 $PP 行"; then
+    run_gate; check "11 ++ 開頭的新增行" 1 same "來源：新增行" "抽取壞了"
+  fi; }
 
 # 12 只刪不增：一個 commit 只刪掉一個既有的乾淨檔 → 通過、推上去（範圍裡有 commit，但新增行 0 行不該被當成故障）
-git rm -q docs/SOURCES.md; git commit -q -m "probe l：只刪不增"
-NC="$(git rev-list --count origin/main..HEAD)"; NS="$(git log --numstat --format= origin/main..HEAD)"
-if precondition "12 只刪不增" '[ "$NC" -ge 1 ] && ! printf "%s\n" "$NS" | grep -qE "^[1-9]"' "範圍裡要有 commit（實際 $NC 個）、numstat 新增行要是 0"; then
-  run_gate; check "12 只刪不增" 0 local "已推送" "擋下"
-fi
-restore_all
+s12() { fresh
+  git rm -q docs/SOURCES.md; git commit -q -m "probe l：只刪不增"
+  NC="$(git rev-list --count origin/main..HEAD)"; NS="$(git log --numstat --format= origin/main..HEAD)"
+  if precondition "12 只刪不增" '[ "$NC" -ge 1 ] && ! printf "%s\n" "$NS" | grep -qE "^[1-9]"' "範圍裡要有 commit（實際 $NC 個）、numstat 新增行要是 0"; then
+    run_gate; check "12 只刪不增" 0 local "已推送" "擋下"
+  fi; }
 
 # 13 閘門改過、還沒跑過驗法（登記對不上）→ 回 4，停在第零關，連自查都沒跑
-printf '\n# 改過一行\n' >> scripts/pushgate.sh
-probe_commit m "乾淨的一行"
-run_gate; check "13 改過沒跑驗法" 4 same "改過之後還沒跑過驗法" "查了："
-git checkout -q -- scripts/pushgate.sh; restore_all
+s13() { fresh
+  printf '\n# 改過一行\n' >> scripts/pushgate.sh
+  probe_commit m "乾淨的一行"
+  run_gate; check "13 改過沒跑驗法" 4 same "改過之後還沒跑過驗法" "查了："; }
 
 # 14 沒有登記檔（例如剛改完、還沒跑過驗法的 repo；新 clone 也是）→ 回 4
-rm -f .logs/pushgate-verified.txt
-probe_commit n "乾淨的一行"
-run_gate; check "14 沒有登記檔" 4 same "沒有登記檔" "查了："
-restore_all; register_work
+s14() { fresh
+  rm -f .logs/pushgate-verified.txt
+  probe_commit n "乾淨的一行"
+  run_gate; check "14 沒有登記檔" 4 same "沒有登記檔" "查了："; }
 
 # 7 全部正常 → 推上去、假遠端＝本機
-probe_commit g "乾淨的一行"
-run_gate; check "7 全部正常" 0 local "已推送" "擋下"
+s7() { fresh
+  probe_commit g "乾淨的一行"
+  run_gate; check "7 全部正常" 0 local "已推送" "擋下"; }
+
+ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14"
+ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 7}"
+# 順序清單要恰好是 14 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
+if [ "$(printf '%s\n' $ORDER | sort -n | tr '\n' ' ')" != "$(printf '%s\n' $ALL | sort -n | tr '\n' ' ')" ]; then
+  echo "閘門驗法：順序清單不是恰好 14 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
+fi
+echo "順序：$ORDER"
+for n in $ORDER; do "s$n"; done
+fresh
 
 # 登記：全部通過才寫主 repo 的登記檔（登記的是驗過的那一版＝已 commit 的內容）；有任何一種不符就刪掉，閘門擋下推送
 REGSRC="$SRC/.logs/pushgate-verified.txt"
