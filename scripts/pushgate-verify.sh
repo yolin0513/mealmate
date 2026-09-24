@@ -19,6 +19,12 @@ git config user.email probe@users.noreply.github.com
 remote_main() { git --git-dir="$T/remote.git" rev-parse main; }
 probe_commit() { printf '%s\n' "$2" > "docs/$1.md"; git add "docs/$1.md"; git commit -q -m "probe $1"; }
 reset_local() { git reset -q --hard "$(remote_main)"; git checkout -q -- .; }
+BASE="$(remote_main)"
+# 會把東西推上假遠端的情境跑完，把假遠端、本機追蹤分支、本機都還原成開始前的狀態——每一種情境各自獨立，
+# 不會因為前一種漏出去的東西，讓後面的情境被連帶弄紅（例如推送被拒）而看起來像抓到了
+restore_all() { git --git-dir="$T/remote.git" update-ref refs/heads/main "$BASE"; git update-ref refs/remotes/origin/main "$BASE"; git reset -q --hard "$BASE"; git checkout -q -- .; }
+# 前置斷言：情境沒造成就中止，不讓一個根本沒發生的情境看起來符合
+precondition() { if ! eval "$2"; then echo "$1｜前置不成立：$3｜不符合（情境沒造成，中止）"; FAIL=1; return 1; fi; }
 FAIL=0
 N=0
 # check <名稱> <預期回傳值> <預期遠端：same|local> <輸出裡必須有的字> <輸出裡不能有的字>
@@ -53,7 +59,7 @@ BEFORE="$(remote_main)"; USERNAME= USER= bash scripts/pushgate.sh > "$T/out" 2>&
 check "3 取不到使用者名稱" 1 same "擋下：自查" "已推送"; reset_local
 
 # 4 沒有新 commit
-run_gate; check "4 沒有新 commit" 1 same "新增行數是 0" "已推送"
+run_gate; check "4 沒有新 commit" 1 same "範圍裡沒有 commit" "已推送"
 
 # 5 推送被拒（pre-receive 回傳 1）→ 停在推送，後面的比對沒跑
 printf '#!/bin/sh\nexit 1\n' > "$T/remote.git/hooks/pre-receive"; chmod +x "$T/remote.git/hooks/pre-receive"
@@ -73,6 +79,33 @@ probe_commit h "contact: $(printf '%s@%s' tester example-mail.test)"
 git update-ref refs/remotes/origin/main HEAD
 probe_commit h2 "乾淨的一行"
 run_gate; check "8 追蹤分支過時" 1 same "擋下：自查" "已推送"; reset_local
+
+# 9 命中只放在 commit 訊息（檔案內容乾淨）→ 擋在自查，理由指到「commit 訊息或作者欄」
+restore_all
+printf '乾淨的一行\n' > docs/i.md; git add docs/i.md; git commit -q -m "probe i：聯絡 $(printf '%s@%s' tester example-mail.test)"
+run_gate; check "9 命中只在 commit 訊息" 1 same "來源：commit 訊息或作者欄" "已推送"; restore_all
+
+# 10 作者信箱是一般信箱（檔案與訊息都乾淨）→ 同上
+printf '乾淨的一行\n' > docs/j.md; git add docs/j.md
+git -c user.name=someone -c user.email="$(printf '%s@%s' someone example-mail.test)" commit -q -m "probe j"
+run_gate; check "10 作者信箱是一般信箱" 1 same "來源：commit 訊息或作者欄" "已推送"; restore_all
+
+# 11 一行以 ++ 開頭的命中：在一個 commit 加進去、下一個 commit 刪掉（只存在於新增行裡）→ 擋在自查，理由指到「新增行」
+printf '++ contact: %s\n' "$(printf '%s@%s' tester example-mail.test)" > docs/k.md; git add docs/k.md; git commit -q -m "probe k add"
+git rm -q docs/k.md; git commit -q -m "probe k remove"
+PP="$(git log -p --no-color --format= -U0 origin/main..HEAD | grep -c '^+++ ')"
+if precondition "11 ++ 開頭的新增行" '[ "$PP" = 3 ]' "diff 裡以「+++ 」開頭的行應該恰好 3 行（兩個檔頭＋那一行內容），實際 $PP 行"; then
+  run_gate; check "11 ++ 開頭的新增行" 1 same "來源：新增行" "抽取壞了"
+fi
+restore_all
+
+# 12 只刪不增：一個 commit 只刪掉一個既有的乾淨檔 → 通過、推上去（範圍裡有 commit，但新增行 0 行不該被當成故障）
+git rm -q docs/SOURCES.md; git commit -q -m "probe l：只刪不增"
+NC="$(git rev-list --count origin/main..HEAD)"; NS="$(git log --numstat --format= origin/main..HEAD)"
+if precondition "12 只刪不增" '[ "$NC" -ge 1 ] && ! printf "%s\n" "$NS" | grep -qE "^[1-9]"' "範圍裡要有 commit（實際 $NC 個）、numstat 新增行要是 0"; then
+  run_gate; check "12 只刪不增" 0 local "已推送" "擋下"
+fi
+restore_all
 
 # 7 全部正常 → 推上去、假遠端＝本機
 probe_commit g "乾淨的一行"

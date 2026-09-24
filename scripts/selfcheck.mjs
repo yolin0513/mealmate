@@ -1,41 +1,88 @@
-// 公開前自查（共用慣例 §2.4、§2.5 第一關）：查「所有還沒推上去的 commit」（<遠端>/main..HEAD）的新增行。
-// 用法：node scripts/selfcheck.mjs [遠端名，預設 origin]。由 scripts/pushgate.sh 呼叫；也可以單獨跑。
-// 回傳值：通過 0；有命中、任何一類的對照組沒命中（檢查器壞了）、沒有新增行可查、或丟例外 → 非 0。
-// 推送那一行要用回傳值擋，不要接管線（`… | tail -1 && git push` 的回傳值是 tail 的，失敗會被吞掉）。
-// 沒有不能公開的樣式或黑名單：使用者名稱執行時從環境變數取，email 的對照組是當場組出來的，都不寫進任何檔。
+// 公開前自查（共用慣例 §2.4、§2.5 第一關）：查「這次要推的每一個 commit 會公開的東西」。
+// 用法：node scripts/selfcheck.mjs [遠端名，預設 origin] 或 node scripts/selfcheck.mjs --range <A..B>。由 scripts/pushgate.sh 呼叫（它先 fetch，範圍才照遠端的實際狀態算）；也可以單獨跑。
+//
+// 查什麼（範圍＝<遠端>/main..HEAD 的每一個 commit，不是只比兩端）：
+//   · 新增行：照 diff 的結構抽——`diff --git` 到第一個 `@@` 之間是檔頭（含 `+++ b/檔名`），跳過；`@@` 之後以 `+` 開頭的才是內容。
+//     （2026-09-24 以前是「以 `+++` 開頭就跳過」：內容本身以 `++` 開頭的行加上 diff 的 `+` 也變成 `+++…`，被當成檔頭丟掉。）
+//   · commit 訊息、作者與提交者的名字與信箱（另外取；`--format=` 會把它們整個拿掉）。
+//   · 抽出的新增行數用獨立的來源核對：`git log --numstat` 第一欄的加總必須**等於**抽出的行數（抽多、抽少都停）——
+//     換個環境、git 輸出格式變了、抽取默默變少，這一道都接得住。
+// 回傳值：通過 0；有命中、任何一類的對照組沒命中（檢查器壞了）、範圍裡沒有 commit、抽取與 numstat 對不上、取不到訊息與作者欄、或丟例外 → 非 0。
+// 只刪不增的 commit（新增行 0、numstat 也 0）照常檢查訊息與作者欄，沒命中就通過。
+// 推送那一行要用回傳值擋，不要接管線。沒有不能公開的樣式或黑名單：使用者名稱執行時從環境變數取，email 的對照組當場組成。
 // 路徑照附錄 A：磁碟機開頭的路徑、帶使用者名稱的家目錄路徑擋；用 ~、$HOME 寫的泛稱不擋。
 import { execFileSync } from 'node:child_process';
 
-const remote = process.argv[2] || 'origin';
-const diff = execFileSync('git', ['-c', 'core.quotepath=off', 'log', '-p', `${remote}/main..HEAD`, '--format=', '-U0'], { encoding: 'utf8' });
-const added = diff.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++'));
-const user = process.env.USERNAME || process.env.USER || '';
-const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const checks = {
-  金鑰或token: /(sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(api[_-]?key|secret|token)\s*[:=]\s*['"][^'"]{12,})/i,
-  email: { test: (s) => (s.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || []).some((m) => !/@(users\.noreply\.github\.com|anthropic\.com)$/i.test(m)) },
-  本機使用者名稱: user ? new RegExp(esc(user), 'i') : { test: () => { throw new Error('取不到使用者名稱'); } },
-  磁碟機或家目錄路徑: /(\b[A-Za-z]:[\\/]|\/(Users|home)\/[^\s/]+)/,
-};
-// 對照組：當下組出來的合成樣本，跑的是同一個檢查（共用慣例 §5.3）；不寫進任何檔
-const fakeMail = ['someone', 'example-mail.test'].join('@');
-const controls = {
-  金鑰或token: ['ghp_' + 'A'.repeat(30)],
-  email: [fakeMail],
-  本機使用者名稱: ['path ' + user + ' here'],
-  磁碟機或家目錄路徑: ['E:' + '\\' + 'Foo', '/' + 'home' + '/someone/x'],
-};
-let ok = true;
-console.log('新增行數：', added.length);
-for (const [name, re] of Object.entries(checks)) {
-  const ctl = controls[name].every((c) => re.test(c));
-  const hits = added.filter((l) => re.test(l)).length;
-  console.log(`${name}：對照組命中=${ctl}，新增行命中=${hits}`);
-  if (!ctl || hits) ok = false;
+// --range <A..B>：只給「拿真實資料確認不會誤擋」這種一次性的檢查用（例如 HEAD~30..HEAD）；閘門不帶，照舊是 <遠端>/main..HEAD
+const argv = process.argv.slice(2);
+const ri = argv.indexOf('--range');
+const range = ri >= 0 ? argv[ri + 1] : `${argv[0] || 'origin'}/main..HEAD`;
+const git = (args) => execFileSync('git', ['-c', 'core.quotepath=off', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+
+/** 照 diff 的結構抽新增行（去掉開頭的 +）。檔頭不算；@@ 之後以 + 開頭的才是內容。 */
+function addedLinesOf(diffText) {
+  const out = [];
+  let inHunk = false;
+  for (const l of diffText.split('\n')) {
+    if (l.startsWith('diff --git ')) { inHunk = false; continue; }
+    if (l.startsWith('@@')) { inHunk = true; continue; }
+    if (inHunk && l.startsWith('+')) out.push(l.slice(1));
+  }
+  return out;
 }
-// 泛稱路徑不該被擋（附錄 A：~、$HOME 不算）——反向的對照：擋了就是樣式寫太寬
-const generic = '~' + '/.cache/x';
-if (checks.磁碟機或家目錄路徑.test(generic)) { console.log('磁碟機或家目錄路徑：連泛稱路徑也擋（樣式太寬）'); ok = false; }
-console.log(ok ? '自查通過' : '自查不通過');
-if (!ok) process.exitCode = 1;
-if (added.length === 0) { console.log('新增行數是 0：沒有東西可查，當成失敗（避免查錯範圍還顯示通過）'); process.exitCode = 1; }
+
+/** `git log --numstat --format=` 的輸出 → 新增行數加總（二進位檔是 -，不算）。 */
+function numstatAdded(numstatText) {
+  let n = 0;
+  for (const l of numstatText.split('\n')) {
+    const m = /^(\d+)\t/.exec(l);
+    if (m) n += Number(m[1]);
+  }
+  return n;
+}
+
+function main() {
+  const commits = git(['rev-list', range]).split('\n').filter(Boolean);
+  const added = addedLinesOf(git(['log', '-p', '--no-color', '--format=', '-U0', range]));
+  const numstat = numstatAdded(git(['log', '--numstat', '--format=', range]));
+  const meta = git(['log', '--format=%B%n%an <%ae>%n%cn <%ce>', range]).split('\n').filter((l) => l.trim());
+  console.log(`查了：commit ${commits.length} 個；新增行 ${added.length} 行（numstat ${numstat} 行）；commit 訊息與作者欄 ${meta.length} 行`);
+
+  let ok = true;
+  if (commits.length === 0) { console.log('範圍裡沒有 commit：沒有東西可推，當成失敗（避免查錯範圍還顯示通過）'); ok = false; }
+  if (added.length !== numstat) { console.log(`抽取壞了：抽出的新增行 ${added.length} 行，numstat 是 ${numstat} 行（對不上就停，不是「有命中」）`); ok = false; }
+  if (commits.length > 0 && meta.length === 0) { console.log('取不到 commit 訊息與作者欄：範圍裡有 commit，每個 commit 一定有作者欄，當成失敗'); ok = false; }
+
+  const user = process.env.USERNAME || process.env.USER || '';
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const checks = {
+    金鑰或token: /(sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(api[_-]?key|secret|token)\s*[:=]\s*['"][^'"]{12,})/i,
+    email: { test: (s) => (s.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || []).some((m) => !/@(users\.noreply\.github\.com|anthropic\.com)$/i.test(m)) },
+    本機使用者名稱: user ? new RegExp(esc(user), 'i') : { test: () => { throw new Error('取不到使用者名稱'); } },
+    磁碟機或家目錄路徑: /(\b[A-Za-z]:[\\/]|\/(Users|home)\/[^\s/]+)/,
+  };
+  // 對照組：當下組出來的合成樣本，跑的是同一個檢查（共用慣例 §5.3）；不寫進任何檔
+  const fakeMail = ['someone', 'example-mail.test'].join('@');
+  const controls = {
+    金鑰或token: ['ghp_' + 'A'.repeat(30)],
+    email: [fakeMail, 'Someone Else <' + fakeMail + '>'],
+    本機使用者名稱: ['path ' + user + ' here'],
+    磁碟機或家目錄路徑: ['E:' + '\\' + 'Foo', '/' + 'home' + '/someone/x'],
+  };
+  for (const [name, re] of Object.entries(checks)) {
+    const ctl = controls[name].every((c) => re.test(c));
+    const inAdded = added.filter((l) => re.test(l)).length;
+    const inMeta = meta.filter((l) => re.test(l)).length;
+    console.log(`${name}：對照組命中=${ctl}，新增行命中=${inAdded}，commit 訊息或作者欄命中=${inMeta}`);
+    if (!ctl) ok = false;
+    if (inAdded) { console.log(`  命中｜${name}｜來源：新增行 ${inAdded} 行`); ok = false; }
+    if (inMeta) { console.log(`  命中｜${name}｜來源：commit 訊息或作者欄 ${inMeta} 行`); ok = false; }
+  }
+  // 泛稱路徑不該被擋（附錄 A：~、$HOME 不算）——反向的對照：擋了就是樣式寫太寬
+  const generic = '~' + '/.cache/x';
+  if (checks.磁碟機或家目錄路徑.test(generic)) { console.log('磁碟機或家目錄路徑：連泛稱路徑也擋（樣式太寬）'); ok = false; }
+  console.log(ok ? '自查通過' : '自查不通過');
+  if (!ok) process.exitCode = 1;
+}
+
+main();
