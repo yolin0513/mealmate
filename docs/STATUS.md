@@ -138,7 +138,7 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
     **4**（第零關，最先跑）閘門、自查或驗法改過之後還沒跑過驗法——三支檔案目前的雜湊跟 `.logs/pushgate-verified.txt` 的登記不一致、或沒有登記檔。自查前先 `git fetch`：範圍是「遠端 main..HEAD」全部還沒推的 commit，
     追蹤分支若停在一次「推了沒更新」之後，那幾個沒真的推上去的 commit 會落在範圍外。**不接管線**（`… | tail -1 && git push` 的回傳值是 `tail` 的），輸出寫到 `.logs/pushgate.out`（已 gitignore）。
     **驗法登記制（2026-09-24 起，Yolin 授權）**：驗法全部通過時，登記三支檔案**已 commit 版本**的雜湊；沒通過就刪掉登記。改過之後沒重跑驗法，閘門直接擋下（回 4）——不再靠人記得。**新 Session 第一次推送前，先跑一次驗法（約 1 分鐘）；F8 那一套只有這次要推的 commit 動到被守的三支時才要，見交接段最上面。**
-    **驗法 `bash scripts/pushgate-verify.sh`**：在暫存目錄建 bare repo 當假遠端，分別製造每一關的失敗（14 種，見「共用慣例副本更新到 v7」「…到 v8」與「推送閘門的驗法登記制」三節），不碰 GitHub；它驗的是**已 commit** 的內容，所以閘門改完先在本機 commit 再驗、驗過再推。**改過閘門也跑 `node scripts/gatemutants.mjs`**（2026-09-24 起；把閘門改壞 5 種＋觸發閘門驗法自己的一條失敗路徑、各跑一次閘門驗法，不符合的要恰好是預期那幾種、回傳值與理由要對，7 條約 10 分鐘）——以前這些突變只存在 session 暫存區、一次性跑過。
+    **驗法 `bash scripts/pushgate-verify.sh`**：在暫存目錄建 bare repo 當假遠端，分別製造每一關的失敗（14 種，見「共用慣例副本更新到 v7」「…到 v8」與「推送閘門的驗法登記制」三節），不碰 GitHub；它驗的是**已 commit** 的內容，所以閘門改完先在本機 commit 再驗、驗過再推。**改過閘門、自查或閘門驗法也跑 `node scripts/gatemutants.mjs`**（2026-09-24 起；F10：可指定改哪一支檔、帶假 git，11 條約 25 分鐘；不符合的要恰好是預期那幾種、回傳值與理由要對）——以前這些突變只存在 session 暫存區、一次性跑過。
     自查沒有不能公開的樣式或黑名單（使用者名稱執行時從環境變數取，email 對照組當場組成），原樣在 repo 裡，新 Session 不必重建任何東西。
     （2026-09-23 以前：自查腳本放 Session 的 scratchpad、從來不設回傳值，推送行也接過管線——那一版的做法已作廢。）
 19. （2026-09-24 補：`CLAUDE.md` 第 10 行已依 `docs/SPEC_CLAUDEmd歷史條文.md` 把「改寫 git 歷史（不准；」改成「改寫已推送的 git 歷史（不准；還沒推出去的本機 commit 可以整理——Yolin 2026-09-24 同意；」，依據是 Yolin 2026-09-24 同意、Dispatch 轉達；同一行後面的作者信箱那一段沒動。）
@@ -208,10 +208,10 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
 | 高蛋白質食材的輪替群組 `highprotein`（麵腸、麵筋；判準只定義一次） | ✅ 完成（2026-09-23） | `mealmate-v0.41.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 76、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 151、plannertest 513、shoppingtest 150、timelinetest 71、doctest 252；
+Node 端：datatest 76、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 151、plannertest 513、shoppingtest 150、timelinetest 71、doctest 259；
 瀏覽器端（puppeteer）：shelltest 162、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 199、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 116（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 44。（2026-09-24 F8 那一輪 `npm test` 數的）
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **478 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **480 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
 · **突變整套**＝`npm run mutationtest` 不帶 `--only` 跑完全部 442 條（每條都把對應的那一支測試整支跑一次）。**實測約 17,119 秒（約 4.8 小時）**，2026-09-24 對 v0.41.0 量的（09-21 的 428 條約 16,600 秒、09-19 的 366 條約 13,500 秒）。
