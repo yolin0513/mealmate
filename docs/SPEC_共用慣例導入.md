@@ -1,6 +1,7 @@
 # SPEC_共用慣例導入 — MealMate（第 4 批）＋commit 作者信箱改 noreply
 
 > 狀態：已執行（2026-09-19）
+> 〔2026-09-24 註：本檔寫的推送做法已作廢，推送一律用本 App 的推送閘門（見 `CLAUDE.md`）。〕
 > 撰寫：Fable 統籌 Session，2026-09-19。依據：統籌工作區的 `SPEC_共用慣例.md` v2（Yolin 2026-09-19 拍板）與 Yolin 2026-09-19 對作者信箱的裁示。第 1–3 批（TripQuest、StockDiary、JLPT_App）用的是同一份副本；TripQuest 全新開場的 Session 第一行自動出現了回執，機制有實據。
 > docs-only：**不要跑 `npm run bump`、不改版本號、不算一版。前置條件：`git status` 乾淨、沒有進行中的功能批次；不符合就先回報，不要開始。**
 
