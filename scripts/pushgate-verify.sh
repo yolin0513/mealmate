@@ -28,6 +28,7 @@ precondition() { if ! eval "$2"; then echo "$1｜前置不成立：$3｜不符�
 FAIL=0
 N=0
 # check <名稱> <預期回傳值> <預期遠端：same|local> <輸出裡必須有的字> <輸出裡不能有的字>
+# 「必須有的字」要講得出**為什麼**擋（命中的來源、例外的訊息），不能只比「擋下」——被別的理由擋下也會判成符合（v8 §5.11；2026-09-24 突變 M5 抓到）
 check() {
   local name="$1" want="$2" wantRemote="$3" must="$4" mustNot="$5"
   local after; after="$(remote_main)"
@@ -46,7 +47,7 @@ run_gate() { BEFORE="$(remote_main)"; bash scripts/pushgate.sh > "$T/out" 2>&1; 
 
 # 1 要推的檔有命中：當場組出來的合成 email
 probe_commit a "contact: $(printf '%s@%s' tester example-mail.test)"
-run_gate; check "1 自查命中" 1 same "擋下：自查" "已推送"; reset_local
+run_gate; check "1 自查命中" 1 same "來源：新增行" "已推送"; reset_local
 
 # 2 自查的對照組弄壞（email 的對照樣本換成不是 email 的字），內容乾淨
 node -e "const fs=require('fs');const f='scripts/selfcheck.mjs';const s=fs.readFileSync(f,'utf8');const a=\"const fakeMail = ['someone', 'example-mail.test'].join('@');\";if(!s.includes(a))process.exit(9);fs.writeFileSync(f,s.replace(a,\"const fakeMail = 'not-an-email';\"))" || { echo "2 對照組：找不到要弄壞的那一行（驗法過期）"; FAIL=1; }
@@ -56,7 +57,7 @@ run_gate; check "2 對照組壞掉" 1 same "對照組命中=false" "已推送"; 
 # 3 取不到使用者名稱（自查丟例外）
 probe_commit c "乾淨的一行"
 BEFORE="$(remote_main)"; USERNAME= USER= bash scripts/pushgate.sh > "$T/out" 2>&1; RC=$?
-check "3 取不到使用者名稱" 1 same "擋下：自查" "已推送"; reset_local
+check "3 取不到使用者名稱" 1 same "取不到使用者名稱" "已推送"; reset_local
 
 # 4 沒有新 commit
 run_gate; check "4 沒有新 commit" 1 same "範圍裡沒有 commit" "已推送"
@@ -78,7 +79,7 @@ rm "$T/remote.git/hooks/post-receive"; reset_local
 probe_commit h "contact: $(printf '%s@%s' tester example-mail.test)"
 git update-ref refs/remotes/origin/main HEAD
 probe_commit h2 "乾淨的一行"
-run_gate; check "8 追蹤分支過時" 1 same "擋下：自查" "已推送"; reset_local
+run_gate; check "8 追蹤分支過時" 1 same "來源：新增行" "已推送"; reset_local
 
 # 9 命中只放在 commit 訊息（檔案內容乾淨）→ 擋在自查，理由指到「commit 訊息或作者欄」
 restore_all
