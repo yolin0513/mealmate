@@ -10,7 +10,7 @@
 同一天之前還做了兩件 docs＋scripts 的收尾（都沒 bump、不算一版）：共用慣例副本更新到 **v5**，以及 **09-21 突變整套的收尾**（新基準、三條沒紅依根因處理、清掉 worktree，見「突變整套（2026-09-21）」一節）。
 個資普查已回報（2026-09-23），結果不進 repo。之後共用慣例副本更新到 **v6**（docs-only，見「共用慣例副本更新到 v6」一節）。之後補了 `checkmutations` 查 `expect`（抄 StockDiary，見「突變的 expect 都找得到（v6 §5.9）」一節），再把推送的閘門搬進 repo、副本更新到 **v7**（見「共用慣例副本更新到 v7」一節）。**推送一律 `bash scripts/pushgate.sh`。** 2026-09-24 凌晨跑了全面檢測（對 `2841ac1`／v0.41.0）：26 支全綠、突變 442 條全部紅、`assertaudit` 1 項紅（已修），見「全面檢測（2026-09-24）」一節。之後 `assertaudit` 的母體改成測試鏈（Yolin 選 A，見該節）。之後副本更新到 **v8**，自查補了兩個洞（見「共用慣例副本更新到 v8」一節），推送閘門加了驗法登記制（見該節；**新 Session 第一次推送前先跑 `bash scripts/pushgate-verify.sh`**），再副本更新到 **v9**、新增 `gatescan`、盤點了 7 支檢查器（見「共用慣例副本更新到 v9」一節）。
 v9 盤點回報的 5 件，Dispatch 2026-09-24 裁示：第 1–3 件修（已修，見「v9 盤點的三件修正」一節）；**第 4 件（驗法第 11 種前置斷言接管線）已照統籌者裁示改掉（＝檢查器修補的 M4，見該節）**；第 5 件不修（見該節）。
-之後照 `docs/SPEC_檢查器修補.md` 做了 M5、M6、M7（只盤點）、M8、M9，M1 補驗了「擴大擷取有沒有少抓」；**M4 後來也做了**：我原本把補充說明第 1 點（只管 P0）讀成涵蓋 M4、在 commit 訊息寫「M4 依補充說明未做」；Dispatch 更正——M4 是 P2，統籌者裁示「要改、不設永久例外」。改法見「檢查器修補」一節。再之後做了 P1（F1 必敗對照組、F4 孤兒常設、§5.11 第四層），見「檢查器修補 P1」一節。**下一件：目前沒有人交辦。**
+之後照 `docs/SPEC_檢查器修補.md` 做了 M5、M6、M7（只盤點）、M8、M9，M1 補驗了「擴大擷取有沒有少抓」；**M4 後來也做了**：我原本把補充說明第 1 點（只管 P0）讀成涵蓋 M4、在 commit 訊息寫「M4 依補充說明未做」；Dispatch 更正——M4 是 P2，統籌者裁示「要改、不設永久例外」。改法見「檢查器修補」一節。再之後做了 P1（F1 必敗對照組、F4 孤兒常設、§5.11 第四層），見「檢查器修補 P1」一節。之後做了 **F8**（build-recipes、build-foods 資料不見、壞掉、變少時停下、點名、一個檔都不寫），見「F8：產資料的工具故障時停下」一節。**下一件：目前沒有人交辦；突變整套等四個 App 的 F1–F7 都做完再跑。**
 再前一版 `mealmate-v0.40.0`：補 6 道全素無五辛配菜＋3 道湯（前一個 commit）、補 2 道台式現成早餐（後一個 commit）。
 再前三版 `v0.39.0`：麵腸這類高蛋白質的食材也算蛋白質來源；`v0.38.0`：使用者自己的食譜裡加工品的葷素由他說了算＋本週頁「我的」小標；`v0.37.0`：嫩莢與豆芽歸蔬菜。
 v0.38.0 的「要真的點過一次素葷才算使用者的判斷」**Yolin 已核准**（2026-09-21，原話：「可以做此判斷，但要有提示」）—— 重點在**要有提示**，不能靜默擋下；現在那句訊息點名食材並講得出下一步，符合。
@@ -184,10 +184,10 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
 | 高蛋白質食材的輪替群組 `highprotein`（麵腸、麵筋；判準只定義一次） | ✅ 完成（2026-09-23） | `mealmate-v0.41.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 74、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 149、plannertest 513、shoppingtest 150、timelinetest 71、doctest 200；
-瀏覽器端（puppeteer）：shelltest 161、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 197、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 115（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
+Node 端：datatest 76、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 151、plannertest 513、shoppingtest 150、timelinetest 71、doctest 228；
+瀏覽器端（puppeteer）：shelltest 162、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 199、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 116（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 44。（2026-09-24 F8 那一輪 `npm test` 數的）
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **460 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **465 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
 · **突變整套**＝`npm run mutationtest` 不帶 `--only` 跑完全部 442 條（每條都把對應的那一支測試整支跑一次）。**實測約 17,119 秒（約 4.8 小時）**，2026-09-24 對 v0.41.0 量的（09-21 的 428 條約 16,600 秒、09-19 的 366 條約 13,500 秒）。
@@ -434,6 +434,24 @@ Yolin 2026-09-21：「麵筋如果蛋白質高也可以列入」（回答「麵�
 
   **只讀程式看到、沒有實測的**（不列入結論）：`assertaudit` 跑測試時某一支崩潰會 `continue`、照樣收它崩潰前的斷言——這是它的設計（判對錯是 `npm test` 的事），但「崩潰前已寫了一些斷言」時不會被「每一支都有寫進來」擋下。
   盤點結果逐件回報，修不修由 Dispatch 決定；這一輪沒有改任何被盤點的檢查器（修正是下一輪，見「v9 盤點的三件修正」一節）。
+
+### F8：產資料的工具故障時停下（2026-09-24，Dispatch 交辦、P0 等級；未 bump、不算一版）
+
+**改了什麼**：`scripts/build-recipes.mjs`、`scripts/build-foods.mjs` 寫檔前先整體檢查，有任何一條問題就印「✗ 沒有寫檔：」＋逐條點名（哪一道、哪一個欄位、哪一項營養素、哪一個類別）、回 1、一個檔都不寫；檢查過了才寫 `.tmp` 再 rename。
+· build-recipes：輸入（`data/recipes`、`foods.json`、`aliases.json`、`foodtags.json`）缺哪個點哪個；0 道停；上一版 `recipes.json` 有、這次沒有的逐道點名（真的要刪加 `--allow-shrink`）；上一版讀不出來也停。
+· build-foods：原始資料 0 列、必要欄位（6 個）一列都找不到、原始 JSON 壞掉（點名檔名）、轉出 0 種、某項營養素一種食材都沒有值、上一版有的類別整個不見、食材變少（`--allow-shrink`）都停。這些檢查排在類別覆寫表**之前**，所以不會再被「覆寫表的編號找不到」碰巧擋下。
+· 真實資料照常放行：build-foods 2,151 種、除了 `generatedAt` 一模一樣；build-recipes 248 道。
+
+**三段證據**（驗法 `scripts/buildguard-verify.mjs --rev <commit>`，在 repo 外的拋棄式 worktree 跑，原始資料用複本；母體＝每一個單位 × 每一種情境寫成迴圈；一格要「回傳非 0、stderr 點名這個單位、輸出檔雜湊沒變且沒留 .tmp」三件都成立才算擋，**回非 0 但沒點名＝碰巧擋下＝算沒擋**）：
+1. **舊版真的是舊的**：`--rev 217db3f`，驗法先印兩支的 sha 與新函式在不在——build-recipes `d2dc03102aa9`（`outputProblems` 沒有）、build-foods `3fb33ea4e1e8`（`rawProblems`／`foodsProblems` 沒有）；新版 `a1453d8` 是 `874d44c902ac`／`89290ed389a9`（都有）。兩邊基準（什麼都不改）都放行。
+2. **舊版沒擋的**：787 格擋 497、**沒擋 290**，其中 7 格是碰巧擋下。
+   · 刪掉一道食譜 248 格全部沒擋（回 0、recipes.json 少一道）；資料夾清空也回 0、改寫成 0 道；資料夾不存在、foods.json 不存在只丟 ENOENT 堆疊（碰巧擋下 2）。內容清空、欄位打錯兩組 496 格舊版本來就擋。
+   · build-foods：欄位改名 6 格、營養素整項不見 12 格、類別整類不見 18 格全部沒擋——多數回 0 照寫；整合編號改名、空陣列、只給前 5%、某一類整類不見（1 格）都是被「類別覆寫表的編號找不到」碰巧擋下；JSON 壞掉是 SyntaxError 沒點名檔名。只有「原始資料資料夾不存在」本來就點名擋下。
+3. **新版全擋**：787 格全部擋、0 格沒擋、0 格碰巧擋下，`exit=0`。
+（完整 log 在 `.logs/2026-09-24_f8-old.log`、`_f8-new.log`，不進版控。）
+
+**常設的斷言**：doctest「F8 產資料的工具」一節 F8-1…F8-6（純函式的每一種狀況＋對照組、真實資料不誤擋），doctest 200 → 228。突變新增 5 條（0 道照寫、少了照寫、不查必要欄位、不查營養素、不查類別），`--only` 5 條全部紅在指定的斷言；共 465 條。
+矩陣本身每格要跑一次整支 build（新版一輪約 7 分鐘，2026-09-24 量），不進 `npm test`；改到這兩支 build 時手動跑一次新版。
 
 ### 檢查器修補 P1：F1 必敗對照組、F4 孤兒常設、§5.11 第四層；#1 只多不少（2026-09-24，Dispatch 交辦；未 bump、不算一版）
 

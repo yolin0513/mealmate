@@ -15,6 +15,8 @@ import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX } from './checkmutations.mjs';
 import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT } from './gatescan.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
+import { outputProblems } from './build-recipes.mjs';
+import { rawProblems, foodsProblems, REQUIRED_FIELDS, NUTRIENT_KEYS, nutrientOrder } from './build-foods.mjs';
 import { FORBIDDEN } from './copyrules.mjs';
 import { CONDITION_FIELDS, DIETS, DIET_LABELS, CONDITIONS, KIDNEY_FIELDS, BASE_DISPLAY_FIELDS } from '../js/members.js';
 import { DEFAULTS, FONT_SCALES } from '../js/prefs.js';
@@ -411,6 +413,41 @@ section('assertaudit 的母體＝測試鏈（2026-09-24，Yolin 選 A）：丟�
     shouldHit: [['alphatest.mjs', 'gammatest.mjs'], ['betatest.mjs', 'deltatest.mjs', 'newtool.mjs']],
     shouldMiss: [['alphatest.mjs', 'betatest.mjs'], ['alphatest.mjs', 'newtool.mjs'], ['mutationtest.mjs', 'betatest.mjs']],
   }, 'T3（對照）沒登記的 *test.mjs 抓得到；工具與 mutationtest 不算孤兒');
+}
+
+section('F8 產資料的工具：資料不見、壞掉、變少時停下、點名單位（2026-09-24；每版驗純函式，整套矩陣見 scripts/buildguard-verify.mjs）');
+{
+  // build-recipes：0 道、上一版有這次沒有的逐道點名；--allow-shrink 才放行
+  const prevR = { recipes: [{ id: 'r-a', name: '甲' }, { id: 'r-b', name: '乙' }] };
+  ok(outputProblems([], null).some((l) => l.includes('0 道')), 'F8-1 build-recipes：0 道 → 停，理由「0 道」');
+  const shrinkR = outputProblems([{ id: 'r-a', name: '甲' }], prevR);
+  ok(shrinkR.length === 1 && shrinkR[0].includes('r-b') && !shrinkR[0].includes('r-a'), `F8-2 build-recipes：上一版有 r-b、這次沒有 → 點名 r-b（${shrinkR.join('；')}）`);
+  eq(outputProblems([{ id: 'r-a', name: '甲' }], prevR, { allowShrink: true }), [], 'F8-2（對照）加 --allow-shrink → 放行');
+  const realR = JSON.parse(read('data/recipes.json'));
+  eq(outputProblems(realR.recipes, realR), [], `F8-3（真實資料不誤擋）現有 ${realR.recipes.length} 道對現有的 recipes.json → 沒有問題`);
+  // build-foods：0 列、必要欄位找不到、營養素沒有值、分類整個不見、食材變少
+  const fullRow = Object.fromEntries(REQUIRED_FIELDS.map((f) => [f, 'x']));
+  ok(rawProblems([]).some((l) => l.includes('0 列')), 'F8-4 build-foods：原始資料 0 列 → 停，理由「0 列」');
+  for (const fld of REQUIRED_FIELDS) {
+    const { [fld]: _, ...rest } = fullRow;
+    const p = rawProblems([rest, rest]);
+    ok(p.length === 1 && p[0].includes(`「${fld}」`), `F8-4 build-foods：欄位「${fld}」一列都找不到 → 點名它`);
+  }
+  eq(rawProblems([fullRow]), [], 'F8-4（對照）六個欄位都在 → 沒有問題');
+  const order = nutrientOrder();
+  const food = (id, cat, n = order.map(() => 1)) => ({ id, cat, n });
+  ok(foodsProblems([], null).some((l) => l.includes('0 種')), 'F8-5 build-foods：轉出 0 種食材 → 停');
+  const labels = Object.fromEntries(Object.entries(NUTRIENT_KEYS).map(([label, key]) => [key, label]));
+  order.forEach((key, i) => {
+    const p = foodsProblems([food('A1', '甲類', order.map((_, j) => (j === i ? null : 1)))], null);
+    ok(p.length === 1 && p[0].includes(`「${labels[key]}」`), `F8-5 build-foods：營養素「${labels[key]}」一種食材都沒有值 → 點名它`);
+  });
+  const prevF = { foods: [food('A1', '甲類'), food('B1', '乙類')] };
+  const gone = foodsProblems([food('A1', '甲類')], prevF);
+  ok(gone.some((l) => l.includes('「乙類」')) && gone.some((l) => l.includes('少了 1 種') && l.includes('B1')), `F8-5 build-foods：乙類整個不見、少了 B1 → 兩件都點名（${gone.join('；')}）`);
+  eq(foodsProblems([food('A1', '甲類')], prevF, { allowShrink: true }), [], 'F8-5（對照）加 --allow-shrink → 放行');
+  const realF = JSON.parse(read('data/foods.json'));
+  eq(foodsProblems(realF.foods, realF), [], `F8-6（真實資料不誤擋）現有 ${realF.foods.length} 種食材對現有的 foods.json → 沒有問題`);
 }
 
 section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24，SPEC_檢查器修補；每版都跑）');
