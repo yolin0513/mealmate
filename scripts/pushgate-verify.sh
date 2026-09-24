@@ -116,8 +116,8 @@ s11() { fresh
   printf '++ contact: %s\n' "$(printf '%s@%s' tester example-mail.test)" > docs/k.md; git add docs/k.md; git commit -q -m "probe k add"
   git rm -q docs/k.md; git commit -q -m "probe k remove"
   # 先寫檔再數，不接管線（M4，統籌者 2026-09-24 裁示：不設永久例外）：取 diff 失敗就明講，不靠「數到 0 行≠3」間接擋下
-  # 範圍預設 origin/main..HEAD；PUSHGATE_VERIFY_S11_RANGE 只給 scripts/gatemutants.mjs 觸發這條失敗路徑用（指向不存在的 ref）
-  if ! git log -p --no-color --format= -U0 "${PUSHGATE_VERIFY_S11_RANGE:-origin/main..HEAD}" > "$T/k.diff"; then echo "11 ++ 開頭的新增行｜取不到 diff｜不符合（情境沒造成，中止）"; FAIL=1; fi
+  # 取不到 diff 這條失敗路徑：scripts/gatemutants.mjs 用 PATH 最前面的假 git 觸發（F10：不在正式程式留後門）
+  if ! git log -p --no-color --format= -U0 origin/main..HEAD > "$T/k.diff"; then echo "11 ++ 開頭的新增行｜取不到 diff｜不符合（情境沒造成，中止）"; FAIL=1; fi
   PP="$(grep -c '^+++ ' "$T/k.diff")"
   if precondition "11 ++ 開頭的新增行" '[ "$PP" = 3 ]' "diff 裡以「+++ 」開頭的行應該恰好 3 行（兩個檔頭＋那一行內容），實際 $PP 行"; then
     run_gate; check "11 ++ 開頭的新增行" 1 same "來源：新增行" "抽取壞了"
@@ -182,7 +182,8 @@ s20() { fresh
   chmod +x "$T/fakegit/git"
   probe_commit t "乾淨的一行"
   FAKEHEAD="$(PATH="$T/fakegit:$PATH" git rev-parse HEAD 2>/dev/null)"
-  if precondition "20 取不到檔名清單" '! PATH="$T/fakegit:$PATH" git log -1 --format= --name-only HEAD >/dev/null 2>&1 && [ "$FAKEHEAD" = "$(git rev-parse HEAD)" ]' "假的 git 遇到 --name-only 要失敗、其他指令要照常（rev-parse 得到 $FAKEHEAD）"; then
+  FAKELOG="$(PATH="$T/fakegit:$PATH" git log -1 --format=%H HEAD 2>/dev/null)"
+  if precondition "20 取不到檔名清單" '! PATH="$T/fakegit:$PATH" git log -1 --format= --name-only HEAD >/dev/null 2>&1 && [ "$FAKEHEAD" = "$(git rev-parse HEAD)" ] && [ "$FAKELOG" = "$(git rev-parse HEAD)" ]' "假的 git：--name-only 要失敗；不相干的 rev-parse（得到 $FAKEHEAD）、同一個 log 子指令不帶 --name-only（得到 $FAKELOG）都要照常"; then
     BEFORE="$(remote_main)"; PATH="$T/fakegit:$PATH" bash scripts/pushgate.sh > "$T/out" 2>&1; RC=$?
     check "20 取不到檔名清單" 5 same "取不到這次要推的檔名清單" "查了："
   fi; }
