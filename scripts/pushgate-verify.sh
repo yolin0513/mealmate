@@ -23,6 +23,10 @@ BASE="$(remote_main)"
 # 會把東西推上假遠端的情境跑完，把假遠端、本機追蹤分支、本機都還原成開始前的狀態——每一種情境各自獨立，
 # 不會因為前一種漏出去的東西，讓後面的情境被連帶弄紅（例如推送被拒）而看起來像抓到了
 restore_all() { git --git-dir="$T/remote.git" update-ref refs/heads/main "$BASE"; git update-ref refs/remotes/origin/main "$BASE"; git reset -q --hard "$BASE"; git checkout -q -- .; }
+# 驗法登記（閘門第零關）：複本裡的閘門也要有登記才走得到後面的關卡——登記複本當下的三支檔案
+GATE_FILES="scripts/pushgate.sh scripts/selfcheck.mjs scripts/pushgate-verify.sh"
+register_work() { local out="" f; for f in $GATE_FILES; do out="${out}${f} $(git hash-object "$f")"$'\n'; done; mkdir -p .logs; printf '%s' "$out" > .logs/pushgate-verified.txt; }
+register_work
 # 前置斷言：情境沒造成就中止，不讓一個根本沒發生的情境看起來符合
 precondition() { if ! eval "$2"; then echo "$1｜前置不成立：$3｜不符合（情境沒造成，中止）"; FAIL=1; return 1; fi; }
 FAIL=0
@@ -51,8 +55,9 @@ run_gate; check "1 自查命中" 1 same "來源：新增行" "已推送"; reset_
 
 # 2 自查的對照組弄壞（email 的對照樣本換成不是 email 的字），內容乾淨
 node -e "const fs=require('fs');const f='scripts/selfcheck.mjs';const s=fs.readFileSync(f,'utf8');const a=\"const fakeMail = ['someone', 'example-mail.test'].join('@');\";if(!s.includes(a))process.exit(9);fs.writeFileSync(f,s.replace(a,\"const fakeMail = 'not-an-email';\"))" || { echo "2 對照組：找不到要弄壞的那一行（驗法過期）"; FAIL=1; }
+register_work   # 這一種驗的是自查的對照組，不是登記：改壞之後重新登記，才走得到自查
 probe_commit b "乾淨的一行"
-run_gate; check "2 對照組壞掉" 1 same "對照組命中=false" "已推送"; reset_local
+run_gate; check "2 對照組壞掉" 1 same "對照組命中=false" "已推送"; reset_local; register_work
 
 # 3 取不到使用者名稱（自查丟例外）
 probe_commit c "乾淨的一行"
@@ -108,10 +113,31 @@ if precondition "12 只刪不增" '[ "$NC" -ge 1 ] && ! printf "%s\n" "$NS" | gr
 fi
 restore_all
 
+# 13 閘門改過、還沒跑過驗法（登記對不上）→ 回 4，停在第零關，連自查都沒跑
+printf '\n# 改過一行\n' >> scripts/pushgate.sh
+probe_commit m "乾淨的一行"
+run_gate; check "13 改過沒跑驗法" 4 same "改過之後還沒跑過驗法" "查了："
+git checkout -q -- scripts/pushgate.sh; restore_all
+
+# 14 沒有登記檔（例如剛改完、還沒跑過驗法的 repo；新 clone 也是）→ 回 4
+rm -f .logs/pushgate-verified.txt
+probe_commit n "乾淨的一行"
+run_gate; check "14 沒有登記檔" 4 same "沒有登記檔" "查了："
+restore_all; register_work
+
 # 7 全部正常 → 推上去、假遠端＝本機
 probe_commit g "乾淨的一行"
 run_gate; check "7 全部正常" 0 local "已推送" "擋下"
 
-if [ "$FAIL" -ne 0 ]; then echo "閘門驗法：有不符合的情境"; exit 1; fi
-echo "閘門驗法：$N 種全部符合"
+# 登記：全部通過才寫主 repo 的登記檔（登記的是驗過的那一版＝已 commit 的內容）；有任何一種不符就刪掉，閘門擋下推送
+REGSRC="$SRC/.logs/pushgate-verified.txt"
+if [ "$FAIL" -ne 0 ]; then rm -f "$REGSRC"; echo "閘門驗法：有不符合的情境（已刪掉登記，閘門會擋下推送）"; exit 1; fi
+out=""
+for f in $GATE_FILES; do
+  h="$(git -C "$SRC" rev-parse "HEAD:$f" 2>/dev/null)"
+  if [ -z "$h" ]; then rm -f "$REGSRC"; echo "閘門驗法：讀不到 $f 已 commit 的版本，不登記"; exit 1; fi
+  out="${out}${f} ${h}"$'\n'
+done
+mkdir -p "$SRC/.logs"; printf '%s' "$out" > "$REGSRC"
+echo "閘門驗法：$N 種全部符合（已登記三支檔案的雜湊）"
 exit 0
