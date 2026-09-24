@@ -69,6 +69,52 @@ export const CAT_OVERRIDES = {
   H1800101: '蔬菜類', // 翼豆（四角豆）—— Yolin 2026-09-19：嫩莢類當蔬菜
 };
 
+/** transform 讀的原始欄位：任何一個在整份原始資料裡一列都找不到，就停（欄位名稱改了）。 */
+export const REQUIRED_FIELDS = ['整合編號', '樣品名稱', '食品分類', '分析項', '每100克含量', '含量單位'];
+
+/**
+ * 原始資料的整體檢查（v9 F8，2026-09-24）：回問題清單，每一條點名是哪一個欄位；沒問題回 []。
+ * 0 列、或必要欄位在整份資料裡一列都找不到 → 停。
+ */
+export function rawProblems(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return ['原始資料是空的（0 列）'];
+  const out = [];
+  for (const field of REQUIRED_FIELDS) {
+    if (!rows.some((r) => r && Object.prototype.hasOwnProperty.call(r, field))) {
+      out.push(`欄位「${field}」在原始資料 ${rows.length} 列裡一列都找不到（食藥署改了欄位名稱？）`);
+    }
+  }
+  return out;
+}
+
+/**
+ * 轉出來的食材的整體檢查（v9 F8，2026-09-24）：回問題清單，每一條點名是哪一種營養素、哪一個分類；沒問題回 []。
+ * · 0 種食材 → 停。
+ * · 12 種營養素，任何一種一種食材都沒有值 → 停（那一種的分析項整個不見了）。
+ * · 資料變少也停：上一版（現有的 foods.json）有的分類整個不見了、或上一版有的食材這次沒有，逐項點名。
+ *   食藥署每季更新真的刪了食材時，看過「消失的編號」之後加 --allow-shrink。
+ */
+export function foodsProblems(foods, prev, { allowShrink = false } = {}) {
+  if (foods.length === 0) return ['轉出 0 種食材'];
+  const out = [];
+  const order = nutrientOrder();
+  const labelOf = Object.fromEntries(Object.entries(NUTRIENT_KEYS).map(([label, key]) => [key, label]));
+  order.forEach((key, i) => {
+    if (!foods.some((f) => f.n[i] != null)) out.push(`營養素「${labelOf[key]}」（${key}）一種食材都沒有值（分析項整個不見了？）`);
+  });
+  if (!allowShrink && prev && Array.isArray(prev.foods)) {
+    const count = (list) => list.reduce((m, f) => { m[f.cat] = (m[f.cat] ?? 0) + 1; return m; }, {});
+    const before = count(prev.foods); const now = count(foods);
+    for (const [cat, n] of Object.entries(before)) {
+      if (!now[cat]) out.push(`類別「${cat}」整個不見了（上一版 ${n} 種）`);
+    }
+    const ids = new Set(foods.map((f) => f.id));
+    const gone = prev.foods.filter((f) => !ids.has(f.id));
+    if (gone.length) out.push(`少了 ${gone.length} 種食材（上一版 ${prev.foods.length}、這次 ${foods.length}；例如 ${gone.slice(0, 5).map((f) => `${f.id} ${f.name}`).join('、')}）——看過之後真的要刪就加 --allow-shrink`);
+  }
+  return out;
+}
+
 /** 套用類別覆寫（就地改 foods）。表裡有、資料裡沒有的編號 → 丟錯，不略過。回傳改了幾筆。 */
 export function applyCatOverrides(foods, overrides = CAT_OVERRIDES) {
   const byId = new Map(foods.map((f) => [f.id, f]));
@@ -264,12 +310,23 @@ async function main() {
   }
   const version = /tfnd-(\d{4}-\d{2}-\d{2})\.json$/.exec(raw)[1];
   console.log(`讀 ${path.relative(ROOT, raw)} …`);
-  const rows = JSON.parse(fs.readFileSync(raw, 'utf8'));
+  const stop = (lines) => { console.error('✗ 沒有寫檔：'); for (const l of lines) console.error(`  - ${l}`); process.exit(1); };
+  let rows;
+  try { rows = JSON.parse(fs.readFileSync(raw, 'utf8')); } catch (e) { stop([`原始資料 ${path.relative(ROOT, raw)} 讀不出來（JSON 壞掉？）：${e.message}`]); }
+  // 以下檢查都在類別覆寫之前（v9 F8）：以前空陣列、欄位名稱改了、只剩一部分，都是被「類別覆寫表的編號找不到」碰巧擋下——
+  // 覆寫表一變，就會寫出變少或空的 foods.json。現在每一種都由它自己的檢查點名。
+  const rawProb = rawProblems(rows);
+  if (rawProb.length) stop(rawProb);
   const { foods, units, report } = transform(rows);
+  let prev = null;
+  if (fs.existsSync(OUT)) {
+    try { prev = JSON.parse(fs.readFileSync(OUT, 'utf8')); } catch { stop([`現有的 ${path.relative(ROOT, OUT)} 讀不出來，比不了「有沒有變少」`]); }
+  }
+  const foodProb = foodsProblems(foods, prev, { allowShrink: process.argv.includes('--allow-shrink') });
+  if (foodProb.length) stop(foodProb);
   const overridden = applyCatOverrides(foods);
   console.log(`類別覆寫 ${overridden} 筆（見 CAT_OVERRIDES）`);
 
-  const prev = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : null;
   const out = {
     version,
     source: SOURCE,
@@ -279,7 +336,10 @@ async function main() {
     units,
     foods,
   };
-  fs.writeFileSync(OUT, JSON.stringify(out), 'utf8');
+  // 先寫暫存檔，成功才換上：寫到一半失敗不會留下半份 foods.json
+  const tmp = `${OUT}.tmp`;
+  try { fs.writeFileSync(tmp, JSON.stringify(out), 'utf8'); fs.renameSync(tmp, OUT); }
+  catch (e) { fs.rmSync(tmp, { force: true }); stop([`寫 ${path.relative(ROOT, OUT)} 失敗：${e.message}`]); }
 
   const cats = {};
   for (const f of foods) cats[f.cat] = (cats[f.cat] ?? 0) + 1;

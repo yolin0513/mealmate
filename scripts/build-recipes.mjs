@@ -61,7 +61,30 @@ export function outputFor(recipes, foodsVersion) {
   return { foodsVersion, count: recipes.length, recipes };
 }
 
+/**
+ * 寫檔之前的整體檢查（v9 F8，2026-09-24）：回問題清單，每一條點名是哪一道、哪一種狀況；沒問題回 []。
+ * 以前食譜資料夾清空時照樣回 0、印「✓ 0 道食譜」，把 recipes.json 改寫成 0 道；刪掉一道也照寫、少一道。
+ * · 0 道 → 停。
+ * · 資料變少也停：上一版（現有的 recipes.json）有、這次沒有的，逐道點名。真的要刪就加 --allow-shrink。
+ */
+export function outputProblems(recipes, prev, { allowShrink = false } = {}) {
+  const out = [];
+  if (recipes.length === 0) out.push('一道食譜都沒有（0 道）：data/recipes/ 是空的？');
+  if (!allowShrink && prev && Array.isArray(prev.recipes)) {
+    const now = new Set(recipes.map((r) => r.id));
+    for (const r of prev.recipes) {
+      if (!now.has(r.id)) out.push(`少了 ${r.id}（${r.name}）：上一版有、這次沒有——真的要刪就加 --allow-shrink`);
+    }
+  }
+  return out;
+}
+
 if (process.argv[1] && process.argv[1].endsWith('build-recipes.mjs')) {
+  const stop = (lines) => { console.error('✗ 沒有寫檔：'); for (const l of lines) console.error(`  - ${l}`); process.exit(1); };
+  // 每一個輸入都要在：讀不到就點名是哪一個，不要丟一串 ENOENT
+  for (const rel of ['data/recipes', 'data/foods.json', 'data/aliases.json', 'data/foodtags.json']) {
+    if (!fs.existsSync(path.join(ROOT, rel))) stop([`${rel} 不存在`]);
+  }
   const { ctx, foodsVersion } = loadContext();
   const { recipes, errors } = buildRecipes(SRC_DIR, ctx);
   if (errors.length) {
@@ -69,8 +92,17 @@ if (process.argv[1] && process.argv[1].endsWith('build-recipes.mjs')) {
     for (const e of errors) console.error(`  ${e.file}\n    - ${e.errors.join('\n    - ')}`);
     process.exit(1);
   }
+  let prev = null;
+  if (fs.existsSync(OUT)) {
+    try { prev = JSON.parse(fs.readFileSync(OUT, 'utf8')); } catch { stop([`現有的 ${path.relative(ROOT, OUT)} 讀不出來，比不了「有沒有變少」`]); }
+  }
+  const problems = outputProblems(recipes, prev, { allowShrink: process.argv.includes('--allow-shrink') });
+  if (problems.length) stop(problems);
+  // 先寫暫存檔，成功才換上：寫到一半失敗不會留下半份 recipes.json
   const out = { ...outputFor(recipes, foodsVersion), generatedAt: today() };
-  fs.writeFileSync(OUT, JSON.stringify(out), 'utf8');
+  const tmp = `${OUT}.tmp`;
+  try { fs.writeFileSync(tmp, JSON.stringify(out), 'utf8'); fs.renameSync(tmp, OUT); }
+  catch (e) { fs.rmSync(tmp, { force: true }); stop([`寫 ${path.relative(ROOT, OUT)} 失敗：${e.message}`]); }
   const s = summarize(recipes);
   console.log(`✓ ${s.count} 道食譜 → ${path.relative(ROOT, OUT)} ${(fs.statSync(OUT).size / 1024).toFixed(0)}KB`);
   console.log('  角色', s.roles);
