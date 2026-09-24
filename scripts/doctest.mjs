@@ -480,8 +480,8 @@ section('F8 產資料的工具：資料不見、壞掉、變少時停下、點�
   eq(bgDecide({ ...ok0, isHead: false }).action, 'keep', 'F8-9 --rev 不是 HEAD → 不登記、不動現有的登記（證明的是別的版本）');
   eq(bgDecide({ ...ok0, only: 'recipes' }).action, 'keep', 'F8-9 只跑一部分（--only）→ 不登記');
   eq(bgDecide({ ...ok0, fail: 1 }).action, 'delete', 'F8-9 HEAD 沒全擋 → 刪掉登記（閘門會擋下）');
-  eq(bgDecide({ ...ok0, headMoved: true }).action, 'delete', 'F8-9 跑的途中 HEAD 動了 → 刪掉登記');
-  eq(bgDecide({ ...ok0, dirty: ['scripts/build-foods.mjs'] }).action, 'delete', 'F8-9 工作區的 build 跟 HEAD 不一樣 → 刪掉登記');
+  eq(bgDecide({ ...ok0, headMoved: true }).action, 'keep', 'F8-9 跑的途中 HEAD 動了 → 不登記');
+  eq(bgDecide({ ...ok0, dirty: ['scripts/build-foods.mjs'] }).action, 'keep', 'F8-9 工作區的 build 跟 HEAD 不一樣 → 不登記（F9 第 1 點：有改動就不登記）');
   eq([...BG_FILES].sort(), ['scripts/build-foods.mjs', 'scripts/build-recipes.mjs', 'scripts/buildguard-verify.mjs'],
     'F8-9 登記的三支＝兩支 build＋驗法本身（閘門第零關之二比對的就是這三支）');
   const gateSrc = read('scripts/pushgate.sh');

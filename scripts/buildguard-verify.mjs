@@ -72,8 +72,8 @@ export function registrationDecision({ only, fail, isHead, headMoved, dirty }) {
   if (only) return { action: 'keep', why: '只跑了一部分（--only），不登記、不動現有的登記' };
   if (!isHead) return { action: 'keep', why: '--rev 不是 HEAD：證明的是別的版本，不登記、不動現有的登記' };
   if (fail) return { action: 'delete', why: 'HEAD 沒有全擋：刪掉登記，閘門會擋下推送' };
-  if (headMoved) return { action: 'delete', why: '跑的途中 HEAD 動了：跑的不是現在的 HEAD，刪掉登記' };
-  if (dirty.length) return { action: 'delete', why: `工作區的 ${dirty.join('、')} 跟 HEAD 不一樣（跑的驗法或 build 不是 HEAD 那一份），刪掉登記` };
+  if (headMoved) return { action: 'keep', why: '跑的途中 HEAD 動了：跑的不是現在的 HEAD，不登記（現有的登記對不上新 HEAD 的話，閘門自己會擋）' };
+  if (dirty.length) return { action: 'keep', why: `工作區的 ${dirty.join('、')} 跟 HEAD 不一樣（跑的驗法或 build 不是 HEAD 那一份），不登記——先 commit 再跑` };
   return { action: 'register', why: 'HEAD 全擋：登記三支檔案已 commit 版本的雜湊' };
 }
 
@@ -116,6 +116,9 @@ function verify(rev, only) {
   const git = (...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8' }).trim();
   const headAtStart = git('rev-parse', 'HEAD');
   const revFull = git('rev-parse', `${rev}^{commit}`);
+  // F9 第 1 點：登記前先斷言工作區那三支跟 HEAD 一模一樣。開跑前先講，不要跑完 7 分鐘才發現登記不了（跑完登記前還會再查一次）
+  const dirtyNow = () => BG_FILES.filter((f) => git('hash-object', f) !== git('rev-parse', `HEAD:${f}`));
+  if (revFull === headAtStart && !only && dirtyNow().length) console.log(`登記｜先講｜工作區的 ${dirtyNow().join('、')} 跟 HEAD 不一樣：這一輪會跑，但跑完不會登記（先 commit 再跑）`);
   const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-bg-'));
   fs.rmSync(wt, { recursive: true });
   execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', '--detach', wt, rev]);
@@ -224,7 +227,7 @@ function verify(rev, only) {
   const regPath = path.join(repo, BG_REG);
   let d;
   try {
-    const dirty = BG_FILES.filter((f) => git('hash-object', f) !== git('rev-parse', `HEAD:${f}`));
+    const dirty = dirtyNow();
     d = registrationDecision({ only, fail, isHead: revFull === headAtStart, headMoved: git('rev-parse', 'HEAD') !== headAtStart, dirty });
   } catch (e) { d = { action: 'delete', why: `讀不到雜湊（${e.message.split('\n')[0]}），刪掉登記` }; }
   if (d.action === 'register') {

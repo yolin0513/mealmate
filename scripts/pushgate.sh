@@ -3,7 +3,7 @@
 # 用法（在 repo 根目錄）：bash scripts/pushgate.sh
 # 回傳值：0 推上去了且遠端＝本機；1 自查沒過（沒推）；2 推送失敗（沒做後面的比對）；3 推送回報成功、遠端 main 卻不等於本機 HEAD；
 #         4 閘門、自查或驗法改過之後，還沒跑過驗法（登記對不上或沒有登記）；
-#         5 build-recipes、build-foods 或 buildguard-verify 改過之後，還沒在 HEAD 跑過 F8 驗法（登記對不上或沒有登記）。
+#         5 這次要推的 commit 動到 build-recipes、build-foods 或 buildguard-verify，卻還沒在 HEAD 跑過 F8 驗法（登記對不上或沒有登記）；取不到檔名清單也回 5。
 # 不接管線：每一步的輸出寫到 .logs/（已在 .gitignore），回傳值直接拿那一步的。
 # 驗法：bash scripts/pushgate-verify.sh（本機假遠端分別製造每一關的失敗）。全部通過時它登記三支檔案的雜湊，本檔推送前比對。
 set -u
@@ -27,27 +27,40 @@ if [ "$(cat "$REG")" != "$(printf '%s' "$cur")" ]; then
   echo "【擋下：驗法登記】閘門、自查或驗法跟上次驗法通過時不一樣（改過之後還沒跑過驗法），先 commit 再跑 bash scripts/pushgate-verify.sh"; exit 4
 fi
 
-# 第零關之二：F8 驗法登記（2026-09-24 起）。build-recipes、build-foods 的故障矩陣一輪 7 分鐘以上、不進 npm test；
-# 以前寫「改到這兩支就手動跑一次」靠人記得，現在跟上面同一套：HEAD 全擋時才登記，改過沒重跑就推不出去（回 5）。
-# 登記存在本機：新 session 或新 clone 第一次推送前要先跑一輪。
-BGREG=".logs/buildguard-verified.txt"
-BGRUN="node --max-old-space-size=4096 scripts/buildguard-verify.mjs --rev HEAD（7 分鐘以上）"
-bgcur=""
-for f in scripts/build-recipes.mjs scripts/build-foods.mjs scripts/buildguard-verify.mjs; do
-  h="$(git hash-object "$f" 2>/dev/null)"
-  if [ -z "$h" ]; then echo "【擋下：F8 驗法登記】讀不到 $f 的雜湊，不推送"; exit 5; fi
-  bgcur="${bgcur}${f} ${h}"$'\n'
-done
-if [ ! -f "$BGREG" ]; then
-  echo "【擋下：F8 驗法登記】沒有 F8 驗法的登記檔（$BGREG）：新 session、新 clone、或上一次沒全擋，先 commit 再跑 $BGRUN"; exit 5
-fi
-if [ "$(cat "$BGREG")" != "$(printf '%s' "$bgcur")" ]; then
-  echo "【擋下：F8 驗法登記】build-recipes、build-foods 或它們的驗法跟上次全擋時不一樣（改過之後還沒跑過），先 commit 再跑 $BGRUN"; exit 5
-fi
-
 # 第一關：自查。先 fetch：自查的範圍是「追蹤分支..HEAD」，追蹤分支若停在一次「推了但遠端沒更新」之後，
 # 那幾個沒真的推上去的 commit 會落在範圍外、不經檢查就被推出去（pushgate-verify 第 8 種）
 if ! git fetch -q "$REMOTE" main > "$LOG" 2>&1; then cat "$LOG"; echo "【擋下：自查】讀不到遠端，自查的範圍不確定，不推送"; exit 1; fi
+
+# 第零關之二：F8 驗法登記（2026-09-24 起；F9 四家統一）。build-recipes、build-foods 的故障矩陣一輪 7 分鐘以上、不進 npm test；
+# 以前寫「改到這兩支就手動跑一次」靠人記得，現在：HEAD 全擋時登記三支「已 commit 版本」的雜湊，推送前比對（回 5）。
+# **只在這次要推的 commit 動到被守的檔時才看登記**（F9 第 2 點）：新 clone 推一個沒碰它們的 commit，不必先跑 7 分鐘。
+# 範圍照遠端的實際狀態算（上面剛 fetch 過），逐個 commit 取檔名（中途改了又改回去的也算動到）；取不到檔名清單 → 停。
+# 比的是 HEAD 裡的版本（推出去的就是它），不是工作區——工作區沒 commit 的改動不會被推。
+BGREG=".logs/buildguard-verified.txt"
+BGFILES="scripts/build-recipes.mjs scripts/build-foods.mjs scripts/buildguard-verify.mjs"
+BGRUN="node --max-old-space-size=4096 scripts/buildguard-verify.mjs --rev HEAD（7 分鐘以上）"
+if ! git log --format= --name-only "$REMOTE/main..HEAD" > "$LOG" 2>&1; then cat "$LOG"; echo "【擋下：F8 驗法登記】取不到這次要推的檔名清單，不知道有沒有動到被守的檔，不推送"; exit 5; fi
+bgtouched=""
+for f in $BGFILES; do
+  if grep -qxF -- "$f" "$LOG"; then bgtouched="${bgtouched} $f"; fi
+done
+if [ -z "$bgtouched" ]; then
+  echo "F8 驗法登記：這次要推的 commit 沒動到被守的三支（$BGFILES），不看登記"
+else
+  bgcur=""
+  for f in $BGFILES; do
+    h="$(git rev-parse "HEAD:$f" 2>/dev/null)"
+    if [ -z "$h" ]; then echo "【擋下：F8 驗法登記】讀不到 HEAD 裡 $f 的雜湊，不推送"; exit 5; fi
+    bgcur="${bgcur}${f} ${h}"$'\n'
+  done
+  if [ ! -f "$BGREG" ]; then
+    echo "【擋下：F8 驗法登記】這次要推的 commit 動到了$bgtouched，卻沒有 F8 驗法的登記檔（$BGREG），先跑 $BGRUN"; exit 5
+  fi
+  if [ "$(cat "$BGREG")" != "$(printf '%s' "$bgcur")" ]; then
+    echo "【擋下：F8 驗法登記】這次要推的 commit 動到了$bgtouched，跟上次在 HEAD 全擋時不一樣（改過之後還沒跑過），先跑 $BGRUN"; exit 5
+  fi
+  echo "F8 驗法登記：動到了$bgtouched，登記對得上"
+fi
 node scripts/selfcheck.mjs "$REMOTE" > "$LOG" 2>&1
 rc=$?
 cat "$LOG"
