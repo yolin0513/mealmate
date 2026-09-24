@@ -82,7 +82,7 @@ function envWithPath(prefixDir) {
 }
 
 /** 假 git：args 同時含 failWhen 的每一個就回 128，其他交給真的 git。回假 git 所在的資料夾。 */
-function makeFakeGit(failWhen) {
+export function makeFakeGit(failWhen) {
   const real = spawnSync('bash', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
   if (!real) throw new Error('找不到真的 git');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-fakegit-'));
@@ -98,7 +98,7 @@ exec ${JSON.stringify(real)} "$@"
 }
 
 /** 假 git 自己的對照組（F10）：指定的子指令必須失敗；不相干的、同一個子指令不帶那些旗標的，都必須照常。 */
-function fakeControls(wt, fakeDir, failWhen) {
+export function fakeControls(wt, fakeDir, failWhen) {
   const run = (cmd) => spawnSync('bash', ['-c', cmd], { cwd: wt, encoding: 'utf8', env: envWithPath(fakeDir) });
   const real = (cmd) => spawnSync('bash', ['-c', cmd], { cwd: wt, encoding: 'utf8' });
   const target = run(`git log ${failWhen.join(' ')} --format= -1 HEAD`);
@@ -168,6 +168,15 @@ function main() {
   if (sv.total !== 3 || sv.bad.join(',') !== '11,15') { console.log('gatemutants：擷取的對照組不對（檢查器壞了），不往下跑'); return 1; }
   const repo = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
   const origHead = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  // 假 git 對照組本身的對照（兩個方向）：好的假 git（只讓 -p -U0 那一種失敗）要三項都過；
+  // 太粗的假 git（整個 log 子指令都失敗）要被「同一個 log 子指令不帶那些旗標要照常」那一項抓到——否則對照組是擺設
+  const good = makeFakeGit(FAKE_DIFF), coarse = makeFakeGit(['log']);
+  try {
+    const g = fakeControls(repo, good, FAKE_DIFF), c = fakeControls(repo, coarse, ['log']);
+    const goodOk = g.every((x) => x.ok), coarseCaught = !c[2].ok && c[0].ok && c[1].ok;
+    console.log(`假 git 的對照組｜好的假 git 三項都過：${goodOk}｜太粗的假 git（整個 log 都失敗）被抓到：${coarseCaught}`);
+    if (!goodOk || !coarseCaught) { console.log('gatemutants：假 git 的對照組不對（檢查器壞了），不往下跑'); return 1; }
+  } finally { fs.rmSync(good, { recursive: true, force: true }); fs.rmSync(coarse, { recursive: true, force: true }); }
   let bad = 0; let expectedTotal = null;
   for (const c of CASES) {
     const res = runCase(repo, origHead, c, expectedTotal);

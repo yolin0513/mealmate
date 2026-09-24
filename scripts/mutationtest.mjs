@@ -3555,6 +3555,16 @@ const MUTATIONS = [
     test: "doctest",
     expect: "F8-11 比對模式",
   },
+  // ---- 2026-09-24 F10：失敗分支 ----
+  {
+    name: "buildguard 登記讀不到雜湊就留著舊登記",
+    why: "失敗分支（F10）：讀不到雜湊時要刪掉登記，故障時停下，不是放行（2026-09-24）。",
+    file: "scripts/buildguard-verify.mjs",
+    find: "  } catch (e) { d = { action: 'delete', why: `讀不到雜湊（${e.message.split('\\n')[0]}），刪掉登記` }; }",
+    replace: "  } catch (e) { d = { action: 'keep', why: `讀不到雜湊（${e.message.split('\\n')[0]}），刪掉登記` }; }",
+    test: "doctest",
+    expect: "F8-12 登記那一步讀不到雜湊",
+  },
   // ---- 2026-09-24 F1 必敗對照組（SPEC_檢查器修補）----
   {
     name: "tap 一條斷言都沒有就結束也算通過",

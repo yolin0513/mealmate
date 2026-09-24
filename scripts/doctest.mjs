@@ -520,6 +520,18 @@ section('F8 產資料的工具：資料不見、壞掉、變少時停下、點�
   try { cmpSelf = bgCompare(path.join(cmpDir, 'a.log'), path.join(cmpDir, 'a.log')); cmpDiff = bgCompare(path.join(cmpDir, 'a.log'), path.join(cmpDir, 'b.log')); }
   finally { console.log = quiet; }
   ok(cmpSelf === 1 && cmpDiff === 0, `F8-11 比對模式：同一份 log 比兩次 → 判失敗（${cmpSelf}）；兩個不同版本 → 通過（${cmpDiff}）`);
+  // F8-12 失敗分支（F10）：登記那一步讀不到雜湊 → 刪掉登記（故障時停下，不是放行、也不是留著舊登記）。
+  // 造法：外部依賴（git）從參數來的 repo 路徑進來——給一個不是 git repo 的資料夾，git 自然失敗；不在程式裡留後門
+  const noGit = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-bgnogit-'));
+  fs.mkdirSync(path.join(noGit, '.logs'), { recursive: true });
+  fs.writeFileSync(path.join(noGit, BG_REG), 'scripts/build-foods.mjs 舊登記\n');
+  let gitFails = false;
+  try { execFileSync('git', ['-C', noGit, 'rev-parse', 'HEAD'], { stdio: 'ignore' }); } catch { gitFails = true; }
+  ok(gitFails && fs.existsSync(path.join(noGit, BG_REG)), '（前提）F8-12 的情境真的造成了：那個資料夾裡 git 會失敗、舊登記在');
+  const noGitRun = finalizeRegistration(noGit, { only: null, fail: 0, revFull: 'x', headAtStart: 'x' });
+  ok(noGitRun.action === 'delete' && !fs.existsSync(path.join(noGit, BG_REG)) && noGitRun.why.startsWith('讀不到雜湊'),
+    `F8-12 登記那一步讀不到雜湊 → 刪掉登記、理由講明（${noGitRun.action}｜${noGitRun.why.slice(0, 5)}…）`);
+  fs.rmSync(noGit, { recursive: true, force: true });
   fs.rmSync(cmpDir, { recursive: true, force: true });
   const gateSrc = read('scripts/pushgate.sh');
   ok(BG_FILES.every((f) => gateSrc.includes(f)) && gateSrc.includes(BG_REG) && /exit 5/.test(gateSrc),

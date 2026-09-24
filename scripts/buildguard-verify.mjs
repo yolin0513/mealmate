@@ -194,6 +194,29 @@ function verify(rev, only) {
     const occupyTmp = (outRel) => () => { const d = path.join(wt, `${outRel}.tmp`); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, 'keep.txt'), 'x'); };
     const tmpDirIntact = ({ tmp }) => fs.existsSync(tmp) && fs.statSync(tmp).isDirectory() && isFile(path.join(tmp, 'keep.txt'));
 
+    // 「輸出檔沒動」這一項判準自己的對照組（Dispatch 2026-09-24，F10）：以前能偵測到「有動」的證據，只有舊版跑出來的那幾格（一次性）。
+    // 合成兩支假的 build（跟版本無關）：都印出設計好的理由、點名 r-sentinel、回 1；一支失敗時仍寫出一個位元組 → 那一格必須判「沒擋」，
+    // 而且要是「輸出檔沒動」這一項抓到的（其他三項都成立）；另一支不寫 → 判「擋」。任一方向不對就不往下跑。
+    const sentinelSrc = (writeByte) => "import fs from 'node:fs';\nconsole.error('✗ 沒有寫檔：');\nconsole.error('  - 少了 r-sentinel（合成的對照組）');\n"
+      + (writeByte ? "fs.appendFileSync('data/recipes.json', 'x');\n" : '') + 'process.exit(1);\n';
+    const sentinels = { write: 'scripts/_sentinel-write.mjs', clean: 'scripts/_sentinel-clean.mjs' };
+    fs.writeFileSync(path.join(wt, sentinels.write), sentinelSrc(true));
+    fs.writeFileSync(path.join(wt, sentinels.clean), sentinelSrc(false));
+    const sw = cell('_sentinel-write.mjs', 'data/recipes.json', () => {}, 'r-sentinel');
+    const sc = cell('_sentinel-clean.mjs', 'data/recipes.json', () => {}, 'r-sentinel');
+    for (const p of Object.values(sentinels)) fs.rmSync(path.join(wt, p), { force: true });
+    restore();
+    const swOk = !sw.blocked && !sw.same && sw.code === 1 && sw.named && !sw.stack && !sw.tmpLeft;
+    const scOk = sc.blocked;
+    console.log(`對照組｜${swOk ? '對' : '錯'}｜輸出檔沒動｜失敗時仍寫出一個位元組 → 判沒擋、而且是這一項抓到的（回傳 ${sw.code}、點名 ${sw.named}、輸出檔沒動 ${sw.same}）`);
+    console.log(`對照組｜${scOk ? '對' : '錯'}｜輸出檔沒動｜失敗時不寫 → 判擋（回傳 ${sc.code}、點名 ${sc.named}、輸出檔沒動 ${sc.same}）`);
+    if (!swOk || !scOk) {
+      console.log('buildguard 驗法：「輸出檔沒動」的對照組不對，判準壞了，不往下跑');
+      const d0 = finalizeRegistration(repo, { only, fail: 1, revFull, headAtStart });
+      console.log(`登記｜${d0.action === 'delete' ? '已刪掉' : '沒動'}｜${d0.why}`);
+      return 1;
+    }
+
     if (!only || only === 'recipes') {
       const B = 'build-recipes.mjs', OUT = 'data/recipes.json';
       const base = cell(B, OUT, () => {}, null);
