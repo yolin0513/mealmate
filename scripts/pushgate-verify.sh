@@ -26,7 +26,7 @@ restore_all() { git --git-dir="$T/remote.git" update-ref refs/heads/main "$BASE"
 # 驗法登記（閘門第零關）：複本裡的閘門也要有登記才走得到後面的關卡——登記複本當下的三支檔案
 GATE_FILES="scripts/pushgate.sh scripts/selfcheck.mjs scripts/pushgate-verify.sh"
 register_work() { local out="" f; for f in $GATE_FILES; do out="${out}${f} $(git hash-object "$f")"$'\n'; done; mkdir -p .logs; printf '%s' "$out" > .logs/pushgate-verified.txt; register_bg; }
-# 第零關之二（F8 驗法登記）：複本裡同樣登記三支的「已 commit 版本」（閘門比的是 HEAD 裡的），才走得到後面的關卡；第 15–19 種專驗這一關
+# 第零關之二（F8 驗法登記）：複本裡同樣登記三支的「已 commit 版本」（閘門比的是 HEAD 裡的），才走得到後面的關卡；第 15–20 種專驗這一關
 BG_FILES="scripts/build-recipes.mjs scripts/build-foods.mjs scripts/buildguard-verify.mjs"
 register_bg() { local out="" f; for f in $BG_FILES; do out="${out}${f} $(git rev-parse "HEAD:$f")"$'\n'; done; printf '%s' "$out" > .logs/buildguard-verified.txt; }
 # 一個動到被守的檔的 commit（build-foods 多一行註解）
@@ -116,7 +116,8 @@ s11() { fresh
   printf '++ contact: %s\n' "$(printf '%s@%s' tester example-mail.test)" > docs/k.md; git add docs/k.md; git commit -q -m "probe k add"
   git rm -q docs/k.md; git commit -q -m "probe k remove"
   # 先寫檔再數，不接管線（M4，統籌者 2026-09-24 裁示：不設永久例外）：取 diff 失敗就明講，不靠「數到 0 行≠3」間接擋下
-  if ! git log -p --no-color --format= -U0 origin/main..HEAD > "$T/k.diff"; then echo "11 ++ 開頭的新增行｜取不到 diff｜不符合（情境沒造成，中止）"; FAIL=1; fi
+  # 範圍預設 origin/main..HEAD；PUSHGATE_VERIFY_S11_RANGE 只給 scripts/gatemutants.mjs 觸發這條失敗路徑用（指向不存在的 ref）
+  if ! git log -p --no-color --format= -U0 "${PUSHGATE_VERIFY_S11_RANGE:-origin/main..HEAD}" > "$T/k.diff"; then echo "11 ++ 開頭的新增行｜取不到 diff｜不符合（情境沒造成，中止）"; FAIL=1; fi
   PP="$(grep -c '^+++ ' "$T/k.diff")"
   if precondition "11 ++ 開頭的新增行" '[ "$PP" = 3 ]' "diff 裡以「+++ 」開頭的行應該恰好 3 行（兩個檔頭＋那一行內容），實際 $PP 行"; then
     run_gate; check "11 ++ 開頭的新增行" 1 same "來源：新增行" "抽取壞了"
@@ -172,16 +173,30 @@ s19() { fresh
   probe_commit s2 "乾淨的一行"
   run_gate; check "19 前一個 commit 動到 build" 5 same "跟上次在 HEAD 全擋時不一樣" "查了："; }
 
+# 20 取不到這次要推的檔名清單（git log --name-only 失敗）→ 回 5，不是當成「沒動到」放行
+#    假的 git 放在 PATH 最前面：遇到 --name-only 就失敗，其他指令轉給真的 git（閘門是 bash，照 PATH 找 git）
+s20() { fresh
+  local real; real="$(command -v git)"
+  mkdir -p "$T/fakegit"
+  printf '#!/usr/bin/env bash\nfor a in "$@"; do if [ "$a" = --name-only ]; then echo "fake git：故意失敗" >&2; exit 128; fi; done\nexec "%s" "$@"\n' "$real" > "$T/fakegit/git"
+  chmod +x "$T/fakegit/git"
+  probe_commit t "乾淨的一行"
+  FAKEHEAD="$(PATH="$T/fakegit:$PATH" git rev-parse HEAD 2>/dev/null)"
+  if precondition "20 取不到檔名清單" '! PATH="$T/fakegit:$PATH" git log -1 --format= --name-only HEAD >/dev/null 2>&1 && [ "$FAKEHEAD" = "$(git rev-parse HEAD)" ]' "假的 git 遇到 --name-only 要失敗、其他指令要照常（rev-parse 得到 $FAKEHEAD）"; then
+    BEFORE="$(remote_main)"; PATH="$T/fakegit:$PATH" bash scripts/pushgate.sh > "$T/out" 2>&1; RC=$?
+    check "20 取不到檔名清單" 5 same "取不到這次要推的檔名清單" "查了："
+  fi; }
+
 # 7 全部正常 → 推上去、假遠端＝本機
 s7() { fresh
   probe_commit g "乾淨的一行"
   run_gate; check "7 全部正常" 0 local "已推送" "擋下"; }
 
-ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19"
-ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 18 19 7}"
-# 順序清單要恰好是 19 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
+ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20"
+ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 18 19 20 7}"
+# 順序清單要恰好是 20 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
 if [ "$(printf '%s\n' $ORDER | sort -n | tr '\n' ' ')" != "$(printf '%s\n' $ALL | sort -n | tr '\n' ' ')" ]; then
-  echo "閘門驗法：順序清單不是恰好 19 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
+  echo "閘門驗法：順序清單不是恰好 20 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
 fi
 echo "順序：$ORDER"
 for n in $ORDER; do "s$n"; done
