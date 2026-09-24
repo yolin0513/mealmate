@@ -19,6 +19,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, note, everyOf } from './tap.mjs';
 import { auditTargets, orphanTests } from './sincefull.mjs';
+import { constPredHits, okTrueHits, eqSameHits, doubledEscapeHits } from './auditrules.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const OUT = path.join(ROOT, 'assert-audit.jsonl');
@@ -63,43 +64,20 @@ eq(populated.filter((r) => r.n === 0).length, 0, '沒有任何 everyOf／noneOf 
 
 section('2–4. 靜態形狀：常數述詞、ok(true)、eq(x, x)');
 const src = new Map(testFiles.map((f) => [f, fs.readFileSync(path.join(ROOT, 'scripts', f), 'utf8')]));
-const findAll = (rx) => {
-  const hits = [];
-  for (const [f, s] of src) {
-    for (const m of s.matchAll(rx)) {
-      const line = s.slice(0, m.index).split('\n').length;
-      hits.push(`${f}:${line} ${m[0].replace(/\s+/g, ' ').slice(0, 70)}`);
-    }
-  }
-  return hits;
-};
-const constPred = findAll(/(?:everyOf|noneOf)\([^;]*?=>\s*(?:true|false)\s*[,)]/g);
+// 2–5 段的樣式抽成純函式（scripts/auditrules.mjs，2026-09-24）：doctest 每版都用同一份掃測試鏈、附對照組，
+// 不再只有全面檢測才跑；以前這幾段沒有對照組（v9 盤點實測：把常數述詞的樣式改壞，照樣全過）。
+const allHits = (fn) => [...src].flatMap(([file, s]) => fn(s, file));
+const constPred = allHits(constPredHits);
 eq(constPred, [], '沒有「述詞永遠回 true／false」的 everyOf／noneOf');
-const okTrue = findAll(/\bok\(\s*true\s*,/g);
+const okTrue = allHits(okTrueHits);
 eq(okTrue, [], '沒有 ok(true, …)（說明行要用 note()）');
-const eqSame = [];
-for (const [f, s] of src) {
-  for (const m of s.matchAll(/\beq\(([^,]{3,60}),\s*([^,]{3,60}),/g)) {
-    if (m[1].trim() === m[2].trim()) eqSame.push(`${f} ${m[0].slice(0, 60)}`);
-  }
-}
+const eqSame = allHits(eqSameHits);
 eq(eqSame, [], '沒有 eq(x, x) 這種左右同一段程式碼的恆真斷言');
 
 section('5. regex 跳脫：測試碼裡不可以有 \\\\s 這種雙反斜線');
 // 含 regex 的測試碼一律用 Write 工具寫檔（慣例 5）。經過 shell heredoc 的話 \\s 會變成 \\\\s：
 // 不報錯、測試照樣綠，但那條 regex 永遠不命中。
-const doubled = [];
-for (const [f, s] of src) {
-  // 只抓典型的壞掉形狀：兩個反斜線接 s／d／w／b（而且前面不再有反斜線 —— 否則那是
-  // 「跳脫一個反斜線」後面剛好接普通字母，像字串字面值的 char class `[^'\\\n]`）。
-  // 註解行不算（shelltest 的註解正好在講這件事）；真的要在字串裡寫兩個反斜線就加 audit-allow。
-  for (const m of s.matchAll(/(?<!\\)\\\\[sdwbSDWB]/g)) {
-    const line = s.slice(0, m.index).split('\n').length;
-    const ctx = s.split('\n')[line - 1].trim().slice(0, 80);
-    if (/audit-allow/.test(ctx) || ctx.startsWith('//') || ctx.startsWith('*') || ctx.startsWith('/*')) continue;
-    doubled.push(`${f}:${line} ${ctx}`);
-  }
-}
+const doubled = allHits(doubledEscapeHits);
 eq(doubled, [], '測試碼裡沒有雙反斜線的 regex 跳脫');
 
 section('6. 突變全部沒過期（find 字串在目標檔案剛好出現一次）');

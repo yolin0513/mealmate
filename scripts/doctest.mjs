@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX } from './checkmutations.mjs';
 import { main, scanText, controlSamples, TARGETS } from './gatescan.mjs';
+import { STATIC_RULES } from './auditrules.mjs';
 import { FORBIDDEN } from './copyrules.mjs';
 import { CONDITION_FIELDS, DIETS, DIET_LABELS, CONDITIONS, KIDNEY_FIELDS, BASE_DISPLAY_FIELDS } from '../js/members.js';
 import { DEFAULTS, FONT_SCALES } from '../js/prefs.js';
@@ -370,12 +371,22 @@ section('突變的 expect 都找得到（A2；共用慣例 v6 §5.9，2026-09-23
     fs.writeFileSync(path.join(dir, 'scripts/mutationtest.mjs'), `const MUTATIONS = [\n${mutationsLiteral}\n];\n`);
     fs.writeFileSync(path.join(dir, 'scripts/faketest.mjs'), 'ok(x, "A2 假的斷言訊息");\n');
     fs.writeFileSync(path.join(dir, 'target.txt'), 'alpha beta\n');
-    try { execFileSync(process.execPath, [path.join(dir, 'scripts/checkmutations.mjs')], { cwd: dir, encoding: 'utf8' }); return 0; }
-    catch (e) { return e.status ?? -1; } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    try { lastOut = execFileSync(process.execPath, [path.join(dir, 'scripts/checkmutations.mjs')], { cwd: dir, encoding: 'utf8' }); return 0; }
+    catch (e) { lastOut = String(e.stdout ?? ''); return e.status ?? -1; } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   };
+  let lastOut = '';
   const good = "{ name: 'g', file: 'target.txt', find: 'alpha', replace: 'omega', test: 'faketest', expect: 'A2 假的斷言訊息' },";
   const badExpect = "{ name: 'b', file: 'target.txt', find: 'alpha', replace: 'omega', test: 'faketest', expect: 'A2 打錯的訊息' },";
   eq([runIn(good), runIn(badExpect)], [0, 1], 'A4 checkmutations 的回傳值：乾淨 → 0；有一條 expect 找不到 → 非 0');
+  // A5「find 要剛好出現一次」那一段（2026-09-24 v9 盤點：把它改壞、再讓一條 find 過期，checkmutations 照樣回 0、doctest 全綠——沒有對照組）。
+  // 比對理由，不只看回傳值：這兩條的 expect 都是對的，只有 find 那一段會讓它不通過
+  const badFind = "{ name: 'f', file: 'target.txt', find: 'gamma', replace: 'omega', test: 'faketest', expect: 'A2 假的斷言訊息' },";
+  const rcMissing = runIn(badFind); const outMissing = lastOut;
+  ok(rcMissing !== 0 && outMissing.includes('find 出現 0 次') && !outMissing.includes('expect'),
+    `A5 checkmutations：find 在目標檔裡找不到 → 非 0，理由是「find 出現 0 次」（回傳 ${rcMissing}）`);
+  const twiceFind = "{ name: 't', file: 'target.txt', find: 'a', replace: 'o', test: 'faketest', expect: 'A2 假的斷言訊息' },";
+  const rcTwice = runIn(twiceFind); const outTwice = lastOut;
+  ok(rcTwice !== 0 && /find 出現 [2-9] 次/.test(outTwice), `A5 checkmutations：find 出現不只一次 → 非 0，理由是「find 出現 N 次」（回傳 ${rcTwice}）`);
 }
 
 section('assertaudit 的母體＝測試鏈（2026-09-24，Yolin 選 A）：丟一個工具進 scripts/ 不會被當成測試');
@@ -400,6 +411,31 @@ section('assertaudit 的母體＝測試鏈（2026-09-24，Yolin 選 A）：丟�
     shouldHit: [['alphatest.mjs', 'gammatest.mjs'], ['betatest.mjs', 'deltatest.mjs', 'newtool.mjs']],
     shouldMiss: [['alphatest.mjs', 'betatest.mjs'], ['alphatest.mjs', 'newtool.mjs'], ['mutationtest.mjs', 'betatest.mjs']],
   }, 'T3（對照）沒登記的 *test.mjs 抓得到；工具與 mutationtest 不算孤兒');
+}
+
+section('assertaudit 的靜態掃描（auditrules）：每版都跑、附對照組（2026-09-24，v9 盤點第 3 件）');
+{
+  // 以前這幾段只在全面檢測才跑、也沒有對照組（v9 盤點實測：把常數述詞的樣式改壞，assertaudit 照樣全過）
+  const scriptFiles = fs.readdirSync(path.join(ROOT, 'scripts')).filter((f) => !f.startsWith('.'));
+  const targets = auditTargets(pkg, scriptFiles);
+  const srcs = targets.map((f) => [f, fs.readFileSync(path.join(ROOT, 'scripts', f), 'utf8')]);
+  const lineCount = srcs.reduce((n, [, s]) => n + s.split('\n').length, 0);
+  ok(srcs.length === 26 && lineCount > 10000, `（母體）掃測試鏈 ${srcs.length} 支、${lineCount} 行`);
+  for (const [name, fn] of Object.entries(STATIC_RULES)) {
+    eq(srcs.flatMap(([f, s]) => fn(s, f)), [], `S1 ${name}：測試鏈 26 支都沒有這種寫法`);
+  }
+  // 對照組：樣本當場拼出來——原始碼裡照字寫出壞寫法的話，這一段會掃到 doctest 自己
+  const BS1 = String.fromCharCode(92);
+  const cases = {
+    constPredHits: { label: 'S2（對照）常數述詞：', hit: ['every' + 'Of(xs, () => tr' + 'ue, "m");', 'none' + 'Of(xs, (x) => fal' + 'se, "m");'], miss: ['every' + 'Of(xs, (x) => x > 0, "m");', 'const f = () => true;'] },
+    okTrueHits: { label: 'S2（對照）ok(true)：', hit: ['ok(' + 'true, "說明");', 'ok( ' + 'true , "x")'], miss: ['ok(value === true, "m");', 'note("說明");'] },
+    eqSameHits: { label: 'S2（對照）eq(x, x)：', hit: ['eq(' + 'foo.bar, foo.bar, "m");'], miss: ['eq(' + 'foo.bar, foo.baz, "m");', 'eq(' + 'a.b, 1, "m");'] },
+    doubledEscapeHits: { label: 'S2（對照）雙反斜線：', hit: ['const r = /a' + BS1 + BS1 + 's+b/;', 'x.replace(/' + BS1 + BS1 + 'd/g, "")'],
+      miss: ['const r = /a' + BS1 + 's+b/;', '// 註解裡講 ' + BS1 + BS1 + 's 不算', "const q = /[^'" + BS1 + BS1 + BS1 + "n]/;"] },
+  };
+  for (const [name, { label, hit, miss }] of Object.entries(cases)) {
+    detects((s) => STATIC_RULES[name](s, 'x').length > 0, { shouldHit: hit, shouldMiss: miss }, `${label}${name} 該抓的抓到、正常寫法不抓`);
+  }
 }
 
 section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣例 v9 §5.16，每版都跑）');

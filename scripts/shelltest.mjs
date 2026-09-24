@@ -94,23 +94,71 @@ function insideString(line, idx) {
 }
 
 const BS2 = String.fromCharCode(92, 92);
-const BAD_ESCAPE = new RegExp(String.fromCharCode(92, 92, 92, 92) + '[sdwSDWbn.]');
+/**
+ * regex 本體裡有沒有「被跳脫兩次的類別字元」：逐個跳脫單位往後讀（`\` 跟它後面那個字元算一組），
+ * 只有「一組 `\\`」後面緊接 s d w S D W b n 才算。2026-09-24 擷取範圍擴大之後，舊判準 BAD_ESCAPE 在
+ * `[^'\\\n]`（跳脫的反斜線＋換行）與 `\\.`（跳脫的反斜線＋任意字元）上誤報——它不管那一對反斜線本來就是一組跳脫。
+ * `.` 不在名單裡：`\\.` 是正常寫法，跟「`\.` 被多跳脫一次」在字面上分不出來（已知的盲區）。
+ */
+export function hasDoubledEscape(body) {
+  for (let i = 0; i < body.length; i += 1) {
+    if (body[i] !== '\\') continue;
+    if (body[i + 1] === '\\' && /[sdwSDWbn]/.test(body[i + 2] ?? '')) return true;
+    i += 1;   // 跳過被跳脫的那個字元，下一個單位從它後面開始
+  }
+  return false;
+}
+/**
+ * 一行裡的 regex 字面值（回 [{ body, index }]）。凡是語法上能開始一個 regex 的位置都算：
+ * 前面是 = ( , : ! & | ? { } ; [ > 或 return——除號前面是變數或數字，不會被當成 regex。
+ * 2026-09-24 以前只抽「緊接 .test(／.exec( 的」：.replace(、.match(、存進常數的都漏掉（v9 盤點實測四種只抓到一種），
+ * 而對照組只驗判準、沒驗擷取——所以擷取本身也要有對照組（下面的 detects）。
+ */
+export function regexLiteralsOf(line) {
+  const out = [];
+  for (const m of line.matchAll(/(^|[=(,:!&|?{};[>]|\breturn)\s*\/((?:\\.|\[(?:\\.|[^\]\\\n])*\]|[^/\\\n[])+)\/[gimsuy]*/g)) {
+    out.push({ body: m[2], index: m.index + m[0].indexOf('/') });
+  }
+  return out;
+}
 const brokenEscapes = [];
 for (const rel of sourceFiles) {
   const src = stripComments(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
   src.split(/\r?\n/).forEach((line, i) => {
-    for (const m of line.matchAll(/\/((?:[^/\n]|\\\/)+)\/[gimsuy]*\s*\.(?:test|exec)\(/g)) {
-      if (!BAD_ESCAPE.test(m[1])) continue;
-      if (insideString(line, m.index)) continue;
-      brokenEscapes.push(`${rel}:${i + 1}  /${m[1]}/`);
+    for (const { body, index } of regexLiteralsOf(line)) {
+      if (!hasDoubledEscape(body)) continue;
+      if (insideString(line, index)) continue;
+      brokenEscapes.push(`${rel}:${i + 1}  /${body}/`);
     }
   });
 }
 ok(sourceFiles.length >= 25, `（母體）掃了 ${sourceFiles.length} 個原始碼檔`);
 eq(brokenEscapes, [], '沒有任何 regex 的反斜線被跳脫兩次');
 const ONE_BS = String.fromCharCode(92);
-ok(BAD_ESCAPE.test(BS2 + 's'), '（對照）判準認得出被跳脫兩次的類別字元');
-ok(!BAD_ESCAPE.test(ONE_BS + 's'), '（對照）而且不會誤報正常的單反斜線');
+ok(hasDoubledEscape(BS2 + "s"), "（對照）判準認得出被跳脫兩次的類別字元");
+ok(!hasDoubledEscape(ONE_BS + "s"), "（對照）而且不會誤報正常的單反斜線");
+// 擷取本身的對照組：四種用法都要抽得出來（2026-09-24 v9 盤點實測出只抓得到 .test( 那一種）
+const BROKEN = 'a' + BS2 + 's+b';
+const caughtBroken = (line) => regexLiteralsOf(line).some(({ body, index }) => hasDoubledEscape(body) && !insideString(line, index));
+detects(caughtBroken, {
+  shouldHit: [
+    `const ok = /${BROKEN}/.test(x);`,
+    `const y = x.replace(/${BROKEN}/g, '');`,
+    `const m = x.match(/${BROKEN}/);`,
+    `export const R = /${BROKEN}/;`,
+    `if (!/${BROKEN}/.test(x)) return;`,
+    `return /${BROKEN}/.exec(x);`,
+  ],
+  shouldMiss: [
+    `const half = total / 2 / count;`,
+    `const s = '/${BROKEN}/';`,
+    `const ok = /a${ONE_BS}s+b/.test(x);`,
+    `const url = 'https://example.com/a/b';`,
+    // 擴大擷取之後舊判準誤報過的兩種形狀：跳脫的反斜線＋換行、跳脫的反斜線＋任意字元（都是正常寫法）
+    `const q = /'(?:[^'${BS2}${ONE_BS}n]|${BS2}.)*'/g;`,
+    `const esc = x.replace(/${BS2}./g, '');`,
+  ],
+}, '（對照）regex 字面值的擷取：.test(、.replace(、.match(、存進常數的都抽得出來；除號、字串裡的、正常的跳脫反斜線不算');
 
 section('SHELL 清單本身');
 ok(shellAssets.length > 10, `sw.js 列了 ${shellAssets.length} 個檔案`);
