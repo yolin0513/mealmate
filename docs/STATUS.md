@@ -184,10 +184,10 @@ v0.36.0 起突變可以帶 `expect`（紅的一定要是含這段字的那一條
 | 高蛋白質食材的輪替群組 `highprotein`（麵腸、麵筋；判準只定義一次） | ✅ 完成（2026-09-23） | `mealmate-v0.41.0` |
 
 測試現況：**26 支測試 ＋ `mutationtest` ＋ 兩支健檢工具**。
-Node 端：datatest 74、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 149、plannertest 513、shoppingtest 150、timelinetest 71、doctest 185；
+Node 端：datatest 74、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 149、plannertest 513、shoppingtest 150、timelinetest 71、doctest 200；
 瀏覽器端（puppeteer）：shelltest 161、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 197、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 115（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 40。
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **457 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **460 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
 · **突變整套**＝`npm run mutationtest` 不帶 `--only` 跑完全部 442 條（每條都把對應的那一支測試整支跑一次）。**實測約 17,119 秒（約 4.8 小時）**，2026-09-24 對 v0.41.0 量的（09-21 的 428 條約 16,600 秒、09-19 的 366 條約 13,500 秒）。
@@ -434,6 +434,26 @@ Yolin 2026-09-21：「麵筋如果蛋白質高也可以列入」（回答「麵�
 
   **只讀程式看到、沒有實測的**（不列入結論）：`assertaudit` 跑測試時某一支崩潰會 `continue`、照樣收它崩潰前的斷言——這是它的設計（判對錯是 `npm test` 的事），但「崩潰前已寫了一些斷言」時不會被「每一支都有寫進來」擋下。
   盤點結果逐件回報，修不修由 Dispatch 決定；這一輪沒有改任何被盤點的檢查器（修正是下一輪，見「v9 盤點的三件修正」一節）。
+
+### 檢查器修補 P1：F1 必敗對照組、F4 孤兒常設、§5.11 第四層；#1 只多不少（2026-09-24，Dispatch 交辦；未 bump、不算一版）
+
+· **#1 補驗「只多不少」（JLPT 的形狀）**：母體是 HEAD 的 `js/`、`js/views/`、`scripts/`（73 個檔、21,904 行），造「乾淨」與「有問題」兩份（有問題版＝每一行第一個 regex 開頭插一個被跳脫兩次的 `\s`，共 330 行）。
+  舊版 `eaf22b3`（先斷言雜湊不同、有舊擷取樣式、沒有 `regexLiteralsOf`）與新版 HEAD 的主掃描（擷取＋判準＋`insideString`，都從各自原始碼取出來求值）各跑一次：
+  乾淨版舊 0／新 0 行；有問題版舊擋 235、新擋 330；**少擋 0 行；多擋 95 行，全部落在預期類別**（不是緊接 `.test(`／`.exec(` 的寫法），不在預期類別 0 行。
+· **F1 必敗對照組**（補充說明第 4 點：每種情境寫成小探針、開子程序跑）。**修正前**實測：
+  `tap` 的 `ok(false)`、`everyOf([])`、`noneOf([])`、`detects` 沒正例 → 都判失敗；**一條斷言都沒有就 `done()` → 回 0、印「0 項通過」**；第一條之前崩、做到一半崩 → 回 1（未攔截例外、沒印成通過）；
+  執行器 `&&` 鏈一支失敗 → 後面不跑、回 1；`mutationtest --only` 對不到任何突變 → 回 1、理由「選了 0 條突變」；**`checkmutations` 突變清單是空的 → 回 0、STALECOUNT 0**。
+  **修正**：`tap.done()` 一條斷言都沒跑到就判失敗（「一條斷言都沒有跑到——這一支什麼都沒檢查」）；`checkmutations` 清單是空的就 STALE、回非 0。
+  **常設**：doctest F1-1～F1-11 每版跑（8 種 tap 情境、`&&` 鏈、checkmutations 空清單、mutationtest 對不到突變），每一種比對回傳值與理由，失敗時不准印成「N 項通過」。
+  **突變**：拿掉零斷言判失敗 → F1-6 紅；拿掉空清單判失敗 → F1-10 紅（`--only` 都紅在指定的斷言）。
+  **完整 assertaudit 抓到我自己造成的回歸**：doctest 的 F1 探針是子程序，繼承了 assertaudit 的 `MM_AUDIT=1`，把探針故意寫的空母體記進 `assert-audit.jsonl`、冒充成真的測試斷言——「沒有任何 everyOf／noneOf 的母體是空的」紅了。
+  修法：探針的子程序拿掉 `MM_AUDIT`、`MM_AUDIT_OUT`。回歸斷言 F1-12（每版跑）：暫時讓 doctest 帶著 `MM_AUDIT=1` 跑一個空母體探針，紀錄檔不能出現；拿掉那兩行 delete → F1-12 紅（只有它紅）。
+  **寫的時候查到並重現的一個風險**：F1-11 若在 repo 裡直接開 `mutationtest`，它一啟動就 `recoverPending()`——外層正在跑突變時，會把外層改壞的檔還原並刪掉 pending，doctest 後面「從磁碟重讀檔」的斷言就對著沒改壞的程式跑。
+  拋棄式 worktree 重現：F1-11 改回在 repo 裡跑，「gatescan 的管線樣式失效」那條突變變成**紅錯地方**（G1 另開子程序讀到還原後的 gatescan）；在 `scripts/` 的暫存複本裡跑（現在的寫法）→ 正確紅在 G1。
+  （前兩次試的突變沒重現：一條的斷言排在 F1-11 之前、一條用的是一開頭就 import 進記憶體的版本——風險只落在「F1-11 之後、從磁碟重讀」的斷言。）
+· **F4 孤兒檢查常設**：兩個登記清單都有每版跑的孤兒檢查——gatescan 的推送腳本（doctest G5）、assertaudit 的測試鏈（doctest T3）。這一輪沒有新增工具檔，兩項現況都通過。
+· **§5.11 第四層（換順序跑、結果不變）**：本 App 有情境、情境之間會互相影響的只有閘門驗法——M6 已做（兩種順序 14 種結論相同；「fresh 不清 hook」的突變只在預設順序看得出來）。doctest 的 F1 探針每一種開自己的子程序、用自己的暫存目錄，不共用狀態。
+· **第 4 件（驗法第 11 種前置斷言接管線）沒動**：統籌者還沒裁，維持登記的例外、註明待裁示。
 
 ### 檢查器修補（2026-09-24，`docs/SPEC_檢查器修補.md`；未 bump、不算一版）
 

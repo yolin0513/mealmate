@@ -3398,6 +3398,34 @@ const MUTATIONS = [
     test: "doctest",
     expect: "D6（對照）剛好在上限上",
   },
+  // ---- 2026-09-24 F1 必敗對照組（SPEC_檢查器修補）----
+  {
+    name: "tap 一條斷言都沒有就結束也算通過",
+    why: "以前印「0 項通過」、回 0，一支什麼都沒檢查的測試看起來像全綠（v9 F1）。",
+    file: "scripts/tap.mjs",
+    find: "  if (pass + fail === 0) {",
+    replace: "  if (false) {",
+    test: "doctest",
+    expect: "F1-6 一條斷言都沒有就結束",
+  },
+  {
+    name: "checkmutations 的突變清單是空的也算通過",
+    why: "以前印「TOTAL 0、STALECOUNT 0」、回 0，什麼都沒檢查（v9 F1）。",
+    file: "scripts/checkmutations.mjs",
+    find: "  if (MUTATIONS.length === 0) {",
+    replace: "  if (false) {",
+    test: "doctest",
+    expect: "F1-10 稽核器（checkmutations）",
+  },
+  {
+    name: "doctest 的 F1 探針帶著 MM_AUDIT 跑",
+    why: "探針故意寫的空母體會被記進 assert-audit.jsonl、冒充成真的測試斷言——完整 assertaudit 會紅在「母體是空的」（2026-09-24 實際發生過）。",
+    file: "scripts/doctest.mjs",
+    find: "const probeEnv = () => { const e = { ...process.env }; delete e.MM_AUDIT; delete e.MM_AUDIT_OUT; return e; };",
+    replace: "const probeEnv = () => ({ ...process.env });",
+    test: "doctest",
+    expect: "F1-12 探針不會把斷言寫進",
+  },
   // ---- 2026-09-24 M5：gatescan 的孤兒檢查（v9 F4）----
   {
     name: "gatescan 的孤兒檢查只報已登記例外的那幾支",

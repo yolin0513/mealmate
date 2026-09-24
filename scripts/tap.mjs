@@ -134,6 +134,11 @@ export function done(name) {
     const out = process.env.MM_AUDIT_OUT || 'assert-audit.jsonl';
     fs.appendFileSync(out, `${audit.map((a) => JSON.stringify({ test: name, ...a })).join('\n')}\n`, 'utf8');
   }
+  // 一條斷言都沒跑就結束＝這一支什麼都沒檢查（v9 F1，2026-09-24：以前印「0 項通過」、回 0，看起來像全綠）
+  if (pass + fail === 0) {
+    console.log(`\n${name}：一條斷言都沒有跑到——這一支什麼都沒檢查，判失敗`);
+    process.exit(1);
+  }
   console.log(`\n${name}：${pass} 項通過`
     + (notes ? `（另有 ${notes} 行說明，不算斷言）` : '')
     + (fail ? `，${fail} 項失敗` : ''));

@@ -413,6 +413,72 @@ section('assertaudit 的母體＝測試鏈（2026-09-24，Yolin 選 A）：丟�
   }, 'T3（對照）沒登記的 *test.mjs 抓得到；工具與 mutationtest 不算孤兒');
 }
 
+section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24，SPEC_檢查器修補；每版都跑）');
+{
+  // 每一種情境寫成一支小腳本、開子程序跑（跟 doctest 自己的計數分開）；比對回傳值與理由。
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-f1-'));
+  const tapUrl = new URL('./tap.mjs', import.meta.url).href;
+  const probe = (name, body) => { const p = path.join(dir, `${name}.mjs`); fs.writeFileSync(p, `import { ok, eq, everyOf, noneOf, detects, done } from '${tapUrl}';\n${body}\n`); return p; };
+  // 探針是對照組，不是測試：拿掉 MM_AUDIT，免得 assertaudit 跑 doctest 時，探針故意寫的空母體被記進 assert-audit.jsonl、
+  // 冒充成真的測試斷言（2026-09-24 完整 assertaudit 抓到：「沒有任何 everyOf／noneOf 的母體是空的」紅了）
+  const probeEnv = () => { const e = { ...process.env }; delete e.MM_AUDIT; delete e.MM_AUDIT_OUT; return e; };
+  const runP = (cmd, args, opts = {}) => {
+    try { return { code: 0, out: execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: probeEnv(), ...opts }) }; }
+    catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; }
+  };
+  const cases = [
+    ['F1-1（對照）全部通過', "ok(1 === 1, 'a');\ndone('probe');", 0, 'probe：1 項通過'],
+    ['F1-2 一條一定失敗的斷言', "ok(1 === 2, '一定失敗');\ndone('probe');", 1, '1 項失敗'],
+    ['F1-3 everyOf 母體是空的', "everyOf([], (x) => x, '空母體');\ndone('probe');", 1, '母體是空的'],
+    ['F1-4 noneOf 母體是空的', "noneOf([], (x) => x, '空母體');\ndone('probe');", 1, '母體是空的'],
+    ['F1-5 detects 沒給正例', "detects((x) => x, { shouldHit: [], shouldMiss: [0] }, '沒正例');\ndone('probe');", 1, '沒有給正例'],
+    ['F1-6 一條斷言都沒有就結束', "done('probe');", 1, '一條斷言都沒有跑到'],
+    ['F1-7 第一條斷言之前就崩掉', "throw new Error('寫出結果前就崩掉');", 1, '寫出結果前就崩掉'],
+    ['F1-8 做到一半崩掉（沒走到 done）', "ok(1 === 1, 'a');\nthrow new Error('做到一半崩掉');", 1, '做到一半崩掉'],
+  ];
+  for (const [label, body, wantCode, reason] of cases) {
+    const r = runP(process.execPath, [probe(label.replace(/[^\w]/g, '_'), body)]);
+    const saysPass = wantCode !== 0 && /：\d+ 項通過\s*$/.test(r.out.trim());   // 失敗時不能印成「N 項通過」（訊息不能說反）
+    ok(r.code === wantCode && r.out.includes(reason) && !saysPass, `${label}：回傳 ${r.code}（預期 ${wantCode}），理由含「${reason}」`);
+  }
+  // F1-12 探針不能寫進斷言紀錄：暫時讓本程序帶著 MM_AUDIT=1（就像 assertaudit 跑 doctest 時），跑一個故意寫空母體的探針，
+  // 紀錄檔不能出現（2026-09-24 修正前：完整 assertaudit 紅在「沒有任何 everyOf／noneOf 的母體是空的」）
+  {
+    const auditFile = path.join(dir, 'probe-audit.jsonl');
+    const saved = { a: process.env.MM_AUDIT, o: process.env.MM_AUDIT_OUT };
+    process.env.MM_AUDIT = '1'; process.env.MM_AUDIT_OUT = auditFile;
+    const r = runP(process.execPath, [probe('audit_leak', "everyOf([], (x) => x, '空母體');\ndone('probe');")]);
+    if (saved.a === undefined) delete process.env.MM_AUDIT; else process.env.MM_AUDIT = saved.a;
+    if (saved.o === undefined) delete process.env.MM_AUDIT_OUT; else process.env.MM_AUDIT_OUT = saved.o;
+    ok(r.code === 1 && r.out.includes('母體是空的') && !fs.existsSync(auditFile),
+      `F1-12 探針不會把斷言寫進 assert-audit 紀錄（探針回 ${r.code}；紀錄檔${fs.existsSync(auditFile) ? '出現了' : '沒出現'}）`);
+  }
+  // 執行器：npm test 是 && 鏈——一支失敗，後面不跑、整條鏈回非 0
+  const next = path.join(dir, 'next.mjs'); fs.writeFileSync(next, "console.log('NEXT_RAN');\n");
+  const chain = runP('bash', ['-c', `node "${probe('chain_fail', "ok(1 === 2, 'x');\ndone('probe');")}" && node "${next}"`]);
+  ok(chain.code !== 0 && !chain.out.includes('NEXT_RAN'), `F1-9 執行器（&& 鏈）：一支有失敗的斷言 → 後面那一支沒跑、鏈回 ${chain.code}`);
+  // 稽核器：checkmutations 的突變清單是空的 → 判失敗（不是 0 個過期）
+  const cm = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-f1cm-'));
+  fs.mkdirSync(path.join(cm, 'scripts'));
+  fs.copyFileSync(path.join(ROOT, 'scripts/checkmutations.mjs'), path.join(cm, 'scripts/checkmutations.mjs'));
+  fs.writeFileSync(path.join(cm, 'scripts/mutationtest.mjs'), 'const MUTATIONS = [\n];\n');
+  const cme = runP(process.execPath, [path.join(cm, 'scripts/checkmutations.mjs')], { cwd: cm });
+  ok(cme.code !== 0 && cme.out.includes('突變清單是空的'), `F1-10 稽核器（checkmutations）：突變清單是空的 → 回 ${cme.code}，理由「突變清單是空的」`);
+  // 執行器：mutationtest 的 --only 對不到任何突變 → 判失敗（不是「0 條都紅了」）。
+  // 在 scripts/ 的暫存複本裡跑，不在 repo 裡跑：mutationtest 一啟動就 recoverPending()——外層正在跑突變時，
+  // 它會把外層改壞的檔「還原」並刪掉 pending，doctest 後面的斷言就對著沒改壞的程式跑（2026-09-24 寫這一條時查到的）
+  const mtRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-f1mt-'));
+  fs.mkdirSync(path.join(mtRoot, 'scripts'));
+  for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) {
+    if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(mtRoot, 'scripts', f));
+  }
+  ok(!fs.existsSync(path.join(mtRoot, 'scripts/.mutation-pending.json')), '（前提）暫存複本裡沒有 pending 檔（碰不到 repo 裡那一份）');
+  const mt = runP(process.execPath, [path.join(mtRoot, 'scripts/mutationtest.mjs'), '--only', 'F1探針：不會對到任何突變的關鍵字'], { cwd: mtRoot });
+  fs.rmSync(mtRoot, { recursive: true, force: true });
+  ok(mt.code !== 0 && /選了 0 條突變/.test(mt.out), `F1-11 執行器（mutationtest）：--only 對不到任何突變 → 回 ${mt.code}，理由「選了 0 條突變」`);
+  fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(cm, { recursive: true, force: true });
+}
+
 section('assertaudit 的靜態掃描（auditrules）：每版都跑、附對照組（2026-09-24，v9 盤點第 3 件）');
 {
   // 以前這幾段只在全面檢測才跑、也沒有對照組（v9 盤點實測：把常數述詞的樣式改壞，assertaudit 照樣全過）

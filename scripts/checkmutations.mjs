@@ -57,6 +57,8 @@ const readRel = (rel) => {
 function main() {
   const MUTATIONS = loadMutations(fs.readFileSync(path.join(ROOT, 'scripts/mutationtest.mjs'), 'utf8'));
   if (!MUTATIONS) { console.log('STALE 找不到 MUTATIONS 陣列'); process.exit(1); }
+  // 清單是空的＝什麼都沒檢查（v9 F1，2026-09-24：以前印「TOTAL 0、STALECOUNT 0」、回 0）
+  if (MUTATIONS.length === 0) { console.log('STALE 突變清單是空的（一條都沒有，什麼都沒檢查）'); console.log('TOTAL 0'); console.log('STALECOUNT 1'); process.exit(1); }
   let stale = 0;
   for (const m of MUTATIONS) {
     const file = path.join(ROOT, m.file);
