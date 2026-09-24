@@ -3536,6 +3536,25 @@ const MUTATIONS = [
     test: "doctest",
     expect: "F8-9 工作區的 build 跟 HEAD 不一樣",
   },
+  // ---- 2026-09-24 F9：工作區有改動不登記、比對的兩邊是不同來源 ----
+  {
+    name: "buildguard 工作區有改動一律當成沒改動",
+    why: "統籌者在 JLPT 查到的缺口：驗的是工作區、登記的是 HEAD，HEAD 那一版沒被驗過卻被登記；閘門驗法 19 種都看不出來（2026-09-24 F9）。",
+    file: "scripts/buildguard-verify.mjs",
+    find: "  return BG_FILES.filter((f) => git('hash-object', f) !== git('rev-parse', `HEAD:${f}`));",
+    replace: "  return [];",
+    test: "doctest",
+    expect: "F8-10 被守的檔工作區有改動",
+  },
+  {
+    name: "buildguard 比對模式不查兩份是不是同一個版本",
+    why: "「A 跟 B 一樣」要先證明是兩個不同的來源：同一份 log 比兩次永遠「母體相同」（2026-09-24 Dispatch）。",
+    file: "scripts/buildguard-verify.mjs",
+    find: "  if (!va || !vb || va === vb) {",
+    replace: "  if (false) {",
+    test: "doctest",
+    expect: "F8-11 比對模式",
+  },
   // ---- 2026-09-24 F1 必敗對照組（SPEC_檢查器修補）----
   {
     name: "tap 一條斷言都沒有就結束也算通過",
