@@ -18,7 +18,7 @@
   - 閘門驗法 25 種；`gatemutants` 36 條。
   - 突變 486 條，`checkmutations` 0 過期。
   - gatescan 每條規則的每個分支都有只靠它的樣本。
-- **突變整套沒跑**：照 Dispatch，等四家的 F1–F7 都做完再跑。從未整套跑過的條數以 `npm run sincefull` 為準（收尾時約 40 條），下次整套時一起跑。
+- **突變整套沒跑**：照 Dispatch，等四家的 F1–F7 都做完再跑。從未整套跑過的條數以 `npm run sincefull` 為準（收尾時 44 條），下次整套時一起跑。
 - **已知限制（沒補、照實寫在 EVIDENCE）**
   - `HOME`、`XDG_CONFIG_HOME` 會換掉使用者層級的 git 設定，閘門擋不了。
   - node 自己認得的 `NODE_OPTIONS` 等沒處理。
