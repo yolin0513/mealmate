@@ -20,9 +20,19 @@ export const KIND_LABELS = {
   timeout: '逾時被殺',
   signal: '被外部訊號殺掉',
   spawn: '沒跑起來',
+  noscenario: '情境未成立（要測的狀況這一次沒有發生）',
 };
-/** 這幾種代表「測試沒有完整跑完」：不能拿來判斷突變有沒有被抓到 */
-export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn']);
+/**
+ * 這幾種代表「測試沒有完整跑完」或「什麼都沒量到」：不能拿來判斷突變有沒有被抓到——不算紅、不算通過、不算數，下一次要重跑。
+ * noscenario（2026-10-02 Dispatch）：測試自己宣告「要測的那個狀況這一次沒有發生」（例如殺程序錯過了時間窗）。
+ * 它跟「紅錯地方」意思相反：紅錯地方是情境成立、被別條擋下；情境未成立是這次什麼都沒量到——不能偽裝成「情境成立且紅了」。
+ */
+export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario']);
+/** 測試宣告情境未成立的那一行要以這個開頭（單獨一行；不用 ✗，免得被當成斷言失敗） */
+export const NO_SCENARIO_MARK = '⊘ 情境未成立';
+export function hasNoScenario(out) {
+  return String(out ?? '').split('\n').some((l) => l.trimStart().startsWith(NO_SCENARIO_MARK));
+}
 
 /** 從 execFileSync 丟出的例外判斷種類（純函式；e 沒有就是通過） */
 export function classifyRun(e) {
@@ -31,6 +41,7 @@ export function classifyRun(e) {
   if (e.signal) return 'signal';
   if (e.status === null || e.status === undefined) return 'spawn';
   const out = `${e.stdout ?? ''}\n${e.stderr ?? ''}`;
+  if (hasNoScenario(out)) return 'noscenario';                       // 宣告了情境未成立：就算也有 ✗，那些 ✗ 量的不是要測的東西
   return out.split('\n').some((l) => l.includes('✗')) ? 'assert' : 'crash';
 }
 
@@ -39,6 +50,8 @@ export function runProgram(args, { cwd, timeoutMs, exe = process.execPath } = {}
   const t0 = Date.now();
   try {
     const out = execFileSync(exe, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: timeoutMs, encoding: 'utf8' });
+    // 回傳 0 但宣告了情境未成立：也不算通過（「這次什麼都沒量到」不能被記成綠）
+    if (hasNoScenario(out)) return { passed: false, kind: 'noscenario', out, seconds: Math.round((Date.now() - t0) / 1000) };
     return { passed: true, kind: 'pass', out, seconds: Math.round((Date.now() - t0) / 1000) };
   } catch (e) {
     return { passed: false, kind: classifyRun(e), out: `${e.stdout ?? ''}\n${e.stderr ?? ''}`, seconds: Math.round((Date.now() - t0) / 1000) };

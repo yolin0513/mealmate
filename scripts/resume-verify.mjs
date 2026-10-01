@@ -12,7 +12,9 @@
 // 對照組（同一套流程，複本裡的程式故意弄壞）：
 //   壞的還原（recoverPending 什麼都不做）→ 必須在「還原」那一關報不符
 //   壞的接續點（doneAt 一律當成跑過）    → 必須在「續跑」那一關報不符（執行器自己可能照樣印「整套收齊」——那正是要抓的）
-// 回傳：0 正常流程全過、兩個對照組都在預期那一關報不符；1 正常流程有一關不符；2 對照組沒抓到（或抓在別關）；3 造情境失敗
+// 回傳：0 正常流程全過、兩個對照組都在預期那一關報不符；1 正常流程有一關不符；2 對照組沒抓到（或抓在別關）；3 造情境失敗（程式層級的錯）；
+//      4 情境未成立（試了 3 次都沒造成「第二條跑到一半被殺」：這次什麼都沒量到，印 runkind 的 NO_SCENARIO_MARK，執行器判成 noscenario——不算紅、不算通過）。
+// 情境成不成立看情境本身留下的痕跡（目標檔、還原紀錄、探針的開始／結束標記），每一次都印出來。對照組 late-kill：探針不睡，殺程序一定錯過，必須判成情境未成立。
 // 重負載（開 2 個工作程序、約 1–2 分鐘）：經 Dispatch 排時段才跑（v11 §5.19）。
 
 import fs from 'node:fs';
@@ -21,6 +23,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { NO_SCENARIO_MARK } from './runkind.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const sha = (p) => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
@@ -44,8 +47,12 @@ function makeRepo(variant) {
     fs.writeFileSync(path.join(root, `scripts/rvtest${n}.mjs`),
       `import fs from 'node:fs';\nimport { ok, done } from './tap.mjs';\nimport { BROKEN } from './rvtarget${n}.mjs';\n`
       + `fs.appendFileSync(${JSON.stringify(mark)}, \`RV${n} \${BROKEN ? '改壞' : '原樣'}\\n\`);\n`
-      // 每支探針睡 5 秒：殺程序的時間窗要夠寬（2026-10-02 睡 2 秒時，在機器忙的整套裡有兩次沒造成中斷、紅在「造情境失敗」）
-      + `await new Promise((r) => setTimeout(r, 5000));\nok(!BROKEN, 'RV${n} 探針');\ndone('rvtest${n}');\n`);
+      // 每支探針睡 5 秒：殺程序的時間窗要夠寬（2026-10-02 睡 2 秒時，在機器忙的整套裡有兩次沒造成中斷）。
+      // late-kill（對照組）：不睡——殺程序一定錯過時間窗，必須被判成「情境未成立」
+      + `await new Promise((r) => setTimeout(r, ${variant === 'late-kill' ? 0 : 5000}));\n`
+      // 結束標記：睡完、斷言之前寫。被殺掉的那一次只有開始、沒有結束——這是「真的在跑到一半被殺」的痕跡
+      + `fs.appendFileSync(${JSON.stringify(mark)}, \`RV${n} \${BROKEN ? '改壞' : '原樣'} 結束\\n\`);\n`
+      + `ok(!BROKEN, 'RV${n} 探針');\ndone('rvtest${n}');\n`);
   }
   const mtFile = path.join(root, 'scripts/mutationtest.mjs');
   let src = fs.readFileSync(mtFile, 'utf8');
@@ -85,7 +92,15 @@ const readLedger = (repo) => (fs.existsSync(repo.ledger) ? JSON.parse(fs.readFil
 const marks = (repo) => (fs.existsSync(repo.mark) ? fs.readFileSync(repo.mark, 'utf8').split('\n').filter(Boolean) : []);
 const ranBroken = (lines, n) => lines.filter((l) => l === `RV${n} 改壞`).length;
 
-/** 用 --full 開跑，等第一條記進帳本、第二條正在跑（改壞的檔在磁碟上、還原紀錄在）時 SIGKILL；回開跑後幾毫秒殺掉的 */
+/**
+ * 用 --full 開跑，等第一條記進帳本、第二條正在跑（改壞的檔在磁碟上、還原紀錄在）時 SIGKILL。
+ * 回「情境痕跡」——全部取自情境本身留下的東西，不取執行器的推論：
+ *   targetBroken  殺掉之後第二條的目標檔仍是改壞的內容（finally 若跑過，會被寫回原樣）
+ *   pendingExists 磁碟上的還原紀錄還在（finally 若跑過，會被刪掉）
+ *   started2      第二條的探針留下了「開始」標記（它真的在跑）
+ *   ended2        第二條的探針留下了「結束」標記（它跑完了＝殺晚了）
+ * 四項是「改壞、在、有、沒有」才算情境成立：真的在第二條跑到一半時被殺、finally 沒跑。
+ */
 async function killMidSecond(repo) {
   const child = spawn(process.execPath, [repo.mtFile, '--full'], { cwd: repo.root, stdio: 'ignore', env: env() });
   const t0 = Date.now(); let killedAt = null;
@@ -96,23 +111,46 @@ async function killMidSecond(repo) {
     if (led.entries?.RV1?.last?.counted && busy2) { child.kill('SIGKILL'); killedAt = Date.now() - t0; break; }   // 偵測到就殺，不再多等
     if (child.exitCode !== null) break;
   }
-  if (killedAt === null) { child.kill('SIGKILL'); throw new SetupError(`等不到「第一條記進帳本、第二條正在跑」的時刻（${Math.round((Date.now() - t0) / 1000)} 秒）`); }
+  if (killedAt === null) child.kill('SIGKILL');
   await sleep(1500);
-  if (!(fs.readFileSync(repo.target2, 'utf8') !== ORIGINAL && fs.existsSync(repo.pending))) {
-    throw new SetupError('殺掉之後，第二條的目標檔不是改壞的狀態（或還原紀錄不在）——中斷的情境沒造成');
+  const lines = marks(repo);
+  const trace = {
+    killedAt,
+    targetBroken: fs.readFileSync(repo.target2, 'utf8') !== ORIGINAL,
+    pendingExists: fs.existsSync(repo.pending),
+    started2: lines.includes('RV2 改壞'),
+    ended2: lines.includes('RV2 改壞 結束'),
+  };
+  trace.established = killedAt !== null && trace.targetBroken && trace.pendingExists && trace.started2 && !trace.ended2;
+  trace.text = `情境痕跡：${killedAt === null ? '沒等到可以殺的時刻' : `開跑後約 ${Math.round(killedAt / 1000)} 秒殺掉`}；第二條的目標檔 ${trace.targetBroken ? '改壞' : '原樣'}、還原紀錄 ${trace.pendingExists ? '在' : '不在'}、第二條探針 開始 ${trace.started2 ? '有' : '沒有'}／結束 ${trace.ended2 ? '有' : '沒有'} → ${trace.established ? '成立' : '沒成立'}`;
+  return trace;
+}
+
+/** 情境沒成立（試了幾次都沒造成真正的中斷）：這次什麼都沒量到——不算紅、不算通過 */
+class NoScenarioError extends Error {}
+
+/** 造出「第二條跑到一半被真的殺掉」的情境：每次用新的 repo，最多試 attempts 次；痕跡每次都印出來（必留） */
+async function establishInterrupt(variant, attempts = 3) {
+  const traces = [];
+  for (let k = 1; k <= attempts; k += 1) {
+    const repo = makeRepo(variant);
+    const trace = await killMidSecond(repo);
+    traces.push(`第 ${k} 次 ${trace.text}`);
+    console.log(`  · [${variant}] 第 ${k} 次 ${trace.text}`);
+    if (trace.established) return { repo, trace, attempt: k };
+    fs.rmSync(repo.root, { recursive: true, force: true }); fs.rmSync(repo.mark, { force: true });
   }
-  return killedAt;
+  throw new NoScenarioError(`[${variant}] 試了 ${attempts} 次都沒造成「第二條跑到一半被殺」：${traces.join('｜')}`);
 }
 
 /** 跑一次完整流程；回 [{ step, pass, detail }]（每一關一筆；造情境失敗丟 SetupError） */
 async function flow(variant) {
-  const repo = makeRepo(variant);
+  // 1–2. 開跑、在第二條正在跑時真的殺掉（SIGKILL，不是旗標：被殺掉時 finally 不會跑）；情境沒成立就換一次、最多 3 次，否則丟 NoScenarioError
+  const { repo, trace, attempt } = await establishInterrupt(variant);
   const steps = [];
   const step = (name, pass, detail) => steps.push({ step: name, pass: !!pass, detail });
   try {
-    // 1–2. 開跑、在第二條正在跑時真的殺掉（SIGKILL，不是旗標：被殺掉時 finally 不會跑）；確認第二條的目標檔留在改壞的狀態
-    const killedAt = await killMidSecond(repo);
-    step('前提：中斷時第二條的目標檔留在改壞的狀態', true, `開跑後約 ${Math.round(killedAt / 1000)} 秒殺掉`);
+    step('前提：中斷時第二條的目標檔留在改壞的狀態、探針只有開始沒有結束（情境成立）', true, `第 ${attempt} 次成立；${trace.text}`);
     // 3. 只續跑一條：還原（內容雜湊）＋沒收齊要點名
     fs.writeFileSync(repo.mark, '');
     const rA = runSync(repo, ['--full', '--limit', '1']);
@@ -156,9 +194,8 @@ async function guardFlow() {
   const BROKEN_TEXT = 'export const BROKEN = true;\n';
   // 紀錄被移掉：真的殺掉之後刪掉還原紀錄
   {
-    const repo = makeRepo('normal');
+    const { repo } = await establishInterrupt('normal');                // 情境沒成立就換一次；三次都沒成立丟 NoScenarioError
     try {
-      await killMidSecond(repo);
       const brokenHash = sha(repo.target2);
       fs.rmSync(repo.pending);
       const r = runSync(repo, ['--full']);
@@ -225,12 +262,27 @@ try {
     console.log(`  ${ok ? '✓' : '✗'} 對照組 ${variant} 在「${expectAt}」那一關報不符（實際第一個不符：${ff ?? '沒有任何一關不符'}）`);
     if (!ok && code === 0) code = 2;
   }
+  // 對照組：殺程序一定錯過時間窗（探針不睡）→ 必須判成「情境未成立」，不能判成紅（某一關不符）、也不能判成綠（全部符合）
+  {
+    let verdict = '';
+    try { const s = await flow('late-kill'); verdict = firstFail(s) ? `紅（第一個不符：${firstFail(s)}）` : '綠（全部符合）'; }
+    catch (e) { verdict = e instanceof NoScenarioError ? '情境未成立' : `別的錯誤：${e.message}`; }
+    const okLate = verdict === '情境未成立';
+    console.log(`\n— 對照組：late-kill —\n  ${okLate ? '✓' : '✗'} 對照組 late-kill：殺程序錯過時間窗 → 判成「情境未成立」（實際：${verdict}）`);
+    if (!okLate && code === 0) code = 2;
+  }
   const guards = await guardFlow();
   print('護欄（每一道都有反向）', guards);
   if (firstFail(guards) && code === 0) code = 1;
 } catch (e) {
-  console.log(`\n✗ 造情境失敗：${e.message}`);
-  code = e instanceof SetupError ? 3 : 1;
+  if (e instanceof NoScenarioError) {
+    // 正常流程或護欄要的中斷沒造成：這次什麼都沒量到——宣告「情境未成立」（scripts/runkind.mjs 判成 noscenario：不算紅、不算通過、不算數）
+    console.log(`\n${NO_SCENARIO_MARK}：${e.message}`);
+    code = 4;
+  } else {
+    console.log(`\n✗ 造情境失敗：${e.message}`);
+    code = e instanceof SetupError ? 3 : 1;
+  }
 }
-console.log(`\nresume-verify：${code === 0 ? '全部符合' : `不符（回 ${code}）`}`);
+console.log(`\nresume-verify：${code === 0 ? '全部符合' : code === 4 ? '情境未成立（這次沒有量到，不算符合也不算不符）' : `不符（回 ${code}）`}`);
 process.exit(code);

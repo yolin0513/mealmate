@@ -15,7 +15,7 @@ import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX, whitespaceOnly } from './checkmutations.mjs';
 import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts, escapeScan } from './gatescan.mjs';
 import { selfcheck, gitEnvProblems } from './selfcheck.mjs';
-import { runProgram, classifyRun, UNCOUNTED_KINDS } from './runkind.mjs';
+import { runProgram, classifyRun, UNCOUNTED_KINDS, NO_SCENARIO_MARK } from './runkind.mjs';
 import {
   scopeFor, scopeHash, accessOf, maskMutations, runnerHash, rerunReasons, RERUN, recordRun, emptyLedger, neverFullNames,
   fullComplete, ledgerProblems, contentHash, LEDGER_FILE, ledgerOrphans,
@@ -678,7 +678,13 @@ section('測試怎麼結束的（runkind；2026-10-01：逾時、沒跑起來、
   eq(slow.kind, 'timeout', `R4 超過時限被殺 → 逾時（不是斷言失敗、也不是崩潰）（${slow.seconds} 秒）`);
   eq(runProgram([], { timeoutMs: 3000, exe: path.join(os.tmpdir(), 'mm-no-such-program.exe') }).kind, 'spawn', 'R5 程式根本沒跑起來 → 沒跑起來');
   eq(classifyRun({ signal: 'SIGKILL', status: null }), 'signal', 'R6 被外部訊號殺掉（不是逾時）→ 被殺');
-  eq([...UNCOUNTED_KINDS].sort(), ['signal', 'spawn', 'timeout'], 'R7 不算數的是：逾時、被殺、沒跑起來（崩潰與斷言失敗都有完整跑完）');
+  eq([...UNCOUNTED_KINDS].sort(), ['noscenario', 'signal', 'spawn', 'timeout'], 'R7 不算數的是：逾時、被殺、沒跑起來、情境未成立（崩潰與斷言失敗都有完整跑完、而且量到了東西）');
+  // 情境未成立（2026-10-02 Dispatch）：測試宣告「要測的狀況這一次沒有發生」→ 不算紅、不算通過；就算也有 ✗、就算回 0
+  const ns = node(`console.log('  ✗ 某一關不符'); console.log('${NO_SCENARIO_MARK}：殺程序錯過時間窗'); process.exit(4)`);
+  eq(ns.kind, 'noscenario', 'R8 宣告了情境未成立（同時也有 ✗）→ 情境未成立，不是斷言失敗（不能被記成「抓到了」）');
+  const ns0 = node(`console.log('${NO_SCENARIO_MARK}：這次沒有量到')`);
+  eq([ns0.kind, ns0.passed], ['noscenario', false], 'R9 回傳 0 但宣告了情境未成立 → 不算通過（「這次什麼都沒量到」不能被記成綠）');
+  eq(node("console.log('註解裡講到 ⊘ 情境未成立 這幾個字不算宣告')").kind, 'pass', 'R9（對照）那幾個字不在一行開頭 → 不算宣告，照舊通過');
 }
 
 section('assertaudit 的靜態掃描（auditrules）：每版都跑、附對照組（2026-09-24，v9 盤點第 3 件）');
