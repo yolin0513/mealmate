@@ -44,7 +44,8 @@ function makeRepo(variant) {
     fs.writeFileSync(path.join(root, `scripts/rvtest${n}.mjs`),
       `import fs from 'node:fs';\nimport { ok, done } from './tap.mjs';\nimport { BROKEN } from './rvtarget${n}.mjs';\n`
       + `fs.appendFileSync(${JSON.stringify(mark)}, \`RV${n} \${BROKEN ? '改壞' : '原樣'}\\n\`);\n`
-      + `await new Promise((r) => setTimeout(r, 2000));\nok(!BROKEN, 'RV${n} 探針');\ndone('rvtest${n}');\n`);
+      // 每支探針睡 5 秒：殺程序的時間窗要夠寬（2026-10-02 睡 2 秒時，在機器忙的整套裡有兩次沒造成中斷、紅在「造情境失敗」）
+      + `await new Promise((r) => setTimeout(r, 5000));\nok(!BROKEN, 'RV${n} 探針');\ndone('rvtest${n}');\n`);
   }
   const mtFile = path.join(root, 'scripts/mutationtest.mjs');
   let src = fs.readFileSync(mtFile, 'utf8');
@@ -92,7 +93,7 @@ async function killMidSecond(repo) {
     await sleep(200);
     const led = readLedger(repo);
     const busy2 = fs.existsSync(repo.pending) && fs.readFileSync(repo.target2, 'utf8') !== ORIGINAL;
-    if (led.entries?.RV1?.last?.counted && busy2) { await sleep(500); child.kill('SIGKILL'); killedAt = Date.now() - t0; break; }
+    if (led.entries?.RV1?.last?.counted && busy2) { child.kill('SIGKILL'); killedAt = Date.now() - t0; break; }   // 偵測到就殺，不再多等
     if (child.exitCode !== null) break;
   }
   if (killedAt === null) { child.kill('SIGKILL'); throw new SetupError(`等不到「第一條記進帳本、第二條正在跑」的時刻（${Math.round((Date.now() - t0) / 1000)} 秒）`); }

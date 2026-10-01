@@ -5170,7 +5170,7 @@ if (baselineOk) {
     ok(!result.passed && expectHit && restored, `【${m.test}】${m.name}`,
       !restored ? `${m.file} 沒有還原成功！`
         : result.passed ? `改壞之後 ${m.test} 居然還是綠的 —— 對應的斷言沒有在檢查東西。${m.why}`
-          : `${m.test} 紅了，但紅的不是含「${m.expect}」的那一條 —— 對應的斷言沒有在檢查東西。${m.why}`);
+          : `${m.test} 紅了，但紅的不是含「${m.expect}」的那一條 —— 對應的斷言沒有在檢查東西。${m.why}\n      實際紅的（前 4 行 ✗）：${result.out.split('\n').filter((l) => l.includes('✗')).slice(0, 4).map((l) => l.trim().slice(0, 160)).join('｜') || '（輸出裡沒有 ✗）'}`);
   }
   note(`結束方式統計：紅在斷言 ${tally.assert} 條、紅在崩潰 ${tally.crash} 條、不算數（逾時／被殺／沒跑起來）${tally.uncounted.length} 條${tally.uncounted.length ? `：${tally.uncounted.join('、')}` : ''}`);
 } else {
