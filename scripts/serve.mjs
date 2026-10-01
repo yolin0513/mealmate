@@ -28,6 +28,9 @@ export function createServer() {
     if (rel.endsWith('/')) rel += 'index.html';
     const full = path.resolve(ROOT, '.' + rel);
     if (!full.startsWith(ROOT)) { res.writeHead(403); res.end('forbidden'); return; }
+    // docs/ 是給人讀的文件，App 用不到：一律不送（2026-10-01）。這樣瀏覽器測試的結果不可能受 docs/ 影響，
+    // 「只跑受影響的突變」才能放心把 docs/ 排除在瀏覽器測試的依賴範圍外（scripts/depgraph.mjs；doctest「受影響 D20」守這一條）。
+    if (path.relative(ROOT, full).split(path.sep)[0] === 'docs') { res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }); res.end('not found'); return; }
     fs.readFile(full, (err, buf) => {
       if (err) { res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }); res.end('not found'); return; }
       res.writeHead(200, {

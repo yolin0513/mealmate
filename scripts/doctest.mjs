@@ -16,6 +16,12 @@ import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_M
 import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts, escapeScan } from './gatescan.mjs';
 import { selfcheck, gitEnvProblems } from './selfcheck.mjs';
 import { runProgram, classifyRun, UNCOUNTED_KINDS } from './runkind.mjs';
+import {
+  scopeFor, scopeHash, accessOf, maskMutations, runnerHash, rerunReasons, RERUN, recordRun, emptyLedger, neverFullNames,
+  fullComplete, ledgerProblems, contentHash, LEDGER_FILE,
+} from './depgraph.mjs';
+import { listen as serveListen } from './serve.mjs';
+import { lastFullNotInLedger } from './sincefull.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
 import { outputProblems, writeAtomically } from './build-recipes.mjs';
 import { selfControls as bgControls, names, registrationDecision as bgDecide, BG_FILES, BG_REG, finalizeRegistration, compare as bgCompare } from './buildguard-verify.mjs';
@@ -851,6 +857,171 @@ section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣
     `G8 每條規則的每個分支都有只靠它的對照樣本（拿掉那個分支就抓不到）：${branchLines.map((l) => l.split('｜').slice(1, 3).join(' ')).join('；')}`);
   const walked = /跳脫掃描：走了 (\d+) 支/.exec(g1.out);
   ok(walked && Number(walked[1]) >= 50, `G6-4 真實 repo：跳脫掃描走了 ${walked ? walked[1] : '（沒有這一行）'} 支腳本（母體要涵蓋 scripts/、js/、根目錄）`);
+}
+
+section('只跑受影響的突變：依賴範圍與「要不要重跑」的分類對照組（2026-10-01，Yolin 新規則；scripts/depgraph.mjs）');
+{
+  // 合成 repo（記憶體裡）：每一條規則各有一個只靠它的樣本。分類錯了就會把該跑的跳過，所以每一條都要能紅。
+  const SYN = {
+    'scripts/tap.mjs': 'export const ok = 1;\n',
+    'scripts/mutationtest.mjs': "import { ok } from './tap.mjs';\nconst MUTATIONS = [\n  { name: 'a' },\n];\nrun();\n",
+    'scripts/nodetest.mjs': "import { f } from '../js/a.js';\nimport fs from 'node:fs';\nfs.readFileSync(path.join(ROOT, 'docs/lit.md'), 'utf8');\n",
+    'js/a.js': "import { g } from './b.js';\nexport const f = 1;\n",
+    'js/b.js': 'export const g = 2;\n',
+    'js/c.js': 'export const h = 3;\n',
+    'css/s.css': 'a { color: red; }\n',
+    'index.html': '<!doctype html>\n',
+    'data/d.json': '{}\n',
+    'package.json': '{}\n',
+    'package-lock.json': '{}\n',
+    'docs/lit.md': 'lit\n',
+    'docs/other.md': 'other\n',
+    'scripts/browsertest.mjs': "import { openApp } from './blib.mjs';\n",
+    'scripts/blib.mjs': "import puppeteer from 'puppeteer';\nimport { listen } from './serve.mjs';\n",
+    'scripts/serve.mjs': 'export function listen(url) { return fs.readFileSync(path.join(ROOT, url)); }\n',
+    'scripts/servenode.mjs': "import { listen } from './serve.mjs';\n",
+    'scripts/opaquetest.mjs': "import fs from 'node:fs';\nfs.readFileSync(someVar);\n",
+    'scripts/dyntest.mjs': 'await import(`../js/${x}.js`);\n',
+    [LEDGER_FILE]: '{}\n',
+  };
+  const depOf = (m, files) => {
+    const keys = Object.keys(files);
+    const sc = scopeFor(m, keys, (f) => files[f]);
+    return { kind: sc.kind, hash: scopeHash(sc.files, (f) => (f in files ? contentHash(files[f]) : null)) };
+  };
+  const changes = (m, edit) => depOf(m, SYN).hash !== depOf(m, { ...SYN, ...edit }).hash;
+  const NODE = { file: 'js/a.js', test: 'nodetest' };
+  const BROWSER = { file: 'js/a.js', test: 'browsertest' };
+  ok(depOf(NODE, SYN).kind === 'node' && depOf(BROWSER, SYN).kind === 'browser', `（前提）合成 repo 裡 nodetest 是 node、browsertest 是 browser（實際：${depOf(NODE, SYN).kind}、${depOf(BROWSER, SYN).kind}）`);
+  ok(changes(NODE, { 'js/b.js': 'export const g = 99;\n' }), '受影響 D1 改了測試間接 import 的檔（隔兩層）→ 要重跑');
+  ok(!changes(NODE, { 'js/c.js': 'export const h = 99;\n' }), '受影響 D2 改了沒有任何 import 關係的檔 → 跳過（跳過真的會發生）');
+  ok(changes(NODE, { 'data/d.json': '{"x":1}\n' }), '受影響 D3 data/ 一律算進範圍');
+  ok(changes(NODE, { 'package-lock.json': '{"x":1}\n' }), '受影響 D4 package-lock.json 一律算進範圍');
+  ok(changes(NODE, { 'docs/lit.md': 'changed\n' }) && !changes(NODE, { 'docs/other.md': 'changed\n' }),
+    '受影響 D5 寫死路徑的讀檔（path.join(ROOT, 字面)）：讀的那個檔算進去、沒讀的不算');
+  ok(changes(BROWSER, { 'css/s.css': 'a { color: blue; }\n' }) && changes(BROWSER, { 'index.html': '<!doctype html><p>\n' }) && !changes(BROWSER, { 'docs/other.md': 'changed\n' }),
+    '受影響 D6 瀏覽器測試：整個 App（css、index.html）都算進去，docs/ 不算');
+  const OPAQUE = { file: 'js/a.js', test: 'opaquetest' };
+  ok(depOf(OPAQUE, SYN).kind === 'repo' && changes(OPAQUE, { 'docs/other.md': 'changed\n' }), '受影響 D7 讀檔路徑寫不死 → 整個 repo（連 docs/ 都算）');
+  eq(depOf({ file: 'js/a.js', test: 'dyntest' }, SYN).kind, 'repo', '受影響 D8 import( 接的不是字面 → 整個 repo');
+  eq(depOf({ file: 'js/a.js', test: 'servenode' }, SYN).kind, 'repo', '受影響 D9 serve.mjs 只在瀏覽器測試裡由「整個 App」涵蓋；不是瀏覽器測試卻用到它 → 整個 repo');
+  eq([depOf(BROWSER, { ...SYN, 'docs/x.json': '{}\n' }).kind, depOf(BROWSER, { ...SYN, 'docs/x.png': 'png' }).kind], ['repo', 'browser'],
+    '受影響 D10 docs/ 底下出現可以被 import 的檔（JSON、程式）→ 瀏覽器測試退回整個 repo；圖片、文件不算');
+  // App 自己的程式裡寫不死的載入（store.js 的 fetch、router.js 的 import(）：只會載 App 的檔 → 整個 App，不是整個 repo
+  const APPDYN = { ...SYN, 'js/a.js': "import { g } from './b.js';\nexport const f = () => import(`./views/${g}.js`);\n" };
+  const appKind = depOf(NODE, APPDYN).kind;
+  const appChanged = (edit) => depOf(NODE, APPDYN).hash !== depOf(NODE, { ...APPDYN, ...edit }).hash;
+  ok(appKind === 'app' && appChanged({ 'css/s.css': 'a { color: blue; }\n' }) && !appChanged({ 'docs/other.md': 'changed\n' }),
+    `受影響 D19 App 程式裡寫不死的載入 → 整個 App（css 改了要跑、docs/ 改了不跑；實際種類 ${appKind}）`);
+
+  // serve.mjs 真的不送 docs/（「整個 App 不含 docs/」的前提）——起一個真的伺服器去要
+  const { srv: dsrv, port: dport } = await serveListen(0);
+  let docsStatus = null; let indexStatus = null;
+  try {
+    docsStatus = (await fetch(`http://localhost:${dport}/docs/STATUS.md`)).status;
+    indexStatus = (await fetch(`http://localhost:${dport}/index.html`)).status;
+  } finally { dsrv.close(); }
+  ok(fs.existsSync(path.join(ROOT, 'docs/STATUS.md')) && docsStatus === 404 && indexStatus === 200,
+    `受影響 D20 測試用的伺服器不送 docs/（docs/STATUS.md 在、要它得到 ${docsStatus}；對照：index.html 得到 ${indexStatus}）`);
+  ok(!changes(OPAQUE, { [LEDGER_FILE]: '{"entries":{}}\n' }), '受影響 D11 帳本檔本身不算進範圍（不然每寫一次帳本，全部都變成改過了）');
+  eq(accessOf("fs.readFileSync(path.join(ROOT, 'data', 'x.json'));\nfs.existsSync(path.join(ROOT, `y`));\n"),
+    { literals: ['data/x.json'], opaque: ['existsSync(…) 的路徑不是寫死的'] }, '受影響 D16 讀檔路徑：好幾段字面接起來算寫死；用反引號的不算');
+
+  // 執行器的雜湊：只改突變清單 → 不變；改清單以外的程式 → 變
+  const rh = (files) => runnerHash(Object.keys(files), (f) => files[f], (f) => (f in files ? contentHash(files[f]) : null));
+  const mt = SYN['scripts/mutationtest.mjs'];
+  ok(rh(SYN) === rh({ ...SYN, 'scripts/mutationtest.mjs': mt.replace("{ name: 'a' }", "{ name: 'b' }") })
+    && rh(SYN) !== rh({ ...SYN, 'scripts/mutationtest.mjs': mt.replace('run();', 'run(2);') })
+    && rh(SYN) !== rh({ ...SYN, 'scripts/tap.mjs': 'export const ok = 2;\n' }),
+  '受影響 D12 執行器的雜湊：只改突變清單不算執行器改了；改清單以外的程式、或它 import 的檔，算');
+  let maskThrew = false; try { maskMutations('沒有清單'); } catch { maskThrew = true; }
+  ok(maskThrew, '受影響 D12b 找不到突變清單的頭尾 → 丟錯（不默默用整份或空字串）');
+
+  // 要不要重跑
+  const cur = { defHash: 'd', depHash: 'p', runnerHash: 'r' };
+  const last = (x) => ({ last: { date: '2026-10-01', commit: 'abc1234', mode: 'affected', counted: true, red: true, defHash: 'd', depHash: 'p', runnerHash: 'r', ...x } });
+  eq([rerunReasons(undefined, cur), rerunReasons(last({}), cur)], [[RERUN.NEVER], []], '受影響 D13a 從沒跑過 → 跑；什麼都沒變、上次紅 → 沿用');
+  eq(rerunReasons(last({ depHash: 'old' }), cur), [RERUN.DEP], '受影響 D13b 依賴範圍改了 → 跑');
+  eq(rerunReasons(last({ defHash: 'old' }), cur), [RERUN.DEF], '受影響 D13c 突變本身改了 → 跑');
+  eq(rerunReasons(last({ runnerHash: 'old' }), cur), [RERUN.RUNNER], '受影響 D13d 執行器改了 → 跑');
+  eq(rerunReasons(last({ counted: false, red: false }), cur), [RERUN.UNCOUNTED], '受影響 D13e 上次不算數 → 跑');
+  eq(rerunReasons(last({ red: false }), cur), [RERUN.NOT_RED], '受影響 D13f 上次沒紅 → 跑');
+  eq(rerunReasons(last({ defHash: null, depHash: null, runnerHash: null }), cur), [RERUN.NO_HASH], '受影響 D13g 上次沒記雜湊（從舊名單轉進來的）→ 跑');
+
+  // 整套收齊、從沒全跑過
+  const curOfN = () => cur;
+  const full = (x) => ({ last: { date: '2026-10-01', commit: 'abc1234', mode: 'full', counted: true, red: true, defHash: 'd', depHash: 'p', runnerHash: 'r', ...x } });
+  const L = { entries: { a: full({}), b: full({}) } };
+  eq([fullComplete(['a', 'b'], L, 'abc1234', curOfN).complete, fullComplete(['a', 'b', 'c'], L, 'abc1234', curOfN).missing],
+    [true, ['c']], '受影響 D14a 每一條都在這個 commit 上算數地跑過 → 收齊；少一條 → 沒收齊，並點名');
+  eq([fullComplete(['a', 'b'], L, 'other99', curOfN).complete, fullComplete(['a'], { entries: { a: full({ counted: false }) } }, 'abc1234', curOfN).complete, fullComplete([], L, 'abc1234', curOfN).complete],
+    [false, false, false], '受影響 D14b 別的 commit、不算數、清單是空的 → 都不算收齊');
+  const led = emptyLedger();
+  recordRun(led, 'x', { ...last({}).last, mode: 'affected' });
+  recordRun(led, 'y', { ...full({}).last, mode: 'never-full' });
+  recordRun(led, 'z', { ...full({ counted: false, red: false }).last });
+  eq(neverFullNames(['x', 'y', 'z', 'w'], led), ['x', 'z', 'w'], '受影響 D15 只有整套或補跑、而且算數的，才記成「在整套裡跑過」');
+  eq([ledgerProblems(led), ledgerProblems({ entries: { q: { last: { date: '昨天', commit: 'abc1234', red: true } } } }).length > 0],
+    [[], true], '受影響 D15b 帳本格式檢查：正常的沒有問題、日期看不懂的抓得到');
+  eq([lastFullNotInLedger(['y'], led), lastFullNotInLedger(['y', 'x'], led)], [[], ['x']],
+    '受影響 D15c 上次整套名單上的，帳本都要有 lastFull：對得上 → 空；少了 → 點名（sincefull 遇到就停）');
+
+  // 真實 repo：每一條突變都算得出範圍，範圍裡一定有它自己的目標檔與測試檔；三種範圍都真的出現
+  const mutations = loadMutations(fs.readFileSync(path.join(ROOT, 'scripts/mutationtest.mjs'), 'utf8')) ?? [];
+  const tracked = execFileSync('git', ['-c', 'core.quotepath=off', 'ls-files', '-c', '-o', '--exclude-standard', '-z'], { cwd: ROOT, encoding: 'utf8' }).split('\0').filter(Boolean);
+  const realSrc = new Map();
+  const readReal = (f) => { if (!realSrc.has(f)) realSrc.set(f, fs.readFileSync(path.join(ROOT, f), 'utf8')); return realSrc.get(f); };
+  const scopes = mutations.map((m) => ({ m, sc: scopeFor(m, tracked, readReal) }));
+  everyOf(scopes, ({ m, sc }) => sc.files.has(m.file) && sc.files.has(`scripts/${m.test}.mjs`) && !sc.files.has(LEDGER_FILE),
+    `受影響 D17 真實 repo：${scopes.length} 條突變的範圍都含它的目標檔與測試檔、都不含帳本`);
+  const kinds = new Set(scopes.map(({ sc }) => sc.kind));
+  ok(['node', 'browser', 'repo'].every((k) => kinds.has(k)), `（前提）真實 repo 裡三種範圍都有：${[...kinds].join('、')}`);
+  ok(fs.existsSync(path.join(ROOT, LEDGER_FILE)) && ledgerProblems(JSON.parse(fs.readFileSync(path.join(ROOT, LEDGER_FILE), 'utf8'))).length === 0,
+    `受影響 D17b 帳本 ${LEDGER_FILE} 在、讀得懂`);
+}
+
+section('只跑受影響的突變：從真實入口（mutationtest --affected 在暫存 git repo 裡連跑三次）');
+{
+  // 暫存 git repo：scripts/ 的複本＋一支探針測試＋一條指向它的突變。第一次要跑（從沒跑過）、第二次沿用、
+  // 改了探針測試 import 的檔之後第三次要跑、只改 docs/ 的第四次沿用。
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-aff-'));
+  try {
+    fs.mkdirSync(path.join(root, 'scripts')); fs.mkdirSync(path.join(root, 'js')); fs.mkdirSync(path.join(root, 'docs'));
+    for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) {
+      if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(root, 'scripts', f));
+    }
+    fs.copyFileSync(path.join(ROOT, 'js/version.js'), path.join(root, 'js/version.js'));
+    fs.writeFileSync(path.join(root, 'js/affdep.js'), 'export const V = 1;\n');
+    fs.writeFileSync(path.join(root, 'scripts/afftarget.mjs'), "export const BROKEN = false;\nexport { V } from '../js/affdep.js';\n");
+    fs.writeFileSync(path.join(root, 'scripts/affprobe.mjs'), "import { ok, done } from './tap.mjs';\nimport { BROKEN } from './afftarget.mjs';\nok(!BROKEN, 'AFF 探針');\ndone('affprobe');\n");
+    fs.writeFileSync(path.join(root, 'docs/note.md'), 'note\n');
+    const mtFile = path.join(root, 'scripts/mutationtest.mjs');
+    const src = fs.readFileSync(mtFile, 'utf8');
+    const a0 = src.indexOf('const MUTATIONS = [\n'); const a1 = src.indexOf('\n];\n', a0);
+    const mut = 'const MUTATIONS = [\n  { name: "AFF探針", why: "x", file: "scripts/afftarget.mjs", find: "export const BROKEN = false;", replace: "export const BROKEN = true;", test: "affprobe", expect: "AFF 探針" },';
+    const setUp = a0 >= 0 && a1 > a0;
+    if (setUp) fs.writeFileSync(mtFile, src.slice(0, a0) + mut + src.slice(a1));
+    const g = (...a) => execFileSync('git', ['-C', root, '-c', 'user.name=probe', '-c', 'user.email=probe@users.noreply.github.com', ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    g('init', '-q'); g('add', '-A'); g('commit', '-q', '-m', 'probe');
+    ok(setUp && !fs.existsSync(path.join(root, LEDGER_FILE)), '（前提）暫存 git repo 造好了：突變清單換成那一條、還沒有帳本');
+    const env = { ...process.env }; delete env.MM_AUDIT; delete env.MM_AUDIT_OUT; delete env.MM_LEDGER;
+    const run = () => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--affected'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } };
+    const r1 = run();
+    const led1 = fs.existsSync(path.join(root, LEDGER_FILE)) ? JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8')) : null;
+    ok(r1.code === 0 && r1.out.includes('選了 1 條突變') && led1?.entries?.['AFF探針']?.last?.red === true,
+      `受影響 D18a 第一次（從沒跑過）→ 跑了那一條、紅了、帳本記下來（回 ${r1.code}）`);
+    const r2 = run();
+    ok(r2.code === 0 && r2.out.includes('選了 0 條突變') && r2.out.includes('沿用上次結果 1 條'), `受影響 D18b 第二次什麼都沒改 → 沿用、0 條要跑（回 ${r2.code}）`);
+    fs.writeFileSync(path.join(root, 'js/affdep.js'), 'export const V = 2;\n');
+    const r3 = run();
+    ok(r3.code === 0 && r3.out.includes('選了 1 條突變') && r3.out.includes(`${RERUN.DEP} 1 條`), `受影響 D18c 改了探針間接 import 的檔 → 要跑，理由是「${RERUN.DEP}」（回 ${r3.code}）`);
+    fs.writeFileSync(path.join(root, 'docs/note.md'), 'changed\n');
+    const r4 = run();
+    ok(r4.code === 0 && r4.out.includes('選了 0 條突變'), `受影響 D18d 只改 docs/（不在範圍裡）→ 沿用（回 ${r4.code}）`);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+  ok(!fs.existsSync(root), '受影響 D18（清理）暫存 git repo 用完刪掉了');
 }
 
 done('doctest');

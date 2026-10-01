@@ -13,8 +13,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadContext, buildRecipes, summarize, outputFor } from './build-recipes.mjs';
-import { validateRecipe, USER_DEFAULT_STEP, tagsOfFood, proteinGroupOf, PROCESSED_CATS, HIGH_PROTEIN_PER_100G, HIGH_PROTEIN_PER_SERVING } from '../js/recipeschema.js';
-import { fitsDiet, versionFor } from '../js/members.js';
+import { validateRecipe, USER_DEFAULT_STEP, tagsOfFood, proteinGroupOf, PROCESSED_CATS, HIGH_PROTEIN_PER_100G, HIGH_PROTEIN_PER_SERVING, foodTagStatus, recipeTagStatus, TAG_STATUS } from '../js/recipeschema.js';
+import { fitsDiet, versionFor, dietFromFlags } from '../js/members.js';
 import { proteinDishMatch, starFoods } from '../js/planner.js';
 import { estimate } from '../js/nutrition.js';
 
@@ -646,6 +646,47 @@ section('高蛋白質食材的輪替群組 highprotein（2026-09-23，SPEC_高�
     `（母體）用到菇（含乾香菇）、穀物（麵、飯）、芝麻、花生的菜 ${g4Control.length} 道`);
   noneOf(g4Control, (r) => r.proteins.includes('highprotein'), 'G4（對照）乾香菇、芝麻、花生、麵條、飯的菜都沒有 highprotein',
     g4Control.filter((r) => r.proteins.includes('highprotein')).map((r) => r.name).join('、'));
+}
+
+section('蛋奶五辛的三態：推不出來的不得回答「不含」（2026-10-01，Dispatch）');
+{
+  // 只驗查詢層。排菜與畫面照舊用 tagsOfFood（行為不變），要不要依三態改排法等 Yolin 決定。
+  const TAGS = { egg: ['X-EGG'], meat: ['X-PROC-MEAT'] };
+  const proc = { id: 'X-PROC', cat: '加工調理食品及其他類', name: '合成：沒標的加工品' };
+  const procMeat = { id: 'X-PROC-MEAT', cat: '加工調理食品及其他類', name: '合成：標了肉的加工品' };
+  const veg = { id: 'X-VEG', cat: '蔬菜類', name: '合成：沒標的蔬菜' };
+  const egg = { id: 'X-EGG', cat: '蔬菜類', name: '合成：標了蛋的' };
+  const drink = { id: 'X-DRINK', cat: '飲料類', name: '合成：沒標的飲料' };
+  const newCat = { id: 'X-NEW', cat: '合成：資料裡沒見過的分類', name: '合成：新分類' };
+  eq(foodTagStatus(proc, TAGS, 'egg'), TAG_STATUS.UNKNOWN, '三態 T1：沒標的加工品對蛋是「推不出來」，不是「不含」');
+  eq(foodTagStatus(veg, TAGS, 'egg'), TAG_STATUS.INFERRED_NO, '三態 T2：沒標的單一原料食物對蛋是「推斷不含」');
+  eq([foodTagStatus(egg, TAGS, 'egg'), foodTagStatus(procMeat, TAGS, 'meat')], [TAG_STATUS.YES, TAG_STATUS.YES], '三態 T3：標了的（不論分類）是「含」');
+  eq([foodTagStatus(drink, TAGS, 'dairy'), foodTagStatus(newCat, TAGS, 'allium')], [TAG_STATUS.UNKNOWN, TAG_STATUS.UNKNOWN],
+    '三態 T4：飲料類、資料裡沒見過的分類，沒標＝推不出來（登記制：只有登記為單一原料的分類才推斷不含）');
+  eq(foodTagStatus(null, TAGS, 'egg'), TAG_STATUS.UNKNOWN, '三態 T5：查不到的食材是「推不出來」');
+
+  const byId = new Map([proc, procMeat, veg, egg, drink, newCat].map((f) => [f.id, f]));
+  const dish = { ingredients: [{ food: 'X-VEG', track: 'base' }, { food: 'X-PROC', track: 'veg' }, { food: 'X-EGG', track: 'meat' }] };
+  const vSide = recipeTagStatus(dish, byId, TAGS, 'egg', 'veg');
+  eq([vSide.status, vSide.unknown], [TAG_STATUS.UNKNOWN, ['X-PROC']], '三態 T6：素那一邊有一樣推不出來 → 整道「推不出來」，並列出是哪一樣');
+  const onlyVegs = { ingredients: [{ food: 'X-VEG', track: 'base' }, { food: 'X-PROC', track: 'meat' }] };
+  eq([recipeTagStatus(onlyVegs, byId, TAGS, 'egg', 'veg').status, recipeTagStatus(onlyVegs, byId, TAGS, 'egg', 'meat').status],
+    [TAG_STATUS.INFERRED_NO, TAG_STATUS.UNKNOWN], '三態 T6b：葷那一軌的食材不算進素那一邊、算進葷那一邊');
+  eq(recipeTagStatus(dish, byId, TAGS, 'egg', 'meat').status, TAG_STATUS.YES, '三態 T7：有一樣含 → 整道「含」（含比推不出來優先）');
+
+  // 真實資料：現在會排給全素家人的內建菜裡，素那一邊用到沒標的加工品的——查詢時一道都不得回答「推斷不含」。
+  const vegan = dietFromFlags({ egg: false, dairy: false, allium: true });
+  const servedVegan = recipes.filter((r) => versionFor(r, vegan) !== null);
+  const withUntaggedProc = servedVegan.filter((r) => r.ingredients.some((ing) => {
+    if ((ing.track ?? 'base') === 'meat') return false;
+    const f = idx.byId.get(ing.food);
+    return f && PROCESSED_CATS.has(f.cat) && !['egg', 'dairy', 'allium'].some((t) => tagsOfFood(f, ctx.foodTags).has(t));
+  }));
+  ok(withUntaggedProc.length >= 100, `（前提）現在排給全素家人的內建菜 ${servedVegan.length} 道裡，素那一邊用到沒標蛋奶五辛的加工品的有 ${withUntaggedProc.length} 道（≥ 100；2026-10-01 實測 139）`);
+  for (const tag of ['egg', 'dairy', 'allium']) {
+    noneOf(withUntaggedProc, (r) => recipeTagStatus(r, idx.byId, ctx.foodTags, tag, 'veg').status === TAG_STATUS.INFERRED_NO,
+      `三態 T8：這些菜查「${tag}」，沒有一道回答「推斷不含」`);
+  }
 }
 
 done('recipetest');

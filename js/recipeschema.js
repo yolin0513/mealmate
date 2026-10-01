@@ -75,6 +75,45 @@ export function tagsOfFood(food, foodTags) {
   return out;
 }
 
+// ---- 「含不含」的三態（2026-10-01，Dispatch：「程式推不出來」和「推出來是否定的」要在資料層分開）----
+// tagsOfFood 只回答「有哪些標籤」；沒有某個標籤時，分不出是「推斷不含」還是「根本沒資料」——兩者在排菜時都當成「不含」。
+// 這裡**只讓狀態查得到，不改任何行為**：排菜、畫面照舊用 tagsOfFood。要不要依這個狀態改排法，等 Yolin 決定。
+/**
+ * 單一原料的食物類別（食藥署按「這是什麼食物」分的類）：沒有某個標籤＝**程式推斷**不含（不是有人逐項確認過）。
+ * 其他分類（加工調理食品、糕餅點心、調味料、飲料、油脂、糖，以及資料裡出現的新分類）可能由好幾種原料組成，
+ * 沒標＝**推不出來**。油脂類放這邊：人造奶油、酥油的成分看名稱看不出有沒有奶；分不出來的不硬塞一邊（同 SPEC_食材搜尋排序）。
+ */
+export const SINGLE_FOOD_CATS = new Set(['穀物類', '澱粉類', '堅果及種子類', '水果類', '蔬菜類', '藻類', '菇類', '豆類', '肉類', '魚貝類', '蛋類', '乳品類']);
+/** 三態的值：含／推斷不含／推不出來。「推斷不含」不叫「不含」——它是推的，不是確認過的。 */
+export const TAG_STATUS = { YES: 'yes', INFERRED_NO: 'inferred-no', UNKNOWN: 'unknown' };
+
+/** 一樣食材對某個標籤（meat、egg、dairy、allium…）的狀態。查不到食材（null）＝推不出來。 */
+export function foodTagStatus(food, foodTags, tag) {
+  if (!food) return TAG_STATUS.UNKNOWN;
+  if (tagsOfFood(food, foodTags).has(tag)) return TAG_STATUS.YES;
+  return SINGLE_FOOD_CATS.has(food.cat) ? TAG_STATUS.INFERRED_NO : TAG_STATUS.UNKNOWN;
+}
+
+/**
+ * 一道菜「素食家人吃的那一邊」（side 'veg'：track 不是 meat 的食材）或「葷的那一邊」（side 'meat'：track 不是 veg 的）對某個標籤的狀態。
+ * 任何一樣含 → 含；沒有含、但有任何一樣推不出來 → 推不出來（並列出是哪幾樣）；全部推斷不含 → 推斷不含。
+ * byId：食材編號 → 食材（foods 索引的 byId）。只看食材資料；使用者自己確認過的推翻（vegModeConfirmed）不在這裡。
+ */
+export function recipeTagStatus(recipe, byId, foodTags, tag, side = 'veg') {
+  const skip = side === 'veg' ? 'meat' : 'veg';
+  const yes = []; const unknown = [];
+  for (const ing of recipe?.ingredients ?? []) {
+    if ((ing.track ?? 'base') === skip) continue;
+    const f = ing.food ? byId.get(ing.food) ?? null : null;
+    const s = foodTagStatus(f, foodTags, tag);
+    const who = f?.id ?? String(ing.label ?? ing.food ?? '');
+    if (s === TAG_STATUS.YES) yes.push(who);
+    else if (s === TAG_STATUS.UNKNOWN) unknown.push(who);
+  }
+  const status = yes.length ? TAG_STATUS.YES : unknown.length ? TAG_STATUS.UNKNOWN : TAG_STATUS.INFERRED_NO;
+  return { status, yes, unknown };
+}
+
 /** 主要蛋白質來源（給週計畫的蛋白質輪替用）。從食藥署的正式名稱推，蛋類先判斷免得「雞蛋」被算成雞。 */
 export function proteinGroupOf(food, tags) {
   if (tags.has('egg')) return 'egg';

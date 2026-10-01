@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { LEDGER_FILE, ledgerProblems } from './depgraph.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -117,6 +118,25 @@ export function writeLastFull(file, { date, version, names }) {
   fs.writeFileSync(file, `${JSON.stringify({ date, version, note, names }, null, 1)}\n`, 'utf8');
 }
 
+// 每條突變的帳本（scripts/depgraph.mjs）。讀不到、讀不懂就丟錯——不當成「全部都沒跑過」或「全部都跑過」。
+export function readLedger(root = ROOT) {
+  const file = path.join(root, LEDGER_FILE);
+  if (!fs.existsSync(file)) throw new Error(`找不到 ${LEDGER_FILE}`);
+  const j = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const problems = ledgerProblems(j);
+  if (problems.length) throw new Error(`${LEDGER_FILE}：${problems.slice(0, 3).join('、')}`);
+  return j;
+}
+
+/** 帳本裡有 lastFull（在整套或補跑裡算數地跑過）的名稱 */
+export function namesWithFull(ledger) {
+  return Object.keys(ledger?.entries ?? {}).filter((n) => ledger.entries[n]?.lastFull);
+}
+/** 上次整套名單上、帳本卻沒有 lastFull 的（兩份對不上）：回名稱陣列，空的＝對得上 */
+export function lastFullNotInLedger(lastFullNames, ledger) {
+  return neverRunNames(lastFullNames, namesWithFull(ledger));
+}
+
 export function currentVersion(root = ROOT) {
   return /APP_VERSION = '([^']+)'/.exec(fs.readFileSync(path.join(root, 'js/version.js'), 'utf8'))?.[1] ?? null;
 }
@@ -181,7 +201,13 @@ function main() {
   }
   const parsed = parseCheckLines(fs.readFileSync(path.join(ROOT, 'docs/STATUS.md'), 'utf8'));
   const today = new Date();
-  const missing = neverRunNames(current, readLastFull().names);
+  // 從沒在整套裡跑過的：2026-10-01 起看每條突變的帳本（scripts/mutation-ledger.json 的 lastFull），不只看上次整套的名單。
+  // 兩份要對得上：上次整套名單上的每一條，帳本都要有 lastFull——對不上就停（檢查器壞了，不是 0 條）。
+  const ledger = readLedger();
+  const withFull = namesWithFull(ledger);
+  const notInLedger = lastFullNotInLedger(readLastFull().names, ledger);
+  if (notInLedger.length) throw new Error(`${LASTFULL_FILE} 上有 ${notInLedger.length} 條在帳本裡沒有 lastFull（例如「${notInLedger[0]}」）——兩份對不上`);
+  const missing = neverRunNames(current, withFull);
   const never = missing.length;
   const versMut = versionsSince(parsed.mut.version);
   const lines = reminderLines(parsed, {
@@ -192,8 +218,19 @@ function main() {
   if (over) console.log(over);
   for (const l of lines) console.log(l);
   if (process.argv.includes('--list')) {
-    console.log(`\n從未整套跑過的 ${never} 條（不在 ${LASTFULL_FILE} 上）：`);
-    for (const n of missing) console.log(`  · ${n}`);
+    console.log(`\n從未整套跑過的 ${never} 條（帳本 ${LEDGER_FILE} 裡沒有 lastFull）：`);
+    for (const n of missing) {
+      const l = ledger.entries[n]?.last;
+      console.log(`  · ${n}${l ? `（最近一次：${l.date}、${l.commit}、${l.mode}、${l.red ? '紅' : '沒紅'}）` : '（帳本裡沒有任何紀錄）'}`);
+    }
+  }
+  // 每一條突變：上次在整套裡跑過是什麼時候、哪個 commit、紅了沒（Yolin 2026-10-01 新規則第 4 條）
+  if (process.argv.includes('--each')) {
+    console.log('\n每一條突變上次在整套（或補跑）裡跑過：');
+    for (const n of current) {
+      const f = ledger.entries[n]?.lastFull;
+      console.log(`  · ${n}：${f ? `${f.date}、${f.commit}、${f.mode}、${f.red ? '紅' : '沒紅'}` : '從沒跑過'}`);
+    }
   }
 }
 

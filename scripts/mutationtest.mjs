@@ -17,8 +17,24 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, note } from './tap.mjs';
 import { runProgram, KIND_LABELS, UNCOUNTED_KINDS } from './runkind.mjs';
 import { shouldRecordFull, writeLastFull, LASTFULL_FILE, taiwanToday, currentVersion } from './sincefull.mjs';
+import { execFileSync } from 'node:child_process';
+import {
+  LEDGER_FILE, contentHash, scopeFor, scopeHash, mutationDefHash, runnerHash, rerunReasons,
+  emptyLedger, ledgerProblems, recordRun, neverFullNames, fullComplete, doneAt,
+} from './depgraph.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+
+// 不是 git repo 時的檔案清單（doctest 的暫存複本）：照目錄走，跳過 node_modules、.git、.logs
+function walkFiles(root, rel = '') {
+  const out = [];
+  for (const d of fs.readdirSync(path.join(root, rel), { withFileTypes: true })) {
+    if (['node_modules', '.git', '.logs'].includes(d.name)) continue;
+    const r = rel ? `${rel}/${d.name}` : d.name;
+    if (d.isDirectory()) out.push(...walkFiles(root, r)); else out.push(r);
+  }
+  return out;
+}
 
 const MUTATIONS = [
   {
@@ -4200,6 +4216,305 @@ const MUTATIONS = [
     test: "plannertest",
     expect: "B-T5 可分流的「包子配豆漿」在全家全素的家庭也排得到",
   },
+  // ---- 2026-10-01 蛋奶五辛的三態（Dispatch：推不出來的不得回答「不含」）----
+  {
+    name: "三態：沒標的一律回答推斷不含（回到分不出來的樣子）",
+    why: "沒標的加工品被當成「不含蛋奶五辛」，這正是要分開的那兩種；分不出來，就答不出 139 道裡哪幾道只是沒資料。",
+    file: "js/recipeschema.js",
+    find: "  return SINGLE_FOOD_CATS.has(food.cat) ? TAG_STATUS.INFERRED_NO : TAG_STATUS.UNKNOWN;",
+    replace: "  return TAG_STATUS.INFERRED_NO;",
+    test: "recipetest",
+    expect: "三態 T1：",
+  },
+  {
+    name: "三態：改成排除制（只有加工品類算推不出來）",
+    why: "排除制每多一個分類就要有人記得補；飲料、油脂、資料裡新出現的分類會默默變成「推斷不含」。",
+    file: "js/recipeschema.js",
+    find: "  return SINGLE_FOOD_CATS.has(food.cat) ? TAG_STATUS.INFERRED_NO : TAG_STATUS.UNKNOWN;",
+    replace: "  return PROCESSED_CATS.has(food.cat) ? TAG_STATUS.UNKNOWN : TAG_STATUS.INFERRED_NO;",
+    test: "recipetest",
+    expect: "三態 T4：",
+  },
+  {
+    name: "三態：查不到的食材回答推斷不含",
+    why: "使用者自己的菜可以有查不到的食材；那是最標準的「沒資料」。",
+    file: "js/recipeschema.js",
+    find: "  if (!food) return TAG_STATUS.UNKNOWN;",
+    replace: "  if (!food) return TAG_STATUS.INFERRED_NO;",
+    test: "recipetest",
+    expect: "三態 T5：",
+  },
+  {
+    name: "三態：整道菜忽略推不出來的那幾樣",
+    why: "一道菜只要有一樣推不出來，整道就不能說「推斷不含」；忽略的話，139 道會被說成大多安全。",
+    file: "js/recipeschema.js",
+    find: "  const status = yes.length ? TAG_STATUS.YES : unknown.length ? TAG_STATUS.UNKNOWN : TAG_STATUS.INFERRED_NO;",
+    replace: "  const status = yes.length ? TAG_STATUS.YES : TAG_STATUS.INFERRED_NO;",
+    test: "recipetest",
+    expect: "三態 T6：",
+  },
+  {
+    name: "三態：素那一邊看錯軌（看了葷那一軌）",
+    why: "素食家人吃的是 base＋veg 兩軌；看錯軌的話，葷軌的加工品會讓素版被判成推不出來，素軌的反而沒看到。",
+    file: "js/recipeschema.js",
+    find: "  const skip = side === 'veg' ? 'meat' : 'veg';",
+    replace: "  const skip = side === 'veg' ? 'veg' : 'meat';",
+    test: "recipetest",
+    expect: "三態 T6b：",
+  },
+  {
+    name: "三態：推不出來蓋過含",
+    why: "有一樣確定含蛋的菜，回答應該是「含」；被說成「推不出來」會讓已經確定的事變模糊。",
+    file: "js/recipeschema.js",
+    find: "  const status = yes.length ? TAG_STATUS.YES : unknown.length ? TAG_STATUS.UNKNOWN : TAG_STATUS.INFERRED_NO;",
+    replace: "  const status = unknown.length ? TAG_STATUS.UNKNOWN : yes.length ? TAG_STATUS.YES : TAG_STATUS.INFERRED_NO;",
+    test: "recipetest",
+    expect: "三態 T7：",
+  },
+  // ---- 2026-10-01 只跑受影響的突變：分類的對照組（scripts/depgraph.mjs；Yolin：分類弄錯必須被偵測到）----
+  {
+    name: "依賴範圍：import 只走一層、不遞迴",
+    why: "測試 import a.js、a.js 再 import b.js：只走一層的話改了 b.js 不會重跑，這條突變的結果被沿用、其實早就不對了。",
+    file: "scripts/depgraph.mjs",
+    find: "      if (has(target) && !seen.has(target)) stack.push(target);",
+    replace: "      if (has(target) && !seen.has(target)) seen.add(target);",
+    test: "doctest",
+    expect: "受影響 D1 ",
+  },
+  {
+    name: "依賴範圍：什麼檔都算進去（跳過永遠不會發生）",
+    why: "從寬過頭也是一種壞法：每條都要重跑，「只跑受影響的」名存實亡、又回到每次都全跑。",
+    file: "scripts/depgraph.mjs",
+    find: "    if (ALWAYS_FILES.includes(f) || ALWAYS_PREFIXES.some((p) => f.startsWith(p))) out.add(f);",
+    replace: "    out.add(f);",
+    test: "doctest",
+    expect: "受影響 D2 ",
+  },
+  {
+    name: "依賴範圍：data/ 不再一律算進去",
+    why: "測試大多讀 data/ 底下的檔；不算進去的話，改了食材或食譜資料，依賴它的突變照樣沿用上次結果。",
+    file: "scripts/depgraph.mjs",
+    find: "export const ALWAYS_PREFIXES = ['data/'];",
+    replace: "export const ALWAYS_PREFIXES = [];",
+    test: "doctest",
+    expect: "受影響 D3 ",
+  },
+  {
+    name: "依賴範圍：package-lock.json 不再算進去",
+    why: "套件升版（puppeteer、node 相依）可能改變測試結果；lock 檔不算進去就看不到。",
+    file: "scripts/depgraph.mjs",
+    find: "export const ALWAYS_FILES = ['package.json', 'package-lock.json'];",
+    replace: "export const ALWAYS_FILES = ['package.json'];",
+    test: "doctest",
+    expect: "受影響 D4 ",
+  },
+  {
+    name: "依賴範圍：寫死路徑的讀檔不收",
+    why: "測試讀的那個檔改了卻不算進範圍；而且路徑全都變成「寫不死」，每支測試都退回整個 repo。",
+    file: "scripts/depgraph.mjs",
+    find: "    if (j) literals.push(",
+    replace: "    if (false) literals.push(",
+    test: "doctest",
+    expect: "受影響 D5 ",
+  },
+  {
+    name: "依賴範圍：認不出瀏覽器測試",
+    why: "瀏覽器載了什麼看不出來；認不出的話，改了 css 或 index.html，畫面測試的突變照樣沿用。",
+    file: "scripts/depgraph.mjs",
+    find: "    if (usesBrowser(src)) browser = true;",
+    replace: "    void usesBrowser;",
+    test: "doctest",
+    expect: "受影響 D6 ",
+  },
+  {
+    name: "依賴範圍：判斷不出的不退回整個 repo",
+    why: "讀檔路徑寫不死時，測試可能讀任何一個檔；不退回整個 repo，就會把該跑的跳過。",
+    file: "scripts/depgraph.mjs",
+    find: "  if (reasons.length) return { kind: 'repo', files: repoAll(), reasons };",
+    replace: "  if (false) return { kind: 'repo', files: repoAll(), reasons };",
+    test: "doctest",
+    expect: "受影響 D7 ",
+  },
+  {
+    name: "依賴範圍：import( 接變數也當成看得出來",
+    why: "動態 import 接變數，載哪個檔要執行時才知道；當成看得出來就漏掉那個檔。",
+    file: "scripts/depgraph.mjs",
+    find: String.raw`const DYNAMIC_IMPORT_RX = /\bimport\(\s*(?!['"][^'"]+['"]\s*\))/g;`,
+    replace: "const DYNAMIC_IMPORT_RX = /(?!)/g;",
+    test: "doctest",
+    expect: "受影響 D8 ",
+  },
+  {
+    name: "依賴範圍：serve.mjs 不管是不是瀏覽器測試都放行",
+    why: "serve.mjs 讀的檔只有在瀏覽器測試裡由「整個 App」涵蓋；node 測試用到它卻放行，就沒有任何規則管它讀了什麼。",
+    file: "scripts/depgraph.mjs",
+    find: "  const reasons = opaque.filter((o) => !(browser && SUBSUMED_BY_BROWSER.has(o.f)))",
+    replace: "  const reasons = opaque.filter((o) => !(SUBSUMED_BY_BROWSER.has(o.f)))",
+    test: "doctest",
+    expect: "受影響 D9 ",
+  },
+  {
+    name: "依賴範圍：docs/ 裡有可 import 的檔也不退回整個 repo",
+    why: "「整個 App 不含 docs/」的前提之一是 docs/ 沒有程式或 JSON；有了，App 的動態 import 就可能讀到它，畫面測試會沿用過期的結果。",
+    file: "scripts/depgraph.mjs",
+    find: "    for (const f of docsModules) reasons.push(",
+    replace: "    for (const f of []) reasons.push(",
+    test: "doctest",
+    expect: "受影響 D10 ",
+  },
+  {
+    name: "依賴範圍：App 程式寫不死的載入只算它自己 import 的",
+    why: "store.js 的 fetch、router.js 的 import( 會載哪個檔要執行時才知道；不擴成整個 App，改了被載的那個檔也不會重跑。",
+    file: "scripts/depgraph.mjs",
+    find: "  const wholeApp = browser || appOpaque;",
+    replace: "  const wholeApp = browser;",
+    test: "doctest",
+    expect: "受影響 D19 ",
+  },
+  {
+    name: "serve.mjs 又會送 docs/",
+    why: "瀏覽器測試的範圍不含 docs/，靠的就是測試伺服器不送它；送了的話，App 一讀 docs/，畫面測試就沿用過期的結果。",
+    file: "scripts/serve.mjs",
+    find: "    if (path.relative(ROOT, full).split(path.sep)[0] === 'docs') {",
+    replace: "    if (false) {",
+    test: "doctest",
+    expect: "受影響 D20 ",
+  },
+  {
+    name: "依賴範圍：帳本檔也算進整個 repo",
+    why: "每跑完一條就寫一次帳本；帳本算進範圍的話，整個 repo 範圍的突變永遠都是「改過了」。",
+    file: "scripts/depgraph.mjs",
+    find: "  const repoAll = () => new Set([...all, m.file, testFile].filter((f) => f !== LEDGER_FILE));",
+    replace: "  const repoAll = () => new Set([...all, m.file, testFile]);",
+    test: "doctest",
+    expect: "受影響 D11 ",
+  },
+  {
+    name: "執行器的雜湊：沒拿掉突變清單",
+    why: "每加一條突變，全部的突變都變成「執行器改了」，每一版都等於全跑。",
+    file: "scripts/depgraph.mjs",
+    find: "  return s.slice(0, a0) + 'const MUTATIONS = [/* 由 mutationDefHash 管 */' + s.slice(a1);",
+    replace: "  return s;",
+    test: "doctest",
+    expect: "受影響 D12 執行器",
+  },
+  {
+    name: "執行器的雜湊：找不到突變清單也不停",
+    why: "找不到清單的頭尾時默默用整份或空字串，雜湊就不再代表執行器（§5.13：檢查器故障時停下）。",
+    file: "scripts/depgraph.mjs",
+    find: "  if (a0 < 0 || a1 < 0) throw new Error(",
+    replace: "  if (false) throw new Error(",
+    test: "doctest",
+    expect: "受影響 D12b",
+  },
+  {
+    name: "要不要重跑：依賴範圍改了也不跑",
+    why: "這是整套機制的核心：範圍裡的檔改了，上次的結果就不能沿用。",
+    file: "scripts/depgraph.mjs",
+    find: "  if (last.depHash && last.depHash !== cur.depHash) r.push(RERUN.DEP);",
+    replace: "  void cur.depHash;",
+    test: "doctest",
+    expect: "受影響 D13b",
+  },
+  {
+    name: "要不要重跑：突變本身改了也不跑",
+    why: "突變改了找什麼、換成什麼、由哪支測試驗，上次的結果驗的是另一條突變。",
+    file: "scripts/depgraph.mjs",
+    find: "  if (last.defHash && last.defHash !== cur.defHash) r.push(RERUN.DEF);",
+    replace: "  void cur.defHash;",
+    test: "doctest",
+    expect: "受影響 D13c",
+  },
+  {
+    name: "要不要重跑：執行器改了也不跑",
+    why: "執行器判斷紅不紅的邏輯改了（例如 2026-10-01 分清逾時），上次的「紅」是用舊邏輯判的。",
+    file: "scripts/depgraph.mjs",
+    find: "  if (last.runnerHash && last.runnerHash !== cur.runnerHash) r.push(RERUN.RUNNER);",
+    replace: "  void cur.runnerHash;",
+    test: "doctest",
+    expect: "受影響 D13d",
+  },
+  {
+    name: "要不要重跑：上次不算數也不跑",
+    why: "逾時、被殺、沒跑起來的那一次根本沒驗到；不重跑就永遠沒驗到。",
+    file: "scripts/depgraph.mjs",
+    find: "  if (last.counted === false) r.push(RERUN.UNCOUNTED);",
+    replace: "  if (false) r.push(RERUN.UNCOUNTED);",
+    test: "doctest",
+    expect: "受影響 D13e",
+  },
+  {
+    name: "要不要重跑：上次沒紅也不跑",
+    why: "上次沒紅＝防線沒在檢查東西；沿用的話這個洞就默默躺著。",
+    file: "scripts/depgraph.mjs",
+    find: "  else if (last.red !== true) r.push(RERUN.NOT_RED);",
+    replace: "  else void 0;",
+    test: "doctest",
+    expect: "受影響 D13f",
+  },
+  {
+    name: "要不要重跑：沒記雜湊的也沿用",
+    why: "從舊名單轉進來的那 442 條沒有雜湊；沿用的話，09-24 之後的改動都看不到。",
+    file: "scripts/depgraph.mjs",
+    find: "  if (!last.defHash || !last.depHash || !last.runnerHash) r.push(RERUN.NO_HASH);",
+    replace: "  void last;",
+    test: "doctest",
+    expect: "受影響 D13g",
+  },
+  {
+    name: "整套收齊：不看是不是同一個 commit",
+    why: "分段跑的等價條件之一是同一個 commit；不看的話，不同版本跑的段會被湊成「整套跑完」。",
+    file: "scripts/depgraph.mjs",
+    find: "  if (!l || commit === null || l.commit !== commit || !l.counted || !FULL_MODES.has(l.mode)) return false;",
+    replace: "  if (!l || commit === null || !l.counted || !FULL_MODES.has(l.mode)) return false;",
+    test: "doctest",
+    expect: "受影響 D14b",
+  },
+  {
+    name: "帳本：受影響、--only 的跑法也記成在整套裡跑過",
+    why: "「從沒在整套裡跑過」的清單會被平常的小跑法清空，覆蓋缺口就看不見了（那 44／50 條就是這樣躺著的）。",
+    file: "scripts/depgraph.mjs",
+    find: "  if (FULL_MODES.has(rec.mode) && rec.counted) e.lastFull = rec;",
+    replace: "  if (rec.counted) e.lastFull = rec;",
+    test: "doctest",
+    expect: "受影響 D15 ",
+  },
+  {
+    name: "帳本：日期看不懂也放行",
+    why: "帳本壞了要停，不是當成沒問題（§5.13）。",
+    file: "scripts/depgraph.mjs",
+    find: String.raw`      if (!/^\d{4}-\d{2}-\d{2}$/.test(r.date ?? '')) out.push(`,
+    replace: "      if (false) out.push(",
+    test: "doctest",
+    expect: "受影響 D15b",
+  },
+  {
+    name: "sincefull：上次整套名單和帳本對不上也不停",
+    why: "兩份紀錄漂開時，「從沒整套跑過」的條數就不可信；要停下來講明。",
+    file: "scripts/sincefull.mjs",
+    find: "  return neverRunNames(lastFullNames, namesWithFull(ledger));",
+    replace: "  return [];",
+    test: "doctest",
+    expect: "受影響 D15c",
+  },
+  {
+    name: "mutationtest --affected 不管理由一律全跑",
+    why: "真實入口：沒改任何東西時要沿用；一律全跑的話，機制形同虛設。",
+    file: "scripts/mutationtest.mjs",
+    find: "} else if (MODE === 'affected') {\n  SELECTED = MUTATIONS.filter((m) => { const r = rerunReasons(ledger.entries[m.name], curOf(m)); if (r.length) whyRun.set(m.name, r); return r.length > 0; });",
+    replace: "} else if (MODE === 'affected') {\n  SELECTED = MUTATIONS.filter((m) => { const r = rerunReasons(ledger.entries[m.name], curOf(m)); if (r.length) whyRun.set(m.name, r); return true; });",
+    test: "doctest",
+    expect: "受影響 D18b",
+  },
+  {
+    name: "mutationtest 不寫帳本",
+    why: "真實入口：跑完沒記下來，下一次就不知道哪些跑過、從沒跑過的也列不出來。",
+    file: "scripts/mutationtest.mjs",
+    find: "  if (!LEDGER_WRITABLE) return;\n  const tmp",
+    replace: "  return;\n  const tmp",
+    test: "doctest",
+    expect: "受影響 D18a",
+  },
 ];
 
 const only = (() => {
@@ -4207,8 +4522,18 @@ const only = (() => {
   return i >= 0 ? String(process.argv[i + 1] ?? '') : '';
 })();
 const onlyKeys = only ? only.split('|').map((k) => k.trim()).filter(Boolean) : [];
-const SELECTED = only ? MUTATIONS.filter((m) => [m.name, m.file, m.test].some((s) => onlyKeys.some((k) => s.includes(k)))) : MUTATIONS;
-const TESTS = [...new Set(SELECTED.map((m) => m.test))];
+// 跑法（2026-10-01，Yolin：平常只跑受影響的突變；全跑只在 Yolin 指定、較大的版本發布前、範圍判斷不出來時）
+//   不帶參數      整套。帳本裡「這個 commit 已經算數地跑過、雜湊也沒變」的跳過——中斷後再下同一個指令就是續跑。
+//   --affected    只跑受影響的：從沒跑過、突變本身改了、依賴範圍裡有檔案改了、執行器改了、上次沒紅或不算數（scripts/depgraph.mjs）
+//   --never-full  只跑從沒在整套（或補跑）裡跑過的
+//   --only <字>   照舊：名稱／檔名／測試名含關鍵字的
+//   --limit N     這一次最多跑 N 條（分段）；--dry-run 只列出會跑哪幾條、為什麼，不跑
+const argOf = (n) => { const i = process.argv.indexOf(n); return i >= 0 ? String(process.argv[i + 1] ?? '') : null; };
+const MODE_FLAGS = ['--affected', '--never-full'].filter((f) => process.argv.includes(f));
+const MODE = only ? 'only' : MODE_FLAGS[0] === '--affected' ? 'affected' : MODE_FLAGS[0] === '--never-full' ? 'never-full' : 'full';
+const LIMIT = argOf('--limit') === null ? null : Number(argOf('--limit'));
+const DRY = process.argv.includes('--dry-run');
+const LEDGER_PATH = process.env.MM_LEDGER ? path.resolve(process.env.MM_LEDGER) : path.join(ROOT, LEDGER_FILE);
 
 // 每支測試的逾時（分鐘）。assertaudit 要把整條測試鏈 26 支都跑一遍，2026-10-01 實測約 18 分鐘——
 // 原本一律 10 分鐘，它在基準段就被殺掉，指定由它驗的突變從來沒在整套裡跑過（輸出只剩開頭，看不出是逾時）。
@@ -4235,9 +4560,89 @@ function recoverPending() {
 section('前置');
 const recovered = recoverPending();
 if (recovered) note(`上一次被中斷，已還原 ${recovered}`);
+// 參數彼此衝突、--limit 不是正整數：停下來，不猜使用者要哪一種
+const argProblems = [];
+if (MODE_FLAGS.length > 1 || (only && MODE_FLAGS.length)) argProblems.push('--only、--affected、--never-full 只能選一個');
+if (LIMIT !== null && !(Number.isInteger(LIMIT) && LIMIT > 0)) argProblems.push('--limit 要接正整數');
+eq(argProblems, [], '參數沒有衝突');
+if (argProblems.length) { done('mutationtest'); process.exit(1); }
+
+// 雜湊一律在**還原之後、改壞任何檔之前**算（上面的 recoverPending 先跑）：算的是沒有突變的那一份
+const git = (args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+let COMMIT = null; let repoFiles = null;
+try {
+  COMMIT = git(['rev-parse', '--short=12', 'HEAD']).trim();
+  const dirty = git(['status', '--porcelain', '--untracked-files=no']).split('\n').filter((l) => l.trim() && !l.endsWith(LEDGER_FILE));
+  if (dirty.length) COMMIT += '+dirty';
+  repoFiles = git(['-c', 'core.quotepath=off', 'ls-files', '-c', '-o', '--exclude-standard', '-z']).split('\0').filter(Boolean);
+} catch { COMMIT = null; }
+if (!repoFiles) repoFiles = walkFiles(ROOT); // 不是 git repo（doctest 的暫存複本）：照目錄走，帳本不寫進檔案
+const fileHashCache = new Map();
+const fileHash = (rel) => {
+  if (!fileHashCache.has(rel)) {
+    const full = path.join(ROOT, rel);
+    fileHashCache.set(rel, fs.existsSync(full) && fs.statSync(full).isFile() ? contentHash(fs.readFileSync(full)) : null);
+  }
+  return fileHashCache.get(rel);
+};
+const srcCache = new Map();
+const readSrc = (rel) => { if (!srcCache.has(rel)) srcCache.set(rel, fs.readFileSync(path.join(ROOT, rel), 'utf8')); return srcCache.get(rel); };
+const RUNNER_HASH = runnerHash(repoFiles, readSrc, fileHash);
+const curCache = new Map();
+const curOf = (m) => {
+  if (!curCache.has(m.name)) {
+    const sc = scopeFor(m, repoFiles, readSrc);
+    curCache.set(m.name, { defHash: mutationDefHash(m, TEST_TIMEOUT_MIN[m.test] ?? null), depHash: scopeHash(sc.files, fileHash), runnerHash: RUNNER_HASH, scope: sc.kind, scopeReasons: sc.reasons });
+  }
+  return curCache.get(m.name);
+};
+const ledger = fs.existsSync(LEDGER_PATH) ? JSON.parse(fs.readFileSync(LEDGER_PATH, 'utf8')) : emptyLedger();
+const ledgerBad = ledgerProblems(ledger);
+eq(ledgerBad, [], `帳本 ${path.relative(ROOT, LEDGER_PATH)} 讀得懂`);
+if (ledgerBad.length) { done('mutationtest'); process.exit(1); }
+const LEDGER_WRITABLE = COMMIT !== null || !!process.env.MM_LEDGER;
+if (!LEDGER_WRITABLE) note('這裡不是 git repo：結果只記在記憶體裡，不寫帳本檔');
+function saveLedger() {
+  if (!LEDGER_WRITABLE) return;
+  const tmp = `${LEDGER_PATH}.tmp`;
+  fs.writeFileSync(tmp, `${JSON.stringify(ledger, null, 1)}\n`, 'utf8');
+  fs.renameSync(tmp, LEDGER_PATH);
+}
+
+const whyRun = new Map();
+let SELECTED;
+if (MODE === 'only') SELECTED = MUTATIONS.filter((m) => [m.name, m.file, m.test].some((s) => onlyKeys.some((k) => s.includes(k))));
+else if (MODE === 'never-full') {
+  const never = new Set(neverFullNames(MUTATIONS.map((m) => m.name), ledger));
+  SELECTED = MUTATIONS.filter((m) => never.has(m.name));
+} else if (MODE === 'affected') {
+  SELECTED = MUTATIONS.filter((m) => { const r = rerunReasons(ledger.entries[m.name], curOf(m)); if (r.length) whyRun.set(m.name, r); return r.length > 0; });
+} else {
+  // 整套：這個 commit 上已經算數地跑過、雜湊也沒變的跳過（續跑）
+  SELECTED = MUTATIONS.filter((m) => !doneAt(ledger.entries[m.name], COMMIT, curOf(m)));
+}
+const CANDIDATES = SELECTED.length;
+if (LIMIT !== null) SELECTED = SELECTED.slice(0, LIMIT);
+const TESTS = [...new Set(SELECTED.map((m) => m.test))];
 const missingTests = TESTS.filter((t) => !fs.existsSync(path.join(ROOT, 'scripts', `${t}.mjs`)));
 eq(missingTests, [], '每條突變指定的測試檔都存在');
-ok(SELECTED.length > 0, `選了 ${SELECTED.length} 條突變（共 ${MUTATIONS.length}）${only ? `，關鍵字「${only}」` : ''}`);
+const pickedLine = `選了 ${SELECTED.length} 條突變（共 ${MUTATIONS.length}）${only ? `，關鍵字「${only}」` : ''}；跑法 ${MODE}${LIMIT !== null ? `，這一段最多 ${LIMIT} 條（符合的有 ${CANDIDATES} 條）` : ''}`;
+// --only 對不到任何一條是打錯字（F1-11）；受影響／從沒全跑過／整套續跑選到 0 條，是「沒有要跑的」，不是錯
+if (MODE === 'only') ok(SELECTED.length > 0, pickedLine);
+else note(pickedLine);
+if (MODE === 'affected') {
+  const tally0 = {};
+  for (const r of whyRun.values()) for (const x of r) tally0[x] = (tally0[x] ?? 0) + 1;
+  note(`受影響的理由統計：${Object.entries(tally0).map(([k, v]) => `${k} ${v} 條`).join('、') || '（沒有）'}；沿用上次結果 ${MUTATIONS.length - CANDIDATES} 條`);
+}
+if (DRY) {
+  const scopes = {};
+  for (const m of MUTATIONS) { const k = curOf(m).scope; scopes[k] = (scopes[k] ?? 0) + 1; }
+  note(`依賴範圍的種類：${Object.entries(scopes).map(([k, v]) => `${k} ${v} 條`).join('、')}`);
+  for (const m of SELECTED) note(`會跑：【${m.test}】${m.name}${whyRun.has(m.name) ? `（${whyRun.get(m.name).join('、')}）` : ''}`);
+  done('mutationtest');
+  process.exit(0);
+}
 
 section('基準：沒有突變時全部要綠');
 let baselineOk = true;
@@ -4256,7 +4661,13 @@ if (baselineOk) {
     const full = path.join(ROOT, m.file);
     const original = fs.readFileSync(full, 'utf8');
     const count = original.split(m.find).length - 1;
+    const cur = curOf(m);
+    const record = (extra) => {
+      recordRun(ledger, m.name, { date: taiwanToday(), commit: COMMIT ?? '0000000', mode: MODE, defHash: cur.defHash, depHash: cur.depHash, runnerHash: cur.runnerHash, scope: cur.scope, ...extra });
+      saveLedger();
+    };
     if (count !== 1) {
+      record({ kind: 'stale', counted: true, red: false, seconds: 0 });
       ok(false, `【${m.test}】${m.name}`, `要改的程式碼在 ${m.file} 出現 ${count} 次（要剛好 1 次）—— 這條突變過期了`);
       continue;
     }
@@ -4274,6 +4685,7 @@ if (baselineOk) {
     // 測試沒有完整跑完（逾時、被殺、沒跑起來）：不能拿來判斷這條突變有沒有被抓到——不算紅、也不算綠，要重跑
     if (UNCOUNTED_KINDS.has(result.kind)) {
       tally.uncounted.push(m.name);
+      record({ kind: result.kind, counted: false, red: false, seconds: result.seconds });
       ok(false, `【${m.test}】${m.name}`, `不算數：${m.test} ${KIND_LABELS[result.kind]}（${result.seconds} 秒），這條突變沒有被驗到，要重跑${!restored ? `；而且 ${m.file} 沒有還原成功！` : ''}`);
       continue;
     }
@@ -4283,6 +4695,7 @@ if (baselineOk) {
     // expect（選填）：紅的一定要是這一條。改食譜檔或 foodtags.json 的突變一定會讓「recipes.json 是最新的」紅，
     // 只看有沒有紅的話，新斷言有沒有在檢查東西根本看不出來（2026-09-19 補早餐時發現）。
     const expectHit = !m.expect || result.out.split('\n').some((l) => l.includes('✗') && l.includes(m.expect));
+    record({ kind: result.kind, counted: true, red: !result.passed && expectHit && restored, seconds: result.seconds });
     ok(!result.passed && expectHit && restored, `【${m.test}】${m.name}`,
       !restored ? `${m.file} 沒有還原成功！`
         : result.passed ? `改壞之後 ${m.test} 居然還是綠的 —— 對應的斷言沒有在檢查東西。${m.why}`
@@ -4295,7 +4708,11 @@ if (baselineOk) {
 
 // 不帶 --only、每一條都跑到了 → 重寫「上次整套」的基準清單（docs/SPEC_sincefull_按名稱計數.md）。
 // 帶 --only、基準沒過、中途被殺掉，都不會走到這裡寫檔。分段補跑的由人確認後用 npm run sincefull -- --record-full。
-if (shouldRecordFull({ only, ran, total: MUTATIONS.length })) {
+// 分段跑（--limit、中斷後續跑）時，這一段的 ran 不會等於總數；改看帳本：每一條在這個 commit 上都算數地跑過、雜湊都是現在的，才算整套跑完
+// （scripts/depgraph.mjs fullComplete：少一條、雜湊對不上、不算數的，都不算）。
+const fc = MODE === 'full' && baselineOk ? fullComplete(MUTATIONS.map((m) => m.name), ledger, COMMIT, (n) => curOf(MUTATIONS.find((m) => m.name === n))) : { complete: false, missing: [] };
+if (MODE === 'full' && baselineOk && !fc.complete) note(`整套還沒收齊：這個 commit 上還有 ${fc.missing.length} 條沒有算數的結果（再下同一個指令會接著跑）`);
+if ((MODE === 'full' && shouldRecordFull({ only, ran, total: MUTATIONS.length })) || fc.complete) {
   writeLastFull(path.join(ROOT, LASTFULL_FILE), { date: taiwanToday(), version: currentVersion(ROOT), names: MUTATIONS.map((m) => m.name) });
   note(`整套完整跑完：已重寫 ${LASTFULL_FILE}（${MUTATIONS.length} 條）。記得把 STATUS「上次突變整套」那一行改成同樣的日期、版本、條數`);
 }
