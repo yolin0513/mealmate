@@ -13260,6 +13260,144 @@
     "scope": null,
     "migrated": "從 mutation-lastfull.json 轉入（2026-09-24 整套 442 條全紅，STATUS「上次突變整套」；那次沒有記雜湊）"
    }
+  },
+  "護欄：還原紀錄被移掉也照跑": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "a62cb689bd4a",
+    "mode": "only",
+    "defHash": "2a92eb7e796343d1971fe2806e974bb1d2b3a6d2e5312a8433b2bb20c5b6ccbb",
+    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
+    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 179
+   },
+   "lastFull": null
+  },
+  "護欄：帳本有未收尾的紀錄就一律拒絕（檔案已經是原樣也拒絕）": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "a62cb689bd4a",
+    "mode": "only",
+    "defHash": "9c6ca785b7f66ca2a263489aa43454742db2b547b492068f40ae7958b0530d78",
+    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
+    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 158
+   },
+   "lastFull": null
+  },
+  "護欄：不在帳本記開跑未完成": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "a62cb689bd4a",
+    "mode": "only",
+    "defHash": "c825d3aed2349e0756b402ff5457a90ecff1f35e1a4e99763c4f2f796c2ec5cd",
+    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
+    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 179
+   },
+   "lastFull": null
+  },
+  "護欄一：工作區不等於 HEAD 也照跑整套": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "a62cb689bd4a",
+    "mode": "only",
+    "defHash": "b61ec6c5550b51f5afcdb1c2ef8fced144768d30fff1994275d7893efc589acd",
+    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
+    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 250
+   },
+   "lastFull": null
+  },
+  "護欄一：--only 也要求工作區等於 HEAD": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "a62cb689bd4a",
+    "mode": "only",
+    "defHash": "5aa6267411cc4f11dba3d8bd926aea14091d983e231d574eb833501dbd0468d6",
+    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
+    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 169
+   },
+   "lastFull": null
+  },
+  "護欄一：--only 的目標檔已經是改壞後的樣子也照跑": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "a62cb689bd4a",
+    "mode": "only",
+    "defHash": "77bb2542def0e08594b046563a2ece37b1e01f59feaf8aa28308e76a99c824c9",
+    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
+    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 184
+   },
+   "lastFull": null
+  },
+  "護欄：「是不是原樣」逐位元組比（不統一行尾）": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "a62cb689bd4a",
+    "mode": "only",
+    "defHash": "93d3e68474c1fffcbd4c53c316cdc49196358e8a7927aa3b6ff0a0f8d06670fc",
+    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
+    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 179
+   },
+   "lastFull": null
+  },
+  "護欄：還原紀錄還在時照樣改第二支檔": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "a62cb689bd4a",
+    "mode": "only",
+    "defHash": "608d809df1e3c4cb0909daf27d46848451fd4508718aadb6fc11e14909e004e3",
+    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
+    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 189
+   },
+   "lastFull": null
   }
- }
+ },
+ "runSeq": 3,
+ "inflight": null
 }
