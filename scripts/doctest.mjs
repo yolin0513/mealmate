@@ -12,7 +12,7 @@ import os from 'node:os';
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
-import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX } from './checkmutations.mjs';
+import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX, whitespaceOnly } from './checkmutations.mjs';
 import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts, escapeScan } from './gatescan.mjs';
 import { selfcheck, gitEnvProblems } from './selfcheck.mjs';
 import { runProgram, classifyRun, UNCOUNTED_KINDS } from './runkind.mjs';
@@ -887,6 +887,36 @@ section('加工品待確認清單 ⇄ data/foodtags.json（2026-10-01 A 方案�
   ok(rows.length === 38 && rows.every((r) => /^[A-Z]\d{5,7}$/.test(r.id)), `（前提）表上 ${rows.length} 列（2026-10-01 列出的 38 種），每列都有食材編號`);
   const realFT = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foodtags.json'), 'utf8'));
   eq(decisionProblems(rows, realFT), [], `待確認 P8 真實資料：表上已填的決定（${rows.filter((r) => r.decision).length} 列）都已轉進 data/foodtags.json`);
+}
+
+section('只差空白或行尾的突變要被擋（2026-10-02 Dispatch；v11.3 §5.20：對照組用真實檔、從命令列、在 repo 的暫存 clone 裡跑）');
+{
+  eq([whitespaceOnly('a b', 'a  b'), whitespaceOnly('a;\n', 'a;\r\n'), whitespaceOnly('x;', 'x; '), whitespaceOnly('ab', 'a b'), whitespaceOnly('a', 'a')],
+    [true, true, true, false, false], 'WS1 判斷：多一個空白、換行改 CRLF、尾巴多空白 → 只差空白；ab 改 a b（會改變程式）、完全一樣 → 不算');
+  const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-ws-'));
+  try {
+    execFileSync('git', ['clone', '-q', ROOT, clone], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const cm = () => { try { return { code: 0, out: execFileSync(process.execPath, ['scripts/checkmutations.mjs'], { cwd: clone, encoding: 'utf8' }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') }; } };
+    const total = (loadMutations(fs.readFileSync(path.join(clone, 'scripts/mutationtest.mjs'), 'utf8')) ?? []).length;
+    const r0 = cm();
+    ok(r0.code === 0 && total > 500 && r0.out.includes(`WSCHECKED ${total}`) && r0.out.includes(`TOTAL ${total}`),
+      `WS2（反向）原樣的 clone：checkmutations 回 ${r0.code}、只差空白的檢查查了 ${(/WSCHECKED (\d+)/.exec(r0.out) ?? [])[1]} 條＝清單 ${total} 條，全部通過`);
+    // 樣本：真實檔（js/version.js）裡真實的一行，改壞後只在尾巴多一個空白
+    const line = fs.readFileSync(path.join(clone, 'js/version.js'), 'utf8').split('\n').find((l) => l.startsWith('export const APP_VERSION = '));
+    const mtFile = path.join(clone, 'scripts/mutationtest.mjs');
+    const src = fs.readFileSync(mtFile, 'utf8');
+    const entry = `const MUTATIONS = [\n  { name: "WS探針：只在尾巴多一個空白", why: "x", file: "js/version.js", find: ${JSON.stringify(line)}, replace: ${JSON.stringify(`${line} `)}, test: "doctest", expect: "WS1 " },`;
+    fs.writeFileSync(mtFile, src.replace('const MUTATIONS = [', () => entry));
+    const readBack = fs.readFileSync(mtFile, 'utf8').includes('WS探針：只在尾巴多一個空白') && !!line;
+    const r1 = cm();
+    const staleLines = r1.out.split('\n').filter((l) => l.startsWith('STALE '));
+    ok(readBack && r1.code !== 0 && staleLines.length === 1 && staleLines[0].includes('WS探針：只在尾巴多一個空白') && staleLines[0].includes('只差空白或行尾'),
+      `WS3 clone 裡加一條只在尾巴多一個空白的突變（樣本讀回 ${readBack}）→ checkmutations 回 ${r1.code}、只點名那一條（${staleLines.length} 行 STALE）`);
+    let r2 = { code: 0, out: '' };
+    try { r2.out = execFileSync(process.execPath, ['scripts/mutationtest.mjs', '--only', 'WS探針', '--dry-run'], { cwd: clone, encoding: 'utf8' }); } catch (e) { r2 = { code: e.status ?? -1, out: String(e.stdout ?? '') }; }
+    ok(r2.code !== 0 && r2.out.includes('只差空白或行尾，拒絕執行') && r2.out.includes('WS探針'),
+      `WS4 執行器開跑前也擋：--only 選到那一條 → 回 ${r2.code}、拒絕並點名`);
+  } finally { fs.rmSync(clone, { recursive: true, force: true }); }
 }
 
 section('重負載的資源紀錄（共用慣例 v11 §5.19、§5.20：紀錄要先證明真的記得到）');

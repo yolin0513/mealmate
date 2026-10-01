@@ -19,6 +19,7 @@ import { runProgram, KIND_LABELS, UNCOUNTED_KINDS } from './runkind.mjs';
 import { shouldRecordFull, writeLastFull, LASTFULL_FILE, taiwanToday, currentVersion } from './sincefull.mjs';
 import { execFileSync, spawn } from 'node:child_process';
 import { peakOf } from './reslog.mjs';
+import { whitespaceOnly } from './checkmutations.mjs';
 import {
   LEDGER_FILE, contentHash, scopeFor, scopeHash, mutationDefHash, runnerHash, rerunReasons,
   emptyLedger, ledgerProblems, recordRun, neverFullNames, fullComplete, doneAt, ledgerOrphans,
@@ -4421,6 +4422,34 @@ const MUTATIONS = [
     test: "doctest",
     expect: "受影響 D1 ",
   },
+  // ---- 2026-10-02 Dispatch：只差空白或行尾的突變要被擋（「突變不會只改行尾」從觀察變成會紅的檢查）----
+  {
+    name: "只差空白的突變：判斷永遠說「不是」",
+    why: "只改空白或行尾的突變會被執行器判成跟原樣相同——什麼都沒改，卻顯示通過，而且沒有任何東西會紅。",
+    file: "scripts/checkmutations.mjs",
+    find: "  return find !== replace && norm(find) === norm(replace);",
+    replace: "  return false;",
+    test: "doctest",
+    expect: "WS3 ",
+  },
+  {
+    name: "只差空白的突變：檢查的條數不核對",
+    why: "母體檢查：只差空白那一道若漏查幾條，0 條觸發就不代表 0 條有問題。",
+    file: "scripts/checkmutations.mjs",
+    find: "    wsChecked.add(m.name);",
+    replace: "    void 0;",
+    test: "doctest",
+    expect: "WS2",
+  },
+  {
+    name: "只差空白的突變：執行器開跑前不擋",
+    why: "沒先跑 checkmutations 就直接跑突變時，只差空白的那一條照樣會跑、照樣顯示通過。",
+    file: "scripts/mutationtest.mjs",
+    find: "  const wsOnly = SELECTED.filter((m) => whitespaceOnly(m.find, m.replace));\n  if (wsOnly.length) refuse(",
+    replace: "  const wsOnly = SELECTED.filter((m) => whitespaceOnly(m.find, m.replace));\n  if (false) refuse(",
+    test: "doctest",
+    expect: "WS4 ",
+  },
   // ---- 2026-10-02 Dispatch：執行器的三道護欄（由 resume-verify 在暫存 git repo 裡真的殺程序來驗；每一道兩個方向）----
   {
     name: "護欄：還原紀錄被移掉也照跑",
@@ -5044,6 +5073,11 @@ else if (MODE === 'never-full') {
 }
 const CANDIDATES = SELECTED.length;
 const CANDIDATE_SET = new Set(SELECTED.map((m) => m.name));
+// 只差空白或行尾的突變：改了等於沒改，而執行器判斷「是不是原樣」只比內容——跑了會顯示通過、什麼都沒驗到（checkmutations.whitespaceOnly）
+{
+  const wsOnly = SELECTED.filter((m) => whitespaceOnly(m.find, m.replace));
+  if (wsOnly.length) refuse(`突變的原文與改壞後只差空白或行尾，拒絕執行：${wsOnly.map((m) => `「${m.name}」（${m.file}）`).join('、')}`);
+}
 // 護欄一的 --only 版（Dispatch 2026-10-02）：工作區可以有改動，但這次要改的目標檔不能已經是「改壞後」的樣子——
 // 目標檔含這條突變的替換字串、HEAD 的那一版卻沒有，多半是上一次中斷留下的壞檔；拿它當原檔備份，「還原」就會把壞檔還原回去。
 if (MODE === 'only') {

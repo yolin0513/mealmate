@@ -54,13 +54,27 @@ const readRel = (rel) => {
   return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null;
 };
 
+/**
+ * 突變的原文與改壞後只差空白或行尾嗎（Dispatch 2026-10-02）：統一行尾、把連續空白（含換行）縮成一個空格、去頭尾之後相同 → 是。
+ * 執行器判斷「檔案是不是原樣」時只比內容、不比行尾（eolHash）；只改空白或行尾的突變在那邊會被判成「跟原樣相同」——
+ * 什麼都沒改卻顯示通過。「突變不會只改行尾」原本只是對現有清單的觀察，這一道把它變成會紅的檢查。
+ * `ab` 改成 `a b` 這種會改變程式的，結果不同、不擋。
+ */
+export function whitespaceOnly(find, replace) {
+  const norm = (s) => String(s).replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
+  return find !== replace && norm(find) === norm(replace);
+}
+
 function main() {
   const MUTATIONS = loadMutations(fs.readFileSync(path.join(ROOT, 'scripts/mutationtest.mjs'), 'utf8'));
   if (!MUTATIONS) { console.log('STALE 找不到 MUTATIONS 陣列'); process.exit(1); }
   // 清單是空的＝什麼都沒檢查（v9 F1，2026-09-24：以前印「TOTAL 0、STALECOUNT 0」、回 0）
   if (MUTATIONS.length === 0) { console.log('STALE 突變清單是空的（一條都沒有，什麼都沒檢查）'); console.log('TOTAL 0'); console.log('STALECOUNT 1'); process.exit(1); }
   let stale = 0;
+  const wsChecked = new Set();                                   // 只差空白那一道實際檢查過的條目（母體檢查：要等於總數）
   for (const m of MUTATIONS) {
+    if (whitespaceOnly(m.find, m.replace)) { console.log(`STALE ${m.name}（${m.file}）：原文與改壞後只差空白或行尾——改了等於沒改，執行器只比內容時會判成跟原樣相同`); stale += 1; }
+    wsChecked.add(m.name);
     const file = path.join(ROOT, m.file);
     if (!fs.existsSync(file)) { console.log(`STALE ${m.name}：找不到檔案 ${m.file}`); stale += 1; continue; }
     const body = fs.readFileSync(file, 'utf8');
@@ -73,6 +87,10 @@ function main() {
   }
   const over = missingExpectOverLimit(MUTATIONS);
   if (over) { console.log(`STALE ${over}`); stale += 1; }
+  // 母體：只差空白那一道檢查的條數要等於清單總數（名稱重複會讓 Set 變小——那本身也是問題，點名出來）
+  const notChecked = MUTATIONS.map((m) => m.name).filter((n, i, a) => !wsChecked.has(n) || a.indexOf(n) !== i);
+  if (wsChecked.size !== MUTATIONS.length) { console.log(`STALE 只差空白的檢查只查了 ${wsChecked.size} 條（清單 ${MUTATIONS.length} 條）：${notChecked.slice(0, 5).join('、')}`); stale += 1; }
+  console.log(`WSCHECKED ${wsChecked.size}`);
   console.log(`TOTAL ${MUTATIONS.length}`);
   console.log(`EXPECTCOUNT ${MUTATIONS.filter((m) => m.expect != null).length}`);
   console.log(`STALECOUNT ${stale}`);
