@@ -4421,6 +4421,70 @@ const MUTATIONS = [
     test: "doctest",
     expect: "受影響 D1 ",
   },
+  // ---- 2026-10-02 Dispatch：執行器的三道護欄（由 resume-verify 在暫存 git repo 裡真的殺程序來驗；每一道兩個方向）----
+  {
+    name: "護欄：還原紀錄被移掉也照跑",
+    why: "被殺掉之後有人刪了還原紀錄，壞檔就會被當成原檔備份、「還原」把壞檔還原回去——兩處紀錄要對得上，對不上就停。",
+    file: "scripts/mutationtest.mjs",
+    find: "    if (now !== inf.origHash) {\n      refuse(",
+    replace: "    if (false) {\n      refuse(",
+    test: "resume-verify",
+    expect: "護欄 紀錄被移掉：",
+  },
+  {
+    name: "護欄：帳本有未收尾的紀錄就一律拒絕（檔案已經是原樣也拒絕）",
+    why: "中斷可能剛好落在「刪掉還原紀錄」與「清掉帳本那一筆」之間，檔案其實沒事；一律拒絕就是一道永遠關著的閘。",
+    file: "scripts/mutationtest.mjs",
+    find: "    if (now !== inf.origHash) {\n      refuse(",
+    replace: "    if (true) {\n      refuse(",
+    test: "resume-verify",
+    expect: "護欄 紀錄被移掉（反向）",
+  },
+  {
+    name: "護欄：不在帳本記開跑未完成",
+    why: "只有磁碟上一份紀錄，它被刪掉就無從察覺（Dispatch 2026-10-02：「整件事只有一份紀錄」是根因）。",
+    file: "scripts/mutationtest.mjs",
+    find: "會拒絕（見「前置」）。\n    ledger.inflight = { run: RUN_SEQ,",
+    replace: "會拒絕（見「前置」）。\n    void { run: RUN_SEQ,",
+    test: "resume-verify",
+    expect: "護欄 紀錄被移掉：",
+  },
+  {
+    name: "護欄一：工作區不等於 HEAD 也照跑整套",
+    why: "上一次被殺掉留下的壞檔，會被這一次當成原檔備份起來。",
+    file: "scripts/mutationtest.mjs",
+    find: "——真的跑的時候會拒絕`);\nif (dirtyFiles.length && MODE !== 'only' && !DRY) refuse(",
+    replace: "——真的跑的時候會拒絕`);\nif (false) refuse(",
+    test: "resume-verify",
+    expect: "護欄一 工作區：",
+  },
+  {
+    name: "護欄一：--only 也要求工作區等於 HEAD",
+    why: "寫新斷言的流程是「改程式 → --only 證明會紅 → 才 commit」；連 --only 都擋，新防線就沒辦法當場證明會紅。",
+    file: "scripts/mutationtest.mjs",
+    find: "——真的跑的時候會拒絕`);\nif (dirtyFiles.length && MODE !== 'only' && !DRY) refuse(",
+    replace: "——真的跑的時候會拒絕`);\nif (dirtyFiles.length && !DRY) refuse(",
+    test: "resume-verify",
+    expect: "護欄一 工作區（反向）",
+  },
+  {
+    name: "護欄一：--only 的目標檔已經是改壞後的樣子也照跑",
+    why: "--only 允許工作區有改動，但目標檔若已經是改壞後的樣子，拿它當原檔備份，還原就會把壞檔還原回去。",
+    file: "scripts/mutationtest.mjs",
+    find: "  }\n  if (leftovers.length) refuse(",
+    replace: "  }\n  if (false) refuse(",
+    test: "resume-verify",
+    expect: "護欄一 --only：",
+  },
+  {
+    name: "護欄：還原紀錄還在時照樣改第二支檔",
+    why: "紀錄只記得一支；哪天執行器變成一次動兩支，第二支會被靜默少記——這是目前成立的假設，要有東西擋著它。",
+    file: "scripts/mutationtest.mjs",
+    find: "  if (fs.existsSync(PENDING)) {\n    let prev",
+    replace: "  if (false) {\n    let prev",
+    test: "resume-verify",
+    expect: "護欄 第二支：",
+  },
   // ---- 2026-10-02 Dispatch：「較大的版本」的兩條機械判準（超過 14 天、30 條以上）----
   {
     name: "整套上限：超過 14 天也不提",
@@ -4845,7 +4909,17 @@ const tally = { assert: 0, crash: 0, uncounted: [] };
 
 // 突變跑到一半被殺掉時，原始碼會停在改壞的狀態；下一次啟動先還原。
 const PENDING = path.join(ROOT, 'scripts/.mutation-pending.json');
-function writePending(rel, content) { fs.writeFileSync(PENDING, JSON.stringify({ rel, content }), 'utf8'); }
+// 一次只改一支檔是現在的結構，不是機制保證的：還原紀錄還在（上一支還沒還原）時又要改另一支，拒絕——
+// 紀錄只記得一支，第二支會被靜默少記（Dispatch 2026-10-02）。回傳問題字串，空字串＝寫好了。
+function writePending(rel, content) {
+  if (fs.existsSync(PENDING)) {
+    let prev = '（讀不出來）';
+    try { prev = JSON.parse(fs.readFileSync(PENDING, 'utf8')).rel; } catch { /* 讀不出來也照樣拒絕，下面的訊息會寫「讀不出來」 */ }
+    return `還原紀錄還在（${prev} 還沒還原），拒絕再改 ${rel}——一次只准一支改壞的檔`;
+  }
+  fs.writeFileSync(PENDING, JSON.stringify({ rel, content }), 'utf8');
+  return '';
+}
 function clearPending() { fs.rmSync(PENDING, { force: true }); }
 function recoverPending() {
   if (!fs.existsSync(PENDING)) return null;
@@ -4855,9 +4929,32 @@ function recoverPending() {
   return rel;
 }
 
+const refuse = (msg) => { ok(false, msg); done('mutationtest'); process.exit(1); };
+
 section('前置');
 const recovered = recoverPending();
 if (recovered) note(`上一次被中斷，已還原 ${recovered}`);
+// 帳本先讀進來：兩處紀錄（磁碟上的還原紀錄、帳本的 inflight）要一致（Dispatch 2026-10-02）
+const ledger = fs.existsSync(LEDGER_PATH) ? JSON.parse(fs.readFileSync(LEDGER_PATH, 'utf8')) : emptyLedger();
+let inflightCleared = false;
+{
+  const inf = ledger.inflight ?? null;
+  // 還原那一步跑完，還原紀錄卻還在：還原本身沒成功——不往下跑（往下跑會把改壞的檔當原檔備份）
+  if (fs.existsSync(PENDING)) refuse(`還原紀錄（scripts/.mutation-pending.json）還在、卻沒有還原${inf ? `（帳本記著第 ${inf.run} 次開跑改 ${inf.file}）` : ''}——請人工確認工作區`);
+  if (recovered) {
+    if (inf && inf.file !== recovered) refuse(`兩處紀錄對不上：磁碟上的還原紀錄還原的是 ${recovered}，帳本記的是第 ${inf.run} 次開跑改 ${inf.file}——請人工確認工作區`);
+    if (inf) { ledger.inflight = null; inflightCleared = true; }
+  } else if (inf) {
+    const full = path.join(ROOT, inf.file);
+    const now = fs.existsSync(full) ? contentHash(fs.readFileSync(full)) : null;
+    if (now !== inf.origHash) {
+      refuse(`上一次中斷過、還原紀錄卻不見了：帳本記著第 ${inf.run} 次開跑（突變「${inf.mutation}」）改壞 ${inf.file}，沒有收尾；磁碟上的還原紀錄（scripts/.mutation-pending.json）不在，而且 ${inf.file} 現在跟改壞前的內容不同——不能把它當原檔，請人工確認工作區（例如 git diff -- ${inf.file}）`);
+    }
+    // 檔案已經是改壞前的內容：中斷剛好落在「刪掉還原紀錄」與「清掉帳本那一筆」之間，檔案沒事
+    note(`帳本記著第 ${inf.run} 次開跑（突變「${inf.mutation}」）沒有收尾，但 ${inf.file} 的內容雜湊等於改壞前——當成已還原，繼續`);
+    ledger.inflight = null; inflightCleared = true;
+  }
+}
 // 參數彼此衝突、--limit 不是正整數：停下來，不猜使用者要哪一種
 const argProblems = [];
 if (MODE_FLAGS.length > 1 || (only && MODE_FLAGS.length)) argProblems.push('--only、--affected、--never-full、--full 只能選一個');
@@ -4867,14 +4964,22 @@ if (argProblems.length) { done('mutationtest'); process.exit(1); }
 
 // 雜湊一律在**還原之後、改壞任何檔之前**算（上面的 recoverPending 先跑）：算的是沒有突變的那一份
 const git = (args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-let COMMIT = null; let repoFiles = null;
+let COMMIT = null; let repoFiles = null; let dirtyFiles = [];
 try {
   COMMIT = git(['rev-parse', '--short=12', 'HEAD']).trim();
-  const dirty = git(['status', '--porcelain', '--untracked-files=no']).split('\n').filter((l) => l.trim() && !l.endsWith(LEDGER_FILE));
-  if (dirty.length) COMMIT += '+dirty';
+  // 執行器自己會寫的兩支（帳本、整套基準清單）不算改動
+  dirtyFiles = git(['-c', 'core.quotepath=off', 'status', '--porcelain', '--untracked-files=no']).split('\n').filter((l) => l.trim())
+    .map((l) => l.slice(3)).filter((f) => f !== LEDGER_FILE && f !== LASTFULL_FILE);
   repoFiles = git(['-c', 'core.quotepath=off', 'ls-files', '-c', '-o', '--exclude-standard', '-z']).split('\0').filter(Boolean);
-} catch { COMMIT = null; }
-if (!repoFiles) repoFiles = walkFiles(ROOT); // 不是 git repo（doctest 的暫存複本）：照目錄走，帳本不寫進檔案
+} catch (e) {
+  refuse(`git 取不到（${String(e.message).split('\n')[0].slice(0, 80)}）：「工作區要等於 HEAD」的護欄檢查不了，拒絕執行`);
+}
+// 護欄一（Dispatch 2026-10-02）：開跑前工作區必須等於 HEAD——上一次被殺掉留下的壞檔，不能被這一次當成原檔備份起來。
+// --only 例外（寫新斷言的流程是「改程式 → --only 證明會紅 → 才 commit」，那時工作區本來就不等於 HEAD），另有下面的目標檔檢查。
+// --dry-run 只列不改檔：照常列出，只註明工作區有改動
+if (dirtyFiles.length && DRY) note(`（只列不跑）工作區不等於 HEAD：${dirtyFiles.join('、')}——真的跑的時候會拒絕`);
+if (dirtyFiles.length && MODE !== 'only' && !DRY) refuse(`工作區不等於 HEAD，拒絕執行（${MODE}）：${dirtyFiles.join('、')}——先 commit 或還原；若是上一次中斷留下的，先確認那幾支是不是改壞的版本`);
+if (dirtyFiles.length) COMMIT += '+dirty';
 const fileHashCache = new Map();
 const fileHash = (rel) => {
   if (!fileHashCache.has(rel)) {
@@ -4894,7 +4999,6 @@ const curOf = (m) => {
   }
   return curCache.get(m.name);
 };
-const ledger = fs.existsSync(LEDGER_PATH) ? JSON.parse(fs.readFileSync(LEDGER_PATH, 'utf8')) : emptyLedger();
 const ledgerBad = ledgerProblems(ledger);
 eq(ledgerBad, [], `帳本 ${path.relative(ROOT, LEDGER_PATH)} 讀得懂`);
 if (ledgerBad.length) { done('mutationtest'); process.exit(1); }
@@ -4904,12 +5008,15 @@ if (ledgerBad.length) { done('mutationtest'); process.exit(1); }
 }
 const LEDGER_WRITABLE = COMMIT !== null || !!process.env.MM_LEDGER;
 if (!LEDGER_WRITABLE) note('這裡不是 git repo：結果只記在記憶體裡，不寫帳本檔');
+ledger.runSeq = (ledger.runSeq ?? 0) + 1;
+const RUN_SEQ = ledger.runSeq;
 function saveLedger() {
   if (!LEDGER_WRITABLE) return;
   const tmp = `${LEDGER_PATH}.tmp`;
   fs.writeFileSync(tmp, `${JSON.stringify(ledger, null, 1)}\n`, 'utf8');
   fs.renameSync(tmp, LEDGER_PATH);
 }
+if (inflightCleared) saveLedger();
 
 const whyRun = new Map();
 let SELECTED;
@@ -4925,6 +5032,21 @@ else if (MODE === 'never-full') {
 }
 const CANDIDATES = SELECTED.length;
 const CANDIDATE_SET = new Set(SELECTED.map((m) => m.name));
+// 護欄一的 --only 版（Dispatch 2026-10-02）：工作區可以有改動，但這次要改的目標檔不能已經是「改壞後」的樣子——
+// 目標檔含這條突變的替換字串、HEAD 的那一版卻沒有，多半是上一次中斷留下的壞檔；拿它當原檔備份，「還原」就會把壞檔還原回去。
+if (MODE === 'only') {
+  const leftovers = [];
+  for (const m of SELECTED) {
+    if (!m.replace || !m.replace.trim()) continue;
+    const full = path.join(ROOT, m.file);
+    const nowText = fs.existsSync(full) ? fs.readFileSync(full, 'utf8') : '';
+    if (!nowText.includes(m.replace)) continue;
+    let headText = '';
+    try { headText = git(['show', `HEAD:${m.file}`]); } catch { headText = ''; }      // HEAD 沒有這支檔：當成空的（新檔含替換字串一樣可疑）
+    if (!headText.includes(m.replace)) leftovers.push(`${m.file}（突變「${m.name}」的替換字串已經在檔裡，HEAD 沒有）`);
+  }
+  if (leftovers.length) refuse(`要改的目標檔看起來已經是改壞後的樣子，拒絕執行：${leftovers.join('、')}——先確認那幾支是不是上一次中斷留下的`);
+}
 if (LIMIT !== null) SELECTED = SELECTED.slice(0, LIMIT);
 const TESTS = [...new Set(SELECTED.map((m) => m.test))];
 const missingTests = TESTS.filter((t) => !fs.existsSync(path.join(ROOT, 'scripts', `${t}.mjs`)));
@@ -5002,7 +5124,12 @@ if (baselineOk) {
       continue;
     }
     const mutated = original.replace(m.find, m.replace);
-    writePending(m.file, original);
+    // 兩處紀錄（Dispatch 2026-10-02）：先在帳本記「第 N 次開跑、改哪一支、原檔雜湊」，再寫磁碟上的還原紀錄；
+    // 還原後兩處都清掉。只有一份紀錄的話，紀錄被刪掉時無從察覺；兩處對不上，下次啟動就會拒絕（見「前置」）。
+    ledger.inflight = { run: RUN_SEQ, mutation: m.name, file: m.file, origHash: contentHash(original), at: new Date().toISOString() };
+    saveLedger();
+    const pendingProblem = writePending(m.file, original);
+    if (pendingProblem) { ledger.inflight = null; saveLedger(); refuse(pendingProblem); }
     fs.writeFileSync(full, mutated, 'utf8');
     let result;
     try {
@@ -5010,6 +5137,7 @@ if (baselineOk) {
     } finally {
       fs.writeFileSync(full, original, 'utf8');
       clearPending();
+      ledger.inflight = null;
     }
     const restored = fs.readFileSync(full, 'utf8') === original;
     // 測試沒有完整跑完（逾時、被殺、沒跑起來）：不能拿來判斷這條突變有沒有被抓到——不算紅、也不算綠，要重跑

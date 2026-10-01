@@ -621,6 +621,8 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
     if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(mtRoot, 'scripts', f));
   }
   ok(!fs.existsSync(path.join(mtRoot, 'scripts/.mutation-pending.json')), '（前提）暫存複本裡沒有 pending 檔（碰不到 repo 裡那一份）');
+  // 2026-10-02 起執行器不是 git repo 就拒絕（「工作區要等於 HEAD」的護欄檢查不了）：暫存複本也要 git init
+  execFileSync('git', ['-C', mtRoot, 'init', '-q']); execFileSync('git', ['-C', mtRoot, 'add', '-A']); execFileSync('git', ['-C', mtRoot, '-c', 'user.name=probe', '-c', 'user.email=probe@users.noreply.github.com', 'commit', '-q', '-m', 'probe']);
   const mt = runP(process.execPath, [path.join(mtRoot, 'scripts/mutationtest.mjs'), '--only', 'F1探針：不會對到任何突變的關鍵字'], { cwd: mtRoot });
   fs.rmSync(mtRoot, { recursive: true, force: true });
   ok(mt.code !== 0 && /選了 0 條突變/.test(mt.out), `F1-11 執行器（mutationtest）：--only 對不到任何突變 → 回 ${mt.code}，理由「選了 0 條突變」`);
@@ -651,6 +653,7 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
     mtSrc = mtSrc.replace(tmLine, () => 'const TEST_TIMEOUT_MIN = { assertaudit: 45, probeslow: 0.05 };');
     fs.writeFileSync(mtFile, mtSrc);
   }
+  execFileSync('git', ['-C', toRoot, 'init', '-q']); execFileSync('git', ['-C', toRoot, 'add', '-A']); execFileSync('git', ['-C', toRoot, '-c', 'user.name=probe', '-c', 'user.email=probe@users.noreply.github.com', 'commit', '-q', '-m', 'probe']); // 2026-10-02 起執行器不是 git repo 就拒絕、工作區要等於 HEAD
   ok(setUp && !fs.existsSync(path.join(toRoot, 'scripts/mutation-lastfull.json')), '（前提）F1-13 的暫存複本造好了：突變清單換成那一條、假測試時限 3 秒、還沒有基準清單');
   // 前提：這個複本裡「寫基準清單」那一步真的走得通（用 sincefull 的 --record-full 試寫一次，再刪掉）
   const rec = runP(process.execPath, [path.join(toRoot, 'scripts/sincefull.mjs'), '--record-full'], { cwd: toRoot });
@@ -1107,9 +1110,11 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     const r2 = run();
     ok(r2.code === 0 && r2.out.includes('選了 0 條突變') && r2.out.includes('沿用上次結果 1 條'), `受影響 D18b 第二次什麼都沒改 → 沿用、0 條要跑（回 ${r2.code}）`);
     fs.writeFileSync(path.join(root, 'js/affdep.js'), 'export const V = 2;\n');
+    g('commit', '-qam', '改 affdep'); // 執行器要求工作區等於 HEAD（2026-10-02）
     const r3 = run();
     ok(r3.code === 0 && r3.out.includes('選了 1 條突變') && r3.out.includes(`${RERUN.DEP} 1 條`), `受影響 D18c 改了探針間接 import 的檔 → 要跑，理由是「${RERUN.DEP}」（回 ${r3.code}）`);
     fs.writeFileSync(path.join(root, 'docs/note.md'), 'changed\n');
+    g('commit', '-qam', '改 note');
     const r4 = run();
     ok(r4.code === 0 && r4.out.includes('選了 0 條突變'), `受影響 D18d 只改 docs/（不在範圍裡）→ 沿用（回 ${r4.code}）`);
     // 逾時的那一條：帳本不記成紅、也不記成在整套裡跑過（v11 §5.18 第 4 點：只有算數的結束才記）
@@ -1121,6 +1126,7 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     const p0 = src2.indexOf('const MUTATIONS = [\n') + 'const MUTATIONS = ['.length;
     const setUp2 = src2.split(tmLine).length === 2 && p0 > 'const MUTATIONS = ['.length;
     if (setUp2) fs.writeFileSync(mtFile, (src2.slice(0, p0) + slowMut + src2.slice(p0)).replace(tmLine, () => 'const TEST_TIMEOUT_MIN = { assertaudit: 45, affslow: 0.05 };'));
+    g('add', '-A'); g('commit', '-qm', '加逾時突變');
     ok(setUp2, '（前提）D18f 的逾時突變與 3 秒時限放進暫存 repo 的執行器了');
     const r6 = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--never-full'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();
     const led6 = JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8'));

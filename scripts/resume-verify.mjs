@@ -61,6 +61,12 @@ function makeRepo(variant) {
     if (src.split(f).length !== 2) throw new SetupError('壞的接續點：找不到整套續跑的那一行');
     src = src.replace(f, '  { const lastIdx = Math.max(-1, ...MUTATIONS.map((m, i) => (ledger.entries[m.name] ? i : -1))); SELECTED = lastIdx < 0 ? MUTATIONS : MUTATIONS.slice(lastIdx + 2); void doneAt; }');
   }
+  if (variant === 'two-files') {
+    // 第二支檔護欄的情境：還原之後不清還原紀錄（一個會讓「上一支還沒收尾就改下一支」的錯）——下一條要改檔時必須被拒絕
+    const f = "      fs.writeFileSync(full, original, 'utf8');\n      clearPending();\n      ledger.inflight = null;";
+    if (src.split(f).length !== 2) throw new SetupError('第二支檔護欄：找不到還原那一段');
+    src = src.replace(f, "      fs.writeFileSync(full, original, 'utf8');\n      ledger.inflight = null;");
+  }
   fs.writeFileSync(mtFile, src);
   const git = (...a) => execFileSync('git', ['-C', root, '-c', 'user.name=probe', '-c', 'user.email=probe@users.noreply.github.com', ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   git('init', '-q'); git('add', '-A'); git('commit', '-q', '-m', 'resume-verify');
@@ -76,27 +82,33 @@ const readLedger = (repo) => (fs.existsSync(repo.ledger) ? JSON.parse(fs.readFil
 const marks = (repo) => (fs.existsSync(repo.mark) ? fs.readFileSync(repo.mark, 'utf8').split('\n').filter(Boolean) : []);
 const ranBroken = (lines, n) => lines.filter((l) => l === `RV${n} 改壞`).length;
 
+/** 用 --full 開跑，等第一條記進帳本、第二條正在跑（改壞的檔在磁碟上、還原紀錄在）時 SIGKILL；回開跑後幾毫秒殺掉的 */
+async function killMidSecond(repo) {
+  const child = spawn(process.execPath, [repo.mtFile, '--full'], { cwd: repo.root, stdio: 'ignore', env: env() });
+  const t0 = Date.now(); let killedAt = null;
+  while (Date.now() - t0 < 120000) {
+    await sleep(200);
+    const led = readLedger(repo);
+    const busy2 = fs.existsSync(repo.pending) && fs.readFileSync(repo.target2, 'utf8') !== ORIGINAL;
+    if (led.entries?.RV1?.last?.counted && busy2) { await sleep(500); child.kill('SIGKILL'); killedAt = Date.now() - t0; break; }
+    if (child.exitCode !== null) break;
+  }
+  if (killedAt === null) { child.kill('SIGKILL'); throw new SetupError(`等不到「第一條記進帳本、第二條正在跑」的時刻（${Math.round((Date.now() - t0) / 1000)} 秒）`); }
+  await sleep(1500);
+  if (!(fs.readFileSync(repo.target2, 'utf8') !== ORIGINAL && fs.existsSync(repo.pending))) {
+    throw new SetupError('殺掉之後，第二條的目標檔不是改壞的狀態（或還原紀錄不在）——中斷的情境沒造成');
+  }
+  return killedAt;
+}
+
 /** 跑一次完整流程；回 [{ step, pass, detail }]（每一關一筆；造情境失敗丟 SetupError） */
 async function flow(variant) {
   const repo = makeRepo(variant);
   const steps = [];
   const step = (name, pass, detail) => steps.push({ step: name, pass: !!pass, detail });
   try {
-    // 1. 開跑、在第二條正在跑時殺掉
-    const child = spawn(process.execPath, [repo.mtFile, '--full'], { cwd: repo.root, stdio: 'ignore', env: env() });
-    const t0 = Date.now(); let killedAt = null;
-    while (Date.now() - t0 < 120000) {
-      await sleep(200);
-      const led = readLedger(repo);
-      const busy2 = fs.existsSync(repo.pending) && fs.readFileSync(repo.target2, 'utf8') !== ORIGINAL;
-      if (led.entries?.RV1?.last?.counted && busy2) { await sleep(500); child.kill('SIGKILL'); killedAt = Date.now() - t0; break; }
-      if (child.exitCode !== null) break;
-    }
-    if (killedAt === null) { child.kill('SIGKILL'); throw new SetupError(`等不到「第一條記進帳本、第二條正在跑」的時刻（${Math.round((Date.now() - t0) / 1000)} 秒）`); }
-    await sleep(1500);
-    // 2. 前提：第二條的目標檔確實留在改壞的狀態、pending 檔在
-    const leftBroken = fs.readFileSync(repo.target2, 'utf8') !== ORIGINAL && fs.existsSync(repo.pending);
-    if (!leftBroken) throw new SetupError('殺掉之後，第二條的目標檔不是改壞的狀態（或 pending 檔不在）——中斷的情境沒造成');
+    // 1–2. 開跑、在第二條正在跑時真的殺掉（SIGKILL，不是旗標：被殺掉時 finally 不會跑）；確認第二條的目標檔留在改壞的狀態
+    const killedAt = await killMidSecond(repo);
     step('前提：中斷時第二條的目標檔留在改壞的狀態', true, `開跑後約 ${Math.round(killedAt / 1000)} 秒殺掉`);
     // 3. 只續跑一條：還原（內容雜湊）＋沒收齊要點名
     fs.writeFileSync(repo.mark, '');
@@ -125,6 +137,65 @@ async function flow(variant) {
   return steps;
 }
 
+/**
+ * 三道護欄（Dispatch 2026-10-02），每一道都有反向（該照跑的照跑——不然只是一道永遠拒絕的閘）：
+ *   紀錄被移掉：兩處紀錄（帳本的 inflight、磁碟上的還原紀錄）對不上 → 拒絕、指出是哪一次；檔案已經是原樣時照跑
+ *   護欄一 工作區：工作區不等於 HEAD → --full 拒絕並列出檔案；--only 照跑
+ *   護欄一 --only：目標檔已經含「改壞後」的字串、HEAD 沒有 → 拒絕
+ *   第二支：還原紀錄還在時要改第二支檔 → 拒絕
+ */
+async function guardFlow() {
+  const steps = [];
+  const step = (name, pass, detail) => steps.push({ step: name, pass: !!pass, detail });
+  const git = (repo, ...a) => execFileSync('git', ['-C', repo.root, '-c', 'user.name=probe', '-c', 'user.email=probe@users.noreply.github.com', ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const cleanup = (repo) => { fs.rmSync(repo.root, { recursive: true, force: true }); fs.rmSync(repo.mark, { force: true }); };
+  const BROKEN_TEXT = 'export const BROKEN = true;\n';
+  // 紀錄被移掉：真的殺掉之後刪掉還原紀錄
+  {
+    const repo = makeRepo('normal');
+    try {
+      await killMidSecond(repo);
+      const brokenHash = sha(repo.target2);
+      fs.rmSync(repo.pending);
+      const r = runSync(repo, ['--full']);
+      step('護欄 紀錄被移掉：還原紀錄被刪、帳本留著「開跑未完成」→ 拒絕、指出第幾次與哪支檔、不動那支檔',
+        r.code !== 0 && r.out.includes('還原紀錄卻不見了') && r.out.includes('第 1 次開跑') && r.out.includes('scripts/rvtarget2.mjs') && sha(repo.target2) === brokenHash,
+        `回 ${r.code}；${(r.out.split('\n').find((l) => l.includes('✗')) ?? '（沒有 ✗）').trim().slice(0, 140)}`);
+      git(repo, 'checkout', '--', 'scripts/rvtarget2.mjs');            // 人工確認後把它還原
+      const r2 = runSync(repo, ['--full']);
+      step('護欄 紀錄被移掉（反向）：人工還原後（檔案雜湊等於改壞前）→ 照跑、收齊',
+        r2.code === 0 && r2.out.includes('當成已還原') && r2.out.includes('整套收齊：3 條'), `回 ${r2.code}`);
+    } finally { cleanup(repo); }
+  }
+  // 護欄一 工作區／--only
+  {
+    const repo = makeRepo('normal');
+    try {
+      const t1 = path.join(repo.root, 'scripts/rvtarget1.mjs');
+      fs.writeFileSync(t1, `${ORIGINAL}// 合成：一個還沒 commit 的改動\n`);
+      const r = runSync(repo, ['--full']);
+      step('護欄一 工作區：工作區不等於 HEAD → --full 拒絕、列出那支檔', r.code !== 0 && r.out.includes('工作區不等於 HEAD') && r.out.includes('scripts/rvtarget1.mjs'), `回 ${r.code}`);
+      const r2 = runSync(repo, ['--only', 'RV1']);
+      step('護欄一 工作區（反向）：同樣有改動，--only 照跑（寫新斷言的流程）', r2.code === 0 && r2.out.includes('選了 1 條突變'), `回 ${r2.code}`);
+      fs.writeFileSync(t1, BROKEN_TEXT);
+      const readBack = fs.readFileSync(t1, 'utf8') === BROKEN_TEXT;          // 造樣本後讀回確認（v11.3 §5.20）
+      const r3 = runSync(repo, ['--only', 'RV1']);
+      step('護欄一 --only：目標檔已經是改壞後的樣子（HEAD 沒有）→ 拒絕、點名那支檔',
+        readBack && r3.code !== 0 && r3.out.includes('已經是改壞後的樣子') && r3.out.includes('scripts/rvtarget1.mjs'), `樣本讀回 ${readBack}；回 ${r3.code}`);
+    } finally { cleanup(repo); }
+  }
+  // 第二支：還原之後不清還原紀錄的那一版，改第二條的檔時必須被拒絕
+  {
+    const repo = makeRepo('two-files');
+    try {
+      const r = runSync(repo, ['--full']);
+      step('護欄 第二支：還原紀錄還在時要改第二支檔 → 拒絕；第二支檔沒被改',
+        r.code !== 0 && r.out.includes('一次只准一支') && fs.readFileSync(repo.target2, 'utf8') === ORIGINAL, `回 ${r.code}`);
+    } finally { cleanup(repo); }
+  }
+  return steps;
+}
+
 const print = (title, steps) => { console.log(`\n— ${title} —`); for (const s of steps) console.log(`  ${s.pass ? '✓' : '✗'} ${s.step}${s.detail ? `（${s.detail}）` : ''}`); };
 const firstFail = (steps) => steps.find((s) => !s.pass)?.step ?? null;
 
@@ -143,6 +214,9 @@ try {
     console.log(`  ${ok ? '✓' : '✗'} 對照組 ${variant} 在「${expectAt}」那一關報不符（實際第一個不符：${ff ?? '沒有任何一關不符'}）`);
     if (!ok && code === 0) code = 2;
   }
+  const guards = await guardFlow();
+  print('護欄（每一道都有反向）', guards);
+  if (firstFail(guards) && code === 0) code = 1;
 } catch (e) {
   console.log(`\n✗ 造情境失敗：${e.message}`);
   code = e instanceof SetupError ? 3 : 1;
