@@ -3386,8 +3386,8 @@ const MUTATIONS = [
     name: "整套的上限跟 STATUS 寫的對不上",
     why: "兩邊各記一份，漂開了就等於沒有上限：STATUS 說 10 版、程式等到 12 版才提，看文件的人不會知道。",
     file: "scripts/sincefull.mjs",
-    find: "export const FULL_LIMITS = { versions: 10, never: 40 };",
-    replace: "export const FULL_LIMITS = { versions: 12, never: 40 };",
+    find: "export const FULL_LIMITS = { versions: 10, never: 30, days: 14 };",
+    replace: "export const FULL_LIMITS = { versions: 12, never: 30, days: 14 };",
     test: "doctest",
     expect: "D6 STATUS 寫的上限＝sincefull 的 FULL_LIMITS",
   },
@@ -4421,6 +4421,25 @@ const MUTATIONS = [
     test: "doctest",
     expect: "受影響 D1 ",
   },
+  // ---- 2026-10-02 Dispatch：「較大的版本」的兩條機械判準（超過 14 天、30 條以上）----
+  {
+    name: "整套上限：超過 14 天也不提",
+    why: "只看版數與條數的話，很久沒跑整套、但每一版都只加幾條的情況永遠不會觸發全跑。",
+    file: "scripts/sincefull.mjs",
+    find: "  if (daysMut > limits.days) over.push(",
+    replace: "  if (false) over.push(",
+    test: "doctest",
+    expect: "D6 天數超過",
+  },
+  {
+    name: "整套上限：剛好 30 條不算「30 條以上」",
+    why: "Dispatch 的判準是「30 條以上」；寫成「超過 30」會晚一條才提醒。",
+    file: "scripts/sincefull.mjs",
+    find: "  if (never >= limits.never) over.push(",
+    replace: "  if (never > limits.never) over.push(",
+    test: "doctest",
+    expect: "D6 條數到了「以上」那一條",
+  },
   // ---- 2026-10-02 共用慣例 v11 §5.19 3c：資源紀錄要真的記得到 ----
   {
     name: "資源紀錄：取程序數那一步永遠回 0",
@@ -5023,7 +5042,8 @@ if (baselineOk) {
 // 分段跑（--limit、中斷後續跑）時，這一段的 ran 不會等於總數；改看帳本：每一條在這個 commit 上都算數地跑過、雜湊都是現在的，才算整套跑完
 // （scripts/depgraph.mjs fullComplete：少一條、雜湊對不上、不算數的，都不算）。
 const fc = MODE === 'full' && baselineOk ? fullComplete(MUTATIONS.map((m) => m.name), ledger, COMMIT, (n) => curOf(MUTATIONS.find((m) => m.name === n))) : { complete: false, missing: [] };
-if (MODE === 'full' && baselineOk && !fc.complete) note(`整套還沒收齊：這個 commit 上還有 ${fc.missing.length} 條沒有算數的結果（再下同一個指令會接著跑）`);
+if (MODE === 'full' && baselineOk && !fc.complete) note(`整套還沒收齊：這個 commit 上還有 ${fc.missing.length} 條沒有算數的結果（再下同一個指令會接著跑）：${fc.missing.slice(0, 10).join('、')}${fc.missing.length > 10 ? `…（另 ${fc.missing.length - 10} 條）` : ''}`);
+if (MODE === 'full' && baselineOk && fc.complete) note(`整套收齊：${MUTATIONS.length} 條在 ${COMMIT} 上都有算數的結果`);
 if ((MODE === 'full' && shouldRecordFull({ only, ran, total: MUTATIONS.length })) || fc.complete) {
   writeLastFull(path.join(ROOT, LASTFULL_FILE), { date: taiwanToday(), version: currentVersion(ROOT), names: MUTATIONS.map((m) => m.name) });
   note(`整套完整跑完：已重寫 ${LASTFULL_FILE}（${MUTATIONS.length} 條）。記得把 STATUS「上次突變整套」那一行改成同樣的日期、版本、條數`);

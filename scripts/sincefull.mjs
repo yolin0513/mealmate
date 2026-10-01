@@ -44,13 +44,16 @@ export function tookText(took) {
 // ---- 整套的上限（共用慣例 v3 §5.7：上限由各 App 自己定，超過才在回報最前面提）----
 // MealMate 的上限：距上次突變整套 10 版，或從未整套跑過的突變 40 條（統籌者依 2026-09-19～21 的實測訂的：
 // 366 條裡 3 條失效；v0.37.0 之後 191 條重跑 0 條失效）。數字同時寫在 STATUS「測試現況」，doctest 會比對兩邊。
-export const FULL_LIMITS = { versions: 10, never: 40 };
+// 2026-10-02 Dispatch 加兩條機械判準（「較大的版本」，任一條成立就要全跑）：距上次整套超過 14 天、從沒整套跑過 30 條以上。
+// never 是「以上」（≥），versions、days 是「超過」（>）。
+export const FULL_LIMITS = { versions: 10, never: 30, days: 14 };
 
 // 超過任一上限 → 回一行字（印在兩行提醒的**最前面**）；沒超過回 null（不是空字串，照舊完全不提）
-export function overLimitLine({ versMut, never }, limits = FULL_LIMITS) {
+export function overLimitLine({ versMut, never, daysMut = 0 }, limits = FULL_LIMITS) {
   const over = [];
   if (versMut > limits.versions) over.push(`距上次突變整套 ${versMut} 版（上限 ${limits.versions} 版）`);
-  if (never > limits.never) over.push(`從未整套跑過 ${never} 條（上限 ${limits.never} 條）`);
+  if (never >= limits.never) over.push(`從未整套跑過 ${never} 條（${limits.never} 條以上就要全跑）`);
+  if (daysMut > limits.days) over.push(`距上次突變整套 ${daysMut} 天（超過 ${limits.days} 天）`);
   return over.length ? `已超過上限（${over.join('；')}），建議這一批做完就跑` : null;
 }
 
@@ -214,7 +217,7 @@ function main() {
     versFull: versionsSince(parsed.full.version), versMut,
     daysFull: daysSince(parsed.full.date, today), daysMut: daysSince(parsed.mut.date, today), never,
   });
-  const over = overLimitLine({ versMut, never });
+  const over = overLimitLine({ versMut, never, daysMut: daysSince(parsed.mut.date, today) });
   if (over) console.log(over);
   for (const l of lines) console.log(l);
   if (process.argv.includes('--list')) {

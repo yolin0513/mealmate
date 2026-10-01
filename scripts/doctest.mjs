@@ -244,18 +244,21 @@ section('STATUS：上次全面檢測／上次突變整套的兩行紀錄（npm r
   eq(lastFullProblems(lastfull), [], `N4 基準清單 ${lastfull.names?.length} 條，非空、沒有重複`);
   ok(lastFullProblems({ names: [] }).length > 0 && lastFullProblems({ names: ['甲', '甲'] }).length > 0, 'N4（對照）空清單、有重複的清單都會被抓到');
   // D6 整套的上限（共用慣例 v3 §5.7：上限由各 App 自己定，超過才在回報最前面提一行）
-  const limitTxt = /距上次突變整套 \*\*(\d+) 版\*\*，或從未整套跑過的突變 \*\*(\d+) 條\*\*/.exec(STATUS);
+  const limitTxt = /距上次突變整套 \*\*(\d+) 版\*\*、從未整套跑過的突變 \*\*(\d+) 條以上\*\*、或距上次突變整套超過 \*\*(\d+) 天\*\*/.exec(STATUS);
   ok(!!limitTxt, `（文件）STATUS 寫了整套的上限（${limitTxt ? limitTxt[0] : '找不到那一句'}）`);
-  eq([Number(limitTxt?.[1]), Number(limitTxt?.[2])], [FULL_LIMITS.versions, FULL_LIMITS.never],
+  eq([Number(limitTxt?.[1]), Number(limitTxt?.[2]), Number(limitTxt?.[3])], [FULL_LIMITS.versions, FULL_LIMITS.never, FULL_LIMITS.days],
     `D6 STATUS 寫的上限＝sincefull 的 FULL_LIMITS（${JSON.stringify(FULL_LIMITS)}）`);
   const overVers = overLimitLine({ versMut: FULL_LIMITS.versions + 1, never: 0 });
   ok(typeof overVers === 'string' && overVers.includes(`${FULL_LIMITS.versions + 1} 版`) && overVers.includes('建議這一批做完就跑'),
     `D6 版數超過上限 → 多印一行講出是哪一項：${overVers}`);
-  const overNever = overLimitLine({ versMut: 0, never: FULL_LIMITS.never + 1 });
-  ok(typeof overNever === 'string' && overNever.includes(`${FULL_LIMITS.never + 1} 條`) && !overNever.includes('版（上限'),
-    `D6 條數超過上限 → 只講條數那一項：${overNever}`);
-  eq(overLimitLine({ versMut: FULL_LIMITS.versions, never: FULL_LIMITS.never }), null,
-    'D6（對照）剛好在上限上 → 不提（沒超過就照舊只印兩行）');
+  const overNever = overLimitLine({ versMut: 0, never: FULL_LIMITS.never });
+  ok(typeof overNever === 'string' && overNever.includes(`${FULL_LIMITS.never} 條`) && !overNever.includes('版（上限'),
+    `D6 條數到了「以上」那一條（剛好 ${FULL_LIMITS.never} 條）→ 只講條數那一項：${overNever}`);
+  const overDays = overLimitLine({ versMut: 0, never: 0, daysMut: FULL_LIMITS.days + 1 });
+  ok(typeof overDays === 'string' && overDays.includes(`${FULL_LIMITS.days + 1} 天`) && !overDays.includes('條（'),
+    `D6 天數超過 → 只講天數那一項：${overDays}`);
+  eq(overLimitLine({ versMut: FULL_LIMITS.versions, never: FULL_LIMITS.never - 1, daysMut: FULL_LIMITS.days }), null,
+    'D6（對照）剛好在上限上 → 不提（版數、天數剛好在上限上，條數少一條；沒超過就照舊只印兩行）');
   // D6 真實入口：直接跑 npm run sincefull 那支程式，驗它印的跟 STATUS 寫的上限一致。
   // 不寫死「現在沒超過」—— 2026-09-21 那一版加了 10 條突變就真的超過了，寫死現況的斷言會跟著紅。
   // 判準刻意不經 overLimitLine：那支函式正是被驗的對象，拿它當標準答案就成了「自己跟自己比」。
@@ -263,9 +266,10 @@ section('STATUS：上次全面檢測／上次突變整套的兩行紀錄（npm r
   const cliMut = cliOut.find((l) => l.startsWith('距上次突變整套（')) ?? '';
   const cliVers = Number(/：(\d+) 版/.exec(cliMut)?.[1]);
   const cliNever = Number(/其中 (\d+) 條/.exec(cliMut)?.[1]);
-  ok(Number.isFinite(cliVers) && Number.isFinite(cliNever) && cliOut.some((l) => l.startsWith('距上次全面檢測（')),
+  const cliDays = Number(/ 版／(\d+) 天/.exec(cliMut)?.[1]);
+  ok(Number.isFinite(cliVers) && Number.isFinite(cliNever) && Number.isFinite(cliDays) && cliOut.some((l) => l.startsWith('距上次全面檢測（')),
     `（前提）sincefull 印得出那兩行，而且讀得到版數與條數（${cliVers} 版／${cliNever} 條）`);
-  const overNow = cliVers > Number(limitTxt?.[1]) || cliNever > Number(limitTxt?.[2]);
+  const overNow = cliVers > Number(limitTxt?.[1]) || cliNever >= Number(limitTxt?.[2]) || cliDays > Number(limitTxt?.[3]);
   ok(cliOut.length === (overNow ? 3 : 2) && (overNow ? cliOut[0].startsWith('已超過上限（') : cliOut[0].startsWith('距上次全面檢測（')),
     `D6（真實入口）現在 ${cliVers} 版／${cliNever} 條，${overNow ? '超過' : '沒超過'} STATUS 寫的上限 → sincefull ${overNow ? '在最前面多印一行提醒' : '只印那兩行'}：${JSON.stringify(cliOut)}`);
   // D4 npm test 的鏈裡沒有 mutationtest（它會暫時改寫原始碼、跑三十分鐘以上），但它的 npm script 還在
