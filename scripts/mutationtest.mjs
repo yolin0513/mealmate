@@ -4477,6 +4477,15 @@ const MUTATIONS = [
     expect: "護欄一 --only：",
   },
   {
+    name: "護欄：「是不是原樣」逐位元組比（不統一行尾）",
+    why: "人工用 git 還原時行尾可能被換成 CRLF；逐位元組比會把已經還原好的檔判成「不是原樣」，執行器就永遠拒絕。",
+    file: "scripts/mutationtest.mjs",
+    find: "所以這樣不會放過改壞的檔。\nconst eolHash = (text) => contentHash(String(text).replace(/\\r\\n/g, '\\n'));",
+    replace: "所以這樣不會放過改壞的檔。\nconst eolHash = (text) => contentHash(String(text));",
+    test: "resume-verify",
+    expect: "護欄 紀錄被移掉（行尾）",
+  },
+  {
     name: "護欄：還原紀錄還在時照樣改第二支檔",
     why: "紀錄只記得一支；哪天執行器變成一次動兩支，第二支會被靜默少記——這是目前成立的假設，要有東西擋著它。",
     file: "scripts/mutationtest.mjs",
@@ -4930,6 +4939,9 @@ function recoverPending() {
 }
 
 const refuse = (msg) => { ok(false, msg); done('mutationtest'); process.exit(1); };
+// 「是不是改壞前的內容」只比內容、不比行尾：人工用 git 還原時，行尾可能被 git 的設定換成 CRLF（2026-10-02 resume-verify 撞到），
+// 逐位元組比會把已經還原好的檔判成「不是原樣」、永遠拒絕。突變不會只改行尾，所以這樣不會放過改壞的檔。
+const eolHash = (text) => contentHash(String(text).replace(/\r\n/g, '\n'));
 
 section('前置');
 const recovered = recoverPending();
@@ -4946,7 +4958,7 @@ let inflightCleared = false;
     if (inf) { ledger.inflight = null; inflightCleared = true; }
   } else if (inf) {
     const full = path.join(ROOT, inf.file);
-    const now = fs.existsSync(full) ? contentHash(fs.readFileSync(full)) : null;
+    const now = fs.existsSync(full) ? eolHash(fs.readFileSync(full, 'utf8')) : null;
     if (now !== inf.origHash) {
       refuse(`上一次中斷過、還原紀錄卻不見了：帳本記著第 ${inf.run} 次開跑（突變「${inf.mutation}」）改壞 ${inf.file}，沒有收尾；磁碟上的還原紀錄（scripts/.mutation-pending.json）不在，而且 ${inf.file} 現在跟改壞前的內容不同——不能把它當原檔，請人工確認工作區（例如 git diff -- ${inf.file}）`);
     }
@@ -5126,7 +5138,7 @@ if (baselineOk) {
     const mutated = original.replace(m.find, m.replace);
     // 兩處紀錄（Dispatch 2026-10-02）：先在帳本記「第 N 次開跑、改哪一支、原檔雜湊」，再寫磁碟上的還原紀錄；
     // 還原後兩處都清掉。只有一份紀錄的話，紀錄被刪掉時無從察覺；兩處對不上，下次啟動就會拒絕（見「前置」）。
-    ledger.inflight = { run: RUN_SEQ, mutation: m.name, file: m.file, origHash: contentHash(original), at: new Date().toISOString() };
+    ledger.inflight = { run: RUN_SEQ, mutation: m.name, file: m.file, origHash: eolHash(original), at: new Date().toISOString() };
     saveLedger();
     const pendingProblem = writePending(m.file, original);
     if (pendingProblem) { ledger.inflight = null; saveLedger(); refuse(pendingProblem); }

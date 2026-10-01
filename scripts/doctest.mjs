@@ -1109,6 +1109,20 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
       `受影響 D18a 第一次（從沒跑過）→ 跑了那一條、紅了、帳本記下來（回 ${r1.code}）`);
     const r2 = run();
     ok(r2.code === 0 && r2.out.includes('選了 0 條突變') && r2.out.includes('沿用上次結果 1 條'), `受影響 D18b 第二次什麼都沒改 → 沿用、0 條要跑（回 ${r2.code}）`);
+    // D18g（遊戲專案 2026-10-02 撞出來的同一件事）：帳本裡「沒有結果／逾時被殺」的那一條，選擇時要當成沒跑過——
+    // 手動把一條改成那個狀態，下一次的選擇真的要把它挑進來；挑不進來，那個欄位就只是寫給人看的字串
+    {
+      const ledFile = path.join(root, LEDGER_FILE);
+      const led = JSON.parse(fs.readFileSync(ledFile, 'utf8'));
+      const before = JSON.stringify(led);
+      led.entries['AFF探針'].last = { ...led.entries['AFF探針'].last, counted: false, red: false, kind: 'timeout' };
+      fs.writeFileSync(ledFile, `${JSON.stringify(led, null, 1)}\n`);
+      const readBack = JSON.parse(fs.readFileSync(ledFile, 'utf8')).entries['AFF探針'].last;   // 造樣本後讀回確認（v11.3 §5.20）
+      const rg = run();
+      fs.writeFileSync(ledFile, `${JSON.stringify(JSON.parse(before), null, 1)}\n`);
+      ok(readBack.counted === false && readBack.kind === 'timeout' && rg.code === 0 && rg.out.includes('選了 1 條突變') && rg.out.includes(`${RERUN.UNCOUNTED} 1 條`),
+        `受影響 D18g 帳本把一條改成「逾時被殺、不算數」→ 下一次選擇真的把它挑進來，理由是「${RERUN.UNCOUNTED}」（回 ${rg.code}）`);
+    }
     fs.writeFileSync(path.join(root, 'js/affdep.js'), 'export const V = 2;\n');
     g('commit', '-qam', '改 affdep'); // 執行器要求工作區等於 HEAD（2026-10-02）
     const r3 = run();

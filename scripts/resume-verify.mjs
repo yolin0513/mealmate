@@ -37,6 +37,8 @@ function makeRepo(variant) {
     if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(root, 'scripts', f));
   }
   fs.copyFileSync(path.join(ROOT, 'js/version.js'), path.join(root, 'js/version.js'));
+  // 跟真的 repo 一樣的行尾設定（eol=lf）：沒有它，這台機器的全域 autocrlf 會讓 git checkout 寫出 CRLF
+  fs.copyFileSync(path.join(ROOT, '.gitattributes'), path.join(root, '.gitattributes'));
   for (const n of [1, 2, 3]) {
     fs.writeFileSync(path.join(root, `scripts/rvtarget${n}.mjs`), ORIGINAL);
     fs.writeFileSync(path.join(root, `scripts/rvtest${n}.mjs`),
@@ -115,7 +117,8 @@ async function flow(variant) {
     const rA = runSync(repo, ['--full', '--limit', '1']);
     const restoredMsg = rA.out.includes('上一次被中斷，已還原 scripts/rvtarget2.mjs');
     const hashOk = sha(repo.target2) === crypto.createHash('sha256').update(ORIGINAL).digest('hex');
-    step('還原：開頭說已還原、跑完後目標檔的內容雜湊等於原樣', restoredMsg && hashOk, `訊息 ${restoredMsg ? '有' : '沒有'}；雜湊 ${hashOk ? '相同' : '不同'}`);
+    const whyA = (rA.out.split('\n').find((l) => l.includes('✗')) ?? '').trim().slice(0, 200);
+    step('還原：開頭說已還原、跑完後目標檔的內容雜湊等於原樣', restoredMsg && hashOk, `訊息 ${restoredMsg ? '有' : '沒有'}；雜湊 ${hashOk ? '相同' : '不同'}${restoredMsg && hashOk ? '' : `；執行器回 ${rA.code}、第一個 ✗：${whyA || '（沒有）'}`}`);
     const named = /整套還沒收齊：[^\n]*RV3/.test(rA.out);
     const ranA = marks(repo);
     step('續跑（第一段）：只跑了第二條；沒收齊時點名第三條', named && ranBroken(ranA, 1) === 0 && ranBroken(ranA, 2) === 1 && ranBroken(ranA, 3) === 0,
@@ -161,10 +164,17 @@ async function guardFlow() {
       step('護欄 紀錄被移掉：還原紀錄被刪、帳本留著「開跑未完成」→ 拒絕、指出第幾次與哪支檔、不動那支檔',
         r.code !== 0 && r.out.includes('還原紀錄卻不見了') && r.out.includes('第 1 次開跑') && r.out.includes('scripts/rvtarget2.mjs') && sha(repo.target2) === brokenHash,
         `回 ${r.code}；${(r.out.split('\n').find((l) => l.includes('✗')) ?? '（沒有 ✗）').trim().slice(0, 140)}`);
+      // 行尾：人工還原時寫成 CRLF（內容跟改壞前一樣）→ 兩處紀錄那一關要判成「已是原樣」（只比內容、不比行尾）；
+      // 接著工作區不等於 HEAD（git 把 CRLF 的檔當成有改動），由護欄一擋下——兩種結果分得出是哪一關
+      fs.writeFileSync(repo.target2, ORIGINAL.replace(/\n/g, '\r\n'));
+      const rEol = runSync(repo, ['--full']);
+      step('護欄 紀錄被移掉（行尾）：人工還原成 CRLF、內容等於改壞前 → 判成已還原（不判成「紀錄不見了」），接著由護欄一擋下',
+        rEol.code !== 0 && rEol.out.includes('當成已還原') && rEol.out.includes('工作區不等於 HEAD') && !rEol.out.includes('還原紀錄卻不見了'),
+        `回 ${rEol.code}；第一個 ✗：${(rEol.out.split('\n').find((l) => l.includes('✗')) ?? '（沒有）').trim().slice(0, 120)}`);
       git(repo, 'checkout', '--', 'scripts/rvtarget2.mjs');            // 人工確認後把它還原
       const r2 = runSync(repo, ['--full']);
       step('護欄 紀錄被移掉（反向）：人工還原後（檔案雜湊等於改壞前）→ 照跑、收齊',
-        r2.code === 0 && r2.out.includes('當成已還原') && r2.out.includes('整套收齊：3 條'), `回 ${r2.code}`);
+        r2.code === 0 && r2.out.includes('當成已還原') && r2.out.includes('整套收齊：3 條'), `回 ${r2.code}；第一個 ✗：${(r2.out.split('\n').find((l) => l.includes('✗')) ?? '（沒有）').trim().slice(0, 200)}；有沒有「當成已還原」：${r2.out.includes('當成已還原')}`);
     } finally { cleanup(repo); }
   }
   // 護欄一 工作區／--only
