@@ -4155,10 +4155,13 @@ const onlyKeys = only ? only.split('|').map((k) => k.trim()).filter(Boolean) : [
 const SELECTED = only ? MUTATIONS.filter((m) => [m.name, m.file, m.test].some((s) => onlyKeys.some((k) => s.includes(k)))) : MUTATIONS;
 const TESTS = [...new Set(SELECTED.map((m) => m.test))];
 
+// 每支測試的逾時（分鐘）。assertaudit 要把整條測試鏈 26 支都跑一遍，2026-10-01 實測約 18 分鐘——
+// 原本一律 10 分鐘，它在基準段就被殺掉，指定由它驗的突變從來沒在整套裡跑過（輸出只剩開頭，看不出是逾時）。
+const TEST_TIMEOUT_MIN = { assertaudit: 45 };
 function runTest(name) {
   const file = path.join(ROOT, 'scripts', `${name}.mjs`);
   try {
-    const out = execFileSync(process.execPath, [file], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 10 * 60 * 1000, encoding: 'utf8' });
+    const out = execFileSync(process.execPath, [file], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, encoding: 'utf8' });
     return { passed: true, out };
   } catch (e) {
     return { passed: false, out: `${e.stdout ?? ''}\n${e.stderr ?? ''}` };
