@@ -84,13 +84,21 @@ export function tagsOfFood(food, foodTags) {
  * 沒標＝**推不出來**。油脂類放這邊：人造奶油、酥油的成分看名稱看不出有沒有奶；分不出來的不硬塞一邊（同 SPEC_食材搜尋排序）。
  */
 export const SINGLE_FOOD_CATS = new Set(['穀物類', '澱粉類', '堅果及種子類', '水果類', '蔬菜類', '藻類', '菇類', '豆類', '肉類', '魚貝類', '蛋類', '乳品類']);
-/** 三態的值：含／推斷不含／推不出來。「推斷不含」不叫「不含」——它是推的，不是確認過的。 */
-export const TAG_STATUS = { YES: 'yes', INFERRED_NO: 'inferred-no', UNKNOWN: 'unknown' };
+/**
+ * 狀態的值：含／已確認不含／推斷不含／推不出來。
+ * 「已確認不含」只來自 data/foodtags.json 的 checked（有人看過成分、確認過的；Yolin 填 docs/待確認_加工品葷素.md 之後轉進去）。
+ * 「推斷不含」不叫「不含」——它是推的，不是確認過的。
+ */
+export const TAG_STATUS = { YES: 'yes', CONFIRMED_NO: 'confirmed-no', INFERRED_NO: 'inferred-no', UNKNOWN: 'unknown' };
 
-/** 一樣食材對某個標籤（meat、egg、dairy、allium…）的狀態。查不到食材（null）＝推不出來。 */
-export function foodTagStatus(food, foodTags, tag) {
+/**
+ * 一樣食材對某個標籤（meat、egg、dairy、allium…）的狀態。查不到食材（null）＝推不出來。
+ * checked：{ 食材編號: [確認過的標籤…] }（data/foodtags.json 的 checked）。確認過、而且沒有那個標籤 → 已確認不含。
+ */
+export function foodTagStatus(food, foodTags, tag, checked = {}) {
   if (!food) return TAG_STATUS.UNKNOWN;
   if (tagsOfFood(food, foodTags).has(tag)) return TAG_STATUS.YES;
+  if (Array.isArray(checked?.[food.id]) && checked[food.id].includes(tag)) return TAG_STATUS.CONFIRMED_NO;
   return SINGLE_FOOD_CATS.has(food.cat) ? TAG_STATUS.INFERRED_NO : TAG_STATUS.UNKNOWN;
 }
 
@@ -99,19 +107,47 @@ export function foodTagStatus(food, foodTags, tag) {
  * 任何一樣含 → 含；沒有含、但有任何一樣推不出來 → 推不出來（並列出是哪幾樣）；全部推斷不含 → 推斷不含。
  * byId：食材編號 → 食材（foods 索引的 byId）。只看食材資料；使用者自己確認過的推翻（vegModeConfirmed）不在這裡。
  */
-export function recipeTagStatus(recipe, byId, foodTags, tag, side = 'veg') {
+export function recipeTagStatus(recipe, byId, foodTags, tag, side = 'veg', checked = {}) {
   const skip = side === 'veg' ? 'meat' : 'veg';
   const yes = []; const unknown = [];
   for (const ing of recipe?.ingredients ?? []) {
     if ((ing.track ?? 'base') === skip) continue;
     const f = ing.food ? byId.get(ing.food) ?? null : null;
-    const s = foodTagStatus(f, foodTags, tag);
+    const s = foodTagStatus(f, foodTags, tag, checked);
     const who = f?.id ?? String(ing.label ?? ing.food ?? '');
     if (s === TAG_STATUS.YES) yes.push(who);
     else if (s === TAG_STATUS.UNKNOWN) unknown.push(who);
   }
   const status = yes.length ? TAG_STATUS.YES : unknown.length ? TAG_STATUS.UNKNOWN : TAG_STATUS.INFERRED_NO;
   return { status, yes, unknown };
+}
+
+/** A 方案標示的對象：蛋、奶、五辛（肉由每道食譜的 vegMode 人工標，不在這裡）。 */
+export const UNCONFIRMED_TAGS = ['egg', 'dairy', 'allium'];
+
+/**
+ * A 方案（Yolin 2026-10-01：照常排，但標示出來）：一位家人吃的那一份裡，**推不出來**是否含他不吃的蛋／奶／五辛的食材。
+ * @param version versionFor 的結果（'veg'｜'meat'｜'all'）；null（吃不了）回 []
+ * @param eats dietFlags 的結果（{ egg, dairy, allium }，true＝吃）
+ * @returns [{ food: 編號, label: 食譜上寫的名字, tags: [推不出來的那幾個標籤] }]，依食譜順序、同一樣食材只列一次。
+ * 只列「推不出來」的：含的（那位家人本來就排不到）、已確認不含的、單一原料推斷不含的，都不列——列了就是雜訊。
+ */
+export function unconfirmedFor(recipe, version, eats, byId, foodTags, checked = {}) {
+  if (!version || !eats) return [];
+  const watch = UNCONFIRMED_TAGS.filter((t) => eats[t] === false);
+  if (!watch.length) return [];
+  const skip = version === 'veg' ? 'meat' : version === 'meat' ? 'veg' : null;
+  const out = []; const seen = new Set();
+  for (const ing of recipe?.ingredients ?? []) {
+    if (skip && (ing.track ?? 'base') === skip) continue;
+    if (!ing.food || seen.has(ing.food)) continue;                     // 查不到編號的（使用者的菜）由 unresolved 那一套處理
+    const f = byId.get(ing.food) ?? null;
+    const tags = watch.filter((t) => foodTagStatus(f, foodTags, t, checked) === TAG_STATUS.UNKNOWN);
+    if (!tags.length) continue;
+    seen.add(ing.food);
+    out.push({ food: ing.food, label: String(ing.label ?? f?.name ?? ing.food), tags });
+  }
+  return out;
 }
 
 /** 主要蛋白質來源（給週計畫的蛋白質輪替用）。從食藥署的正式名稱推，蛋類先判斷免得「雞蛋」被算成雞。 */

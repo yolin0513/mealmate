@@ -21,9 +21,15 @@
   - **依賴範圍**（`scripts/depgraph.mjs`，規則寫在檔頭）：照 import 遞迴＋一律算 data/、package.json、package-lock.json；瀏覽器測試與 App 程式寫不死的載入 → docs/ 以外全部；測試與工具寫不死的讀檔 → 整個 repo。docs/ 能排除的兩道前提由 doctest 守：`serve.mjs` 不送 docs/（這次加的）、docs/ 裡沒有可 import 的檔。
     2026-10-01 對真實 repo 數的（`--dry-run`）：525 條裡 node 162、browser 129、整個 repo 234（doctest 97、recipetest 81——build-recipes 的讀檔路徑寫不死、shelltest 23、datatest 11…）。整個 repo 那一群改任何檔（含 docs/STATUS.md）都要重跑，這是下一步要縮的地方。
   - **帳本** `scripts/mutation-ledger.json`（進版控）：每條記最近一次（last）與最近一次整套或補跑（lastFull）的日期、commit、跑法、怎麼結束、紅了沒、三個雜湊。初版由 09-24 的 `mutation-lastfull.json` 轉入：442 條記為 2026-09-24、`2841ac1`、整套、紅，雜湊留空（那次沒記）→ 第一次 `--affected` 會全部重跑（理由「上次沒有記雜湊」；而且執行器這次改了）。`npm run sincefull -- --list` 列從沒整套跑過的、`--each` 列每一條。
-  - **從沒整套跑過：83 條**（09-25 的 44 → 今天 50 → 再加這次新寫的 33 條：三態 6、分類對照組 27）。Dispatch 指示：機制驗完先只跑這些（`--never-full`），逐條確認紅的理由。
+  - **從沒整套跑過：98 條**（09-25 的 44 → 今天 50 → 再加這次新寫的 48 條：三態 6、分類對照組 27、A 方案 15）。Dispatch 指示：機制驗完先只跑這些（`--never-full`），逐條確認紅的理由。
   - **蛋奶五辛三態**（`js/recipeschema.js` 的 `foodTagStatus`／`recipeTagStatus`，**不改行為**、只讓狀態查得到）：含／推斷不含／推不出來。單一原料的 12 個食物類別沒標＝推斷不含；其他分類（加工品、糕餅、調味料、飲料、油脂、糖、資料裡的新分類）沒標＝推不出來。recipetest「三態 T1–T8」。T8 的前提（≥ 100 道）還沒用突變證明會紅：驗證時臨時把門檻調高看它紅、再改回。
-  - **驗證時要做的**：`node --check` 已過；`--dry-run` 已實跑（上面的數字）。待做：doctest、recipetest 全綠 → `--only` 跑新加的 33 條突變（三態 6、分類 27）→ `checkmutations` → 改 STATUS 的條數（突變 525、doctest／recipetest 斷言數）→ commit → 推送 → `--never-full` 跑那 83 條。
+  - **A 方案（Yolin 2026-10-01：「有關MealMate那個問題請先依A方案實作」——加工品照常排，但標示出來）**：
+    - 資料層四態：含／**已確認不含**（只來自 `data/foodtags.json` 新加的 `checked`：{ 食材編號: [確認過的標籤] }，現在是空的）／推斷不含／推不出來。
+    - `unconfirmedFor`（js/recipeschema.js）：一位家人吃的那一份裡，推不出來是否含他**不吃的**蛋／奶／五辛的食材；只列推不出來的，推斷不含與確認過的不列。
+    - 畫面：食譜頁家人那一段（`data-unconfirmed-note`）寫「「醬油」未確認是否含蛋、奶；…買的時候看包裝標示」；食材表那幾樣旁邊標「未確認是否含蛋、奶」（`data-unconfirmed`）。本週頁、今天頁**沒做**（只在食譜頁）。
+    - 資料驅動：Yolin 填 `docs/待確認_加工品葷素.md` 的「你的決定」→ 開發 Session 轉進 foodtags.json（素→checked 三項；含蛋／含奶／含五辛→tags；葷→tags.meat 或 seafood）→ 標示自動消失。表上加了「編號」欄；`scripts/procdecisions.mjs` 核對兩邊，doctest「待確認 P1–P8」：填了沒轉 → 紅。
+    - 測試：recipetest「A 方案 U0–U7」（U7：兩條查詢路徑在真實資料上一致）；recipeviewtest「A 方案 V1–V5」（瀏覽器，**還沒跑**）；突變 15 條（recipetest 7、recipeviewtest 2、doctest 6）。
+  - **驗證時要做的**：`node --check`、`checkmutations`（540 條、0 過期）、`--dry-run` 已實跑。待做（遊戲跑完、Dispatch 放行後）：recipetest、doctest 全綠 → recipeviewtest（瀏覽器，要放行）→ `--only` 跑新加的 48 條突變（三態 6、分類 27、A 方案 15）→ T8 與 U7 後面那條前提臨時調門檻證明會紅 → 改 STATUS 的條數（突變 540、各測試斷言數）→ 整理這兩個本機 WIP commit → 推送 → `--never-full` 跑那 98 條（09-25 的 44＋今天 6＋這次 48）。
   （之前那一批——檢查器修補 P0／P1、F8–F10、擋法表、環境變數、補充說明十一——2026-09-25 已收尾。）
 - **App 最後一版仍是 `mealmate-v0.41.0`（2026-09-23）**。09-24、09-25 全是 scripts／docs，沒有 bump、沒有部署。
 - **檢查器修補的全部證據**：`docs/EVIDENCE_檢查器修補.md`，涵蓋 P0、P1、F8、F9、F10、擋法表、環境變數兩類、補充說明十一。STATUS 各節只留摘要。

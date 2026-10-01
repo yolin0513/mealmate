@@ -14,6 +14,7 @@ const state = {
   ready: false,
   foods: null,        // indexFoods() 的結果
   foodTags: null,
+  foodChecked: null, // data/foodtags.json 的 checked：有人確認過成分的（A 方案；讀不到就是空的＝全部推不出來，不會冒充成確認過）
   units: null,
   recipes: null,      // 內建食譜（data/recipes.json）
   recipesMeta: null,
@@ -50,6 +51,7 @@ export async function init() {
     tryLoad('foods.json'), tryLoad('aliases.json'), tryLoad('units.json'), tryLoad('recipes.json'), tryLoad('edu.json'), tryLoad('foodtags.json'),
   ]);
   state.foodTags = foodtags?.tags ?? {};
+  state.foodChecked = foodtags?.checked ?? {};
   if (foods) state.foods = indexFoods(foods, aliases ?? { aliases: {} }, state.foodTags);
   state.units = units;
   if (recipes) { state.recipes = recipes.recipes; state.recipesMeta = { foodsVersion: recipes.foodsVersion, count: recipes.recipes.length }; }
@@ -72,6 +74,7 @@ export function dataErrors() { return { ...state.dataErrors }; }
 export function foodsIndex() { return state.foods; }
 export function foodsVersion() { return state.foods?.version ?? null; }
 export function foodTags() { return state.foodTags ?? {}; }
+export function foodChecked() { return state.foodChecked ?? {}; }
 export function units() { return state.units; }
 
 // ---------- 食譜（內建 ＋ 使用者） ----------

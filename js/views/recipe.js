@@ -5,10 +5,10 @@ import { setTop, render } from '../shell.js';
 import { navigate } from '../router.js';
 import * as store from '../store.js';
 import { eduNode } from '../edu.js';
-import { ROLE_LABELS, VEG_MODE_LABELS, METHOD_LABELS, TEXTURE_LABELS, STAGE_LABELS, TRACK_LABELS, TAG_LABELS, timeText } from '../recipeschema.js';
+import { ROLE_LABELS, VEG_MODE_LABELS, METHOD_LABELS, TEXTURE_LABELS, STAGE_LABELS, TRACK_LABELS, TAG_LABELS, timeText, unconfirmedFor } from '../recipeschema.js';
 import { NUTRIENT_ORDER, NUTRIENT_LABELS } from '../foods.js';
 import { estimate, servingsFor } from '../nutrition.js';
-import { familyWatchFields, displayFields, versionFor, allergenHits, DIET_LABELS, ALLERGEN_LABELS } from '../members.js';
+import { familyWatchFields, displayFields, versionFor, allergenHits, dietFlags, DIET_LABELS, ALLERGEN_LABELS } from '../members.js';
 import { vegTone } from './recipes.js';
 
 const MONTHS = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
@@ -26,6 +26,9 @@ export default async function recipeView(id) {
   const members = store.members();
   const watch = familyWatchFields(members);
   const isSplit = r.vegMode === 'splittable';
+  // A 方案：這位家人吃的那一份裡，推不出來是否含他不吃的蛋／奶／五辛的食材（js/recipeschema.js unconfirmedFor）
+  const unconfirmedOf = (m) => (idx ? unconfirmedFor(r, versionFor(r, m.diet), dietFlags(m.diet), idx.byId, store.foodTags(), store.foodChecked()) : []);
+  const tagsText = (tags) => tags.map((t) => TAG_LABELS[t] ?? t).join('、');
 
   // 預設看哪個版本：家裡有吃素的、而且沒有吃葷的 → 素版；否則葷版
   let version = !isSplit ? 'all' : (members.length && members.every((m) => m.diet !== 'omni') ? 'veg' : 'meat');
@@ -41,12 +44,20 @@ export default async function recipeView(id) {
     h('p', {}, `${r.servings} 人份${isSplit ? `（素 ${r.splitServings.veg}、葷 ${r.splitServings.meat}）` : ''} · ${timeText(r.time)} · 當季：${seasonText(r.season)}`),
     r.alliumOptional ? h('p', { class: 'muted sm' }, '蔥蒜可以省略，全素的家人也能吃。') : null,
     isSplit ? h('p', { class: 'muted sm' }, '先一起煮共同的部分，盛出素食份之後兩鍋各自收尾；素版與葷版的營養分開估算，不會相加。') : null,
-    ...members.map((m) => {
+    ...members.flatMap((m) => {
       const v = versionFor(r, m.diet);
       const hits = allergenHits(r, m);
-      if (v === null) return h('p', { class: 'muted sm', dataset: { memberNote: m.id } }, `${m.name}（${DIET_LABELS[m.diet]}）吃不了這道。`);
-      if (hits.length) return h('p', { class: 'sm warn', dataset: { memberNote: m.id } }, `${m.name}對${hits.map((a) => ALLERGEN_LABELS[a]).join('、')}過敏：這道（${v === 'veg' ? '素版' : v === 'meat' ? '葷版' : ''}）含${hits.map((a) => ALLERGEN_LABELS[a]).join('、')}，依食材推斷，加工品成分請看包裝。`);
-      return null;
+      if (v === null) return [h('p', { class: 'muted sm', dataset: { memberNote: m.id } }, `${m.name}（${DIET_LABELS[m.diet]}）吃不了這道。`)];
+      const out = [];
+      if (hits.length) out.push(h('p', { class: 'sm warn', dataset: { memberNote: m.id } }, `${m.name}對${hits.map((a) => ALLERGEN_LABELS[a]).join('、')}過敏：這道（${v === 'veg' ? '素版' : v === 'meat' ? '葷版' : ''}）含${hits.map((a) => ALLERGEN_LABELS[a]).join('、')}，依食材推斷，加工品成分請看包裝。`));
+      // A 方案（Yolin 2026-10-01）：照常排，但把「推不出來」的那幾樣具體列出來，讓吃的人自己判斷。
+      // 只列推不出來的；確認過不含的、單一原料推斷不含的不列（列了就是雜訊）。資料（foodtags.json 的 checked）補上就自動消失。
+      const unc = unconfirmedOf(m);
+      if (unc.length) {
+        out.push(h('p', { class: 'sm warn', dataset: { unconfirmedNote: m.id } },
+          `${m.name}（${DIET_LABELS[m.diet]}）：這道${v === 'veg' ? '素版' : ''}裡，${unc.map((u) => `「${u.label}」未確認是否含${tagsText(u.tags)}`).join('；')}。這幾樣是加工品，食材資料沒有它們的完整成分，買的時候看包裝標示。`));
+      }
+      return out;
     }),
   );
 
@@ -97,6 +108,12 @@ export default async function recipeView(id) {
       return;
     }
     const est = estimate(r, idx, { version, servings });
+    // A 方案：正在看的這個版本，吃它的家人裡有人不吃蛋／奶／五辛時，推不出來的那幾樣在食材表上直接標
+    const uncTags = new Map();
+    for (const m of members) {
+      if (versionFor(r, m.diet) !== version) continue;
+      for (const u of unconfirmedOf(m)) uncTags.set(u.food, [...new Set([...(uncTags.get(u.food) ?? []), ...u.tags])]);
+    }
     // 食材表（依人份縮放；分流的菜只列這個版本會用到的軌）
     ingBody.replaceChildren(...r.ingredients
       .filter((ing) => !isSplit || (ing.track ?? 'base') === 'base' || (ing.track ?? 'base') === version)
@@ -104,7 +121,8 @@ export default async function recipeView(id) {
         const divisor = (ing.track ?? 'base') === 'base' ? r.servings : servingsFor(r, version);
         const grams = ing.grams == null ? null : Math.round(ing.grams / divisor * servings);
         return h('tr', {},
-          h('td', {}, ing.label, ing.pantry ? ' ' : '', ing.pantry ? pill('常備', 'muted') : null),
+          h('td', {}, ing.label, ing.pantry ? ' ' : '', ing.pantry ? pill('常備', 'muted') : null,
+            uncTags.has(ing.food) ? h('span', { class: 'warn xs', dataset: { unconfirmed: ing.food } }, ` 未確認是否含${tagsText(uncTags.get(ing.food))}`) : null),
           h('td', { class: 'grams num' }, grams == null ? '克數未填' : `${grams} g`),
           isSplit ? h('td', {}, pill(TRACK_LABELS[ing.track ?? 'base'], ing.track === 'veg' ? 'green' : ing.track === 'meat' ? 'accent' : '')) : null,
         );

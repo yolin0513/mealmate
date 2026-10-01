@@ -22,6 +22,7 @@ import {
 } from './depgraph.mjs';
 import { listen as serveListen } from './serve.mjs';
 import { lastFullNotInLedger } from './sincefull.mjs';
+import { parseDecisionTable, decisionProblems, DECISION_FILE } from './procdecisions.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
 import { outputProblems, writeAtomically } from './build-recipes.mjs';
 import { selfControls as bgControls, names, registrationDecision as bgDecide, BG_FILES, BG_REG, finalizeRegistration, compare as bgCompare } from './buildguard-verify.mjs';
@@ -857,6 +858,27 @@ section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣
     `G8 每條規則的每個分支都有只靠它的對照樣本（拿掉那個分支就抓不到）：${branchLines.map((l) => l.split('｜').slice(1, 3).join(' ')).join('；')}`);
   const walked = /跳脫掃描：走了 (\d+) 支/.exec(g1.out);
   ok(walked && Number(walked[1]) >= 50, `G6-4 真實 repo：跳脫掃描走了 ${walked ? walked[1] : '（沒有這一行）'} 支腳本（母體要涵蓋 scripts/、js/、根目錄）`);
+}
+
+section('加工品待確認清單 ⇄ data/foodtags.json（2026-10-01 A 方案：標示由資料驅動，表上填了就要轉進資料）');
+{
+  const syn = (decision) => [{ name: '合成醬', id: 'X1', decision }];
+  const FT = (tags = {}, checked = {}) => ({ tags, checked });
+  eq([decisionProblems(syn(''), FT()), decisionProblems(syn('不確定'), FT())], [[], []], '待確認 P1 空白、不確定 → 不要求資料有任何東西');
+  ok(decisionProblems(syn('素'), FT({}, { X1: ['egg', 'dairy', 'allium'] })).length === 0 && decisionProblems(syn('素'), FT({}, { X1: ['egg'] })).length === 1,
+    '待確認 P2 填「素」→ checked 要有蛋、奶、五辛三項，少了就點名');
+  ok(decisionProblems(syn('素'), FT({ allium: ['X1'] }, { X1: ['egg', 'dairy', 'allium'] })).length === 1, '待確認 P3 填「素」、tags 卻標了五辛 → 點名');
+  ok(decisionProblems(syn('含蛋、含奶'), FT({ egg: ['X1'], dairy: ['X1'] })).length === 0 && decisionProblems(syn('含蛋、含奶'), FT({ egg: ['X1'] })).length === 1,
+    '待確認 P4 填「含蛋、含奶」→ 兩樣都要在 tags 裡，少一樣就點名');
+  ok(decisionProblems(syn('葷'), FT({ seafood: ['X1'] })).length === 0 && decisionProblems(syn('葷'), FT()).length === 1, '待確認 P5 填「葷」→ meat 或 seafood 要有它');
+  ok(decisionProblems(syn('大概素'), FT()).length === 1, '待確認 P6 看不懂的決定 → 點名（不默默當成空白）');
+  let noHeader = ''; try { parseDecisionTable('# 沒有表'); } catch (e) { noHeader = String(e.message); }
+  ok(noHeader.includes('找不到表頭'), `待確認 P7 找不到表頭 → 丟錯、講明是找不到表頭（不當成沒有任何決定）：${noHeader || '（沒有丟錯）'}`);
+  // 真實資料
+  const rows = parseDecisionTable(fs.readFileSync(path.join(ROOT, DECISION_FILE), 'utf8'));
+  ok(rows.length === 38 && rows.every((r) => /^[A-Z]\d{5,7}$/.test(r.id)), `（前提）表上 ${rows.length} 列（2026-10-01 列出的 38 種），每列都有食材編號`);
+  const realFT = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foodtags.json'), 'utf8'));
+  eq(decisionProblems(rows, realFT), [], `待確認 P8 真實資料：表上已填的決定（${rows.filter((r) => r.decision).length} 列）都已轉進 data/foodtags.json`);
 }
 
 section('只跑受影響的突變：依賴範圍與「要不要重跑」的分類對照組（2026-10-01，Yolin 新規則；scripts/depgraph.mjs）');

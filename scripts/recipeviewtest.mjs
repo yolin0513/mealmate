@@ -5,7 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf } from './tap.mjs';
 import { openApp, acceptWelcome, goto, titleIs, chipSel, textOf, sleep, waitToastGone, clickEl } from './browserlib.mjs';
-import { fitsDiet } from '../js/members.js';
+import { fitsDiet, versionFor, dietFlags } from '../js/members.js';
+import { unconfirmedFor, SINGLE_FOOD_CATS } from '../js/recipeschema.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const recipes = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/recipes.json'), 'utf8')).recipes;
@@ -679,6 +680,60 @@ try {
     await titleIs(page, '食譜');
     await page.waitForSelector(`[data-recipe="${saved.id}"]`);
     ok((await textOf(page, `[data-recipe="${saved.id}"]`)).includes('部分估算'), '食譜清單上這道標「部分估算」');
+  }
+
+  section('A 方案：加工品未確認是否含蛋奶五辛 → 食譜頁對那位家人具體列出是哪幾樣（2026-10-01，Yolin）');
+  {
+    // 情境從資料挑，不寫死：一道排給全素家人、有推不出來的加工品的（A），一道排給全素家人、什麼都推得出來的（B，對照）
+    const foodsAll = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foods.json'), 'utf8')).foods;
+    const ft = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/foodtags.json'), 'utf8'));
+    const foodById = new Map(foodsAll.map((f) => [f.id, f]));
+    const VEGAN = 'vegan';
+    const uncOf = (r) => unconfirmedFor(r, versionFor(r, VEGAN), dietFlags(VEGAN), foodById, ft.tags, ft.checked ?? {});
+    const served = recipes.filter((r) => r.vegMode === 'nativeVeg' && versionFor(r, VEGAN) === 'all');
+    const recA = served.find((r) => uncOf(r).length > 0 && r.ingredients.some((ing) => SINGLE_FOOD_CATS.has(foodById.get(ing.food)?.cat)));
+    const recB = served.find((r) => uncOf(r).length === 0);
+    ok(!!recA && !!recB, `（前提）挑得到兩道本來就素的菜：A 有推不出來的加工品（${recA?.name}：${recA ? uncOf(recA).map((u) => u.label).join('、') : '—'}）、B 沒有（${recB?.name}）`);
+    if (recA && recB) {
+      const uncA = uncOf(recA);
+      const wholeLabel = recA.ingredients.find((ing) => SINGLE_FOOD_CATS.has(foodById.get(ing.food)?.cat)).label;
+      await page.evaluate(async () => {
+        const store = await import('./js/store.js');
+        const { newMember } = await import('./js/members.js');
+        for (const mm of store.members()) await store.deleteMember(mm.id);
+        await store.saveMember({ ...newMember(), name: '姊', diet: 'vegan' });
+      });
+      await goto(page, '#/recipes');
+      await titleIs(page, '食譜');
+      await goto(page, `#/recipes/${recA.id}`);
+      await page.waitForSelector('[data-card="recipeInfo"]');
+      const noteA = await page.$$eval('[data-unconfirmed-note]', (els) => els.map((e) => e.textContent));
+      ok(noteA.length === 1 && uncA.every((u) => noteA[0].includes(`「${u.label}」未確認是否含${u.tags.map((t) => ({ egg: '蛋', dairy: '奶', allium: '五辛' })[t]).join('、')}`)) && noteA[0].includes('姊'),
+        `A 方案 V1：全素家人看「${recA.name}」→ 寫出是哪幾樣、未確認哪幾項：${noteA[0] ?? '（沒有標示）'}`);
+      ok(noteA.length === 1 && !noteA[0].includes(`「${wholeLabel}」`), `A 方案 V2：推得出來的食材（${wholeLabel}）不被標成未確認`);
+      const marks = await page.$$eval('[data-unconfirmed]', (els) => els.map((e) => ({ id: e.dataset.unconfirmed, t: e.textContent })));
+      eq(marks.map((m) => m.id).sort(), uncA.map((u) => u.food).sort(), 'A 方案 V3：食材表上標出來的剛好是推不出來的那幾樣（不多不少）');
+      await goto(page, `#/recipes/${recB.id}`);
+      await page.waitForSelector('[data-card="recipeInfo"]');
+      eq([await page.$$eval('[data-unconfirmed-note]', (els) => els.length), await page.$$eval('[data-unconfirmed]', (els) => els.length)], [0, 0],
+        `A 方案 V4（對照）：沒有推不出來的食材的菜（${recB.name}）→ 不標`);
+      // 什麼都吃的家人看同一道 A → 不標
+      await page.evaluate(async () => {
+        const store = await import('./js/store.js');
+        const { newMember } = await import('./js/members.js');
+        for (const mm of store.members()) await store.deleteMember(mm.id);
+        await store.saveMember({ ...newMember(), name: '爸', diet: 'omni' });
+      });
+      await goto(page, '#/recipes');
+      await titleIs(page, '食譜');
+      await goto(page, `#/recipes/${recA.id}`);
+      await page.waitForSelector('[data-card="recipeInfo"]');
+      eq(await page.$$eval('[data-unconfirmed-note], [data-unconfirmed]', (els) => els.length), 0, 'A 方案 V5（對照）：家裡只有什麼都吃的人 → 同一道不標');
+      await page.evaluate(async () => {
+        const store = await import('./js/store.js');
+        for (const mm of store.members()) await store.deleteMember(mm.id);
+      });
+    }
   }
 
   eq(pageErrors, [], '整個流程沒有未攔截的例外');

@@ -13,8 +13,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadContext, buildRecipes, summarize, outputFor } from './build-recipes.mjs';
-import { validateRecipe, USER_DEFAULT_STEP, tagsOfFood, proteinGroupOf, PROCESSED_CATS, HIGH_PROTEIN_PER_100G, HIGH_PROTEIN_PER_SERVING, foodTagStatus, recipeTagStatus, TAG_STATUS } from '../js/recipeschema.js';
-import { fitsDiet, versionFor, dietFromFlags } from '../js/members.js';
+import { validateRecipe, USER_DEFAULT_STEP, tagsOfFood, proteinGroupOf, PROCESSED_CATS, HIGH_PROTEIN_PER_100G, HIGH_PROTEIN_PER_SERVING, foodTagStatus, recipeTagStatus, TAG_STATUS, unconfirmedFor } from '../js/recipeschema.js';
+import { fitsDiet, versionFor, dietFromFlags, dietFlags } from '../js/members.js';
 import { proteinDishMatch, starFoods } from '../js/planner.js';
 import { estimate } from '../js/nutrition.js';
 
@@ -687,6 +687,38 @@ section('蛋奶五辛的三態：推不出來的不得回答「不含」（2026-
     noneOf(withUntaggedProc, (r) => recipeTagStatus(r, idx.byId, ctx.foodTags, tag, 'veg').status === TAG_STATUS.INFERRED_NO,
       `三態 T8：這些菜查「${tag}」，沒有一道回答「推斷不含」`);
   }
+
+  // ---- A 方案（Yolin 2026-10-01：照常排，但標示出來）：已確認不含只來自 checked；只標推不出來的那幾樣 ----
+  eq([foodTagStatus(proc, TAGS, 'egg', { 'X-PROC': ['egg'] }), foodTagStatus(proc, TAGS, 'egg', { 'X-PROC': ['dairy'] }), foodTagStatus(proc, TAGS, 'egg', {})],
+    [TAG_STATUS.CONFIRMED_NO, TAG_STATUS.UNKNOWN, TAG_STATUS.UNKNOWN],
+    'A 方案 U0：已確認不含只來自 checked，而且只認確認過的那一項（確認過奶不等於確認過蛋）');
+  const VEGAN = dietFlags(dietFromFlags({ egg: false, dairy: false, allium: true }));
+  const NO_ALLIUM = dietFlags(dietFromFlags({ egg: true, dairy: true, allium: false }));
+  const OMNI_EATS = { egg: true, dairy: true, allium: true };
+  const aDish = { ingredients: [{ food: 'X-VEG', label: '青菜', track: 'base' }, { food: 'X-PROC', label: '某醬', track: 'base' }, { food: 'X-PROC', label: '某醬（再一次）', track: 'base' }] };
+  eq(unconfirmedFor(aDish, 'all', VEGAN, byId, TAGS), [{ food: 'X-PROC', label: '某醬', tags: ['egg', 'dairy'] }],
+    'A 方案 U1：全素家人 → 只列推不出來的那一樣（同一樣只列一次）、只列他不吃的蛋和奶；推斷不含的青菜不列');
+  eq(unconfirmedFor(aDish, 'all', NO_ALLIUM, byId, TAGS), [{ food: 'X-PROC', label: '某醬', tags: ['allium'] }],
+    'A 方案 U2：吃蛋奶、不吃五辛的家人 → 只標五辛');
+  eq([unconfirmedFor(aDish, 'all', OMNI_EATS, byId, TAGS), unconfirmedFor(aDish, null, VEGAN, byId, TAGS)], [[], []],
+    'A 方案 U3：什麼都吃的家人、吃不了這道的家人 → 不標');
+  eq([unconfirmedFor(aDish, 'all', VEGAN, byId, TAGS, { 'X-PROC': ['egg'] }), unconfirmedFor(aDish, 'all', VEGAN, byId, TAGS, { 'X-PROC': ['egg', 'dairy', 'allium'] })],
+    [[{ food: 'X-PROC', label: '某醬', tags: ['dairy'] }], []],
+    'A 方案 U4：資料補上確認（checked）→ 那一項的標示自動消失，全部確認完就整個不標');
+  const aSplit = { ingredients: [{ food: 'X-PROC', label: '葷那一軌的醬', track: 'meat' }, { food: 'X-DRINK', label: '素那一軌的飲料', track: 'veg' }] };
+  eq([unconfirmedFor(aSplit, 'veg', VEGAN, byId, TAGS).map((u) => u.label), unconfirmedFor(aSplit, 'meat', NO_ALLIUM, byId, TAGS).map((u) => u.label)],
+    [['素那一軌的飲料'], ['葷那一軌的醬']], 'A 方案 U6：只看這位家人吃的那一份（素版看 base＋veg、葷版看 base＋meat）');
+  // 真實資料：兩條查詢路徑說的一樣——整道菜「推不出來」⇔ 這位家人的標示有東西（不會一條說不含、另一條說未確認）
+  const veganEats = dietFlags(vegan);
+  everyOf(servedVegan, (r) => {
+    const v = versionFor(r, vegan);
+    const marked = unconfirmedFor(r, v, veganEats, idx.byId, ctx.foodTags, {}).length > 0;
+    const side = v === 'meat' ? 'meat' : 'veg';
+    const unknown = ['egg', 'dairy'].some((t) => recipeTagStatus(r, idx.byId, ctx.foodTags, t, side).status === TAG_STATUS.UNKNOWN);
+    return marked === unknown;
+  }, `A 方案 U7：排給全素家人的 ${servedVegan.length} 道，「整道推不出來」與「有標示」兩條查詢路徑一致`);
+  ok(servedVegan.filter((r) => unconfirmedFor(r, versionFor(r, vegan), veganEats, idx.byId, ctx.foodTags, {}).length > 0).length >= 100,
+    '（前提）現在的資料（checked 是空的）有 100 道以上會對全素家人標出來');
 }
 
 done('recipetest');
