@@ -217,10 +217,19 @@ section('STATUS：上次全面檢測／上次突變整套的兩行紀錄（npm r
   ok(!shouldRecordFull({ only: '', ran: 4, total: 5 }), 'N3 少跑一條（中斷或漏跑）→ 不寫基準');
   ok(shouldRecordFull({ only: '', ran: 5, total: 5 }) && shouldRecordFull({ only: '蛋豆奶', ran: 1, total: 5, recordFlag: true }), 'N3（對照）完整跑完會寫；人明確下 --record-full 也寫');
   {
-    const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'mm-lastfull-')), 'lastfull.json');
-    writeLastFull(tmp, { date: '2026-01-02', version: 'mealmate-v9.9.9', names: ['甲', '乙'] });
-    const back = JSON.parse(fs.readFileSync(tmp, 'utf8'));
-    eq([back.date, back.version, back.names], ['2026-01-02', 'mealmate-v9.9.9', ['甲', '乙']], 'N3（對照）寫入函式寫得出來、讀得回去');
+    // 用完就刪（2026-10-01：以前沒刪，每跑一次 doctest 在系統暫存目錄留一個 mm-lastfull-*，突變整套反覆跑 doctest，累積到 354 個）
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-lastfull-'));
+    const tmp = path.join(tmpDir, 'lastfull.json');
+    let wroteIt = false;
+    try {
+      writeLastFull(tmp, { date: '2026-01-02', version: 'mealmate-v9.9.9', names: ['甲', '乙'] });
+      wroteIt = fs.existsSync(tmp);
+      const back = JSON.parse(fs.readFileSync(tmp, 'utf8'));
+      eq([back.date, back.version, back.names], ['2026-01-02', 'mealmate-v9.9.9', ['甲', '乙']], 'N3（對照）寫入函式寫得出來、讀得回去');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+    ok(wroteIt && !fs.existsSync(tmpDir), `N3（清理）用來試寫的暫存資料夾用完就刪（寫的當下檔在：${wroteIt}；用完資料夾還在：${fs.existsSync(tmpDir)}）`);
   }
   // N4 基準清單非空、沒有重複
   eq(lastFullProblems(lastfull), [], `N4 基準清單 ${lastfull.names?.length} 條，非空、沒有重複`);

@@ -3640,6 +3640,15 @@ const MUTATIONS = [
     test: "doctest",
     expect: "SC-5 自查的入口拒絕",
   },
+  {
+    name: "doctest 試寫基準清單的暫存資料夾用完不刪",
+    why: "以前沒刪，每跑一次 doctest 留一個 mm-lastfull-*，突變整套反覆跑，累積到 354 個（2026-10-01 關機收殘骸時發現）。",
+    file: "scripts/doctest.mjs",
+    find: "      fs.rmSync(tmpDir, { recursive: true, force: true });",
+    replace: "      void tmpDir;",
+    test: "doctest",
+    expect: "N3（清理）用來試寫的暫存資料夾用完就刪",
+  },
   // ---- 2026-09-24 F1 必敗對照組（SPEC_檢查器修補）----
   {
     name: "tap 一條斷言都沒有就結束也算通過",
