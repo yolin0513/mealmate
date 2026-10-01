@@ -15,6 +15,7 @@ import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX } from './checkmutations.mjs';
 import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts, escapeScan } from './gatescan.mjs';
 import { selfcheck, gitEnvProblems } from './selfcheck.mjs';
+import { runProgram, classifyRun, UNCOUNTED_KINDS } from './runkind.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
 import { outputProblems, writeAtomically } from './build-recipes.mjs';
 import { selfControls as bgControls, names, registrationDecision as bgDecide, BG_FILES, BG_REG, finalizeRegistration, compare as bgCompare } from './buildguard-verify.mjs';
@@ -612,6 +613,57 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
   fs.rmSync(mtRoot, { recursive: true, force: true });
   ok(mt.code !== 0 && /選了 0 條突變/.test(mt.out), `F1-11 執行器（mutationtest）：--only 對不到任何突變 → 回 ${mt.code}，理由「選了 0 條突變」`);
   fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(cm, { recursive: true, force: true });
+
+  // F1-13 從真實入口：mutationtest 遇到一次逾時（2026-10-01）——以前逾時只記成「沒通過」，沒寫 expect 的突變會被當成「紅了」。
+  // 在 scripts/ 的暫存複本裡：放一支假測試（被突變改壞時會卡住）、一條指向它的突變，時限調成 3 秒。
+  const toRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-f1to-'));
+  fs.mkdirSync(path.join(toRoot, 'scripts'));
+  for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) {
+    if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(toRoot, 'scripts', f));
+  }
+  // 寫「整套完整跑完」的基準清單時要讀 js/version.js——複本裡沒有的話，那一步會先出錯，
+  // 「不算數的也算成跑到」這種錯就看不出來（2026-10-01 寫這條時，突變照樣綠才發現）
+  fs.mkdirSync(path.join(toRoot, 'js'));
+  fs.copyFileSync(path.join(ROOT, 'js/version.js'), path.join(toRoot, 'js/version.js'));
+  fs.writeFileSync(path.join(toRoot, 'scripts/probetarget.mjs'), 'export const HANG = false;\n');
+  fs.writeFileSync(path.join(toRoot, 'scripts/probeslow.mjs'),
+    "import { ok, done } from './tap.mjs';\nimport { HANG } from './probetarget.mjs';\nif (HANG) { setInterval(() => {}, 1000); } else { ok(!HANG, 'probe'); done('probeslow'); }\n");
+  const mtFile = path.join(toRoot, 'scripts/mutationtest.mjs');
+  let mtSrc = fs.readFileSync(mtFile, 'utf8');
+  const a0 = mtSrc.indexOf('const MUTATIONS = [\n'); const a1 = mtSrc.indexOf('\n];\n', a0);
+  const probeMutation = 'const MUTATIONS = [\n  { name: "F1探針：會卡住的突變", why: "x", file: "scripts/probetarget.mjs", find: "export const HANG = false;", replace: "export const HANG = true;", test: "probeslow" },';
+  const tmLine = 'const TEST_TIMEOUT_MIN = { assertaudit: 45 };';
+  const setUp = a0 >= 0 && a1 > a0 && mtSrc.split(tmLine).length === 2;
+  if (setUp) {
+    mtSrc = mtSrc.slice(0, a0) + probeMutation + mtSrc.slice(a1) ;
+    mtSrc = mtSrc.replace(tmLine, () => 'const TEST_TIMEOUT_MIN = { assertaudit: 45, probeslow: 0.05 };');
+    fs.writeFileSync(mtFile, mtSrc);
+  }
+  ok(setUp && !fs.existsSync(path.join(toRoot, 'scripts/mutation-lastfull.json')), '（前提）F1-13 的暫存複本造好了：突變清單換成那一條、假測試時限 3 秒、還沒有基準清單');
+  // 前提：這個複本裡「寫基準清單」那一步真的走得通（用 sincefull 的 --record-full 試寫一次，再刪掉）
+  const rec = runP(process.execPath, [path.join(toRoot, 'scripts/sincefull.mjs'), '--record-full'], { cwd: toRoot });
+  const recWrote = fs.existsSync(path.join(toRoot, 'scripts/mutation-lastfull.json'));
+  fs.rmSync(path.join(toRoot, 'scripts/mutation-lastfull.json'), { force: true });
+  ok(recWrote, `（前提）F1-13 的複本裡寫得出基準清單（sincefull --record-full 回 ${rec.code}）——不然「不寫」可能只是寫不出來`);
+  const to = runP(process.execPath, [mtFile], { cwd: toRoot });
+  const wroteLastFull = fs.existsSync(path.join(toRoot, 'scripts/mutation-lastfull.json'));
+  const hangRestored = fs.readFileSync(path.join(toRoot, 'scripts/probetarget.mjs'), 'utf8') === 'export const HANG = false;\n';
+  fs.rmSync(toRoot, { recursive: true, force: true });
+  ok(to.code !== 0 && to.out.includes('不算數：probeslow 逾時被殺') && to.out.includes('不算數（逾時／被殺／沒跑起來）1 條') && !wroteLastFull && hangRestored,
+    `F1-13 mutationtest 遇到逾時 → 那條突變標成「不算數」、不算紅（回 ${to.code}），不寫成「整套完整跑完」（寫了基準清單：${wroteLastFull}），改壞的檔有還原（${hangRestored}）`);
+}
+
+section('測試怎麼結束的（runkind；2026-10-01：逾時、沒跑起來、崩潰、斷言失敗要分得出來）');
+{
+  const node = (code, opts = {}) => runProgram(['-e', code], { timeoutMs: 3000, ...opts });
+  eq(node("console.log('ok')").kind, 'pass', 'R1 回傳 0 → 通過');
+  eq(node("console.log('  ✗ 某條斷言'); process.exit(1)").kind, 'assert', 'R2 回傳非 0、輸出裡有 ✗ → 斷言失敗');
+  eq(node("throw new Error('boom')").kind, 'crash', 'R3 回傳非 0、輸出裡沒有 ✗（未處理的例外）→ 崩潰，不是斷言失敗');
+  const slow = node('setTimeout(() => {}, 20000)', { timeoutMs: 700 });
+  eq(slow.kind, 'timeout', `R4 超過時限被殺 → 逾時（不是斷言失敗、也不是崩潰）（${slow.seconds} 秒）`);
+  eq(runProgram([], { timeoutMs: 3000, exe: path.join(os.tmpdir(), 'mm-no-such-program.exe') }).kind, 'spawn', 'R5 程式根本沒跑起來 → 沒跑起來');
+  eq(classifyRun({ signal: 'SIGKILL', status: null }), 'signal', 'R6 被外部訊號殺掉（不是逾時）→ 被殺');
+  eq([...UNCOUNTED_KINDS].sort(), ['signal', 'spawn', 'timeout'], 'R7 不算數的是：逾時、被殺、沒跑起來（崩潰與斷言失敗都有完整跑完）');
 }
 
 section('assertaudit 的靜態掃描（auditrules）：每版都跑、附對照組（2026-09-24，v9 盤點第 3 件）');

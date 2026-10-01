@@ -13,9 +13,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, note } from './tap.mjs';
+import { runProgram, KIND_LABELS, UNCOUNTED_KINDS } from './runkind.mjs';
 import { shouldRecordFull, writeLastFull, LASTFULL_FILE, taiwanToday, currentVersion } from './sincefull.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -3649,6 +3649,52 @@ const MUTATIONS = [
     test: "doctest",
     expect: "N3（清理）用來試寫的暫存資料夾用完就刪",
   },
+  // ---- 2026-10-01 測試怎麼結束的：逾時、沒跑起來、崩潰、斷言失敗分開 ----
+  {
+    name: "runkind 不認得逾時",
+    why: "逾時被殺會被當成「被訊號殺掉」或別的，從輸出看不出是逾時（2026-10-01 整套基準段就吃過這個虧）。",
+    file: "scripts/runkind.mjs",
+    find: "  if (e.code === 'ETIMEDOUT') return 'timeout';",
+    replace: "  void 0;",
+    test: "doctest",
+    expect: "R4 超過時限被殺",
+  },
+  {
+    name: "runkind 不認得沒跑起來",
+    why: "子行程根本沒開起來，會被當成崩潰；2026-10-01 第三次整套基準段 23 支同時失敗、沒有任何輸出，就是分不出這一種。",
+    file: "scripts/runkind.mjs",
+    find: "  if (e.status === null || e.status === undefined) return 'spawn';",
+    replace: "  void 0;",
+    test: "doctest",
+    expect: "R5 程式根本沒跑起來",
+  },
+  {
+    name: "runkind 把崩潰當成斷言失敗",
+    why: "輸出裡沒有任何 ✗ 的失敗不是某條斷言紅的；混在一起，「被別的東西碰巧擋下」會被算成抓到了。",
+    file: "scripts/runkind.mjs",
+    find: "  return out.split('\\n').some((l) => l.includes('✗')) ? 'assert' : 'crash';",
+    replace: "  return 'assert';",
+    test: "doctest",
+    expect: "R3 回傳非 0、輸出裡沒有 ✗",
+  },
+  {
+    name: "mutationtest 不分「不算數」",
+    why: "逾時、被殺、沒跑起來的突變會被當成「紅了」——沒寫 expect 的突變，一條根本沒被驗到的會被記成抓到了（2026-10-01）。",
+    file: "scripts/mutationtest.mjs",
+    find: "    if (UNCOUNTED_KINDS.has(result.kind)) {\n      tally.uncounted.push(m.name);",
+    replace: "    if (false) {\n      tally.uncounted.push(m.name);",
+    test: "doctest",
+    expect: "F1-13 mutationtest 遇到逾時",
+  },
+  {
+    name: "mutationtest 把不算數的也算成跑到了",
+    why: "一輪裡有沒驗到的突變，照樣會被寫成「整套完整跑完」、從未整套跑過的條數歸零（2026-10-01）。",
+    file: "scripts/mutationtest.mjs",
+    find: "    // 測試沒有完整跑完（逾時、被殺、沒跑起來）：不能拿來判斷這條突變有沒有被抓到——不算紅、也不算綠，要重跑\n",
+    replace: "    ran += 1;\n    // 測試沒有完整跑完（逾時、被殺、沒跑起來）：不能拿來判斷這條突變有沒有被抓到——不算紅、也不算綠，要重跑\n",
+    test: "doctest",
+    expect: "F1-13 mutationtest 遇到逾時",
+  },
   // ---- 2026-09-24 F1 必敗對照組（SPEC_檢查器修補）----
   {
     name: "tap 一條斷言都沒有就結束也算通過",
@@ -4167,15 +4213,12 @@ const TESTS = [...new Set(SELECTED.map((m) => m.test))];
 // 每支測試的逾時（分鐘）。assertaudit 要把整條測試鏈 26 支都跑一遍，2026-10-01 實測約 18 分鐘——
 // 原本一律 10 分鐘，它在基準段就被殺掉，指定由它驗的突變從來沒在整套裡跑過（輸出只剩開頭，看不出是逾時）。
 const TEST_TIMEOUT_MIN = { assertaudit: 45 };
+// 怎麼結束的要分清楚（scripts/runkind.mjs）：逾時、沒跑起來、被殺不算數；只有斷言失敗才是「紅在斷言」
 function runTest(name) {
   const file = path.join(ROOT, 'scripts', `${name}.mjs`);
-  try {
-    const out = execFileSync(process.execPath, [file], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, encoding: 'utf8' });
-    return { passed: true, out };
-  } catch (e) {
-    return { passed: false, out: `${e.stdout ?? ''}\n${e.stderr ?? ''}` };
-  }
+  return runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000 });
 }
+const tally = { assert: 0, crash: 0, uncounted: [] };
 
 // 突變跑到一半被殺掉時，原始碼會停在改壞的狀態；下一次啟動先還原。
 const PENDING = path.join(ROOT, 'scripts/.mutation-pending.json');
@@ -4202,7 +4245,7 @@ for (const t of TESTS) {
   const r = runTest(t);
   // 沒有任何 ✗ 的失敗＝子行程根本沒跑完（崩潰、逾時、被殺），那時候要看的是尾端輸出，不是斷言。
   const fails = r.out.split('\n').filter((l) => l.includes('✗')).slice(0, 5);
-  ok(r.passed, `基準 ${t} 通過`, r.passed ? '' : (fails.length ? fails : r.out.split('\n').filter(Boolean).slice(-8)).join('\n      '));
+  ok(r.passed, `基準 ${t} 通過`, r.passed ? '' : [`（${KIND_LABELS[r.kind]}，${r.seconds} 秒）`, ...(fails.length ? fails : r.out.split('\n').filter(Boolean).slice(-8))].join('\n      '));
   if (!r.passed) baselineOk = false;
 }
 
@@ -4228,7 +4271,15 @@ if (baselineOk) {
       clearPending();
     }
     const restored = fs.readFileSync(full, 'utf8') === original;
-    ran += 1;
+    // 測試沒有完整跑完（逾時、被殺、沒跑起來）：不能拿來判斷這條突變有沒有被抓到——不算紅、也不算綠，要重跑
+    if (UNCOUNTED_KINDS.has(result.kind)) {
+      tally.uncounted.push(m.name);
+      ok(false, `【${m.test}】${m.name}`, `不算數：${m.test} ${KIND_LABELS[result.kind]}（${result.seconds} 秒），這條突變沒有被驗到，要重跑${!restored ? `；而且 ${m.file} 沒有還原成功！` : ''}`);
+      continue;
+    }
+    ran += 1; // 「不算數」的不計入：一輪裡有沒驗到的突變，就不能寫成「整套完整跑完」
+    if (result.kind === 'assert') tally.assert += 1;
+    if (result.kind === 'crash') { tally.crash += 1; note(`【${m.test}】${m.name}：紅在崩潰（輸出裡沒有任何 ✗），不是某條斷言（${result.seconds} 秒）`); }
     // expect（選填）：紅的一定要是這一條。改食譜檔或 foodtags.json 的突變一定會讓「recipes.json 是最新的」紅，
     // 只看有沒有紅的話，新斷言有沒有在檢查東西根本看不出來（2026-09-19 補早餐時發現）。
     const expectHit = !m.expect || result.out.split('\n').some((l) => l.includes('✗') && l.includes(m.expect));
@@ -4237,6 +4288,7 @@ if (baselineOk) {
         : result.passed ? `改壞之後 ${m.test} 居然還是綠的 —— 對應的斷言沒有在檢查東西。${m.why}`
           : `${m.test} 紅了，但紅的不是含「${m.expect}」的那一條 —— 對應的斷言沒有在檢查東西。${m.why}`);
   }
+  note(`結束方式統計：紅在斷言 ${tally.assert} 條、紅在崩潰 ${tally.crash} 條、不算數（逾時／被殺／沒跑起來）${tally.uncounted.length} 條${tally.uncounted.length ? `：${tally.uncounted.join('、')}` : ''}`);
 } else {
   note('基準沒過，不跑突變（先把測試修綠）');
 }

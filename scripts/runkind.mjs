@@ -1,0 +1,46 @@
+// 跑一支測試、分辨它是怎麼結束的（2026-10-01）。給 mutationtest 用。
+//
+// 以前 mutationtest 對「逾時被殺」「根本沒跑起來」「崩潰」「斷言失敗」一律只記成「沒通過」：
+// · 基準段：assertaudit 逾時被殺，只印出輸出的開頭，看起來像斷言失敗；
+// · 突變段更糟：沒寫 expect 的突變，逾時會被當成「紅了」——一條根本沒被驗到的突變，被記成「抓到了」。
+// 失敗的種類（kind）：
+//   pass     回傳 0
+//   assert   回傳非 0，輸出裡有 ✗（某條斷言失敗）——只有這一種是「紅在斷言」
+//   crash    回傳非 0，輸出裡沒有 ✗（未處理的例外之類）
+//   timeout  超過時限被殺（execFileSync 的 code 是 ETIMEDOUT）
+//   signal   被外部的訊號殺掉（不是逾時）
+//   spawn    程式根本沒跑起來（例如找不到執行檔、開不了子行程）
+// 判斷順序照上面由下往上：先看有沒有跑起來、是不是逾時、是不是被殺，最後才看輸出。
+import { execFileSync } from 'node:child_process';
+
+export const KIND_LABELS = {
+  pass: '通過',
+  assert: '斷言失敗',
+  crash: '崩潰（輸出裡沒有任何 ✗）',
+  timeout: '逾時被殺',
+  signal: '被外部訊號殺掉',
+  spawn: '沒跑起來',
+};
+/** 這幾種代表「測試沒有完整跑完」：不能拿來判斷突變有沒有被抓到 */
+export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn']);
+
+/** 從 execFileSync 丟出的例外判斷種類（純函式；e 沒有就是通過） */
+export function classifyRun(e) {
+  if (!e) return 'pass';
+  if (e.code === 'ETIMEDOUT') return 'timeout';
+  if (e.signal) return 'signal';
+  if (e.status === null || e.status === undefined) return 'spawn';
+  const out = `${e.stdout ?? ''}\n${e.stderr ?? ''}`;
+  return out.split('\n').some((l) => l.includes('✗')) ? 'assert' : 'crash';
+}
+
+/** 跑一支程式：回 { passed, kind, out, seconds }。exe 預設是目前的 node（測試可以傳別的，造「沒跑起來」）。 */
+export function runProgram(args, { cwd, timeoutMs, exe = process.execPath } = {}) {
+  const t0 = Date.now();
+  try {
+    const out = execFileSync(exe, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: timeoutMs, encoding: 'utf8' });
+    return { passed: true, kind: 'pass', out, seconds: Math.round((Date.now() - t0) / 1000) };
+  } catch (e) {
+    return { passed: false, kind: classifyRun(e), out: `${e.stdout ?? ''}\n${e.stderr ?? ''}`, seconds: Math.round((Date.now() - t0) / 1000) };
+  }
+}
