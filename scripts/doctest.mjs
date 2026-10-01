@@ -9,7 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX } from './checkmutations.mjs';
@@ -18,9 +18,10 @@ import { selfcheck, gitEnvProblems } from './selfcheck.mjs';
 import { runProgram, classifyRun, UNCOUNTED_KINDS } from './runkind.mjs';
 import {
   scopeFor, scopeHash, accessOf, maskMutations, runnerHash, rerunReasons, RERUN, recordRun, emptyLedger, neverFullNames,
-  fullComplete, ledgerProblems, contentHash, LEDGER_FILE,
+  fullComplete, ledgerProblems, contentHash, LEDGER_FILE, ledgerOrphans,
 } from './depgraph.mjs';
 import { listen as serveListen } from './serve.mjs';
+import { summarize as summarizeProcs, peakOf } from './reslog.mjs';
 import { lastFullNotInLedger } from './sincefull.mjs';
 import { parseDecisionTable, decisionProblems, DECISION_FILE } from './procdecisions.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
@@ -652,7 +653,7 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
   const recWrote = fs.existsSync(path.join(toRoot, 'scripts/mutation-lastfull.json'));
   fs.rmSync(path.join(toRoot, 'scripts/mutation-lastfull.json'), { force: true });
   ok(recWrote, `（前提）F1-13 的複本裡寫得出基準清單（sincefull --record-full 回 ${rec.code}）——不然「不寫」可能只是寫不出來`);
-  const to = runP(process.execPath, [mtFile], { cwd: toRoot });
+  const to = runP(process.execPath, [mtFile, '--full'], { cwd: toRoot }); // 2026-10-02 起不帶參數＝只跑受影響的；這一條驗的是整套的「寫基準清單」
   const wroteLastFull = fs.existsSync(path.join(toRoot, 'scripts/mutation-lastfull.json'));
   const hangRestored = fs.readFileSync(path.join(toRoot, 'scripts/probetarget.mjs'), 'utf8') === 'export const HANG = false;\n';
   fs.rmSync(toRoot, { recursive: true, force: true });
@@ -881,6 +882,38 @@ section('加工品待確認清單 ⇄ data/foodtags.json（2026-10-01 A 方案�
   eq(decisionProblems(rows, realFT), [], `待確認 P8 真實資料：表上已填的決定（${rows.filter((r) => r.decision).length} 列）都已轉進 data/foodtags.json`);
 }
 
+section('重負載的資源紀錄（共用慣例 v11 §5.19、§5.20：紀錄要先證明真的記得到）');
+{
+  // 合成的程序表：root 100 底下——node 101（算）、101 開的瀏覽器 102（算一個）與它的子程序 103（不另算、記憶體算）、
+  // git 104（不算個數、記憶體算）、記錄工具自己 105 與它開的 node 106（都不算）；別的主程式底下的 node 200（不算）
+  const MB = 1048576;
+  const rows = [
+    { pid: 100, ppid: 1, name: 'node.exe', bytes: 50 * MB },
+    { pid: 101, ppid: 100, name: 'node.exe', bytes: 100 * MB },
+    { pid: 102, ppid: 101, name: 'chrome.exe', bytes: 200 * MB },
+    { pid: 103, ppid: 102, name: 'chrome.exe', bytes: 300 * MB },
+    { pid: 104, ppid: 100, name: 'git.exe', bytes: 10 * MB },
+    { pid: 105, ppid: 100, name: 'node.exe', bytes: 40 * MB },
+    { pid: 106, ppid: 105, name: 'node.exe', bytes: 40 * MB },
+    { pid: 200, ppid: 1, name: 'node.exe', bytes: 999 * MB },
+  ];
+  const s = summarizeProcs(rows, 100, 105);
+  eq([s.workers, s.descendants, Math.round(s.bytes / MB)], [2, 4, 610],
+    '資源紀錄 R1 node 算一個、瀏覽器實例算一個（它的子程序不另算）、git 不算個數；記憶體四個都算；記錄工具自己與別的主程式底下的不算');
+  const pk = peakOf('# 標頭\n2026-10-02 01:00:00\t工作程序 3\t合計記憶體 900 MB\t系統可用 6000 MB\t（子孫 5 個）\n2026-10-02 01:01:00\t工作程序 1\t合計記憶體 300 MB\t系統可用 7000 MB\t（子孫 2 個）\n2026-10-02 01:02:00\t取不到程序表\t系統可用 7000 MB\n');
+  eq([pk.lines, pk.peakWorkers, pk.peakMB, pk.minFreeMB, pk.unreadable], [2, 3, 900, 6000, 1], '資源紀錄 R3 峰值取最大的那一行、可用記憶體取最低；取不到的行另外算，不當成 0');
+  // 真的記得到（§5.20）：在一個已知有程序在跑的時刻記一行，工作程序數必須非 0；收掉之後必須是 0（兩個方向）
+  const fake = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 8000)'], { stdio: 'ignore' });
+  await new Promise((r) => setTimeout(r, 800));
+  const once = () => execFileSync(process.execPath, [path.join(ROOT, 'scripts/reslog.mjs'), '--once', '--root', String(process.pid)], { encoding: 'utf8' });
+  const busy = once();
+  fake.kill();
+  await new Promise((r) => setTimeout(r, 800));
+  const idle = once();
+  const nOf = (l) => Number(/工作程序 (\d+)/.exec(l)?.[1] ?? NaN);
+  ok(nOf(busy) >= 1 && nOf(idle) === 0, `資源紀錄 R2 真的記得到：有一個假工作在跑時記到 ${nOf(busy)} 個、收掉之後記到 ${nOf(idle)} 個（${busy.trim()}）`);
+}
+
 section('只跑受影響的突變：依賴範圍與「要不要重跑」的分類對照組（2026-10-01，Yolin 新規則；scripts/depgraph.mjs）');
 {
   // 合成 repo（記憶體裡）：每一條規則各有一個只靠它的樣本。分類錯了就會把該跑的跳過，所以每一條都要能紅。
@@ -949,6 +982,36 @@ section('只跑受影響的突變：依賴範圍與「要不要重跑」的分�
   eq(accessOf("fs.readFileSync(path.join(ROOT, 'data', 'x.json'));\nfs.existsSync(path.join(ROOT, `y`));\n"),
     { literals: ['data/x.json'], opaque: ['existsSync(…) 的路徑不是寫死的'] }, '受影響 D16 讀檔路徑：好幾段字面接起來算寫死；用反引號的不算');
 
+  // v11 §5.18 2b：讀不到、指到不存在的檔、未知類別 → 判斷不出 → 全跑；每一種 import 寫法各一種樣本（2c：各配一條只紅它的突變）
+  eq(depOf({ file: 'js/a.js', test: 'missingtest' }, { ...SYN, 'scripts/missingtest.mjs': "import { x } from './nope.mjs';\n" }).kind, 'repo',
+    '受影響 D21 import 指到 repo 裡沒有的檔 → 整個 repo（讀不到不是「沒有關係」）');
+  {
+    const files = Object.keys(SYN);
+    const throwing = (f) => { if (f === 'js/b.js') throw new Error('合成：讀不到'); return SYN[f]; };
+    eq(scopeFor(NODE, files, throwing).kind, 'repo', '受影響 D22 範圍裡有檔讀不出內容 → 整個 repo');
+  }
+  ok(depOf(NODE, { ...SYN, 'weird/x.cfg': 'a\n' }).hash !== depOf(NODE, { ...SYN, 'weird/x.cfg': 'b\n' }).hash
+    && depOf(NODE, { ...SYN, 'docs/new.md': 'a\n' }).hash === depOf(NODE, { ...SYN, 'docs/new.md': 'b\n' }).hash,
+  '受影響 D23 未知類別的檔（不在登記表上）算進每一條：它一改就要重跑；登記過的 docs/ 不算');
+  // 標籤寫成字面（突變的 expect 要在原始碼裡找得到，§5.9）
+  const FORMS = [
+    ['受影響 D24a', "import {\n  f\n} from '../js/form.js';\n"],
+    ['受影響 D24b', "import '../js/form.js';\n"],
+    ['受影響 D24c', "export { f } from '../js/form.js';\n"],
+    ['受影響 D24d', "const m = await import('../js/form.js');\n"],
+  ];
+  for (const [label, src] of FORMS) {
+    const files = { ...SYN, 'scripts/formtest.mjs': src, 'js/form.js': 'export const f = 1;\n' };
+    const M = { file: 'js/c.js', test: 'formtest' };
+    ok(depOf(M, files).hash !== depOf(M, { ...files, 'js/form.js': 'export const f = 2;\n' }).hash,
+      `${label} import 寫法「${src.split('\n')[0]}…」：被它載入的檔改了 → 要重跑`);
+  }
+  // 瀏覽器測試裡寫在 page.evaluate 的動態載入（從測試檔的位置解析會落空）：整個 App 已涵蓋 → 不退回整個 repo；指到 docs/ 的才退回
+  const pageImport = { ...SYN, 'scripts/browsertest.mjs': "import { openApp } from './blib.mjs';\nawait page.evaluate(async () => { await import('./js/store.js'); });\n" };
+  const pageDocs = { ...SYN, 'scripts/browsertest.mjs': "import { openApp } from './blib.mjs';\nawait page.evaluate(async () => { await import('../docs/x.js'); });\n" };
+  eq([depOf(BROWSER, pageImport).kind, depOf(BROWSER, pageDocs).kind], ['browser', 'repo'],
+    '受影響 D25 瀏覽器測試裡指到不存在的檔：位置在整個 App 範圍內 → 照舊是瀏覽器範圍；在 docs/ → 整個 repo');
+
   // 執行器的雜湊：只改突變清單 → 不變；改清單以外的程式 → 變
   const rh = (files) => runnerHash(Object.keys(files), (f) => files[f], (f) => (f in files ? contentHash(files[f]) : null));
   const mt = SYN['scripts/mutationtest.mjs'];
@@ -987,6 +1050,11 @@ section('只跑受影響的突變：依賴範圍與「要不要重跑」的分�
     [[], true], '受影響 D15b 帳本格式檢查：正常的沒有問題、日期看不懂的抓得到');
   eq([lastFullNotInLedger(['y'], led), lastFullNotInLedger(['y', 'x'], led)], [[], ['x']],
     '受影響 D15c 上次整套名單上的，帳本都要有 lastFull：對得上 → 空；少了 → 點名（sincefull 遇到就停）');
+  eq(ledgerOrphans(['x', 'y', 'new'], led), { notInLedger: ['new'], notInList: ['z'] },
+    '受影響 D15d 帳本的孤兒兩種都報：清單有帳本沒有（new）、帳本有清單沒有（z，突變被刪或改名）');
+  let rhThrew = '';
+  try { rh({ ...SYN, 'scripts/mutationtest.mjs': `import { x } from './nope.mjs';\n${SYN['scripts/mutationtest.mjs']}` }); } catch (e) { rhThrew = String(e.message); }
+  ok(rhThrew.includes('執行器的雜湊算不出來'), `受影響 D12c 執行器 import 了不存在的檔 → 停、講明算不出來（不默默少算一支）：${rhThrew || '（沒有停）'}`);
 
   // 真實 repo：每一條突變都算得出範圍，範圍裡一定有它自己的目標檔與測試檔；三種範圍都真的出現
   const mutations = loadMutations(fs.readFileSync(path.join(ROOT, 'scripts/mutationtest.mjs'), 'utf8')) ?? [];
@@ -1040,6 +1108,22 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     fs.writeFileSync(path.join(root, 'docs/note.md'), 'changed\n');
     const r4 = run();
     ok(r4.code === 0 && r4.out.includes('選了 0 條突變'), `受影響 D18d 只改 docs/（不在範圍裡）→ 沿用（回 ${r4.code}）`);
+    // 逾時的那一條：帳本不記成紅、也不記成在整套裡跑過（v11 §5.18 第 4 點：只有算數的結束才記）
+    fs.writeFileSync(path.join(root, 'scripts/affslowtarget.mjs'), 'export const HANG = false;\n');
+    fs.writeFileSync(path.join(root, 'scripts/affslow.mjs'), "import { ok, done } from './tap.mjs';\nimport { HANG } from './affslowtarget.mjs';\nif (HANG) { setInterval(() => {}, 1000); } else { ok(!HANG, 'AFF 慢'); done('affslow'); }\n");
+    const src2 = fs.readFileSync(mtFile, 'utf8');
+    const tmLine = 'const TEST_TIMEOUT_MIN = { assertaudit: 45 };';
+    const slowMut = '\n  { name: "AFF逾時", why: "x", file: "scripts/affslowtarget.mjs", find: "export const HANG = false;", replace: "export const HANG = true;", test: "affslow" },';
+    const p0 = src2.indexOf('const MUTATIONS = [\n') + 'const MUTATIONS = ['.length;
+    const setUp2 = src2.split(tmLine).length === 2 && p0 > 'const MUTATIONS = ['.length;
+    if (setUp2) fs.writeFileSync(mtFile, (src2.slice(0, p0) + slowMut + src2.slice(p0)).replace(tmLine, () => 'const TEST_TIMEOUT_MIN = { assertaudit: 45, affslow: 0.05 };'));
+    ok(setUp2, '（前提）D18f 的逾時突變與 3 秒時限放進暫存 repo 的執行器了');
+    const r6 = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--never-full'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();
+    const led6 = JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8'));
+    const slow = led6.entries?.['AFF逾時'];
+    ok(r6.code !== 0 && r6.out.includes('不算數：affslow 逾時被殺') && slow?.last?.counted === false && slow?.last?.red === false && !slow?.lastFull
+      && led6.entries?.['AFF探針']?.lastFull?.red === true && led6.entries?.['AFF探針']?.lastFull?.mode === 'never-full',
+    `受影響 D18f 同一輪補跑（--never-full）：算數的那一條記成在整套裡跑過、紅；逾時的那一條記成不算數、沒紅、沒有「在整套裡跑過」（回 ${r6.code}；紀錄 ${JSON.stringify(slow?.last ? { counted: slow.last.counted, red: slow.last.red, kind: slow.last.kind } : null)}）`);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

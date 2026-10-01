@@ -17,13 +17,17 @@ import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, note } from './tap.mjs';
 import { runProgram, KIND_LABELS, UNCOUNTED_KINDS } from './runkind.mjs';
 import { shouldRecordFull, writeLastFull, LASTFULL_FILE, taiwanToday, currentVersion } from './sincefull.mjs';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import { peakOf } from './reslog.mjs';
 import {
   LEDGER_FILE, contentHash, scopeFor, scopeHash, mutationDefHash, runnerHash, rerunReasons,
-  emptyLedger, ledgerProblems, recordRun, neverFullNames, fullComplete, doneAt,
+  emptyLedger, ledgerProblems, recordRun, neverFullNames, fullComplete, doneAt, ledgerOrphans,
 } from './depgraph.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+// 全部專案合計同時最多 4 個工作程序（共用慣例 v11 §5.19，不得放寬）。本執行器一次只跑一支測試（同步呼叫、沒有工作佇列），
+// 所以它自己不會超過；這個數字寫在這裡，是給資源紀錄比對峰值用的——峰值超過它，結尾會明講。
+const MAX_WORKERS = 4;
 
 // 不是 git repo 時的檔案清單（doctest 的暫存複本）：照目錄走，跳過 node_modules、.git、.logs
 function walkFiles(root, rel = '') {
@@ -4417,6 +4421,143 @@ const MUTATIONS = [
     test: "doctest",
     expect: "受影響 D1 ",
   },
+  // ---- 2026-10-02 共用慣例 v11 §5.19 3c：資源紀錄要真的記得到 ----
+  {
+    name: "資源紀錄：取程序數那一步永遠回 0",
+    why: "紀錄看起來在跑、每一行都寫著 0 個工作程序——跟「沒有任何東西在跑」分不出來（v11 §5.20）。",
+    file: "scripts/reslog.mjs",
+    find: "  return { workers: names.length,",
+    replace: "  return { workers: 0,",
+    test: "doctest",
+    expect: "資源紀錄 R2",
+  },
+  {
+    name: "資源紀錄：瀏覽器的子程序也各算一個",
+    why: "一個無頭 Chrome 會開好幾個子程序；各算一個的話，峰值被灌大、跟共用上限（瀏覽器實例算一個）對不起來。",
+    file: "scripts/reslog.mjs",
+    find: "    else if (BROWSER_RX.test(r.name) && !(parent && BROWSER_RX.test(parent.name))) names.push(r.name);",
+    replace: "    else if (BROWSER_RX.test(r.name)) names.push(r.name);",
+    test: "doctest",
+    expect: "資源紀錄 R1",
+  },
+  {
+    name: "資源紀錄：把記錄工具自己也算進去",
+    why: "記錄工具自己每一行都算成一個工作程序，峰值永遠多一個。",
+    file: "scripts/reslog.mjs",
+    find: "    if (selfPid !== null && r.pid === selfPid) continue;",
+    replace: "    void selfPid;",
+    test: "doctest",
+    expect: "資源紀錄 R1",
+  },
+  {
+    name: "資源紀錄：峰值取最後一行而不是最大的",
+    why: "整套收尾時程序最少；取最後一行，回報的峰值就是最低點。",
+    file: "scripts/reslog.mjs",
+    find: "peakWorkers = Math.max(peakWorkers, Number(w[1]));",
+    replace: "peakWorkers = Number(w[1]);",
+    test: "doctest",
+    expect: "資源紀錄 R3",
+  },
+  {
+    name: "資源紀錄：取不到程序表的行默默略過",
+    why: "取不到就不算，紀錄看起來完整、其實中間有洞（§5.13）。",
+    file: "scripts/reslog.mjs",
+    find: "    else if (l.includes('取不到程序表')) unreadable += 1;",
+    replace: "    else if (false) unreadable += 1;",
+    test: "doctest",
+    expect: "資源紀錄 R3",
+  },
+  // ---- 2026-10-02 共用慣例 v11 §5.18 2b／2c：每一條從寬規則各一條只紅它的突變 ----
+  {
+    name: "依賴範圍：import 指到不存在的檔當成沒有關係",
+    why: "讀不到不是「沒有關係」：讀不到就跳過，範圍就變小、結果照樣全綠（v11 §5.18 第 1 點）。",
+    file: "scripts/depgraph.mjs",
+    find: "      if (!has(target)) { missing.push({ from: f, spec, target }); continue; }",
+    replace: "      if (!has(target)) { continue; }",
+    test: "doctest",
+    expect: "受影響 D21 ",
+  },
+  {
+    name: "依賴範圍：讀不出內容的檔當成空的",
+    why: "讀不出內容時當成空檔，它 import 了什麼就全看不到；要退回整個 repo（§5.13 故障時停下，不是放行）。",
+    file: "scripts/depgraph.mjs",
+    find: "catch (e) { unreadable.push(",
+    replace: "catch (e) { void (",
+    test: "doctest",
+    expect: "受影響 D22 ",
+  },
+  {
+    name: "依賴範圍：未知類別的檔當成不受影響",
+    why: "不在登記表上的新檔（新資料夾、新設定檔）沒有任何規則管它；當成不受影響，它改了也沒有突變重跑。",
+    file: "scripts/depgraph.mjs",
+    find: "    if (!isKnownFile(f)) out.add(f);",
+    replace: "    void isKnownFile;",
+    test: "doctest",
+    expect: "受影響 D23 ",
+  },
+  {
+    name: "依賴範圍：漏認 import … from（含跨行）",
+    why: "最常見的寫法；漏認的話，被它載入的檔改了不會重跑。",
+    file: "scripts/depgraph.mjs",
+    find: String.raw`    /^\s*import\s[^;]*?from\s*['"]([^'"]+)['"]/gm,`,
+    replace: "    /(?!)/g,",
+    test: "doctest",
+    expect: "受影響 D24a",
+  },
+  {
+    name: "依賴範圍：漏認只為了副作用的 import '…'",
+    why: "只載入、不取名字的寫法（例如註冊 service worker 的那種）；漏認的話，被載入的檔改了不會重跑。",
+    file: "scripts/depgraph.mjs",
+    find: String.raw`    /^\s*import\s*['"]([^'"]+)['"]/gm,`,
+    replace: "    /(?!)/g,",
+    test: "doctest",
+    expect: "受影響 D24b",
+  },
+  {
+    name: "依賴範圍：漏認 export … from",
+    why: "轉出口的寫法也是載入；漏認的話，被轉出口的那個檔改了不會重跑。",
+    file: "scripts/depgraph.mjs",
+    find: String.raw`    /^\s*export\s[^;]*?from\s*['"]([^'"]+)['"]/gm,`,
+    replace: "    /(?!)/g,",
+    test: "doctest",
+    expect: "受影響 D24c",
+  },
+  {
+    name: "依賴範圍：漏認 import('字面')",
+    why: "動態載入寫死的路徑：它不算「寫不死」，所以不會退回整個 repo；漏認的話那個檔就掉出範圍。",
+    file: "scripts/depgraph.mjs",
+    find: String.raw`    /\bimport\(\s*['"]([^'"]+)['"]\s*\)/g,`,
+    replace: "    /(?!)/g,",
+    test: "doctest",
+    expect: "受影響 D24d",
+  },
+  {
+    name: "依賴範圍：瀏覽器測試裡指到不存在的檔一律退回整個 repo",
+    why: "page.evaluate 裡的動態載入從測試檔的位置解析一定落空；一律退回的話，每支瀏覽器測試都變成整個 repo，改 docs/ 也全部重跑。",
+    file: "scripts/depgraph.mjs",
+    find: "  const coveredMissing = (o) => wholeApp && o.target && !APP_EXCLUDED_PREFIXES.some((p) => o.target.startsWith(p));",
+    replace: "  const coveredMissing = () => false;",
+    test: "doctest",
+    expect: "受影響 D25 ",
+  },
+  {
+    name: "帳本孤兒：帳本有、清單沒有的不報",
+    why: "突變刪了或改名了，帳本裡的舊紀錄默默留著；登記制要配孤兒檢查（§5.2）。",
+    file: "scripts/depgraph.mjs",
+    find: "  return { notInLedger: names.filter((n) => !ledger?.entries?.[n]), notInList: led.filter((n) => !list.has(n)) };",
+    replace: "  return { notInLedger: names.filter((n) => !ledger?.entries?.[n]), notInList: [] };",
+    test: "doctest",
+    expect: "受影響 D15d",
+  },
+  {
+    name: "執行器的雜湊：import 不到的檔也照算",
+    why: "執行器少算一支，它改了也不會讓突變重跑；算不出來要停（§5.13）。",
+    file: "scripts/depgraph.mjs",
+    find: "  if (closure.missing.length || closure.unreadable.length || !closure.has(runner)) {",
+    replace: "  if (false) {",
+    test: "doctest",
+    expect: "受影響 D12c",
+  },
   {
     name: "依賴範圍：什麼檔都算進去（跳過永遠不會發生）",
     why: "從寬過頭也是一種壞法：每條都要重跑，「只跑受影響的」名存實亡、又回到每次都全跑。",
@@ -4484,8 +4625,8 @@ const MUTATIONS = [
     name: "依賴範圍：serve.mjs 不管是不是瀏覽器測試都放行",
     why: "serve.mjs 讀的檔只有在瀏覽器測試裡由「整個 App」涵蓋；node 測試用到它卻放行，就沒有任何規則管它讀了什麼。",
     file: "scripts/depgraph.mjs",
-    find: "    .filter((o) => !(browser && SUBSUMED_BY_BROWSER.has(o.f)) && !isAppFile(o.f))",
-    replace: "    .filter((o) => !(SUBSUMED_BY_BROWSER.has(o.f)) && !isAppFile(o.f))",
+    find: "(!(browser && SUBSUMED_BY_BROWSER.has(o.f)) && !isAppFile(o.f))",
+    replace: "(!(SUBSUMED_BY_BROWSER.has(o.f)) && !isAppFile(o.f))",
     test: "doctest",
     expect: "受影響 D9 ",
   },
@@ -4659,14 +4800,16 @@ const only = (() => {
 })();
 const onlyKeys = only ? only.split('|').map((k) => k.trim()).filter(Boolean) : [];
 // 跑法（2026-10-01，Yolin：平常只跑受影響的突變；全跑只在 Yolin 指定、較大的版本發布前、範圍判斷不出來時）
-//   不帶參數      整套。帳本裡「這個 commit 已經算數地跑過、雜湊也沒變」的跳過——中斷後再下同一個指令就是續跑。
-//   --affected    只跑受影響的：從沒跑過、突變本身改了、依賴範圍裡有檔案改了、執行器改了、上次沒紅或不算數（scripts/depgraph.mjs）
+//   不帶參數      ＝ --affected（v11 §5.18：預設只跑受影響的）：從沒跑過、突變本身改了、依賴範圍裡有檔案改了、執行器改了、
+//                 上次沒紅或不算數、上次沒記雜湊（scripts/depgraph.mjs）
+//   --full        整套（要明講；全跑只在 Yolin 指定、較大的版本發布前、範圍判斷不出來時，經 Dispatch 排）。
+//                 帳本裡「這個 commit 已經算數地跑過、雜湊也沒變」的跳過——中斷後再下同一個指令就是續跑。
 //   --never-full  只跑從沒在整套（或補跑）裡跑過的
 //   --only <字>   照舊：名稱／檔名／測試名含關鍵字的
 //   --limit N     這一次最多跑 N 條（分段）；--dry-run 只列出會跑哪幾條、為什麼，不跑
 const argOf = (n) => { const i = process.argv.indexOf(n); return i >= 0 ? String(process.argv[i + 1] ?? '') : null; };
-const MODE_FLAGS = ['--affected', '--never-full'].filter((f) => process.argv.includes(f));
-const MODE = only ? 'only' : MODE_FLAGS[0] === '--affected' ? 'affected' : MODE_FLAGS[0] === '--never-full' ? 'never-full' : 'full';
+const MODE_FLAGS = ['--affected', '--never-full', '--full'].filter((f) => process.argv.includes(f));
+const MODE = only ? 'only' : MODE_FLAGS[0] === '--full' ? 'full' : MODE_FLAGS[0] === '--never-full' ? 'never-full' : 'affected';
 const LIMIT = argOf('--limit') === null ? null : Number(argOf('--limit'));
 const DRY = process.argv.includes('--dry-run');
 const LEDGER_PATH = process.env.MM_LEDGER ? path.resolve(process.env.MM_LEDGER) : path.join(ROOT, LEDGER_FILE);
@@ -4698,7 +4841,7 @@ const recovered = recoverPending();
 if (recovered) note(`上一次被中斷，已還原 ${recovered}`);
 // 參數彼此衝突、--limit 不是正整數：停下來，不猜使用者要哪一種
 const argProblems = [];
-if (MODE_FLAGS.length > 1 || (only && MODE_FLAGS.length)) argProblems.push('--only、--affected、--never-full 只能選一個');
+if (MODE_FLAGS.length > 1 || (only && MODE_FLAGS.length)) argProblems.push('--only、--affected、--never-full、--full 只能選一個');
 if (LIMIT !== null && !(Number.isInteger(LIMIT) && LIMIT > 0)) argProblems.push('--limit 要接正整數');
 eq(argProblems, [], '參數沒有衝突');
 if (argProblems.length) { done('mutationtest'); process.exit(1); }
@@ -4736,6 +4879,10 @@ const ledger = fs.existsSync(LEDGER_PATH) ? JSON.parse(fs.readFileSync(LEDGER_PA
 const ledgerBad = ledgerProblems(ledger);
 eq(ledgerBad, [], `帳本 ${path.relative(ROOT, LEDGER_PATH)} 讀得懂`);
 if (ledgerBad.length) { done('mutationtest'); process.exit(1); }
+{
+  const orph = ledgerOrphans(MUTATIONS.map((m) => m.name), ledger);
+  if (orph.notInList.length) note(`帳本有、突變清單已經沒有的 ${orph.notInList.length} 條（被刪或改名）：${orph.notInList.slice(0, 5).join('、')}${orph.notInList.length > 5 ? '…' : ''}`);
+}
 const LEDGER_WRITABLE = COMMIT !== null || !!process.env.MM_LEDGER;
 if (!LEDGER_WRITABLE) note('這裡不是 git repo：結果只記在記憶體裡，不寫帳本檔');
 function saveLedger() {
@@ -4758,6 +4905,7 @@ else if (MODE === 'never-full') {
   SELECTED = MUTATIONS.filter((m) => !doneAt(ledger.entries[m.name], COMMIT, curOf(m)));
 }
 const CANDIDATES = SELECTED.length;
+const CANDIDATE_SET = new Set(SELECTED.map((m) => m.name));
 if (LIMIT !== null) SELECTED = SELECTED.slice(0, LIMIT);
 const TESTS = [...new Set(SELECTED.map((m) => m.test))];
 const missingTests = TESTS.filter((t) => !fs.existsSync(path.join(ROOT, 'scripts', `${t}.mjs`)));
@@ -4771,13 +4919,40 @@ if (MODE === 'affected') {
   for (const r of whyRun.values()) for (const x of r) tally0[x] = (tally0[x] ?? 0) + 1;
   note(`受影響的理由統計：${Object.entries(tally0).map(([k, v]) => `${k} ${v} 條`).join('、') || '（沒有）'}；沿用上次結果 ${MUTATIONS.length - CANDIDATES} 條`);
 }
+// 「為什麼要全跑」：選到的裡面，依賴範圍是整個 repo 的（判斷不出範圍），理由依檔案彙總
+const repoWhy = new Map();
+for (const m of SELECTED) for (const r of new Set(curOf(m).scopeReasons ?? [])) repoWhy.set(r, (repoWhy.get(r) ?? 0) + 1);
+if (MODE !== 'only') note(`選到的 ${SELECTED.length} 條裡，依賴範圍判斷不出、算整個 repo 的 ${SELECTED.filter((m) => curOf(m).scope === 'repo').length} 條${repoWhy.size ? `；理由（前 5）：${[...repoWhy].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([r, n]) => `${r}（${n} 條）`).join('；')}` : ''}`);
 if (DRY) {
   const scopes = {};
   for (const m of MUTATIONS) { const k = curOf(m).scope; scopes[k] = (scopes[k] ?? 0) + 1; }
   note(`依賴範圍的種類：${Object.entries(scopes).map(([k, v]) => `${k} ${v} 條`).join('、')}`);
   for (const m of SELECTED) note(`會跑：【${m.test}】${m.name}${whyRun.has(m.name) ? `（${whyRun.get(m.name).join('、')}）` : ''}`);
+  // 跳過的也逐條列理由（v11 §5.18 第 2 點）
+  const picked = new Set(SELECTED.map((m) => m.name));
+  for (const m of MUTATIONS) {
+    if (picked.has(m.name)) continue;
+    const l = ledger.entries[m.name]?.last;
+    const why = CANDIDATE_SET.has(m.name) ? '跳過：超過 --limit，留給下一段'
+      : MODE === 'affected' ? `沿用：上次 ${l?.date}、${l?.commit}、${l?.red ? '紅' : '沒紅'}，突變本身、依賴範圍、執行器都沒變`
+      : MODE === 'never-full' ? `跳過：已經在整套或補跑裡跑過（${ledger.entries[m.name]?.lastFull?.date}、${ledger.entries[m.name]?.lastFull?.commit}）`
+        : MODE === 'full' ? '跳過：這個 commit 已經算數地跑過、雜湊沒變（續跑）'
+          : '跳過：關鍵字沒對到';
+    note(`不跑：【${m.test}】${m.name}——${why}`);
+  }
   done('mutationtest');
   process.exit(0);
+}
+
+// 資源紀錄（共用慣例 v11 §5.19）：會跑很久的（選到 10 條以上，或明講 --reslog）每 60 秒記一行程序數與記憶體到 .logs/
+let reslog = null; let reslogFile = null;
+if (SELECTED.length >= 10 || process.argv.includes('--reslog')) {
+  // 在 worktree 裡跑整套時，MM_LOGDIR 指回主 repo 的 .logs/（worktree 刪掉，紀錄不跟著消失；同 MM_LEDGER）
+  const logDir = process.env.MM_LOGDIR ? path.resolve(process.env.MM_LOGDIR) : path.join(ROOT, '.logs');
+  reslogFile = path.join(logDir, `${taiwanToday()}_${(COMMIT ?? 'nogit').replace('+', '-')}_${MODE}_reslog.log`);
+  fs.mkdirSync(path.dirname(reslogFile), { recursive: true });
+  reslog = spawn(process.execPath, [path.join(ROOT, 'scripts/reslog.mjs'), '--root', String(process.pid), '--out', reslogFile, '--interval', '60'], { stdio: 'ignore' });
+  note(`資源紀錄：${path.relative(ROOT, reslogFile)}（每 60 秒一行；同時最多 ${MAX_WORKERS} 個工作程序是共用上限，本執行器一次只跑一支測試）`);
 }
 
 section('基準：沒有突變時全部要綠');
@@ -4831,7 +5006,8 @@ if (baselineOk) {
     // expect（選填）：紅的一定要是這一條。改食譜檔或 foodtags.json 的突變一定會讓「recipes.json 是最新的」紅，
     // 只看有沒有紅的話，新斷言有沒有在檢查東西根本看不出來（2026-09-19 補早餐時發現）。
     const expectHit = !m.expect || result.out.split('\n').some((l) => l.includes('✗') && l.includes(m.expect));
-    record({ kind: result.kind, counted: true, red: !result.passed && expectHit && restored, seconds: result.seconds });
+    // 紅的是不是預期那一種（v11 §5.18 第 4 點）：有 expect 的記比對結果；沒寫 expect 的記 null（判不出紅錯地方，照實記）
+    record({ kind: result.kind, counted: true, red: !result.passed && expectHit && restored, expectMatched: m.expect ? (!result.passed && expectHit) : null, seconds: result.seconds });
     ok(!result.passed && expectHit && restored, `【${m.test}】${m.name}`,
       !restored ? `${m.file} 沒有還原成功！`
         : result.passed ? `改壞之後 ${m.test} 居然還是綠的 —— 對應的斷言沒有在檢查東西。${m.why}`
@@ -4851,6 +5027,15 @@ if (MODE === 'full' && baselineOk && !fc.complete) note(`整套還沒收齊：�
 if ((MODE === 'full' && shouldRecordFull({ only, ran, total: MUTATIONS.length })) || fc.complete) {
   writeLastFull(path.join(ROOT, LASTFULL_FILE), { date: taiwanToday(), version: currentVersion(ROOT), names: MUTATIONS.map((m) => m.name) });
   note(`整套完整跑完：已重寫 ${LASTFULL_FILE}（${MUTATIONS.length} 條）。記得把 STATUS「上次突變整套」那一行改成同樣的日期、版本、條數`);
+}
+
+if (reslog) {
+  // 收尾前再記一行（短於 60 秒的也至少有開頭與結尾兩行），然後收掉紀錄程序、讀峰值
+  try { fs.appendFileSync(reslogFile, `${execFileSync(process.execPath, [path.join(ROOT, 'scripts/reslog.mjs'), '--once', '--root', String(process.pid)], { encoding: 'utf8' }).trim()}\n`); } catch (e) { note(`收尾那一行資源紀錄取不到：${String(e.message).slice(0, 80)}（峰值只算前面記到的行）`); }
+  reslog.kill();
+  const pk = peakOf(fs.existsSync(reslogFile) ? fs.readFileSync(reslogFile, 'utf8') : '');
+  note(`資源紀錄的峰值：工作程序 ${pk.lines ? pk.peakWorkers : '（沒有記到任何一行）'}、合計記憶體 ${pk.lines ? `${pk.peakMB} MB` : '—'}、系統可用最低 ${pk.minFreeMB ?? '—'} MB（${pk.lines} 行${pk.unreadable ? `、取不到程序表 ${pk.unreadable} 行` : ''}；${path.relative(ROOT, reslogFile)}）`);
+  if (pk.lines && pk.peakWorkers > MAX_WORKERS) note(`⚠ 峰值 ${pk.peakWorkers} 個工作程序，超過共用上限 ${MAX_WORKERS}（v11 §5.19）`);
 }
 
 done('mutationtest');

@@ -76,21 +76,54 @@ export function accessOf(src) {
   return { literals, opaque };
 }
 
-/** 從起點沿 import 走到底；只收 repo 裡存在的檔。回 Set（repo 相對路徑） */
+/**
+ * 從起點沿 import 走到底。回 Set（repo 相對路徑），另外掛兩個陣列：
+ *   .missing     import 指到 repo 裡沒有的檔（「讀不到」不是「沒有關係」——呼叫端要退回整個 repo）
+ *   .unreadable  在 repo 清單上、卻讀不出內容的檔
+ */
 export function importClosure(starts, has, readSrc) {
   const seen = new Set(); const stack = starts.filter((f) => has(f));
+  const missing = []; const unreadable = [];
   while (stack.length) {
     const f = stack.pop();
     if (seen.has(f)) continue;
     seen.add(f);
     if (!/\.(m?js|cjs)$/.test(f)) continue;
-    for (const spec of staticImports(readSrc(f))) {
+    let src;
+    try { src = readSrc(f); } catch (e) { unreadable.push(`${f}（${String(e?.message ?? e).slice(0, 60)}）`); continue; }
+    for (const spec of staticImports(src)) {
       const target = posix(path.posix.normalize(spec.startsWith('/') ? spec.slice(1) : path.posix.join(path.posix.dirname(f), spec)));
+      if (!has(target)) { missing.push({ from: f, spec, target }); continue; }
       if (has(target) && !seen.has(target)) stack.push(target);
     }
   }
+  seen.missing = missing; seen.unreadable = unreadable;
   return seen;
 }
+
+/**
+ * 已知類別（登記制）：每一類怎麼進範圍寫在旁邊。**不在這張表上的檔＝未知類別 → 算進每一條突變的範圍**，
+ * 它一改，所有突變都要重跑（v11 §5.18 第 1 點：改到不屬於任何已知類別的檔就全跑）。
+ */
+export const KNOWN_CATEGORIES = [
+  { prefix: 'js/', how: '程式：照 import 關係圖；App 的檔' },
+  { prefix: 'scripts/', how: '程式：照 import 關係圖；非程式的檔（帳本、基準清單）只經寫死路徑或整個 repo 進範圍' },
+  { prefix: 'data/', how: '一律算進每一條' },
+  { prefix: 'css/', how: 'App 的檔' },
+  { prefix: 'icons/', how: 'App 的檔' },
+  { prefix: 'docs/', how: '文件：只經寫死路徑或整個 repo 進範圍（serve.mjs 不送）' },
+  { prefix: 'screenshots/', how: '文件附圖：只經整個 repo 進範圍' },
+  { file: 'index.html', how: 'App 的檔' },
+  { file: 'sw.js', how: 'App 的檔' },
+  { file: 'manifest.webmanifest', how: 'App 的檔' },
+  { file: 'package.json', how: '一律算進每一條' },
+  { file: 'package-lock.json', how: '一律算進每一條' },
+  { file: 'README.md', how: '文件：只經整個 repo 進範圍' },
+  { file: 'CLAUDE.md', how: '文件：只經整個 repo 進範圍' },
+  { file: '.gitignore', how: 'repo 設定：只經整個 repo 進範圍' },
+  { file: '.gitattributes', how: 'repo 設定：只經整個 repo 進範圍' },
+];
+export const isKnownFile = (f) => KNOWN_CATEGORIES.some((c) => (c.prefix ? f.startsWith(c.prefix) : f === c.file));
 
 /**
  * 一條突變的依賴範圍。
@@ -107,20 +140,27 @@ export function scopeFor(m, files, readSrc) {
   // 突變的目標檔與測試檔，就算不存在也要在範圍裡（不存在本身就是一種狀態，雜湊會記成「沒有這個檔」）
   closure.add(m.file); closure.add(testFile);
   const literals = []; const opaque = [];
+  // 讀不到、指到不存在的檔：不是「沒有關係」，是判斷不出（v11 §5.18 第 1 點；§5.13）
+  for (const x of closure.missing ?? []) opaque.push({ f: x.from, r: `import 指到 repo 裡沒有的檔（${x.from} → ${x.spec}）`, hard: true, target: x.target });
+  for (const x of closure.unreadable ?? []) opaque.push({ f: x, r: '讀不到內容', hard: true });
   let browser = false;
   for (const f of closure) {
     if (!has(f) || !/\.(m?js|cjs)$/.test(f)) continue;
-    const src = readSrc(f);
+    let src;
+    try { src = readSrc(f); } catch { continue; }                     // 讀不到的已經在 closure.unreadable 裡
     if (usesBrowser(src)) browser = true;
     const a = accessOf(src);
     literals.push(...a.literals);
     for (const r of a.opaque) opaque.push({ f, r });
   }
   // App 自己的程式裡寫不死的 fetch、import(：只會載 App 的檔 → 「整個 App」（規則 4）
-  const appOpaque = opaque.some((o) => isAppFile(o.f));
+  const appOpaque = opaque.some((o) => !o.hard && isAppFile(o.f));
   const wholeApp = browser || appOpaque;
+  // 指到不存在的檔：整個 App 的範圍（docs/ 以外全部）已經涵蓋那個位置的話，它日後出現也會被算進來 → 不必退回整個 repo。
+  // 瀏覽器測試在 page.evaluate 裡動態載入 js/store.js（相對於頁面的路徑）是在頁面裡執行的，從測試檔的位置解析會落空，就是這一種。
+  const coveredMissing = (o) => wholeApp && o.target && !APP_EXCLUDED_PREFIXES.some((p) => o.target.startsWith(p));
   const reasons = opaque
-    .filter((o) => !(browser && SUBSUMED_BY_BROWSER.has(o.f)) && !isAppFile(o.f))
+    .filter((o) => (o.hard ? !coveredMissing(o) : (!(browser && SUBSUMED_BY_BROWSER.has(o.f)) && !isAppFile(o.f))))
     .map((o) => `${o.f}：${o.r}`);
   if (wholeApp) {
     const docsModules = files.filter((f) => APP_EXCLUDED_PREFIXES.some((p) => f.startsWith(p)) && IMPORTABLE_RX.test(f));
@@ -134,6 +174,8 @@ export function scopeFor(m, files, readSrc) {
     if (wholeApp && !APP_EXCLUDED_PREFIXES.some((p) => f.startsWith(p))) out.add(f);
     // 寫死的讀檔路徑：剛好是那個檔，或是那個資料夾底下的
     if (literals.some((l) => f === l || f.startsWith(`${l.replace(/\/$/, '')}/`))) out.add(f);
+    // 未知類別：算進每一條（它一改就全跑）
+    if (!isKnownFile(f)) out.add(f);
   }
   for (const l of literals) out.add(l);
   out.delete(LEDGER_FILE);
@@ -167,7 +209,11 @@ export function maskMutations(src) {
 export function runnerHash(files, readSrc, fileHash, runner = 'scripts/mutationtest.mjs') {
   const has = (f) => files.includes(f);
   const closure = importClosure([runner], has, readSrc);
-  const lines = [...closure].sort().map((f) => `${f}\0${f === runner ? sha(maskMutations(readSrc(f))) : (fileHash(f) ?? 'MISSING')}`);
+  // 執行器自己的 import 讀不到或指到不存在的檔：雜湊不代表執行器 → 停（§5.13），不默默少算一支
+  if (closure.missing.length || closure.unreadable.length || !closure.has(runner)) {
+    throw new Error(`執行器的雜湊算不出來：${[...closure.missing.map((x) => `${x.from} → ${x.spec}`), ...closure.unreadable, ...(closure.has(runner) ? [] : [`${runner} 不在檔案清單上`])].join('、')}`);
+  }
+  const lines =[...closure].sort().map((f) => `${f}\0${f === runner ? sha(maskMutations(readSrc(f))) : (fileHash(f) ?? 'MISSING')}`);
   return sha(lines.join('\n'));
 }
 
@@ -222,6 +268,16 @@ export function recordRun(ledger, name, rec) {
   e.last = rec;
   if (FULL_MODES.has(rec.mode) && rec.counted) e.lastFull = rec;
   return ledger;
+}
+
+/**
+ * 帳本的孤兒（v11 §5.18 第 4 點、§5.2 登記制配孤兒檢查）：
+ *   notInLedger  清單有、帳本沒有任何紀錄的（＝從沒跑過，也列在 neverFullNames 裡）
+ *   notInList    帳本有、清單已經沒有的（突變被刪或改名）——要報，不默默留著
+ */
+export function ledgerOrphans(names, ledger) {
+  const list = new Set(names); const led = Object.keys(ledger?.entries ?? {});
+  return { notInLedger: names.filter((n) => !ledger?.entries?.[n]), notInList: led.filter((n) => !list.has(n)) };
 }
 
 /** 從沒在整套（或補跑）裡跑過的：現在的突變名稱裡，帳本沒有 lastFull 的。改名的算沒跑過（保守） */

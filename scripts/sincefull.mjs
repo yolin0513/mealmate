@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { LEDGER_FILE, ledgerProblems } from './depgraph.mjs';
+import { LEDGER_FILE, ledgerProblems, ledgerOrphans } from './depgraph.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -218,6 +218,9 @@ function main() {
   if (over) console.log(over);
   for (const l of lines) console.log(l);
   if (process.argv.includes('--list')) {
+    const orph = ledgerOrphans(current, ledger);
+    console.log(`\n帳本的孤兒：清單有、帳本沒有任何紀錄的 ${orph.notInLedger.length} 條；帳本有、清單已經沒有的 ${orph.notInList.length} 條`);
+    for (const n of orph.notInList) console.log(`  · 帳本有、清單沒有：${n}`);
     console.log(`\n從未整套跑過的 ${never} 條（帳本 ${LEDGER_FILE} 裡沒有 lastFull）：`);
     for (const n of missing) {
       const l = ledger.entries[n]?.last;
