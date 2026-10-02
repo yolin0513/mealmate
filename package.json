@@ -37,6 +37,7 @@
     "uikittest": "node scripts/uikittest.mjs",
     "pwatest": "node scripts/pwatest.mjs",
     "doctest": "node scripts/doctest.mjs",
+    "hooks:install": "git config core.hooksPath scripts/hooks",
     "redlinetest": "node scripts/redlinetest.mjs",
     "scenariotest": "node scripts/scenariotest.mjs",
     "racetest": "node scripts/racetest.mjs",

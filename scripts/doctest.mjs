@@ -1275,4 +1275,72 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
   ok(!fs.existsSync(root), '受影響 D18（清理）暫存 git repo 用完刪掉了');
 }
 
+section('pre-commit hook：突變的還原紀錄還在就不給 commit（Dispatch 2026-10-02 指示 8-1；推送閘門回 7 那一關照留）');
+{
+  const HOOK_REL = 'scripts/hooks/pre-commit';
+  const cfg = spawnSync('git', ['config', '--get', 'core.hooksPath'], { cwd: ROOT, encoding: 'utf8' });
+  eq(pkg.scripts?.['hooks:install'], 'git config core.hooksPath scripts/hooks', 'hook H0a 安裝指令 npm run hooks:install 在 package.json 裡');
+  eq(cfg.stdout.trim(), 'scripts/hooks', `hook H0b 這份工作區裝好了（core.hooksPath＝scripts/hooks；新 clone 沒裝就跑 npm run hooks:install）`);
+  const mode = spawnSync('git', ['ls-files', '-s', HOOK_REL], { cwd: ROOT, encoding: 'utf8' }).stdout;
+  ok(mode.startsWith('100755 '), `hook H0c ${HOOK_REL} 在 git 裡有執行權限（Linux／macOS 的 clone 沒有這個位元，git 會默默不跑它）：${mode.trim() || '（還沒加進 git）'}`);
+  const gate = read('scripts/pushgate.sh');
+  ok(gate.includes('PENDINGF="scripts/.mutation-pending.json"') && gate.includes(`grep -q '"inflight": {' scripts/mutation-ledger.json`) && (gate.match(/\n {2}exit 7\n/g) ?? []).length === 2,
+    'hook H0d 推送閘門的第零關之零（兩處紀錄、各回 7）還在——hook 可以被 --no-verify 跳過，真正擋推送的是它');
+
+  // 暫存 git repo：core.hooksPath 指到「這份工作區」的 scripts/hooks（不複製——測的就是工作區那一支，突變改壞的也是它）
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-hook-'));
+  try {
+    const git = (...a) => spawnSync('git', ['-C', repo, ...a], { encoding: 'utf8' });
+    git('init', '-q'); git('config', 'user.name', 'probe'); git('config', 'user.email', 'probe@users.noreply.github.com');
+    git('config', 'core.autocrlf', 'false');
+    fs.mkdirSync(path.join(repo, 'scripts'));
+    const ledgerOf = (inflight) => `${JSON.stringify({ runSeq: 1, inflight, entries: {} }, null, 2)}\n`;
+    fs.writeFileSync(path.join(repo, 'scripts/mutation-ledger.json'), ledgerOf(null));
+    fs.writeFileSync(path.join(repo, 'a.txt'), '0\n');
+    git('add', '-A'); const base = git('commit', '-qm', 'base');                    // 這一筆還沒設 hooksPath
+    git('config', 'core.hooksPath', path.join(ROOT, 'scripts', 'hooks').replace(/\\/g, '/'));
+    ok(base.status === 0, `（前提）hook 的暫存 repo 建好了（${base.stderr.trim()}）`);
+    let n = 0;
+    const tryCommit = () => {
+      n += 1;
+      const before = git('rev-parse', 'HEAD').stdout.trim();
+      fs.writeFileSync(path.join(repo, 'a.txt'), `${n}\n`);
+      git('add', 'a.txt');
+      const r = git('commit', '-qm', `c${n}`);
+      const after = git('rev-parse', 'HEAD').stdout.trim();
+      git('reset', '-q', '--hard', 'HEAD');                                         // 被擋下時把暫存區的改動丟掉，下一個情境從乾淨開始
+      return { code: r.status, out: `${r.stdout}${r.stderr}`, moved: before !== after && before !== '' };
+    };
+    const PENDING = path.join(repo, 'scripts/.mutation-pending.json');
+    const TAG = '【擋下：突變的還原紀錄】';
+
+    const h1 = tryCommit();
+    ok(h1.code === 0 && h1.moved && !h1.out.includes(TAG), `hook H1 沒有還原紀錄、帳本 inflight 是 null → 照常 commit（回 ${h1.code}；${h1.out.trim()}）`);
+
+    fs.writeFileSync(PENDING, JSON.stringify({ rel: 'js/probe-target.js', content: 'x' }));
+    const h2 = tryCommit();
+    ok(h2.code !== 0 && !h2.moved && h2.out.includes(TAG) && h2.out.includes('.mutation-pending.json') && h2.out.includes('js/probe-target.js'),
+      `hook H2 還原紀錄還在 → 擋下、沒有 commit，訊息點名紀錄檔與該還原的那支檔（回 ${h2.code}；${h2.out.trim()}）`);
+    fs.rmSync(PENDING);
+    const h2b = tryCommit();
+    ok(h2b.code === 0 && h2b.moved, `hook H2b 同一個 repo 把紀錄拿掉 → 又能 commit（H2 擋下的理由就是那份紀錄；回 ${h2b.code}）`);
+
+    fs.writeFileSync(PENDING, 'not json');
+    const h3 = tryCommit();
+    ok(h3.code !== 0 && !h3.moved && h3.out.includes('讀不出檔名'), `hook H3 紀錄壞掉、讀不出檔名 → 照樣擋（讀不出來不是沒有紀錄；回 ${h3.code}；${h3.out.trim()}）`);
+    fs.rmSync(PENDING);
+
+    fs.writeFileSync(path.join(repo, 'scripts/mutation-ledger.json'), ledgerOf({ run: 1, mutation: 'probe', file: 'js/probe-target.js' }));
+    git('add', '-A'); git('commit', '-qm', 'x', '--no-verify'); git('reset', '-q', '--hard', 'HEAD');   // 帳本本身要進 repo（它是版控檔），--no-verify 只用在造情境
+    const h4 = tryCommit();
+    ok(h4.code !== 0 && !h4.moved && h4.out.includes(TAG) && h4.out.includes('inflight'), `hook H4 帳本記著 inflight（磁碟上沒有還原紀錄）→ 擋下（回 ${h4.code}；${h4.out.trim()}）`);
+    fs.writeFileSync(path.join(repo, 'scripts/mutation-ledger.json'), ledgerOf(null));
+    const h4b = tryCommit();
+    ok(h4b.code === 0 && h4b.moved, `hook H4b 帳本的 inflight 改回 null（hook 看的是工作區那一份）→ 又能 commit（回 ${h4b.code}；${h4b.out.trim()}）`);
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+  ok(!fs.existsSync(repo), 'hook（清理）暫存 git repo 用完刪掉了');
+}
+
 done('doctest');

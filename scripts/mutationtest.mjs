@@ -4486,6 +4486,34 @@ const MUTATIONS = [
     test: "doctest",
     expect: "EV4 ",
   },
+  // ---- 2026-10-02 Dispatch 8-1：pre-commit hook（scripts/hooks/pre-commit）；doctest「pre-commit hook」H1–H4b ----
+  {
+    name: "pre-commit hook：一律當成沒有還原紀錄",
+    why: "hook 還在、也裝好了，但不管有沒有紀錄都放行——突變被中斷留下的壞檔照樣被 commit 進去，只剩推送閘門那一關。",
+    file: "scripts/hooks/pre-commit",
+    find: "判斷不了有沒有還原紀錄\"; exit 1; }\n",
+    replace: "判斷不了有沒有還原紀錄\"; exit 1; }\nexit 0\n",
+    test: "doctest",
+    expect: "hook H2 ",
+  },
+  {
+    name: "pre-commit hook：不看磁碟上的還原紀錄",
+    why: "只看帳本的 inflight；帳本沒寫到（或被還原掉）、還原紀錄還在時就放行。",
+    file: "scripts/hooks/pre-commit",
+    find: "if [ -e \"$PENDINGF\" ]; then\n",
+    replace: "if false; then\n",
+    test: "doctest",
+    expect: "hook H2 ",
+  },
+  {
+    name: "pre-commit hook：不看帳本的 inflight",
+    why: "只看磁碟上的還原紀錄；紀錄被刪掉、帳本還記著改壞了沒收尾時就放行。",
+    file: "scripts/hooks/pre-commit",
+    find: "'\"inflight\": {' \"$LEDGERF\"; then\n",
+    replace: "'\"inflight\": NEVER' \"$LEDGERF\"; then\n",
+    test: "doctest",
+    expect: "hook H4 ",
+  },
   // ---- 2026-10-02 v11.4 §5.20：暫存複本要含要測的改動，並讀回確認（scripts/copycheck.mjs）----
   {
     name: "讀回確認：內容不同也當成相同",
