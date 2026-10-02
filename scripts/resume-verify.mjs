@@ -232,6 +232,21 @@ async function guardFlow() {
         readBack && r3.code !== 0 && r3.out.includes('已經是改壞後的樣子') && r3.out.includes('scripts/rvtarget1.mjs'), `樣本讀回 ${readBack}；回 ${r3.code}`);
     } finally { cleanup(repo); }
   }
+  // 紀錄壞掉（2026-10-02，StockDiary 的是解析失敗就當成「沒有紀錄」）：讀不懂、欄位不對 → 硬失敗、點名原因、紀錄與檔案都不動
+  {
+    const repo = makeRepo('normal');
+    try {
+      const t1 = path.join(repo.root, 'scripts/rvtarget1.mjs');
+      fs.writeFileSync(repo.pending, '{ 這不是 JSON');
+      const r = runSync(repo, ['--dry-run']);
+      step('護欄 紀錄壞掉：還原紀錄讀不懂 → 拒絕、講明讀不懂、紀錄留著',
+        r.code !== 0 && r.out.includes('讀不懂') && fs.existsSync(repo.pending) && fs.readFileSync(t1, 'utf8') === ORIGINAL, `回 ${r.code}`);
+      fs.writeFileSync(repo.pending, JSON.stringify({ rel: 'scripts/rvtarget1.mjs' }));   // JSON 對、少了 content
+      const r2 = runSync(repo, ['--dry-run']);
+      step('護欄 紀錄壞掉（欄位）：少了原檔內容 → 拒絕、目標檔沒被寫成 undefined',
+        r2.code !== 0 && r2.out.includes('欄位不對') && fs.readFileSync(t1, 'utf8') === ORIGINAL, `回 ${r2.code}；目標檔 ${fs.readFileSync(t1, 'utf8') === ORIGINAL ? '原樣' : '被改了'}`);
+    } finally { cleanup(repo); }
+  }
   // 第二支：還原之後不清還原紀錄的那一版，改第二條的檔時必須被拒絕
   {
     const repo = makeRepo('two-files');

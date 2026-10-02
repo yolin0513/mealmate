@@ -64,7 +64,7 @@ run_gate() { BEFORE="$(remote_main)"; bash scripts/pushgate.sh > "$T/out" 2>&1; 
 
 # 每一種情境是獨立的函式，開頭一律先把假遠端、本機追蹤分支、本機、hook、登記還原成開始前的狀態（M6，2026-09-24）：
 # 誰先誰後都不影響結果。順序由 PUSHGATE_VERIFY_ORDER 決定，預設是下面那一行；換一個順序跑，每一種的結論要一樣。
-fresh() { rm -f "$T/remote.git/hooks/pre-receive" "$T/remote.git/hooks/post-receive"; restore_all; register_work; }
+fresh() { rm -f "$T/remote.git/hooks/pre-receive" "$T/remote.git/hooks/post-receive" scripts/.mutation-pending.json; restore_all; register_work; }
 
 # 1 要推的檔有命中：當場組出來的合成 email
 s1() { fresh
@@ -261,16 +261,33 @@ s25() { fresh
   BEFORE="$(remote_main)"; env GIT_EDITOR=true GIT_SEQUENCE_EDITOR=true GIT_PAGER=cat GITHUB_ACTIONS=true bash scripts/pushgate.sh > "$T/out" 2>&1; RC=$?
   check "25 不該攔的不攔" 0 local "已推送" "擋下"; }
 
+# 26 突變跑到一半被中斷、還原紀錄還在（2026-10-02，StockDiary 挖出來的）→ 第零關之零擋下（回 7）、點名該還原的那支檔、沒推
+s26() { fresh
+  probe_commit z "乾淨的一行"
+  printf '{"rel":"js/app.js","content":"x"}' > scripts/.mutation-pending.json
+  if precondition "26 還原紀錄還在" '[ -e scripts/.mutation-pending.json ] && grep -q js/app.js scripts/.mutation-pending.json' "暫存複本裡要有那份還原紀錄（讀回確認）"; then
+    run_gate; check "26 還原紀錄還在" 7 same "js/app.js" "已推送"
+  fi
+  rm -f scripts/.mutation-pending.json; }
+
+# 27 還原紀錄不在、帳本卻記著一條沒收尾的突變（兩處紀錄的另一處）→ 同樣擋下（回 7）
+s27() { fresh
+  probe_commit za "乾淨的一行"
+  node -e "const fs=require('fs');const f='scripts/mutation-ledger.json';const j=JSON.parse(fs.readFileSync(f,'utf8'));j.inflight={run:9,mutation:'x',file:'js/app.js',origHash:'h'};fs.writeFileSync(f,JSON.stringify(j,null,1))" || { echo "27 帳本 inflight｜造不出情境｜不符合（情境沒造成，中止）"; FAIL=1; }
+  if precondition "27 帳本 inflight" "node -e \"const j=JSON.parse(require('fs').readFileSync('scripts/mutation-ledger.json','utf8'));process.exit(j.inflight&&j.inflight.file==='js/app.js'?0:1)\"" "暫存複本的帳本要記著 inflight（讀回確認）"; then
+    run_gate; check "27 帳本記著沒收尾的突變" 7 same "inflight" "已推送"
+  fi; }
+
 # 7 全部正常 → 推上去、假遠端＝本機
 s7() { fresh
   probe_commit g "乾淨的一行"
   run_gate; check "7 全部正常" 0 local "已推送" "擋下"; }
 
-ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25"
-ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 7}"
-# 順序清單要恰好是 25 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
+ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27"
+ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 7}"
+# 順序清單要恰好是 27 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
 if [ "$(printf '%s\n' $ORDER | sort -n | tr '\n' ' ')" != "$(printf '%s\n' $ALL | sort -n | tr '\n' ' ')" ]; then
-  echo "閘門驗法：順序清單不是恰好 25 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
+  echo "閘門驗法：順序清單不是恰好 27 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
 fi
 echo "順序：$ORDER"
 for n in $ORDER; do "s$n"; done

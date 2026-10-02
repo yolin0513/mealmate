@@ -5,6 +5,7 @@
 #         4 閘門、自查或驗法改過之後，還沒跑過驗法（登記對不上或沒有登記）；
 #         5 這次要推的 commit 動到 build-recipes、build-foods 或 buildguard-verify，卻還沒在 HEAD 跑過 F8 驗法（登記對不上或沒有登記）；取不到檔名清單也回 5。
 #         6 執行環境裡有 GIT_ 開頭的變數（不分大小寫；只放行 GIT_EDITOR、GIT_SEQUENCE_EDITOR、GIT_PAGER），在任何 git 呼叫之前就停。
+#         7 突變的還原紀錄還在（scripts/.mutation-pending.json，或帳本的 inflight）：突變跑到一半被中斷、壞檔可能還在工作區。
 # 不接管線：每一步的輸出寫到 .logs/（已在 .gitignore），回傳值直接拿那一步的。
 # 驗法：bash scripts/pushgate-verify.sh（本機假遠端分別製造每一關的失敗）。全部通過時它登記三支檔案的雜湊，本檔推送前比對。
 set -u
@@ -22,6 +23,21 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 REMOTE=origin
 mkdir -p .logs
 LOG=".logs/pushgate.out"
+
+# 第零關之零：突變跑到一半被殺掉留下的壞檔（2026-10-02，StockDiary 挖出來、Dispatch 指示各家照查）。
+# 執行器改壞原始碼之前，會先把原檔寫進 scripts/.mutation-pending.json、在帳本記 inflight；被殺掉時 finally 不會跑，
+# 還原只在下次啟動執行器時才發生——中間有人 commit、推送，壞檔就被收進去、推出去。所以紀錄還在就擋（回 7），點名該還原哪支檔。
+# 紀錄讀不出檔名也擋（讀不出來不是「沒有紀錄」）。這個檔在 .gitignore 裡，git status 看不到，只能這裡主動看。
+PENDINGF="scripts/.mutation-pending.json"
+if [ -e "$PENDINGF" ]; then
+  prel="$(grep -o '"rel":"[^"]*"' "$PENDINGF")"
+  echo "【擋下：突變的還原紀錄】$PENDINGF 還在：突變跑到一半被中斷，${prel:-（紀錄讀不出檔名）} 可能還是改壞的版本。先跑一次 node scripts/mutationtest.mjs --dry-run 讓它還原（或照紀錄人工還原、確認 git diff），再推"
+  exit 7
+fi
+if grep -q '"inflight": {' scripts/mutation-ledger.json 2>/dev/null; then
+  echo "【擋下：突變的還原紀錄】帳本 scripts/mutation-ledger.json 記著一條改壞了還沒收尾的突變（inflight），先跑一次 node scripts/mutationtest.mjs --dry-run 核對兩處紀錄，再推"
+  exit 7
+fi
 
 # 第零關：驗法登記（2026-09-24 起）。以前「改過閘門就重跑驗法」靠人記得；現在沒跑過就推不出去。
 REG=".logs/pushgate-verified.txt"

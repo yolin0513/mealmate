@@ -24,6 +24,9 @@ const FAKE_DIFF = ['-p', '--no-color', '-U0'];
  */
 export const CASES = [
   { label: '對照：原樣', find: null, expect: [] },
+  // ---- 閘門第零關之零（突變的還原紀錄，2026-10-02）：兩處紀錄各一條，各自只紅自己那一種 ----
+  { label: '拿掉「還原紀錄還在就擋」', find: 'if [ -e "$PENDINGF" ]; then', replace: 'if false; then', expect: ['26'] },
+  { label: '拿掉「帳本記著沒收尾的突變就擋」', find: `if grep -q '"inflight": {' scripts/mutation-ledger.json 2>/dev/null; then`, replace: 'if false; then', expect: ['27'] },
   // ---- 閘門第零關之二（F8 驗法登記，F9）----
   { label: '拿掉第零關之二（F8 驗法登記）整段', find: 'BLOCK_0B', replace: '', expect: ['15', '16', '17', '18', '19', '20'] },
   { label: '取不到檔名清單時不停（失敗照樣往下走）', find: 'if ! git log --format= --name-only "$REMOTE/main..HEAD" > "$LOG" 2>&1; then cat "$LOG"; echo "【擋下：F8 驗法登記】取不到這次要推的檔名清單，不知道有沒有動到被守的檔，不推送"; exit 5; fi',

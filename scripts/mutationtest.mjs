@@ -4422,6 +4422,25 @@ const MUTATIONS = [
     test: "doctest",
     expect: "受影響 D1 ",
   },
+  // ---- 2026-10-02 StockDiary 挖出來的：還原紀錄壞掉時要硬失敗 ----
+  {
+    name: "還原紀錄讀不懂就當成沒有紀錄",
+    why: "還原機制在紀錄壞掉的那一刻就消失了：改壞的檔留在工作區，執行器照樣往下跑、還拿它當原檔備份。",
+    file: "scripts/mutationtest.mjs",
+    find: "  try { rec = JSON.parse(fs.readFileSync(PENDING, 'utf8')); } catch (e) {\n    console.log(",
+    replace: "  try { rec = JSON.parse(fs.readFileSync(PENDING, 'utf8')); } catch (e) {\n    clearPending(); return null; console.log(",
+    test: "resume-verify",
+    expect: "護欄 紀錄壞掉：",
+  },
+  {
+    name: "還原紀錄欄位不對也照寫",
+    why: "少了原檔內容時，會把字串 undefined 寫進原始碼檔——比不還原更糟。",
+    file: "scripts/mutationtest.mjs",
+    find: "  if (!rec || typeof rec.rel !== 'string' || !rec.rel || typeof rec.content !== 'string') {\n",
+    replace: "  if (!rec) {\n",
+    test: "resume-verify",
+    expect: "護欄 紀錄壞掉（欄位）",
+  },
   // ---- 2026-10-02 Dispatch：「情境未成立」是獨立的結果類別——不算紅、不算通過、不算數 ----
   {
     name: "情境未成立：宣告了也照樣判成斷言失敗",
@@ -5007,12 +5026,30 @@ function writePending(rel, content) {
 function clearPending() { fs.rmSync(PENDING, { force: true }); }
 function recoverPending() {
   if (!fs.existsSync(PENDING)) return null;
-  const { rel, content } = JSON.parse(fs.readFileSync(PENDING, 'utf8'));
-  fs.writeFileSync(path.join(ROOT, rel), content, 'utf8');
+  // 紀錄壞掉時硬失敗（2026-10-02，StockDiary 的是「解析失敗就當成沒有紀錄」——還原機制在紀錄壞掉的那一刻就消失了）。
+  // 也要擋「JSON 對、欄位不對」：content 不是字串時，以前會把字串 undefined 寫進原始碼檔。紀錄留著不刪，給人看。
+  let rec = null;
+  try { rec = JSON.parse(fs.readFileSync(PENDING, 'utf8')); } catch (e) {
+    console.log(`  ✗ 還原紀錄（scripts/.mutation-pending.json）讀不懂（${String(e.message).slice(0, 80)}）：不知道該還原哪支檔、還原成什麼——請人工確認工作區（git status、git diff），確認後再刪掉那份紀錄`);
+    process.exit(1);
+  }
+  if (!rec || typeof rec.rel !== 'string' || !rec.rel || typeof rec.content !== 'string') {
+    console.log(`  ✗ 還原紀錄（scripts/.mutation-pending.json）欄位不對（要有檔名 rel 與原檔內容 content 兩個字串）：不還原、不往下跑——請人工確認工作區，確認後再刪掉那份紀錄`);
+    process.exit(1);
+  }
+  fs.writeFileSync(path.join(ROOT, rec.rel), rec.content, 'utf8');
   clearPending();
-  return rel;
+  return rec.rel;
 }
 
+// 結束或 Ctrl-C（2026-10-02，StockDiary 盤出它那條從沒觸發過）：Node 預設收到 SIGINT 會立刻結束、finally 不跑。
+// 掛上處理器之後，訊號要等目前這一支測試結束才處理（同步呼叫期間事件迴圈停著；同一個主控台的 Ctrl-C 也會送到那支測試，它通常先結束）
+// → finally 照常還原；處理器自己再照還原紀錄還原一次（紀錄還在才還原），以 130 結束。
+// **這條路在本機（Windows）造不出來驗**：node 送不出真的 SIGINT／Ctrl-C 給別的程序（process.kill 的 SIGINT 在 Windows 等於直接結束）。
+// 所以它不算一道已驗證的防線；真正擋住壞檔的是「下次啟動先還原」（resume-verify 真的殺程序驗過）與推送閘門的第零關之零（回 7）。
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(sig, () => { try { const r = recoverPending(); if (r) console.log(`  · 收到 ${sig}：已還原 ${r}`); } finally { process.exit(130); } });
+}
 const refuse = (msg) => { ok(false, msg); done('mutationtest'); process.exit(1); };
 // 「是不是改壞前的內容」只比內容、不比行尾：人工用 git 還原時，行尾可能被 git 的設定換成 CRLF（2026-10-02 resume-verify 撞到），
 // 逐位元組比會把已經還原好的檔判成「不是原樣」、永遠拒絕。突變不會只改行尾，所以這樣不會放過改壞的檔。
