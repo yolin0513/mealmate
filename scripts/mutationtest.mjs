@@ -4491,10 +4491,19 @@ const MUTATIONS = [
     name: "情境未成立：不列在不算數裡",
     why: "沒列進不算數，帳本會把那一次記成算數；下一次的範圍化選擇就以為它跑過了、跳過它。",
     file: "scripts/runkind.mjs",
-    find: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario']);",
-    replace: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn']);",
+    find: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario', 'crash']);",
+    replace: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'crash']);",
     test: "doctest",
     expect: "R7 ",
+  },
+  {
+    name: "崩潰又算成抓到（不列在不算數裡）",
+    why: "被改壞的程式崩潰，證明的是「它崩潰了」，不是「那道檢查發現了它」；算成抓到，就是被別的東西碰巧擋下也算擋（v11.4 §5.20）。",
+    file: "scripts/runkind.mjs",
+    find: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario', 'crash']);",
+    replace: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario']);",
+    test: "doctest",
+    expect: "R3c ",
   },
   {
     name: "情境未成立：不看痕跡、一律當成情境成立",
@@ -5296,7 +5305,7 @@ if (baselineOk) {
     }
     ran += 1; // 「不算數」的不計入：一輪裡有沒驗到的突變，就不能寫成「整套完整跑完」
     if (result.kind === 'assert') tally.assert += 1;
-    if (result.kind === 'crash') { tally.crash += 1; note(`【${m.test}】${m.name}：紅在崩潰（輸出裡沒有任何 ✗），不是某條斷言（${result.seconds} 秒）`); }
+    // 崩潰（crash）2026-10-02 起列在不算數裡（runkind.UNCOUNTED_KINDS），上面那一段就接走了，走不到這裡
     // expect（選填）：紅的一定要是這一條。改食譜檔或 foodtags.json 的突變一定會讓「recipes.json 是最新的」紅，
     // 只看有沒有紅的話，新斷言有沒有在檢查東西根本看不出來（2026-09-19 補早餐時發現）。
     // 只認「以 ✗ 開頭」的行（2026-10-02）：以前只看「那一行有沒有 ✗ 這個字」，通過的行（✓ …）訊息裡提到 ✗ 也會被當成「紅在這一條」
@@ -5310,7 +5319,7 @@ if (baselineOk) {
         : result.passed ? `改壞之後 ${m.test} 居然還是綠的 —— 對應的斷言沒有在檢查東西。${m.why}`
           : `${m.test} 紅了，但紅的不是含「${m.expect}」的那一條 —— 對應的斷言沒有在檢查東西。${m.why}\n      實際紅的（前 4 行 ✗）：${result.out.split('\n').filter(failLine).slice(0, 4).map((l) => l.trim().slice(0, 160)).join('｜') || '（輸出裡沒有 ✗）'}`);
   }
-  note(`結束方式統計：紅在斷言 ${tally.assert} 條、紅在崩潰 ${tally.crash} 條、不算數（逾時／被殺／沒跑起來）${tally.uncounted.length} 條${tally.uncounted.length ? `：${tally.uncounted.join('、')}` : ''}`);
+  note(`結束方式統計：情境成立 ${tally.assert} 條（紅在斷言＝完整跑完、某條斷言印出失敗）；情境未成立、不算數 ${tally.uncounted.length} 條（逾時／被殺／沒跑起來／崩潰／宣告情境未成立）${tally.uncounted.length ? `：${tally.uncounted.join('、')}` : ''}`);
 } else {
   note('基準沒過，不跑突變（先把測試修綠）');
 }

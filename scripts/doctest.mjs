@@ -664,7 +664,7 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
   const wroteLastFull = fs.existsSync(path.join(toRoot, 'scripts/mutation-lastfull.json'));
   const hangRestored = fs.readFileSync(path.join(toRoot, 'scripts/probetarget.mjs'), 'utf8') === 'export const HANG = false;\n';
   fs.rmSync(toRoot, { recursive: true, force: true });
-  ok(to.code !== 0 && to.out.includes('不算數：probeslow 逾時被殺') && to.out.includes('不算數（逾時／被殺／沒跑起來）1 條') && !wroteLastFull && hangRestored,
+  ok(to.code !== 0 && to.out.includes('不算數：probeslow 逾時被殺') && to.out.includes('情境未成立、不算數 1 條') && !wroteLastFull && hangRestored,
     `F1-13 mutationtest 遇到逾時 → 那條突變標成「不算數」、不算紅（回 ${to.code}），不寫成「整套完整跑完」（寫了基準清單：${wroteLastFull}），改壞的檔有還原（${hangRestored}）`);
 }
 
@@ -679,7 +679,9 @@ section('測試怎麼結束的（runkind；2026-10-01：逾時、沒跑起來、
   eq(slow.kind, 'timeout', `R4 超過時限被殺 → 逾時（不是斷言失敗、也不是崩潰）（${slow.seconds} 秒）`);
   eq(runProgram([], { timeoutMs: 3000, exe: path.join(os.tmpdir(), 'mm-no-such-program.exe') }).kind, 'spawn', 'R5 程式根本沒跑起來 → 沒跑起來');
   eq(classifyRun({ signal: 'SIGKILL', status: null }), 'signal', 'R6 被外部訊號殺掉（不是逾時）→ 被殺');
-  eq([...UNCOUNTED_KINDS].sort(), ['noscenario', 'signal', 'spawn', 'timeout'], 'R7 不算數的是：逾時、被殺、沒跑起來、情境未成立（崩潰與斷言失敗都有完整跑完、而且量到了東西）');
+  eq([...UNCOUNTED_KINDS].sort(), ['crash', 'noscenario', 'signal', 'spawn', 'timeout'], 'R7 不算數的是：逾時、被殺、沒跑起來、宣告情境未成立、崩潰——只有斷言失敗（完整跑完、某條斷言印出失敗）算抓到');
+  ok(UNCOUNTED_KINDS.has('crash') && !UNCOUNTED_KINDS.has('assert'),
+    'R3c 崩潰不算抓到（被改壞的程式崩潰，不是那道檢查發現了它；v11.4 §5.20）；斷言失敗才算');
   // 情境未成立（2026-10-02 Dispatch）：測試宣告「要測的狀況這一次沒有發生」→ 不算紅、不算通過；就算也有 ✗、就算回 0
   const ns = node(`console.log('  ✗ 某一關不符'); console.log('${NO_SCENARIO_MARK}：殺程序錯過時間窗'); process.exit(4)`);
   eq(ns.kind, 'noscenario', 'R8 宣告了情境未成立（同時也有 ✗）→ 情境未成立，不是斷言失敗（不能被記成「抓到了」）');

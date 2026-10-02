@@ -6,7 +6,7 @@
 // 失敗的種類（kind）：
 //   pass     回傳 0
 //   assert   回傳非 0，輸出裡有 ✗（某條斷言失敗）——只有這一種是「紅在斷言」
-//   crash    回傳非 0，輸出裡沒有 ✗（未處理的例外之類）
+//   crash    回傳非 0，輸出裡沒有 ✗（未處理的例外之類）——2026-10-02 起不算數（情境未成立），見 UNCOUNTED_KINDS
 //   timeout  超過時限被殺（execFileSync 的 code 是 ETIMEDOUT）
 //   signal   被外部的訊號殺掉（不是逾時）
 //   spawn    程式根本沒跑起來（例如找不到執行檔、開不了子行程）
@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process';
 export const KIND_LABELS = {
   pass: '通過',
   assert: '斷言失敗',
-  crash: '崩潰（輸出裡沒有任何 ✗）',
+  crash: '崩潰（輸出裡沒有任何 ✗；被改壞的程式沒跑完，不是那道檢查發現了它）',
   timeout: '逾時被殺',
   signal: '被外部訊號殺掉',
   spawn: '沒跑起來',
@@ -27,7 +27,9 @@ export const KIND_LABELS = {
  * noscenario（2026-10-02 Dispatch）：測試自己宣告「要測的那個狀況這一次沒有發生」（例如殺程序錯過了時間窗）。
  * 它跟「紅錯地方」意思相反：紅錯地方是情境成立、被別條擋下；情境未成立是這次什麼都沒量到——不能偽裝成「情境成立且紅了」。
  */
-export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario']);
+// crash（2026-10-02 Dispatch、共用慣例 v11.4 §5.20）：被改壞的程式崩潰，證明的是「它崩潰了」，不是「那道檢查發現了它」——
+// 被別的東西碰巧擋下的一律算沒擋。抓到只有一種：被改壞的程式完整跑完、某條斷言印出失敗（assert）。
+export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario', 'crash']);
 /** 測試宣告情境未成立的那一行要以這個開頭（單獨一行；不用 ✗，免得被當成斷言失敗） */
 export const NO_SCENARIO_MARK = '⊘ 情境未成立';
 export function hasNoScenario(out) {
