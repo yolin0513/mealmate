@@ -27,6 +27,10 @@
 
 **證據檔（7-2，`scripts/evidence.mjs`，共用慣例 v11.4 §5.7）**：執行器的原始 log 留 `.logs/`，證據檔由腳本逐條產生到 `docs/evidence/`。三道擋：清洗的雙向對照組（髒的合成樣本——路徑、email、單獨出現的使用者名稱——要洗掉；帶分類資訊的樣本要原封不動）、列數＝執行器「選了 N 條」、跟帳本核對（抓到的 red 要是 true、情境未成立的 counted 要是 false）。舊 log 的帳本已往前走：用那個 commit 的帳本快照（`git show <commit>:scripts/mutation-ledger.json > .logs/ledger-<commit>.json`，再 `--ledger`）。執行器 2026-10-02 起印「這一次：日期、commit、跑法」一行，log 自己就帶得到日期與 commit。doctest EV1–EV4、突變 EV ×5。
 
+**pre-commit hook（8-1，Dispatch 2026-10-02 的三個條件）**：`scripts/hooks/pre-commit`（進 repo、git 裡有執行權限）；**新 clone 或新工作區要先跑 `npm run hooks:install`**（＝ `git config core.hooksPath scripts/hooks`，設定只存在本機 .git/config，doctest H0b 沒裝就紅）。查的跟推送閘門第零關之零同兩處：`scripts/.mutation-pending.json` 在、或帳本 inflight 不是 null → 擋下、點名該還原的檔；紀錄讀不出檔名也擋。推送閘門回 7 那一關照留（hook 可被 `--no-verify` 跳過；H0d 守它還在）。doctest H1–H4b 在暫存 repo 用真的 `git commit` 驗、兩個方向（擋下＋拿掉紀錄又能 commit），hooksPath 指到工作區那一支（不複製，避開 clone 拿到舊版的坑）。突變 3 條（一律放行、不看還原紀錄、不看 inflight）**還沒跑**——3 條 doctest 約 2–3 分鐘、2 個工作程序，照定義是重負載，等 Dispatch 排。
+
+**等 Dispatch 排的重負載（2026-10-02 晚）**：① resume-verify（加了讀回確認之後還沒重跑）；② 新突變 `--only`：hook 3 條、CC1 ×3、EV ×5、R4（PID 重用）、R3c；③ `versionmixtest` 那 3 條崩潰才抓到的（瀏覽器）；④ 最後：從沒整套跑過的 137 條，先抽 5 條、各來自不同測試、避開最快那一端量秒數再外推。
+
 **收尾快照（2026-09-25）——先讀這一段**
 - **突變整套：暫停（2026-10-01 晚上，Dispatch 指示）**——今天兩次非預期關機，都發生在整套跑的時候；原因查清楚、和其他專案協調好之前**不要重跑**。四次開跑都沒跑完、結果都不採用：`aa3f99c` 基準段 assertaudit 逾時；`78192f2` 跑到 266 條時關機；`5dc6664` 基準段 23 支同時失敗、沒有輸出（分不出原因，促成 `aad9a1a` 的 runkind）；`aad9a1a` 跑到 42 條時關機。
   系統紀錄（實測）：2026-10-01 有兩筆 Kernel-Power 41——20:56 重開機那筆 BugcheckCode=159（0x9F），22:35 那筆 BugcheckCode=0；過去 30 天只有這兩筆；沒有傾印檔。前幾次 4–5 小時的整套（09-19、09-21、09-24）沒有當機。
