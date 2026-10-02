@@ -109,6 +109,31 @@ export function mutate(src, c) {
   return src.replace(c.find, () => c.replace);
 }
 
+/**
+ * 預期清單過期（2026-10-02，四個專案同一天各踩一次，本 App 是 M6）：開跑前、一條都還沒跑之前，用獨立的訊息擋下。
+ * 過期的樣子是「不如預期」或「多紅了別組」，會被讀成閘門有問題。查兩件：
+ *   1. 每一條（含 also）的錨點在 HEAD 那一份檔裡剛好一次（gatemutants 跑的是 HEAD 的 worktree）
+ *   2. 每一條 expect 的情境編號，在 HEAD 的閘門驗法裡真的有那一種（sN() 函式）
+ * readHead(相對路徑) → HEAD 的內容，讀不到回 null。回問題陣列；空的＝不過期。
+ */
+export function staleProblems(cases, readHead) {
+  const out = [];
+  const vsrc = readHead(VERIFY);
+  if (vsrc == null) return [`讀不到 ${VERIFY}（判斷不了情境編號）`];
+  const ids = new Set([...vsrc.matchAll(/^s(\d+)\(\) \{/gm)].map((x) => x[1]));
+  if (ids.size === 0) return [`${VERIFY} 裡一種情境都數不到（判斷不了情境編號）`];
+  for (const c of cases) {
+    for (const id of c.expect ?? []) if (!ids.has(id)) out.push(`【${c.label}】預期的第 ${id} 種不在閘門驗法裡（現有 ${ids.size} 種）`);
+    if (c.find === null) continue;
+    for (const m of [{ file: c.file ?? GATE, find: c.find, replace: c.replace }, ...(c.also ?? [])]) {
+      const src = readHead(m.file);
+      if (src == null) out.push(`【${c.label}】讀不到 ${m.file}`);
+      else if (mutate(src, m) === null) out.push(`【${c.label}】${m.file} 的錨點不是剛好一次`);
+    }
+  }
+  return out;
+}
+
 /** 環境變數：Windows 上 PATH 的鍵名是 Path，另外加一個 PATH 會變成兩個，要沿用原本的鍵名 */
 function envWithPath(prefixDir) {
   const env = { ...process.env };
@@ -228,6 +253,10 @@ function main() {
   const picked = onlyKey ? CASES.filter((c) => c.label === '對照：原樣' || c.label.includes(onlyKey)) : CASES;
   if (onlyKey && picked.length < 2) { console.log(`gatemutants：--only「${onlyKey}」沒有對到任何一條`); return 1; }
   if (onlyKey) console.log(`只跑 ${picked.length} 條（關鍵字「${onlyKey}」＋「對照：原樣」），不是整套 ${CASES.length} 條`);
+  const readHead = (rel) => { const r = spawnSync('git', ['-C', repo, 'show', `${origHead}:${rel}`], { encoding: 'utf8' }); return r.status === 0 ? r.stdout : null; };
+  const stale = staleProblems(picked, readHead);
+  if (stale.length) { console.log(`gatemutants：預期清單過期（${stale.length} 處），一條都沒跑——先更新清單，不是閘門壞了：\n  ${stale.join('\n  ')}`); return 6; }
+  console.log(`預期清單：${picked.length} 條的錨點都剛好一次、預期的情境編號都在閘門驗法裡`);
   for (const c of picked) {
     const res = runCase(repo, origHead, c, expectedTotal);
     if (c.find === null && !c.fakeGit && !c.order && (c.runner ?? 'verify') === 'verify') expectedTotal = res.total ?? null;

@@ -19,7 +19,7 @@ import { runProgram, KIND_LABELS, UNCOUNTED_KINDS } from './runkind.mjs';
 import { shouldRecordFull, writeLastFull, LASTFULL_FILE, taiwanToday, currentVersion } from './sincefull.mjs';
 import { execFileSync, spawn } from 'node:child_process';
 import { peakOf } from './reslog.mjs';
-import { whitespaceOnly } from './checkmutations.mjs';
+import { whitespaceOnly, expectProblems } from './checkmutations.mjs';
 import {
   LEDGER_FILE, contentHash, scopeFor, scopeHash, mutationDefHash, runnerHash, rerunReasons,
   emptyLedger, ledgerProblems, recordRun, neverFullNames, fullComplete, doneAt, ledgerOrphans,
@@ -4486,6 +4486,70 @@ const MUTATIONS = [
     test: "doctest",
     expect: "EV4 ",
   },
+  {
+    name: "執行器：預期清單過期照跑",
+    why: "expect 已經不在測試裡，照樣改壞、照樣跑，結果是「紅錯地方」——被讀成程式有問題，真正的原因（預期清單過期）看不到。",
+    file: "scripts/mutationtest.mjs",
+    find: "\n    if (exP.length) {\n",
+    replace: "\n    if (false) {\n",
+    test: "doctest",
+    expect: "D18j ",
+  },
+  {
+    name: "gatemutants：不查預期的情境在不在",
+    why: "預期清單寫了一種閘門驗法已經沒有的情境，跑下去變成「不如預期」，被讀成閘門有問題。",
+    file: "scripts/gatemutants.mjs",
+    find: "if (!ids.has(id)) out.push(",
+    replace: "if (false) out.push(",
+    test: "doctest",
+    expect: "GM2 ",
+  },
+  {
+    name: "gatemutants：不查錨點是不是剛好一次",
+    why: "M6 那一次的形狀：錨點過期，開跑之後才在那一條報「不如預期」，跟閘門真的壞了分不出來。",
+    file: "scripts/gatemutants.mjs",
+    find: "else if (mutate(src, m) === null) out.push(",
+    replace: "else if (false) out.push(",
+    test: "doctest",
+    expect: "GM1 ",
+  },
+  {
+    name: "gatemutants：查出過期也照跑",
+    why: "前置檢查算了、沒有用：過期照樣開跑，訊息還是混在「不如預期」裡。",
+    file: "scripts/gatemutants.mjs",
+    find: "  if (stale.length) { console.log(",
+    replace: "  if (false) { console.log(",
+    test: "doctest",
+    expect: "GM1 ",
+  },
+  {
+    name: "gatemutants：數不到情境當成全部不過期",
+    why: "閘門驗法的寫法改了、一種都數不到時，每一條的預期都被當成不在（或被略過）——判斷不了不是沒有問題（§5.13）。",
+    file: "scripts/gatemutants.mjs",
+    find: "  if (ids.size === 0) return [",
+    replace: "  if (false) return [",
+    test: "doctest",
+    expect: "GM3 ",
+  },
+  // ---- 2026-10-02：判對時也印實際紅了哪幾條（StockDiary 挖出來的；doctest D18i）----
+  {
+    name: "執行器：判對時不印實際紅了哪幾條",
+    why: "只在判錯時印——判對的那幾百條，expect 是不是對到好幾條斷言、隨便哪一條紅都算過，從輸出上完全看不出來。",
+    file: "scripts/mutationtest.mjs",
+    find: "\n    if (!result.passed) {\n      const show",
+    replace: "\n    if (!result.passed && !(expectHit && restored)) {\n      const show",
+    test: "doctest",
+    expect: "D18i ",
+  },
+  {
+    name: "執行器：帳本不記紅了幾條",
+    why: "輸出看得到、帳本沒有：事後要從帳本量 expect 有沒有歧義就量不到。",
+    file: "scripts/mutationtest.mjs",
+    find: "隨便哪一條紅都算過」）\n    record({ kind: result.kind, counted: true, red: !result.passed && expectHit && restored, expectMatched: m.expect ? (!result.passed && expectHit) : null, failed: failed.length,",
+    replace: "隨便哪一條紅都算過」）\n    record({ kind: result.kind, counted: true, red: !result.passed && expectHit && restored, expectMatched: m.expect ? (!result.passed && expectHit) : null, failed: undefined,",
+    test: "doctest",
+    expect: "D18i ",
+  },
   // ---- 2026-10-02 Dispatch 8-1：pre-commit hook（scripts/hooks/pre-commit）；doctest「pre-commit hook」H1–H4b ----
   {
     name: "pre-commit hook：一律當成沒有還原紀錄",
@@ -5369,7 +5433,7 @@ let baselineOk = true;
 for (const t of TESTS) {
   const r = runTest(t);
   // 沒有任何 ✗ 的失敗＝子行程根本沒跑完（崩潰、逾時、被殺），那時候要看的是尾端輸出，不是斷言。
-  const fails = r.out.split('\n').filter((l) => l.includes('✗')).slice(0, 5);
+  const fails = r.out.split('\n').filter((l) => l.trimStart().startsWith('✗')).slice(0, 5);
   ok(r.passed, `基準 ${t} 通過`, r.passed ? '' : [`（${KIND_LABELS[r.kind]}，${r.seconds} 秒）`, ...(fails.length ? fails : r.out.split('\n').filter(Boolean).slice(-8))].join('\n      '));
   if (!r.passed) baselineOk = false;
 }
@@ -5389,6 +5453,14 @@ if (baselineOk) {
     if (count !== 1) {
       record({ kind: 'stale', counted: true, red: false, seconds: 0 });
       ok(false, `【${m.test}】${m.name}`, `要改的程式碼在 ${m.file} 出現 ${count} 次（要剛好 1 次）—— 這條突變過期了`);
+      continue;
+    }
+    // 預期清單過期（2026-10-02，四個專案同一天各踩一次）：expect 在測試的原始碼裡已經找不到，跑下去只會得到「紅錯地方」，
+    // 被讀成程式有問題。開跑前先擋、用獨立的訊息；不改壞任何檔、帳本記成不算數（下次要再挑）
+    const exP = expectProblems(m, (rel) => (fs.existsSync(path.join(ROOT, rel)) ? fs.readFileSync(path.join(ROOT, rel), 'utf8') : null));
+    if (exP.length) {
+      record({ kind: 'stale', counted: false, red: false, seconds: 0 });
+      ok(false, `【${m.test}】${m.name}`, `預期清單過期：${exP.join('；')}（沒有跑，先更新這一條的 expect）`);
       continue;
     }
     const mutated = original.replace(m.find, m.replace);
@@ -5423,13 +5495,22 @@ if (baselineOk) {
     // 只認「以 ✗ 開頭」的行（2026-10-02）：以前只看「那一行有沒有 ✗ 這個字」，通過的行（✓ …）訊息裡提到 ✗ 也會被當成「紅在這一條」
     // ——例：「✓ R2 回傳非 0、輸出裡有 ✗ → 斷言失敗」、resume-verify 的「✓ 護欄 …（回 1；✗ 上一次中斷過…）」。
     const failLine = (l) => l.trimStart().startsWith('✗');
-    const expectHit = !m.expect || result.out.split('\n').some((l) => failLine(l) && l.includes(m.expect));
+    const failed = result.out.split('\n').filter(failLine).map((l) => l.trim());
+    const expectHits = m.expect ? failed.filter((l) => l.includes(m.expect)) : [];
+    const expectHit = !m.expect || expectHits.length > 0;
     // 紅的是不是預期那一種（v11 §5.18 第 4 點）：有 expect 的記比對結果；沒寫 expect 的記 null（判不出紅錯地方，照實記）
-    record({ kind: result.kind, counted: true, red: !result.passed && expectHit && restored, expectMatched: m.expect ? (!result.passed && expectHit) : null, seconds: result.seconds });
+    // failed／expectHits 記條數（2026-10-02，StockDiary 挖出來的：只在判錯時印實際紅了哪幾條，判對時就無法稽核
+    // 「expect 對到好幾條、隨便哪一條紅都算過」）
+    record({ kind: result.kind, counted: true, red: !result.passed && expectHit && restored, expectMatched: m.expect ? (!result.passed && expectHit) : null, failed: failed.length, expectHits: m.expect ? expectHits.length : null, seconds: result.seconds });
     ok(!result.passed && expectHit && restored, `【${m.test}】${m.name}`,
       !restored ? `${m.file} 沒有還原成功！`
         : result.passed ? `改壞之後 ${m.test} 居然還是綠的 —— 對應的斷言沒有在檢查東西。${m.why}`
           : `${m.test} 紅了，但紅的不是含「${m.expect}」的那一條 —— 對應的斷言沒有在檢查東西。${m.why}\n      實際紅的（前 4 行 ✗）：${result.out.split('\n').filter(failLine).slice(0, 4).map((l) => l.trim().slice(0, 160)).join('｜') || '（輸出裡沒有 ✗）'}`);
+    // 判對、判錯都印實際紅了哪幾條。用說明行（開頭「  · 」）：這一行裡會出現 ✗，但不在行首，不會被當成失敗的斷言
+    if (!result.passed) {
+      const show = (arr) => `${arr.slice(0, 4).map((l) => l.slice(0, 120)).join('｜')}${arr.length > 4 ? `…（另 ${arr.length - 4} 條）` : ''}`;
+      note(`實際紅了 ${failed.length} 條${m.expect ? `；含「${m.expect}」的 ${expectHits.length} 條${expectHits.length > 1 ? '（expect 對到不只一條斷言，看是不是有歧義）' : ''}` : '；沒寫 expect，判不出紅在哪一種'}：${show(m.expect && expectHits.length ? expectHits : failed)}`);
+    }
   }
   note(`結束方式統計：情境成立 ${tally.assert} 條（紅在斷言＝完整跑完、某條斷言印出失敗）；情境未成立、不算數 ${tally.uncounted.length} 條（逾時／被殺／沒跑起來／崩潰／宣告情境未成立）${tally.uncounted.length ? `：${tally.uncounted.join('、')}` : ''}`);
 } else {

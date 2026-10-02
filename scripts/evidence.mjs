@@ -42,6 +42,7 @@ export function cleanControls(user = os.userInfo().username) {
 
 // ---- 解析執行器的 log ----
 const VERDICT_OF = [
+  ['預期清單過期：', '預期清單過期'],
   ['不算數：', '情境未成立'],
   ['紅了，但紅的不是', '紅錯地方'],
   ['居然還是綠的', '沒紅'],

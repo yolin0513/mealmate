@@ -23,6 +23,7 @@ import {
 import { listen as serveListen } from './serve.mjs';
 import { summarize as summarizeProcs, peakOf } from './reslog.mjs';
 import { verifyCopies } from './copycheck.mjs';
+import { CASES as GM_CASES, staleProblems as gmStaleProblems } from './gatemutants.mjs';
 import { cleanControls as evCleanControls } from './evidence.mjs';
 import { lastFullNotInLedger } from './sincefull.mjs';
 import { parseDecisionTable, decisionProblems, DECISION_FILE } from './procdecisions.mjs';
@@ -1217,6 +1218,11 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     const led1 = fs.existsSync(path.join(root, LEDGER_FILE)) ? JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8')) : null;
     ok(r1.code === 0 && r1.out.includes('選了 1 條突變') && led1?.entries?.['AFF探針']?.last?.red === true,
       `受影響 D18a 第一次（從沒跑過）→ 跑了那一條、紅了、帳本記下來（回 ${r1.code}）`);
+    // D18i（2026-10-02，StockDiary 挖出來的）：判對時也要印實際紅了哪幾條，而且用說明行——不然「expect 對到好幾條」無法稽核
+    const seen1 = r1.out.split('\n').find((l) => l.startsWith('  · 實際紅了 ')) ?? '';
+    ok(seen1.startsWith('  · 實際紅了 1 條；含「AFF 探針」的 1 條：✗ AFF 探針') && !r1.out.split('\n').some((l) => l.trimStart().startsWith('✗'))
+      && led1?.entries?.['AFF探針']?.last?.failed === 1 && led1?.entries?.['AFF探針']?.last?.expectHits === 1,
+    `受影響 D18i 判對時也印出實際紅了哪幾條（說明行，不在行首放 ✗），帳本記紅了幾條、含 expect 的幾條：${seen1.trim() || '（沒有這一行）'}`);
     const r2 = run();
     ok(r2.code === 0 && r2.out.includes('選了 0 條突變') && r2.out.includes('沿用上次結果 1 條'), `受影響 D18b 第二次什麼都沒改 → 沿用、0 條要跑（回 ${r2.code}）`);
     // D18g（遊戲專案 2026-10-02 撞出來的同一件事）：帳本裡「沒有結果／逾時被殺」的那一條，選擇時要當成沒跑過——
@@ -1269,6 +1275,18 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     const r7 = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--only', 'AFFW探針'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();
     ok(r7.code !== 0 && r7.out.includes('紅了，但紅的不是含「AFFW 探針」的那一條'),
       `受影響 D18h 改壞後紅的是別條、預期那一條是綠的（只是訊息裡提到 ✗）→ 判成紅錯地方，不算抓到（回 ${r7.code}）`);
+    // D18j（2026-10-02）：expect 在測試原始碼裡已經找不到（預期清單過期）→ 開跑前就擋、用獨立的訊息、不改壞檔、帳本不算數；
+    // 不能跑下去變成「紅錯地方」——那會被讀成程式有問題
+    const src4 = fs.readFileSync(mtFile, 'utf8');
+    const p4 = src4.indexOf('const MUTATIONS = [\n') + 'const MUTATIONS = ['.length;
+    fs.writeFileSync(mtFile, `${src4.slice(0, p4)}\n  { name: "AFFX探針", why: "x", file: "scripts/affwtarget.mjs", find: "export const BROKEN = false;", replace: "export const BROKEN = true;", test: "affw", expect: "這一句已經不在測試裡" },${src4.slice(p4)}`);
+    g('add', '-A'); g('commit', '-qm', '加預期清單過期的探針');
+    const tgtBefore = fs.readFileSync(path.join(root, 'scripts/affwtarget.mjs'), 'utf8');
+    const r8 = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--only', 'AFFX探針'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();
+    const led8 = JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8')).entries?.['AFFX探針']?.last;
+    ok(r8.code !== 0 && r8.out.includes('預期清單過期：expect「這一句已經不在測試裡」在 scripts/affw.mjs 裡找不到') && !r8.out.includes('紅了，但紅的不是')
+      && !r8.out.includes('實際紅了') && led8?.counted === false && fs.readFileSync(path.join(root, 'scripts/affwtarget.mjs'), 'utf8') === tgtBefore,
+    `受影響 D18j expect 在測試裡找不到 → 開跑前擋下、訊息是「預期清單過期」、沒有跑（不是紅錯地方）、帳本不算數（回 ${r8.code}；紀錄 ${JSON.stringify(led8 && { counted: led8.counted, kind: led8.kind })}）`);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -1341,6 +1359,46 @@ section('pre-commit hook：突變的還原紀錄還在就不給 commit（Dispatc
     fs.rmSync(repo, { recursive: true, force: true });
   }
   ok(!fs.existsSync(repo), 'hook（清理）暫存 git repo 用完刪掉了');
+}
+
+section('預期清單過期要用獨立的訊息、開跑前擋（2026-10-02；gatemutants 的 M6 就是這一族）');
+{
+  const gm = { CASES: GM_CASES, staleProblems: gmStaleProblems };
+  const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gmstale-'));
+  try {
+    execFileSync('git', ['clone', '-q', ROOT, clone], { stdio: ['ignore', 'pipe', 'pipe'] });
+    // clone 是已 commit 的版本；gatemutants 讀 HEAD，所以把工作區的 scripts/ 蓋過去之後要 commit，再讀回確認
+    for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) if (/\.(m?js|sh)$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(clone, 'scripts', f));
+    const gc = (...a) => spawnSync('git', ['-C', clone, '-c', 'user.name=probe', '-c', 'user.email=probe@users.noreply.github.com', ...a], { encoding: 'utf8' });
+    gc('add', '-A'); gc('commit', '-qm', '蓋上工作區的 scripts/', '--no-verify');
+    const ccGm = verifyCopies(path.join(ROOT, 'scripts'), path.join(clone, 'scripts'), /\.(m?js|sh)$/);
+    if (ccGm.problems.length) console.log(`${NO_SCENARIO_MARK}：GM 的 clone 沒有含工作區這一份 scripts/：${ccGm.problems.slice(0, 3).join('、')}`);
+    ok(ccGm.problems.length === 0 && ccGm.checked >= 40 && gc('status', '--porcelain').stdout.trim() === '', `（前提）GM 的 clone 蓋上工作區的 scripts/、commit 了、讀回相同（比了 ${ccGm.checked} 支）`);
+    const readHeadOf = (dir) => (rel) => { const r = spawnSync('git', ['-C', dir, 'show', `HEAD:${rel}`], { encoding: 'utf8' }); return r.status === 0 ? r.stdout : null; };
+    const p0 = gm.staleProblems(gm.CASES, readHeadOf(clone));
+    ok(p0.length === 0 && gm.CASES.length >= 30, `GM0（反向）現在的清單 ${gm.CASES.length} 條：錨點都剛好一次、預期的情境都在 → 不報過期（${p0.slice(0, 2).join('｜') || '0 處'}）`);
+    const p2 = gm.staleProblems([{ label: '合成：預期一種不存在的情境', find: null, expect: ['7', '99'] }], readHeadOf(clone));
+    ok(p2.length === 1 && p2[0].includes('預期的第 99 種不在閘門驗法裡'), `GM2 預期清單裡有一種閘門驗法沒有的情境（第 99 種）→ 點名那一種，第 7 種不報（${p2.join('｜')}）`);
+    const p3 = gm.staleProblems(gm.CASES, (rel) => (rel === 'scripts/pushgate-verify.sh' ? '# 沒有任何情境\n' : readHeadOf(clone)(rel)));
+    ok(p3.length === 1 && p3[0].includes('一種情境都數不到'), `GM3 閘門驗法裡一種情境都數不到 → 判成判斷不了，不是「全部不過期」（${p3.join('｜')}）`);
+    // GM1 從真實入口：把 M6 的錨點弄壞（多一個空白）、commit，跑 gatemutants——開跑前就要停、用獨立的訊息、一條都沒跑
+    const vf = path.join(clone, 'scripts/pushgate-verify.sh');
+    const vsrc = fs.readFileSync(vf, 'utf8');
+    const anchor = 'fresh() { rm -f "$T/remote.git/hooks/pre-receive"';
+    fs.writeFileSync(vf, vsrc.replace(anchor, anchor.replace('fresh() { ', 'fresh() {  ')));
+    gc('add', '-A'); gc('commit', '-qm', '弄壞 M6 的錨點', '--no-verify');
+    const broke = vsrc.split(anchor).length === 2 && !readHeadOf(clone)('scripts/pushgate-verify.sh').includes(anchor);
+    ok(broke, '（前提）弄壞錨點的那份 clone 裡 M6 的錨點真的弄壞了（原本剛好一次、HEAD 那一份已經沒有）');
+    const env = { ...process.env }; delete env.MM_AUDIT; delete env.MM_AUDIT_OUT; delete env.MM_LEDGER;
+    const r = spawnSync(process.execPath, ['scripts/gatemutants.mjs'], { cwd: clone, encoding: 'utf8', env });
+    const out = `${r.stdout}${r.stderr}`;
+    ok(broke && r.status === 6 && out.includes('gatemutants：預期清單過期（1 處），一條都沒跑') && out.includes('【M6：fresh 不清 hook（預設順序看得出來）】scripts/pushgate-verify.sh 的錨點不是剛好一次')
+      && !out.includes('【對照：原樣】') && !out.includes('不如預期'),
+    `GM1 gatemutants 的錨點過期 → 開跑前停（回 ${r.status}，預期 6）、訊息是「預期清單過期」、點名 M6、一條都沒跑（不是「不如預期」）`);
+  } finally {
+    fs.rmSync(clone, { recursive: true, force: true });
+  }
+  ok(!fs.existsSync(clone), 'GM（清理）暫存 clone 用完刪掉了');
 }
 
 done('doctest');
