@@ -398,7 +398,7 @@ section('突變的 expect 都找得到（A2；共用慣例 v6 §5.9，2026-09-23
   const runIn = (mutationsLiteral) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-checkmut-'));
     fs.mkdirSync(path.join(dir, 'scripts'));
-    for (const f of ['checkmutations.mjs', 'assertregistry.mjs']) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(dir, 'scripts', f));   // checkmutations 2026-10-02 起 import assertregistry
+    for (const f of ['checkmutations.mjs', 'assertregistry.mjs', 'expectambiguity.mjs']) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(dir, 'scripts', f));   // checkmutations 2026-10-02 起 import assertregistry
     fs.writeFileSync(path.join(dir, 'scripts/mutationtest.mjs'), `const MUTATIONS = [\n${mutationsLiteral}\n];\n`);
     fs.writeFileSync(path.join(dir, 'scripts/faketest.mjs'), 'ok(x, "A2 假的斷言訊息");\n');
     fs.writeFileSync(path.join(dir, 'target.txt'), 'alpha beta\n');
@@ -613,7 +613,7 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
   // 稽核器：checkmutations 的突變清單是空的 → 判失敗（不是 0 個過期）
   const cm = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-f1cm-'));
   fs.mkdirSync(path.join(cm, 'scripts'));
-  for (const f of ['checkmutations.mjs', 'assertregistry.mjs']) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(cm, 'scripts', f));
+  for (const f of ['checkmutations.mjs', 'assertregistry.mjs', 'expectambiguity.mjs']) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(cm, 'scripts', f));
   fs.writeFileSync(path.join(cm, 'scripts/mutationtest.mjs'), 'const MUTATIONS = [\n];\n');
   const cme = runP(process.execPath, [path.join(cm, 'scripts/checkmutations.mjs')], { cwd: cm });
   ok(cme.code !== 0 && cme.out.includes('突變清單是空的'), `F1-10 稽核器（checkmutations）：突變清單是空的 → 回 ${cme.code}，理由「突變清單是空的」`);
@@ -903,6 +903,39 @@ section('加工品待確認清單 ⇄ data/foodtags.json（2026-10-01 A 方案�
   eq(decisionProblems(rows, realFT), [], `待確認 P8 真實資料：表上已填的決定（${rows.filter((r) => r.decision).length} 列）都已轉進 data/foodtags.json`);
 }
 
+// 共用的暫存 clone（2026-10-02 晚）：WS、GM、AR 三節原本各自 clone 一份（每次約 5 秒、再加刪除），doctest 從約 31 秒變成 63 秒，
+// 而每條 doctest 突變都要跑一次 doctest。改成整支 doctest 共用一份：第一次用到時 clone、把工作區的 scripts/ 蓋上去並 commit（＝基準），
+// 之後每一節開頭 reset 回基準、清掉未追蹤的檔，各節的改動不會帶到下一節（§5.11 第四層：情境之間互不污染）。
+// 各節自己的「讀回確認」照舊做（它確認的是這一節拿到的就是工作區這一份）；最後在檔尾刪掉。
+let SHARED_CLONE = null;
+const overlaysToShared = (f) => /\.(m?js|sh)$/.test(f) || f === 'expect-review.json';
+function sharedClone() {
+  const g = (...a) => execFileSync('git', ['-C', SHARED_CLONE.dir, '-c', 'user.name=probe', '-c', 'user.email=probe@users.noreply.github.com', ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  if (!SHARED_CLONE) {
+    // 用 git worktree（detach 在 HEAD）而不是 clone：實測 clone 約 5 秒、worktree 不到 1 秒（不必複製物件庫）。
+    // worktree 跟主 repo 共用物件庫與設定（含 core.hooksPath），所以這裡的 commit 一律 --no-verify；用完一定 worktree remove
+    const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'mm-shared-')), 'w');
+    SHARED_CLONE = { dir, base: null };
+    execFileSync('git', ['-C', ROOT, 'worktree', 'add', '-q', '--detach', dir, 'HEAD'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    // 只蓋程式與戳記檔。帳本（mutation-ledger.json）與還原紀錄（.mutation-pending.json）不蓋：突變執行中，工作區的帳本記著 inflight、
+    // 還原紀錄也在——蓋過去，複本裡的執行器會因為「兩處紀錄」拒絕開跑，WS4 就紅在別的理由上
+    for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) if (overlaysToShared(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(dir, 'scripts', f));
+    fs.mkdirSync(path.join(dir, 'scripts', 'hooks'), { recursive: true });
+    for (const f of fs.readdirSync(path.join(ROOT, 'scripts', 'hooks'))) fs.copyFileSync(path.join(ROOT, 'scripts', 'hooks', f), path.join(dir, 'scripts', 'hooks', f));
+    g('add', '-A'); g('commit', '-q', '--no-verify', '--allow-empty', '-m', '蓋上工作區的 scripts/');
+    SHARED_CLONE.base = g('rev-parse', 'HEAD').trim();
+  }
+  g('reset', '-q', '--hard', SHARED_CLONE.base); g('clean', '-q', '-fdx');
+  return SHARED_CLONE.dir;
+}
+function removeShared() {
+  if (!SHARED_CLONE) return;
+  spawnSync('git', ['-C', ROOT, 'worktree', 'remove', '--force', SHARED_CLONE.dir], { encoding: 'utf8' });
+  fs.rmSync(path.dirname(SHARED_CLONE.dir), { recursive: true, force: true });
+  spawnSync('git', ['-C', ROOT, 'worktree', 'prune'], { encoding: 'utf8' });
+}
+process.on('exit', () => { removeShared(); });
+
 section('只差空白或行尾的突變要被擋（2026-10-02 Dispatch；v11.3 §5.20：對照組用真實檔、從命令列、在 repo 的暫存 clone 裡跑）');
 {
   // 暫存複本的讀回確認本身（copycheck.verifyCopies）：清單由它自己從來源列，複製時漏掉的那一支要被抓到
@@ -924,14 +957,10 @@ section('只差空白或行尾的突變要被擋（2026-10-02 Dispatch；v11.3 �
   }
   eq([whitespaceOnly('a b', 'a  b'), whitespaceOnly('a;\n', 'a;\r\n'), whitespaceOnly('x;', 'x; '), whitespaceOnly('ab', 'a b'), whitespaceOnly('a', 'a')],
     [true, true, true, false, false], 'WS1 判斷：多一個空白、換行改 CRLF、尾巴多空白 → 只差空白；ab 改 a b（會改變程式）、完全一樣 → 不算');
-  const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-ws-'));
-  try {
-    execFileSync('git', ['clone', '-q', ROOT, clone], { stdio: ['ignore', 'pipe', 'pipe'] });
-    // clone 拿到的是已 commit 的版本；要驗的是工作區這一份（突變執行器改的就是工作區）——把 scripts/ 蓋過去。
-    // 2026-10-02：沒蓋的時候，守 WS2–WS4 的三條突變全部沒抓到——複本裡跑的一直是沒被改壞的程式（§5.11：改壞的那一份要真的被執行到）
-    for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) {
-      if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(clone, 'scripts', f));
-    }
+  // clone 拿到的是已 commit 的版本；要驗的是工作區這一份（突變執行器改的就是工作區）——共用 clone 已經把 scripts/ 蓋過去。
+  // 2026-10-02：沒蓋的時候，守 WS2–WS4 的三條突變全部沒抓到——複本裡跑的一直是沒被改壞的程式（§5.11：改壞的那一份要真的被執行到）
+  const clone = sharedClone();
+  {
     const ccWs = verifyCopies(path.join(ROOT, 'scripts'), path.join(clone, 'scripts'));
     if (ccWs.problems.length) console.log(`${NO_SCENARIO_MARK}：WS 的 clone 沒有含工作區這一份 scripts/：${ccWs.problems.slice(0, 3).join('、')}`);
     ok(ccWs.problems.length === 0 && ccWs.checked >= 40, `（前提）WS 的 clone 蓋上工作區的 scripts/ 之後讀回確認相同（比了 ${ccWs.checked} 支）`);
@@ -955,7 +984,7 @@ section('只差空白或行尾的突變要被擋（2026-10-02 Dispatch；v11.3 �
     try { r2.out = execFileSync(process.execPath, ['scripts/mutationtest.mjs', '--only', 'WS探針', '--dry-run'], { cwd: clone, encoding: 'utf8' }); } catch (e) { r2 = { code: e.status ?? -1, out: String(e.stdout ?? '') }; }
     ok(r2.code !== 0 && r2.out.includes('只差空白或行尾，拒絕執行') && r2.out.includes('WS探針'),
       `WS4 執行器開跑前也擋：--only 選到那一條 → 回 ${r2.code}、拒絕並點名`);
-  } finally { fs.rmSync(clone, { recursive: true, force: true }); }
+  }
 }
 
 section('入庫的證據由腳本從原始 log 逐項產生（共用慣例 v11.4 §5.7；scripts/evidence.mjs，從命令列入口跑）');
@@ -1371,13 +1400,10 @@ section('pre-commit hook：突變的還原紀錄還在就不給 commit（Dispatc
 section('預期清單過期要用獨立的訊息、開跑前擋（2026-10-02；gatemutants 的 M6 就是這一族）');
 {
   const gm = { CASES: GM_CASES, staleProblems: gmStaleProblems };
-  const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gmstale-'));
-  try {
-    execFileSync('git', ['clone', '-q', ROOT, clone], { stdio: ['ignore', 'pipe', 'pipe'] });
-    // clone 是已 commit 的版本；gatemutants 讀 HEAD，所以把工作區的 scripts/ 蓋過去之後要 commit，再讀回確認
-    for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) if (/\.(m?js|sh)$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(clone, 'scripts', f));
+  // gatemutants 讀 HEAD：共用 clone 已經把工作區的 scripts/ 蓋上去並 commit，這裡讀回確認
+  const clone = sharedClone();
+  {
     const gc = (...a) => spawnSync('git', ['-C', clone, '-c', 'user.name=probe', '-c', 'user.email=probe@users.noreply.github.com', ...a], { encoding: 'utf8' });
-    gc('add', '-A'); gc('commit', '-qm', '蓋上工作區的 scripts/', '--no-verify');
     const ccGm = verifyCopies(path.join(ROOT, 'scripts'), path.join(clone, 'scripts'), /\.(m?js|sh)$/);
     if (ccGm.problems.length) console.log(`${NO_SCENARIO_MARK}：GM 的 clone 沒有含工作區這一份 scripts/：${ccGm.problems.slice(0, 3).join('、')}`);
     ok(ccGm.problems.length === 0 && ccGm.checked >= 40 && gc('status', '--porcelain').stdout.trim() === '', `（前提）GM 的 clone 蓋上工作區的 scripts/、commit 了、讀回相同（比了 ${ccGm.checked} 支）`);
@@ -1411,10 +1437,7 @@ section('預期清單過期要用獨立的訊息、開跑前擋（2026-10-02；g
     ok(broke && r.status === 6 && out.includes('gatemutants：預期清單過期（1 處），一條都沒跑') && out.includes('【M6：fresh 不清 hook（預設順序看得出來）】scripts/pushgate-verify.sh 的錨點不是剛好一次')
       && !out.includes('【對照：原樣】') && !out.includes('不如預期'),
     `GM1 gatemutants 的錨點過期 → 開跑前停（回 ${r.status}，預期 6）、訊息是「預期清單過期」、點名 M6、一條都沒跑（不是「不如預期」）`);
-  } finally {
-    fs.rmSync(clone, { recursive: true, force: true });
   }
-  ok(!fs.existsSync(clone), 'GM（清理）暫存 clone 用完刪掉了');
 }
 
 section('gatemutants 的理由改成理由碼、集合完全相同（2026-10-02 Dispatch 選 A：不再用「輸出裡某處含這段字」）');
@@ -1442,10 +1465,8 @@ section('斷言登記表與「預期需要複審」（2026-10-02 Dispatch 選 A�
 {
   const arc = arControls();
   ok(arc.length === 0, `AR1 登記表的對照組（字串裡的 ok( 不算、跨行收齊、重複、收不齊不給戳記、多一個或改一個斷言戳記會變、沒戳記的列出來）：${arc.join('｜') || '全過'}`);
-  const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-areg-'));
-  try {
-    execFileSync('git', ['clone', '-q', ROOT, clone], { stdio: ['ignore', 'pipe', 'pipe'] });
-    for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(clone, 'scripts', f));
+  const clone = sharedClone();
+  {
     const ccAr = verifyCopies(path.join(ROOT, 'scripts'), path.join(clone, 'scripts'));
     if (ccAr.problems.length) console.log(`${NO_SCENARIO_MARK}：AR 的 clone 沒有含工作區這一份 scripts/：${ccAr.problems.slice(0, 3).join('、')}`);
     ok(ccAr.problems.length === 0 && ccAr.checked >= 40, `（前提）AR 的 clone 蓋上工作區的 scripts/、讀回相同（比了 ${ccAr.checked} 支）`);
@@ -1472,10 +1493,17 @@ section('斷言登記表與「預期需要複審」（2026-10-02 Dispatch 選 A�
     const c3 = cm();
     ok(rsrc.split(anchor).length === 2 && c3.count === recN && c3.lines.length > 0 && c3.lines.every((l) => l.includes('recipetest｜') && l.includes('筆數一樣、內容變了')),
       `AR3 recipetest 斷言條數不變、改了一條的內容 → 那 ${recN} 條報「筆數一樣、內容變了」（報了 ${c3.count} 條）`);
-  } finally {
-    fs.rmSync(clone, { recursive: true, force: true });
+    // AR4：有歧義的不准戳（戳記＝複審過了）。在 aliastest 加一條訊息含既有 expect 的斷言，--stamp aliastest 要拒絕、點名那一條、戳記檔不動
+    const aliasM = muts.find((m) => m.test === 'aliastest' && m.expect != null);
+    const stampFile = path.join(clone, 'scripts/expect-review.json');
+    const before4 = fs.readFileSync(stampFile, 'utf8');
+    const di4 = asrc.lastIndexOf('done(');
+    fs.writeFileSync(af, `${asrc.slice(0, di4)}ok(typeof done === 'function', ${JSON.stringify(`${aliasM?.expect}（第二處）`)});\n${asrc.slice(di4)}`);
+    const s4 = nodeIn(['scripts/assertregistry.mjs', '--stamp', 'aliastest']);
+    ok(!!aliasM && s4.status !== 0 && s4.stdout.includes('有歧義的不戳') && s4.stdout.includes(aliasM.name) && fs.readFileSync(stampFile, 'utf8') === before4,
+      `AR4 有歧義的不准戳：aliastest 多一條訊息含既有 expect 的斷言 → --stamp 回 ${s4.status}、點名那一條、戳記檔沒變`);
+    fs.writeFileSync(af, asrc);
   }
-  ok(!fs.existsSync(clone), 'AR（清理）暫存 clone 用完刪掉了');
 }
 
 section('bash 解成完整路徑，解到 WSL 的不用（2026-10-02，JLPT 撞出來的；gatemutants 是本 repo 唯一由 node 叫 bash 的地方）');
@@ -1512,6 +1540,26 @@ section('bash 解成完整路徑，解到 WSL 的不用（2026-10-02，JLPT 撞�
   const out = `${r.stdout}${r.stderr}`;
   ok(r.status === 8 && out.split('\n').some((l) => l.startsWith(`${NO_SCENARIO_MARK}：PATH 裡找不到 bash`)) && !out.includes('【對照：原樣】') && !out.includes('假 git 的對照組'),
     `BS7 gatemutants 解不出 bash → 回 ${r.status}（預期 8）、判情境未成立、一條都沒跑`);
+}
+
+section('共用的暫存 clone：每一節開頭都回到基準（情境之間互不污染）；用完刪掉');
+{
+  // 前一節留下的改動與未追蹤的檔，下一節拿到時都要不見（先放一份、確認它在，再確認它不見）
+  const c1 = sharedClone();
+  fs.writeFileSync(path.join(c1, 'scripts', 'aliastest.mjs'), 'changed\n');
+  fs.writeFileSync(path.join(c1, 'leftover-probe.txt'), 'x\n');
+  const placed = fs.readFileSync(path.join(c1, 'scripts', 'aliastest.mjs'), 'utf8') === 'changed\n' && fs.existsSync(path.join(c1, 'leftover-probe.txt'));
+  const c2 = sharedClone();
+  ok(placed && c2 === c1 && fs.readFileSync(path.join(c2, 'scripts', 'aliastest.mjs'), 'utf8') === fs.readFileSync(path.join(ROOT, 'scripts', 'aliastest.mjs'), 'utf8') && !fs.existsSync(path.join(c2, 'leftover-probe.txt')),
+    'SC1 共用 clone：上一節改的檔回到工作區那一份、留下的未追蹤檔不見了（同一個目錄，沒有重新 clone）');
+  ok(overlaysToShared('mutationtest.mjs') && overlaysToShared('pushgate.sh') && overlaysToShared('expect-review.json')
+    && !overlaysToShared('mutation-ledger.json') && !overlaysToShared('.mutation-pending.json'),
+  'SC2 共用 clone 只蓋程式與戳記檔；帳本與還原紀錄不蓋（突變執行中它們記著 inflight，蓋過去複本裡的執行器會拒絕開跑、只差空白那一節紅在別的理由上）');
+  const wl0 = spawnSync('git', ['-C', ROOT, 'worktree', 'list', '--porcelain'], { encoding: 'utf8' }).stdout;
+  removeShared();
+  const wl = spawnSync('git', ['-C', ROOT, 'worktree', 'list', '--porcelain'], { encoding: 'utf8' }).stdout;
+  ok(wl0.includes('mm-shared-') && !fs.existsSync(c2) && !wl.includes('mm-shared-'), `共用的暫存 worktree（WS、GM、AR 三節用的）用完刪掉了，主 repo 的 worktree 清單裡也沒有它（清單 ${wl.split('\n').filter((l) => l.startsWith('worktree ')).length} 個）`);
+  SHARED_CLONE = null;
 }
 
 done('doctest');

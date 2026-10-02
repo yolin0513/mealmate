@@ -15,6 +15,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadMutations } from './checkmutations.mjs';
+import { classifyExpect } from './expectambiguity.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 export const REVIEW_FILE = 'scripts/expect-review.json';
@@ -197,6 +198,10 @@ function main() {
     const p = path.join(ROOT, REVIEW_FILE);
     const doc = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : { note: '每條帶 expect 的突變：寫（或複審）這條 expect 時，那支測試的斷言母體（筆數、雜湊）。由 node scripts/assertregistry.mjs --stamp 寫，不手改。2026-10-02 第一次全部戳上＝當時的母體，不代表逐條複審過。', stamps: {} };
     let n = 0;
+    // 戳記＝「複審過了」：有歧義的（expect 在測試裡出現不只一處）不准戳，先修（2026-10-02：我自己就在有 1 條歧義時整批重戳過一次）
+    const picked = muts.filter((m) => m.expect != null && (key === '--all' || m.name.includes(key) || m.test === key));
+    const amb = picked.filter((m) => { const s = read(m.test); return s != null && classifyExpect(m.expect, s).kind === 'ambiguous'; });
+    if (amb.length) { console.log(`✗ 有歧義的不戳（先修 expect 或測試訊息）：${amb.map((m) => `${m.name}（expect「${m.expect}」）`).join('、')}`); return 1; }
     for (const m of muts) {
       if (m.expect == null) continue;
       if (key !== '--all' && !m.name.includes(key) && m.test !== key) continue;

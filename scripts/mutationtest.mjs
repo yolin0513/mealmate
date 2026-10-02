@@ -4668,6 +4668,33 @@ const MUTATIONS = [
     test: "doctest",
     expect: "hook H1 ",
   },
+  {
+    name: "doctest 共用 clone：每一節開頭不回到基準",
+    why: "上一節改壞的檔、留下的樣本帶進下一節，下一節的紅（或綠）說不出是被哪個缺陷造成的（§5.11 第四層）。",
+    file: "scripts/doctest.mjs",
+    find: "  g('reset', '-q', '--hard', SHARED_CLONE.base); g('clean', '-q', '-fdx');\n",
+    replace: "\n",
+    test: "doctest",
+    expect: "SC1 ",
+  },
+  {
+    name: "doctest 共用 clone：帳本與還原紀錄也蓋過去",
+    why: "突變執行中工作區的帳本記著 inflight、還原紀錄也在；蓋進複本，WS4 會紅在「兩處紀錄」上——每一條 doctest 突變都被假紅。",
+    file: "scripts/doctest.mjs",
+    find: "const overlaysToShared = (f) => /\\.(m?js|sh)$/.test(f) || f === 'expect-review.json';",
+    replace: "const overlaysToShared = (f) => /\\.(m?js|sh|json)$/.test(f);",
+    test: "doctest",
+    expect: "SC2 ",
+  },
+  {
+    name: "登記表：有歧義也照戳",
+    why: "戳記代表「複審過了」；有歧義時照戳，歧義就被蓋過去、之後再也不報（2026-10-02 我自己就這樣戳過一次）。",
+    file: "scripts/assertregistry.mjs",
+    find: "    if (amb.length) { console.log(",
+    replace: "    if (false) { console.log(",
+    test: "doctest",
+    expect: "AR4 ",
+  },
   // ---- 2026-10-02：判對時也印實際紅了哪幾條（StockDiary 挖出來的；doctest D18i）----
   {
     name: "執行器：判對時不印實際紅了哪幾條",

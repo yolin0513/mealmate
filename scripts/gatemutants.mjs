@@ -294,13 +294,16 @@ function main() {
   const origHead = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   // 假 git 對照組本身的對照（兩個方向）：好的假 git（只讓 -p -U0 那一種失敗）要三項都過；
   // 太粗的假 git（整個 log 子指令都失敗）要被「同一個 log 子指令不帶那些旗標要照常」那一項抓到——否則對照組是擺設
-  const good = makeFakeGit(FAKE_DIFF), coarse = makeFakeGit(['log']);
-  try {
-    const g = fakeControls(repo, good, FAKE_DIFF), c = fakeControls(repo, coarse, ['log']);
-    const goodOk = g.every((x) => x.ok), coarseCaught = !c[2].ok && c[0].ok && c[1].ok;
-    console.log(`假 git 的對照組｜好的假 git 三項都過：${goodOk}｜太粗的假 git（整個 log 都失敗）被抓到：${coarseCaught}`);
-    if (!goodOk || !coarseCaught) { console.log('gatemutants：假 git 的對照組不對（檢查器壞了），不往下跑'); return 1; }
-  } finally { fs.rmSync(good, { recursive: true, force: true }); fs.rmSync(coarse, { recursive: true, force: true }); }
+  // --check-only 只查預期清單、一條都不跑，用不到假 git：略過它的對照組（doctest GM5 用；省約 2.5 秒）
+  if (!process.argv.includes('--check-only')) {
+    const good = makeFakeGit(FAKE_DIFF), coarse = makeFakeGit(['log']);
+    try {
+      const g = fakeControls(repo, good, FAKE_DIFF), c = fakeControls(repo, coarse, ['log']);
+      const goodOk = g.every((x) => x.ok), coarseCaught = !c[2].ok && c[0].ok && c[1].ok;
+      console.log(`假 git 的對照組｜好的假 git 三項都過：${goodOk}｜太粗的假 git（整個 log 都失敗）被抓到：${coarseCaught}`);
+      if (!goodOk || !coarseCaught) { console.log('gatemutants：假 git 的對照組不對（檢查器壞了），不往下跑'); return 1; }
+    } finally { fs.rmSync(good, { recursive: true, force: true }); fs.rmSync(coarse, { recursive: true, force: true }); }
+  }
   let bad = 0; let expectedTotal = null;
   // --only <關鍵字>（2026-10-02）：只跑標籤含關鍵字的幾條（改了某一條的錨點之後補跑用）；「對照：原樣」那一條一定跑（它定「應該幾種全部符合」）
   const oi = process.argv.indexOf('--only');
