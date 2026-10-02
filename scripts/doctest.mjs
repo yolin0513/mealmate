@@ -1349,6 +1349,18 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     const i0 = dry(['--never-full']); const i1 = dry(['--never-full', '--reslog-interval', '5']); const i2 = dry(['--never-full', '--reslog-interval', '0']);
     ok(i0.out.includes('資源紀錄的取樣間隔：每 60 秒') && i1.out.includes('資源紀錄的取樣間隔：每 5 秒') && i2.code !== 0 && i2.out.includes('--reslog-interval 要接 1 到 600 之間的秒數'),
       `受影響 D18n 資源紀錄的取樣間隔：不帶是 60、--reslog-interval 5 印 5、給 0 停下（回 ${i2.code}）`);
+    // D18o（Dispatch 2026-10-02：可用記憶體掉到下限以下就收手）：下限設成不可能達到的值 → 一條都不改壞、印「停下」、帳本那一條不動；
+    // 下限設 1 MB（反向）→ 照常跑完
+    const runArgs = (args) => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } };
+    const ledBefore = JSON.stringify(JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8')).entries?.['AFFW探針']);
+    const tgtW = fs.readFileSync(path.join(root, 'scripts/affwtarget.mjs'), 'utf8');
+    const mo1 = runArgs(['--only', 'AFFW探針', '--min-free-mb', '999999999']);
+    const ledAfter = JSON.stringify(JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8')).entries?.['AFFW探針']);
+    const mo2 = runArgs(['--only', 'AFFW探針', '--min-free-mb', '1']);
+    ok(mo1.code !== 0 && mo1.out.includes('停下：系統可用記憶體') && mo1.out.includes('低於下限 999999999 MB') && !mo1.out.includes('實際紅了') && ledAfter === ledBefore
+      && fs.readFileSync(path.join(root, 'scripts/affwtarget.mjs'), 'utf8') === tgtW && !fs.existsSync(path.join(root, 'scripts/.mutation-pending.json'))
+      && mo2.out.includes('實際紅了') && !mo2.out.includes('停下：系統可用記憶體'),
+    `受影響 D18o 可用記憶體低於下限 → 收手、一條都沒改壞、帳本不動、沒有還原紀錄（回 ${mo1.code}）；下限 1 MB → 照常跑（反向）`);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

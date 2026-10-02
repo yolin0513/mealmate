@@ -13,6 +13,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, note } from './tap.mjs';
 import { runProgram, KIND_LABELS, UNCOUNTED_KINDS } from './runkind.mjs';
@@ -4794,6 +4795,15 @@ const MUTATIONS = [
     test: "doctest",
     expect: "D18n ",
   },
+  {
+    name: "執行器：可用記憶體低於下限照跑",
+    why: "筆電可用記憶體掉到下限以下還一條接一條跑——前幾天連續當機兩次就是這種情況（Dispatch 2026-10-02）。",
+    file: "scripts/mutationtest.mjs",
+    find: "      if (freeMB < MIN_FREE_MB) {\n",
+    replace: "      if (false) {\n",
+    test: "doctest",
+    expect: "D18o ",
+  },
   // ---- 2026-10-02：判對時也印實際紅了哪幾條（StockDiary 挖出來的；doctest D18i）----
   {
     name: "執行器：判對時不印實際紅了哪幾條",
@@ -5463,6 +5473,8 @@ const MODE_FLAGS = ['--affected', '--never-full', '--full'].filter((f) => proces
 const MODE = only ? 'only' : MODE_FLAGS[0] === '--full' ? 'full' : MODE_FLAGS[0] === '--never-full' ? 'never-full' : 'affected';
 const LIMIT = argOf('--limit') === null ? null : Number(argOf('--limit'));
 const DRY = process.argv.includes('--dry-run');
+// 系統可用記憶體的下限（MB；不給＝不查）。每一條突變開跑前查，低於就收手
+const MIN_FREE_MB = argOf('--min-free-mb') === null ? null : Number(argOf('--min-free-mb'));
 // 資源紀錄的間隔（秒；2026-10-02 JLPT：60 秒取樣時，只跑幾秒的測試永遠取樣不到，峰值系統性偏低）
 const RESLOG_INTERVAL = argOf('--reslog-interval') === null ? 60 : Number(argOf('--reslog-interval'));
 const LEDGER_PATH = process.env.MM_LEDGER ? path.resolve(process.env.MM_LEDGER) : path.join(ROOT, LEDGER_FILE);
@@ -5550,6 +5562,7 @@ let inflightCleared = false;
 const argProblems = [];
 if (MODE_FLAGS.length > 1 || (only && MODE_FLAGS.length)) argProblems.push('--only、--affected、--never-full、--full 只能選一個');
 if (LIMIT !== null && !(Number.isInteger(LIMIT) && LIMIT > 0)) argProblems.push('--limit 要接正整數');
+if (MIN_FREE_MB !== null && !(MIN_FREE_MB >= 1)) argProblems.push('--min-free-mb 要接正的 MB 數');
 if (!(RESLOG_INTERVAL >= 1 && RESLOG_INTERVAL <= 600)) argProblems.push('--reslog-interval 要接 1 到 600 之間的秒數');
 eq(argProblems, [], '參數沒有衝突');
 if (argProblems.length) { done('mutationtest'); process.exit(1); }
@@ -5733,6 +5746,16 @@ let ran = 0; // 實際跑到（改壞、跑測試、還原）的條數；整套�
 if (baselineOk) {
   section('逐條突變');
   for (const m of SELECTED) {
+    // 可用記憶體下限（--min-free-mb；Dispatch 2026-10-02：筆電前幾天連續當機兩次，掉到下限以下就收手、不硬跑）。
+    // 在改壞任何檔之前查：停下時工作區是乾淨的，沒有還原紀錄
+    if (MIN_FREE_MB !== null) {
+      const freeMB = Math.round(os.freemem() / 1048576);
+      if (freeMB < MIN_FREE_MB) {
+        const left = SELECTED.length - SELECTED.indexOf(m);
+        ok(false, `停下：系統可用記憶體 ${freeMB} MB，低於下限 ${MIN_FREE_MB} MB`, `「${m.name}」與之後共 ${left} 條沒跑（收手，不是那幾條失敗；用 scripts/runprogress.mjs 看三類）`);
+        break;
+      }
+    }
     const full = path.join(ROOT, m.file);
     const original = fs.readFileSync(full, 'utf8');
     const count = original.split(m.find).length - 1;
