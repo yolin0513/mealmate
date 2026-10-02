@@ -655,11 +655,11 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
   let mtSrc = fs.readFileSync(mtFile, 'utf8');
   const a0 = mtSrc.indexOf('const MUTATIONS = [\n'); const a1 = mtSrc.indexOf('\n];\n', a0);
   const probeMutation = 'const MUTATIONS = [\n  { name: "F1探針：會卡住的突變", why: "x", file: "scripts/probetarget.mjs", find: "export const HANG = false;", replace: "export const HANG = true;", test: "probeslow" },';
-  const tmLine = 'const TEST_TIMEOUT_MIN = { assertaudit: 45 };';
+  const tmLine = "const TEST_TIMEOUT_MIN = { assertaudit: 45, 'resume-verify': 15 };";
   const setUp = a0 >= 0 && a1 > a0 && mtSrc.split(tmLine).length === 2;
   if (setUp) {
     mtSrc = mtSrc.slice(0, a0) + probeMutation + mtSrc.slice(a1) ;
-    mtSrc = mtSrc.replace(tmLine, () => 'const TEST_TIMEOUT_MIN = { assertaudit: 45, probeslow: 0.05 };');
+    mtSrc = mtSrc.replace(tmLine, () => "const TEST_TIMEOUT_MIN = { assertaudit: 45, 'resume-verify': 15, probeslow: 0.05 };");
     fs.writeFileSync(mtFile, mtSrc);
   }
   execFileSync('git', ['-C', toRoot, 'init', '-q']); execFileSync('git', ['-C', toRoot, 'add', '-A']); execFileSync('git', ['-C', toRoot, '-c', 'user.name=probe', '-c', 'user.email=probe@users.noreply.github.com', 'commit', '-q', '-m', 'probe']); // 2026-10-02 起執行器不是 git repo 就拒絕、工作區要等於 HEAD
@@ -1303,11 +1303,11 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     fs.writeFileSync(path.join(root, 'scripts/affslowtarget.mjs'), 'export const HANG = false;\n');
     fs.writeFileSync(path.join(root, 'scripts/affslow.mjs'), "import { ok, done } from './tap.mjs';\nimport { HANG } from './affslowtarget.mjs';\nif (HANG) { setInterval(() => {}, 1000); } else { ok(!HANG, 'AFF 慢'); done('affslow'); }\n");
     const src2 = fs.readFileSync(mtFile, 'utf8');
-    const tmLine = 'const TEST_TIMEOUT_MIN = { assertaudit: 45 };';
+    const tmLine = "const TEST_TIMEOUT_MIN = { assertaudit: 45, 'resume-verify': 15 };";
     const slowMut = '\n  { name: "AFF逾時", why: "x", file: "scripts/affslowtarget.mjs", find: "export const HANG = false;", replace: "export const HANG = true;", test: "affslow" },';
     const p0 = src2.indexOf('const MUTATIONS = [\n') + 'const MUTATIONS = ['.length;
     const setUp2 = src2.split(tmLine).length === 2 && p0 > 'const MUTATIONS = ['.length;
-    if (setUp2) fs.writeFileSync(mtFile, (src2.slice(0, p0) + slowMut + src2.slice(p0)).replace(tmLine, () => 'const TEST_TIMEOUT_MIN = { assertaudit: 45, affslow: 0.05 };'));
+    if (setUp2) fs.writeFileSync(mtFile, (src2.slice(0, p0) + slowMut + src2.slice(p0)).replace(tmLine, () => "const TEST_TIMEOUT_MIN = { assertaudit: 45, 'resume-verify': 15, affslow: 0.05 };"));
     g('add', '-A'); g('commit', '-qm', '加逾時突變');
     ok(setUp2, '（前提）D18f 的逾時突變與 3 秒時限放進暫存 repo 的執行器了');
     const r6 = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--never-full'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();

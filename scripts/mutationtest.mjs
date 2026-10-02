@@ -5481,7 +5481,9 @@ const LEDGER_PATH = process.env.MM_LEDGER ? path.resolve(process.env.MM_LEDGER) 
 
 // 每支測試的逾時（分鐘）。assertaudit 要把整條測試鏈 26 支都跑一遍，2026-10-01 實測約 18 分鐘——
 // 原本一律 10 分鐘，它在基準段就被殺掉，指定由它驗的突變從來沒在整套裡跑過（輸出只剩開頭，看不出是逾時）。
-const TEST_TIMEOUT_MIN = { assertaudit: 45 };
+// resume-verify：帳本裡每條中位 191 秒、最長 261 秒，10 分鐘只有 2.3 倍（照最長那次算）；調成 15 分鐘＝3.4 倍
+// （Dispatch 2026-10-02：餘裕不到 3 倍，逾時就會把慢一點的突變記成不算數＝漏驗；倍數一律用最長那次算）
+const TEST_TIMEOUT_MIN = { assertaudit: 45, 'resume-verify': 15 };
 // 怎麼結束的要分清楚（scripts/runkind.mjs）：逾時、沒跑起來、被殺不算數；只有斷言失敗才是「紅在斷言」
 function runTest(name) {
   const file = path.join(ROOT, 'scripts', `${name}.mjs`);
