@@ -24,6 +24,7 @@ import crypto from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { NO_SCENARIO_MARK } from './runkind.mjs';
+import { verifyCopies } from './copycheck.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const sha = (p) => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
@@ -42,6 +43,9 @@ function makeRepo(variant) {
   fs.copyFileSync(path.join(ROOT, 'js/version.js'), path.join(root, 'js/version.js'));
   // 跟真的 repo 一樣的行尾設定（eol=lf）：沒有它，這台機器的全域 autocrlf 會讓 git checkout 寫出 CRLF
   fs.copyFileSync(path.join(ROOT, '.gitattributes'), path.join(root, '.gitattributes'));
+  // 讀回確認（v11.4 §5.20）：複本要含工作區這一份 scripts/（突變執行器改的就是工作區）——在改任何東西之前比，清單由 verifyCopies 自己從工作區列
+  const cc = verifyCopies(path.join(ROOT, 'scripts'), path.join(root, 'scripts'));
+  if (cc.problems.length) throw new CopyNotInError(`暫存 repo 沒有含工作區這一份 scripts/（比了 ${cc.checked} 支）：${cc.problems.slice(0, 3).join('、')}`);
   for (const n of [1, 2, 3]) {
     fs.writeFileSync(path.join(root, `scripts/rvtarget${n}.mjs`), ORIGINAL);
     fs.writeFileSync(path.join(root, `scripts/rvtest${n}.mjs`),
@@ -133,6 +137,8 @@ async function killMidSecond(repo, { late = false } = {}) {
 
 /** 情境沒成立（試了幾次都沒造成真正的中斷）：這次什麼都沒量到——不算紅、不算通過 */
 class NoScenarioError extends Error {}
+/** 情境沒成立的另一種：暫存複本裡根本沒有要測的那一份（讀回確認不符）。跟「殺程序錯過時間窗」分開，late-kill 對照組不能拿它當成符合 */
+class CopyNotInError extends NoScenarioError {}
 
 /** 造出「第二條跑到一半被真的殺掉」的情境：每次用新的 repo，最多試 attempts 次；痕跡每次都印出來（必留） */
 async function establishInterrupt(variant, attempts = 3) {
@@ -286,7 +292,8 @@ try {
   {
     let verdict = '';
     try { const s = await flow('late-kill'); verdict = firstFail(s) ? `紅（第一個不符：${firstFail(s)}）` : '綠（全部符合）'; }
-    catch (e) { verdict = e instanceof NoScenarioError ? '情境未成立' : `別的錯誤：${e.message}`; }
+    // 只有「殺程序錯過時間窗」那一種情境未成立才算符合；複本裡沒有要測的那一份（CopyNotInError）是另一件事，不能拿來當成符合
+    catch (e) { verdict = e instanceof CopyNotInError ? `複本沒有含要測的那一份：${e.message}` : e instanceof NoScenarioError ? '情境未成立' : `別的錯誤：${e.message}`; }
     const okLate = verdict === '情境未成立';
     console.log(`\n— 對照組：late-kill —\n  ${okLate ? '✓' : '✗'} 對照組 late-kill：等執行器跑完才殺（一定錯過時間窗）→ 判成「情境未成立」（實際：${verdict}）`);
     if (!okLate && code === 0) code = 2;

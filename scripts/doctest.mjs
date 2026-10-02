@@ -22,6 +22,7 @@ import {
 } from './depgraph.mjs';
 import { listen as serveListen } from './serve.mjs';
 import { summarize as summarizeProcs, peakOf } from './reslog.mjs';
+import { verifyCopies } from './copycheck.mjs';
 import { lastFullNotInLedger } from './sincefull.mjs';
 import { parseDecisionTable, decisionProblems, DECISION_FILE } from './procdecisions.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
@@ -900,6 +901,23 @@ section('加工品待確認清單 ⇄ data/foodtags.json（2026-10-01 A 方案�
 
 section('只差空白或行尾的突變要被擋（2026-10-02 Dispatch；v11.3 §5.20：對照組用真實檔、從命令列、在 repo 的暫存 clone 裡跑）');
 {
+  // 暫存複本的讀回確認本身（copycheck.verifyCopies）：清單由它自己從來源列，複製時漏掉的那一支要被抓到
+  {
+    const src = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-cc-src-')); const dst = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-cc-dst-'));
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-cc-empty-'));
+    try {
+      fs.writeFileSync(path.join(src, 'a.mjs'), 'export const a = 1;\n'); fs.writeFileSync(path.join(src, 'b.mjs'), 'export const b = 1;\n');
+      fs.writeFileSync(path.join(dst, 'a.mjs'), 'export const a = 1;\n'); fs.writeFileSync(path.join(dst, 'b.mjs'), 'export const b = 1;\n');
+      const same = verifyCopies(src, dst);
+      fs.rmSync(path.join(dst, 'b.mjs'));
+      const missing = verifyCopies(src, dst);
+      fs.writeFileSync(path.join(dst, 'b.mjs'), 'export const b = 2;\n');
+      const differ = verifyCopies(src, dst);
+      const none = verifyCopies(empty, dst);
+      eq([same.problems, missing.problems.length, differ.problems.length, none.problems.length], [[], 1, 1, 1],
+        'CC1 讀回確認：完全相同 → 沒問題；複本少一支、內容不同、來源是空的（什麼都沒比）→ 各報一件');
+    } finally { for (const d of [src, dst, empty]) fs.rmSync(d, { recursive: true, force: true }); }
+  }
   eq([whitespaceOnly('a b', 'a  b'), whitespaceOnly('a;\n', 'a;\r\n'), whitespaceOnly('x;', 'x; '), whitespaceOnly('ab', 'a b'), whitespaceOnly('a', 'a')],
     [true, true, true, false, false], 'WS1 判斷：多一個空白、換行改 CRLF、尾巴多空白 → 只差空白；ab 改 a b（會改變程式）、完全一樣 → 不算');
   const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-ws-'));
@@ -910,6 +928,9 @@ section('只差空白或行尾的突變要被擋（2026-10-02 Dispatch；v11.3 �
     for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) {
       if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(clone, 'scripts', f));
     }
+    const ccWs = verifyCopies(path.join(ROOT, 'scripts'), path.join(clone, 'scripts'));
+    if (ccWs.problems.length) console.log(`${NO_SCENARIO_MARK}：WS 的 clone 沒有含工作區這一份 scripts/：${ccWs.problems.slice(0, 3).join('、')}`);
+    ok(ccWs.problems.length === 0 && ccWs.checked >= 40, `（前提）WS 的 clone 蓋上工作區的 scripts/ 之後讀回確認相同（比了 ${ccWs.checked} 支）`);
     const cm = () => { try { return { code: 0, out: execFileSync(process.execPath, ['scripts/checkmutations.mjs'], { cwd: clone, encoding: 'utf8' }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') }; } };
     const total = (loadMutations(fs.readFileSync(path.join(clone, 'scripts/mutationtest.mjs'), 'utf8')) ?? []).length;
     const r0 = cm();
@@ -1143,6 +1164,10 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
       if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(root, 'scripts', f));
     }
     fs.copyFileSync(path.join(ROOT, 'js/version.js'), path.join(root, 'js/version.js'));
+    // 讀回確認（v11.4 §5.20）：在改任何東西之前，比對暫存 repo 的 scripts/ 跟工作區逐位元組相同；不同就宣告情境未成立
+    const cc18 = verifyCopies(path.join(ROOT, 'scripts'), path.join(root, 'scripts'));
+    if (cc18.problems.length) console.log(`${NO_SCENARIO_MARK}：D18 的暫存 repo 沒有含工作區這一份 scripts/：${cc18.problems.slice(0, 3).join('、')}`);
+    ok(cc18.problems.length === 0 && cc18.checked >= 40, `（前提）D18 的暫存 repo 含工作區這一份 scripts/（讀回比了 ${cc18.checked} 支）`);
     fs.writeFileSync(path.join(root, 'js/affdep.js'), 'export const V = 1;\n');
     fs.writeFileSync(path.join(root, 'scripts/afftarget.mjs'), "export const BROKEN = false;\nexport { V } from '../js/affdep.js';\n");
     fs.writeFileSync(path.join(root, 'scripts/affprobe.mjs'), "import { ok, done } from './tap.mjs';\nimport { BROKEN } from './afftarget.mjs';\nok(!BROKEN, 'AFF 探針');\ndone('affprobe');\n");

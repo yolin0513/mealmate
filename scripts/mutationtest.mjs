@@ -4440,6 +4440,34 @@ const MUTATIONS = [
     test: "doctest",
     expect: "受影響 D1 ",
   },
+  // ---- 2026-10-02 v11.4 §5.20：暫存複本要含要測的改動，並讀回確認（scripts/copycheck.mjs）----
+  {
+    name: "讀回確認：內容不同也當成相同",
+    why: "複本裡是舊的那一份（例：clone 拿到已 commit 的版本），對照組量的就是沒被改壞的程式——WS 那三條突變就是這樣從頭到尾沒抓到。",
+    file: "scripts/copycheck.mjs",
+    find: "    if (!fs.readFileSync(d).equals(fs.readFileSync(path.join(srcDir, f)))) problems.push(",
+    replace: "    if (false) problems.push(",
+    test: "doctest",
+    expect: "CC1 ",
+  },
+  {
+    name: "讀回確認：複本少了某一支也不報",
+    why: "複製時漏掉的那一支，被測的程式會改去讀別的版本（或崩潰），量到的不是這次要測的東西。",
+    file: "scripts/copycheck.mjs",
+    find: "    if (!fs.existsSync(d)) { problems.push(`${f}：複本裡缺少`); continue; }",
+    replace: "    if (!fs.existsSync(d)) { continue; }",
+    test: "doctest",
+    expect: "CC1 ",
+  },
+  {
+    name: "讀回確認：什麼都沒比也算通過",
+    why: "來源目錄列不出任何檔（路徑錯了）時，「0 個不符」不代表複本是對的——什麼都沒比。",
+    file: "scripts/copycheck.mjs",
+    find: "  if (!names.length) problems.push(",
+    replace: "  if (false) problems.push(",
+    test: "doctest",
+    expect: "CC1 ",
+  },
   // ---- 2026-10-02 StockDiary 挖出來的：還原紀錄壞掉時要硬失敗 ----
   {
     name: "還原紀錄讀不懂就當成沒有紀錄",
