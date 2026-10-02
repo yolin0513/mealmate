@@ -14,7 +14,7 @@
 //   壞的接續點（doneAt 一律當成跑過）    → 必須在「續跑」那一關報不符（執行器自己可能照樣印「整套收齊」——那正是要抓的）
 // 回傳：0 正常流程全過、兩個對照組都在預期那一關報不符；1 正常流程有一關不符；2 對照組沒抓到（或抓在別關）；3 造情境失敗（程式層級的錯）；
 //      4 情境未成立（試了 3 次都沒造成「第二條跑到一半被殺」：這次什麼都沒量到，印 runkind 的 NO_SCENARIO_MARK，執行器判成 noscenario——不算紅、不算通過）。
-// 情境成不成立看情境本身留下的痕跡（目標檔、還原紀錄、探針的開始／結束標記），每一次都印出來。對照組 late-kill：探針不睡，殺程序一定錯過，必須判成情境未成立。
+// 情境成不成立看情境本身留下的痕跡（目標檔、還原紀錄、探針的開始／結束標記），每一次都印出來。對照組 late-kill：等執行器整個跑完才殺（殺的時刻晚於執行時間），情境必然不成立，必須判成情境未成立。
 // 重負載（開 2 個工作程序、約 1–2 分鐘）：經 Dispatch 排時段才跑（v11 §5.19）。
 
 import fs from 'node:fs';
@@ -48,7 +48,7 @@ function makeRepo(variant) {
       `import fs from 'node:fs';\nimport { ok, done } from './tap.mjs';\nimport { BROKEN } from './rvtarget${n}.mjs';\n`
       + `fs.appendFileSync(${JSON.stringify(mark)}, \`RV${n} \${BROKEN ? '改壞' : '原樣'}\\n\`);\n`
       // 每支探針睡 5 秒：殺程序的時間窗要夠寬（2026-10-02 睡 2 秒時，在機器忙的整套裡有兩次沒造成中斷）。
-      // late-kill（對照組）：不睡——殺程序一定錯過時間窗，必須被判成「情境未成立」
+      // late-kill（對照組）：不睡，只為了跑得快；「一定不成立」靠的是等執行器跑完才殺（killMidSecond 的 late），不是靠不睡
       + `await new Promise((r) => setTimeout(r, ${variant === 'late-kill' ? 0 : 5000}));\n`
       // 結束標記：睡完、斷言之前寫。被殺掉的那一次只有開始、沒有結束——這是「真的在跑到一半被殺」的痕跡
       + `fs.appendFileSync(${JSON.stringify(mark)}, \`RV${n} \${BROKEN ? '改壞' : '原樣'} 結束\\n\`);\n`
@@ -101,15 +101,17 @@ const ranBroken = (lines, n) => lines.filter((l) => l === `RV${n} 改壞`).lengt
  *   ended2        第二條的探針留下了「結束」標記（它跑完了＝殺晚了）
  * 四項是「改壞、在、有、沒有」才算情境成立：真的在第二條跑到一半時被殺、finally 沒跑。
  */
-async function killMidSecond(repo) {
+async function killMidSecond(repo, { late = false } = {}) {
   const child = spawn(process.execPath, [repo.mtFile, '--full'], { cwd: repo.root, stdio: 'ignore', env: env() });
   const t0 = Date.now(); let killedAt = null;
   while (Date.now() - t0 < 120000) {
     await sleep(200);
     const led = readLedger(repo);
     const busy2 = fs.existsSync(repo.pending) && fs.readFileSync(repo.target2, 'utf8') !== ORIGINAL;
-    if (led.entries?.RV1?.last?.counted && busy2) { child.kill('SIGKILL'); killedAt = Date.now() - t0; break; }   // 偵測到就殺，不再多等
-    if (child.exitCode !== null) break;
+    if (!late && led.entries?.RV1?.last?.counted && busy2) { child.kill('SIGKILL'); killedAt = Date.now() - t0; break; }   // 偵測到就殺，不再多等
+    // late（對照組）：殺的時刻晚於執行時間——等執行器整個跑完才去殺。finally 一定跑過了，情境必然不成立（不靠運氣）。
+    // 2026-10-02 第一版的對照組是「探針不睡」，以為一定錯過時間窗；實測第 2 次剛好殺在探針的開始與結束標記之間，情境真的成立了。
+    if (child.exitCode !== null) { if (late) { child.kill('SIGKILL'); killedAt = Date.now() - t0; } break; }
   }
   if (killedAt === null) child.kill('SIGKILL');
   await sleep(1500);
@@ -134,7 +136,7 @@ async function establishInterrupt(variant, attempts = 3) {
   const traces = [];
   for (let k = 1; k <= attempts; k += 1) {
     const repo = makeRepo(variant);
-    const trace = await killMidSecond(repo);
+    const trace = await killMidSecond(repo, { late: variant === 'late-kill' });
     traces.push(`第 ${k} 次 ${trace.text}`);
     console.log(`  · [${variant}] 第 ${k} 次 ${trace.text}`);
     if (trace.established) return { repo, trace, attempt: k };
@@ -283,7 +285,7 @@ try {
     try { const s = await flow('late-kill'); verdict = firstFail(s) ? `紅（第一個不符：${firstFail(s)}）` : '綠（全部符合）'; }
     catch (e) { verdict = e instanceof NoScenarioError ? '情境未成立' : `別的錯誤：${e.message}`; }
     const okLate = verdict === '情境未成立';
-    console.log(`\n— 對照組：late-kill —\n  ${okLate ? '✓' : '✗'} 對照組 late-kill：殺程序錯過時間窗 → 判成「情境未成立」（實際：${verdict}）`);
+    console.log(`\n— 對照組：late-kill —\n  ${okLate ? '✓' : '✗'} 對照組 late-kill：等執行器跑完才殺（一定錯過時間窗）→ 判成「情境未成立」（實際：${verdict}）`);
     if (!okLate && code === 0) code = 2;
   }
   const guards = await guardFlow();
