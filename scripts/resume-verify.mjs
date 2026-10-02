@@ -108,7 +108,10 @@ async function killMidSecond(repo, { late = false } = {}) {
     await sleep(200);
     const led = readLedger(repo);
     const busy2 = fs.existsSync(repo.pending) && fs.readFileSync(repo.target2, 'utf8') !== ORIGINAL;
-    if (!late && led.entries?.RV1?.last?.counted && busy2) { child.kill('SIGKILL'); killedAt = Date.now() - t0; break; }   // 偵測到就殺，不再多等
+    // 殺的觸發點錨定在情境自己的痕跡上：第二條的探針寫了「開始」標記、還沒寫「結束」才殺（探針會睡 5 秒，一定落在中間）。
+    // 2026-10-02：原本「檔被改壞、還原紀錄出現就立刻殺」——那一刻探針這支 node 可能還沒啟動，機器忙時連三次都殺在它開始之前，判成情境未成立
+    const started = () => { const ls = marks(repo); return ls.includes('RV2 改壞') && !ls.includes('RV2 改壞 結束'); };
+    if (!late && led.entries?.RV1?.last?.counted && busy2 && started()) { child.kill('SIGKILL'); killedAt = Date.now() - t0; break; }
     // late（對照組）：殺的時刻晚於執行時間——等執行器整個跑完才去殺。finally 一定跑過了，情境必然不成立（不靠運氣）。
     // 2026-10-02 第一版的對照組是「探針不睡」，以為一定錯過時間窗；實測第 2 次剛好殺在探針的開始與結束標記之間，情境真的成立了。
     if (child.exitCode !== null) { if (late) { child.kill('SIGKILL'); killedAt = Date.now() - t0; } break; }

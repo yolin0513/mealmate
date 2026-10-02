@@ -13264,79 +13264,28 @@
   "護欄：還原紀錄被移掉也照跑": {
    "last": {
     "date": "2026-10-02",
-    "commit": "a62cb689bd4a",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
     "defHash": "2a92eb7e796343d1971fe2806e974bb1d2b3a6d2e5312a8433b2bb20c5b6ccbb",
-    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
-    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
     "red": true,
     "expectMatched": true,
-    "seconds": 179
+    "seconds": 190
    },
    "lastFull": null
   },
   "護欄：帳本有未收尾的紀錄就一律拒絕（檔案已經是原樣也拒絕）": {
    "last": {
     "date": "2026-10-02",
-    "commit": "a62cb689bd4a",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
     "defHash": "9c6ca785b7f66ca2a263489aa43454742db2b547b492068f40ae7958b0530d78",
-    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
-    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
-    "scope": "repo",
-    "kind": "assert",
-    "counted": true,
-    "red": true,
-    "expectMatched": true,
-    "seconds": 158
-   },
-   "lastFull": null
-  },
-  "護欄：不在帳本記開跑未完成": {
-   "last": {
-    "date": "2026-10-02",
-    "commit": "a62cb689bd4a",
-    "mode": "only",
-    "defHash": "c825d3aed2349e0756b402ff5457a90ecff1f35e1a4e99763c4f2f796c2ec5cd",
-    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
-    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
-    "scope": "repo",
-    "kind": "assert",
-    "counted": true,
-    "red": true,
-    "expectMatched": true,
-    "seconds": 179
-   },
-   "lastFull": null
-  },
-  "護欄一：工作區不等於 HEAD 也照跑整套": {
-   "last": {
-    "date": "2026-10-02",
-    "commit": "a62cb689bd4a",
-    "mode": "only",
-    "defHash": "b61ec6c5550b51f5afcdb1c2ef8fced144768d30fff1994275d7893efc589acd",
-    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
-    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
-    "scope": "repo",
-    "kind": "assert",
-    "counted": true,
-    "red": true,
-    "expectMatched": true,
-    "seconds": 250
-   },
-   "lastFull": null
-  },
-  "護欄一：--only 也要求工作區等於 HEAD": {
-   "last": {
-    "date": "2026-10-02",
-    "commit": "a62cb689bd4a",
-    "mode": "only",
-    "defHash": "5aa6267411cc4f11dba3d8bd926aea14091d983e231d574eb833501dbd0468d6",
-    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
-    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
@@ -13346,48 +13295,81 @@
    },
    "lastFull": null
   },
-  "護欄一：--only 的目標檔已經是改壞後的樣子也照跑": {
+  "護欄：不在帳本記開跑未完成": {
    "last": {
     "date": "2026-10-02",
-    "commit": "a62cb689bd4a",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
-    "defHash": "77bb2542def0e08594b046563a2ece37b1e01f59feaf8aa28308e76a99c824c9",
-    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
-    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
+    "defHash": "c825d3aed2349e0756b402ff5457a90ecff1f35e1a4e99763c4f2f796c2ec5cd",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
+    "scope": "repo",
+    "kind": "noscenario",
+    "counted": false,
+    "red": false,
+    "seconds": 113
+   },
+   "lastFull": null
+  },
+  "護欄一：工作區不等於 HEAD 也照跑整套": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "244a2c2d9bb4+dirty",
+    "mode": "only",
+    "defHash": "b61ec6c5550b51f5afcdb1c2ef8fced144768d30fff1994275d7893efc589acd",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
     "red": true,
     "expectMatched": true,
-    "seconds": 184
+    "seconds": 261
+   },
+   "lastFull": null
+  },
+  "護欄一：--only 也要求工作區等於 HEAD": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "244a2c2d9bb4+dirty",
+    "mode": "only",
+    "defHash": "5aa6267411cc4f11dba3d8bd926aea14091d983e231d574eb833501dbd0468d6",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 203
+   },
+   "lastFull": null
+  },
+  "護欄一：--only 的目標檔已經是改壞後的樣子也照跑": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "244a2c2d9bb4+dirty",
+    "mode": "only",
+    "defHash": "77bb2542def0e08594b046563a2ece37b1e01f59feaf8aa28308e76a99c824c9",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 194
    },
    "lastFull": null
   },
   "護欄：「是不是原樣」逐位元組比（不統一行尾）": {
    "last": {
     "date": "2026-10-02",
-    "commit": "a62cb689bd4a",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
     "defHash": "93d3e68474c1fffcbd4c53c316cdc49196358e8a7927aa3b6ff0a0f8d06670fc",
-    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
-    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
-    "scope": "repo",
-    "kind": "assert",
-    "counted": true,
-    "red": true,
-    "expectMatched": true,
-    "seconds": 179
-   },
-   "lastFull": null
-  },
-  "護欄：還原紀錄還在時照樣改第二支檔": {
-   "last": {
-    "date": "2026-10-02",
-    "commit": "a62cb689bd4a",
-    "mode": "only",
-    "defHash": "608d809df1e3c4cb0909daf27d46848451fd4508718aadb6fc11e14909e004e3",
-    "depHash": "220b1e970c6cfce96ca18a3be9d12baa706fe3f6bac00c335240db1d7e69a917",
-    "runnerHash": "cd772f03111eb64abd6a58f629f57fe116dea4dfa6bc383ec70a8bee45fd8b69",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
@@ -13397,48 +13379,65 @@
    },
    "lastFull": null
   },
-  "還原紀錄讀不懂就當成沒有紀錄": {
+  "護欄：還原紀錄還在時照樣改第二支檔": {
    "last": {
     "date": "2026-10-02",
-    "commit": "9d1e0d789e0b",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
-    "defHash": "07c104e4e9072879ed247d254c363bc262f6e4ef58b3f53f691d3554bdcb68d3",
-    "depHash": "795cde030e9dcb6657f7e4ee1c7ad94301eb196356191b4717974217ca2d6b6e",
-    "runnerHash": "a65481b5c2705af0c0f5718fb3273e2c2d03be2abe55d626affdc31a3303e884",
+    "defHash": "608d809df1e3c4cb0909daf27d46848451fd4508718aadb6fc11e14909e004e3",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
     "red": true,
     "expectMatched": true,
-    "seconds": 190
+    "seconds": 223
+   },
+   "lastFull": null
+  },
+  "還原紀錄讀不懂就當成沒有紀錄": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "244a2c2d9bb4+dirty",
+    "mode": "only",
+    "defHash": "07c104e4e9072879ed247d254c363bc262f6e4ef58b3f53f691d3554bdcb68d3",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 188
    },
    "lastFull": null
   },
   "還原紀錄欄位不對也照寫": {
    "last": {
     "date": "2026-10-02",
-    "commit": "9d1e0d789e0b",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
     "defHash": "8cbf369916c56202582e23b40d36a54c45c6dd031a54e9cc15d49b3cc8ab4684",
-    "depHash": "795cde030e9dcb6657f7e4ee1c7ad94301eb196356191b4717974217ca2d6b6e",
-    "runnerHash": "a65481b5c2705af0c0f5718fb3273e2c2d03be2abe55d626affdc31a3303e884",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
     "red": true,
     "expectMatched": true,
-    "seconds": 190
+    "seconds": 188
    },
    "lastFull": null
   },
   "情境未成立：宣告了也照樣判成斷言失敗": {
    "last": {
     "date": "2026-10-02",
-    "commit": "9d1e0d789e0b",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
     "defHash": "2536f1f7e9e02723249c928946d024a586e654afd744b3f661283866bf3a5467",
-    "depHash": "795cde030e9dcb6657f7e4ee1c7ad94301eb196356191b4717974217ca2d6b6e",
-    "runnerHash": "a65481b5c2705af0c0f5718fb3273e2c2d03be2abe55d626affdc31a3303e884",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
@@ -13451,11 +13450,11 @@
   "情境未成立：回 0 時照樣判成通過": {
    "last": {
     "date": "2026-10-02",
-    "commit": "9d1e0d789e0b",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
     "defHash": "444f298b0ab46222de6fd69146fda4ea239f3de9bb272a21ee767edf9b6dd6c8",
-    "depHash": "795cde030e9dcb6657f7e4ee1c7ad94301eb196356191b4717974217ca2d6b6e",
-    "runnerHash": "a65481b5c2705af0c0f5718fb3273e2c2d03be2abe55d626affdc31a3303e884",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
@@ -13468,11 +13467,11 @@
   "情境未成立：那幾個字出現在任何地方都算宣告": {
    "last": {
     "date": "2026-10-02",
-    "commit": "9d1e0d789e0b",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
     "defHash": "bd9146cca3937679dcd1f4a7b1e49cb84d94f50b7ace23213dbdbf474f8fdd31",
-    "depHash": "795cde030e9dcb6657f7e4ee1c7ad94301eb196356191b4717974217ca2d6b6e",
-    "runnerHash": "a65481b5c2705af0c0f5718fb3273e2c2d03be2abe55d626affdc31a3303e884",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
@@ -13485,11 +13484,11 @@
   "情境未成立：不列在不算數裡": {
    "last": {
     "date": "2026-10-02",
-    "commit": "9d1e0d789e0b",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
     "defHash": "f2cf5f8c21486fe686ebc4746f495eb252afaa5acea70870c78a2f6e97d6bcc6",
-    "depHash": "795cde030e9dcb6657f7e4ee1c7ad94301eb196356191b4717974217ca2d6b6e",
-    "runnerHash": "a65481b5c2705af0c0f5718fb3273e2c2d03be2abe55d626affdc31a3303e884",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
@@ -13502,72 +13501,106 @@
   "情境未成立：不看痕跡、一律當成情境成立": {
    "last": {
     "date": "2026-10-02",
-    "commit": "9d1e0d789e0b",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
     "defHash": "e8aa6dfb836cfd17c58460eec8ea47b40f5a087ab0f93fa5e2a9cf2c1dc4572d",
-    "depHash": "795cde030e9dcb6657f7e4ee1c7ad94301eb196356191b4717974217ca2d6b6e",
-    "runnerHash": "a65481b5c2705af0c0f5718fb3273e2c2d03be2abe55d626affdc31a3303e884",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
     "red": true,
     "expectMatched": true,
-    "seconds": 184
+    "seconds": 182
    },
    "lastFull": null
   },
   "只差空白的突變：判斷永遠說「不是」": {
    "last": {
     "date": "2026-10-02",
-    "commit": "9d1e0d789e0b",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
     "defHash": "34db17d25c9828aeb9693c3f7735756af50b39ac7a2f4b45b527c44fb6cfb962",
-    "depHash": "795cde030e9dcb6657f7e4ee1c7ad94301eb196356191b4717974217ca2d6b6e",
-    "runnerHash": "a65481b5c2705af0c0f5718fb3273e2c2d03be2abe55d626affdc31a3303e884",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
-    "red": false,
-    "expectMatched": false,
-    "seconds": 31
+    "red": true,
+    "expectMatched": true,
+    "seconds": 32
    },
    "lastFull": null
   },
   "只差空白的突變：檢查的條數不核對": {
    "last": {
     "date": "2026-10-02",
-    "commit": "9d1e0d789e0b",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
     "defHash": "a6e68c8153327309605af1ab822ee9dcff70747f0321ae597d7a166a002b5c75",
-    "depHash": "795cde030e9dcb6657f7e4ee1c7ad94301eb196356191b4717974217ca2d6b6e",
-    "runnerHash": "a65481b5c2705af0c0f5718fb3273e2c2d03be2abe55d626affdc31a3303e884",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
-    "red": false,
-    "expectMatched": false,
-    "seconds": 30
+    "red": true,
+    "expectMatched": true,
+    "seconds": 31
    },
    "lastFull": null
   },
   "只差空白的突變：執行器開跑前不擋": {
    "last": {
     "date": "2026-10-02",
-    "commit": "9d1e0d789e0b",
+    "commit": "244a2c2d9bb4+dirty",
     "mode": "only",
     "defHash": "c2e9ea0cb0a0fab71fa107d07fb3474d27d4c76bd9972edeb73b77afefa5fb7a",
-    "depHash": "795cde030e9dcb6657f7e4ee1c7ad94301eb196356191b4717974217ca2d6b6e",
-    "runnerHash": "a65481b5c2705af0c0f5718fb3273e2c2d03be2abe55d626affdc31a3303e884",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
-    "kind": "pass",
+    "kind": "assert",
     "counted": true,
-    "red": false,
-    "expectMatched": false,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 33
+   },
+   "lastFull": null
+  },
+  "runkind 把「✓ 行裡提到 ✗」當成斷言失敗": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "244a2c2d9bb4+dirty",
+    "mode": "only",
+    "defHash": "55f480dd8d11dc133e922057d73d74ba2be5fa38752ef5940cd38d69932d50e1",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 30
+   },
+   "lastFull": null
+  },
+  "mutationtest 的 expect 比對認「行裡有 ✗ 這個字」": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "244a2c2d9bb4+dirty",
+    "mode": "only",
+    "defHash": "6436e83b85901a0687c0e43ba79e49d2e90798bcf2865bd71f60916d8f3768e7",
+    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
     "seconds": 30
    },
    "lastFull": null
   }
  },
- "runSeq": 4,
+ "runSeq": 5,
  "inflight": null
 }
