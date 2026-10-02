@@ -135,6 +135,8 @@ export function stampOf(src) {
   const { entries, unparsed } = registryOf(src);
   // 括號收不齊＝這支檔數不清楚：不給戳記（不能把數不清楚的母體當成一個版本，§5.13）
   if (unparsed.length) return null;
+  // 一筆都沒抽到＝抽取規則可能壞了（TripQuest 2026-10-02：兩份空清單互比得到「差異 0」）；不給戳記，不能讓兩個空母體比成「沒變」
+  if (entries.length === 0) return null;
   return { n: entries.length, hash: sha(entries.map((e) => e.id).sort().join('\n')).slice(0, 16) };
 }
 
@@ -172,6 +174,7 @@ export function controls() {
   const s0 = stampOf(base); const s1 = stampOf(`${base}ok(n, 'D 新的');\n`);
   if (s0.hash === s1.hash || s1.n !== s0.n + 1) bad.push('多一個斷言，戳記要變、筆數要多 1');
   if (stampOf(`${base}ok(a, 'E 括號沒收齊';\n`) !== null) bad.push('有斷言的括號收不齊 → 不給戳記（數不清楚，不是一個版本）');
+  if (stampOf('const x = 1;\n// ok(a, "只在註解")\n') !== null) bad.push('一筆斷言都抽不到 → 不給戳記（兩個空母體不能比成「沒變」）');
   const s2 = stampOf(base.replace("'A'", "'A 改了'"));
   if (s2.hash === s0.hash || s2.n !== s0.n) bad.push('筆數一樣、內容改了，戳記也要變');
   const muts = [{ name: 'X', test: 't', expect: 'A' }, { name: 'Y', test: 't', expect: 'C' }, { name: 'Z', test: 't' }];

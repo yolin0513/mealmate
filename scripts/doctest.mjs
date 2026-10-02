@@ -24,7 +24,8 @@ import { listen as serveListen } from './serve.mjs';
 import { summarize as summarizeProcs, peakOf } from './reslog.mjs';
 import { verifyCopies } from './copycheck.mjs';
 import { CASES as GM_CASES, staleProblems as gmStaleProblems, resolveBash as gmResolveBash, reasonCodes as gmReasonCodes, reasonsMatch as gmReasonsMatch } from './gatemutants.mjs';
-import { controls as arControls } from './assertregistry.mjs';
+import { controls as arControls, stampOf as arStampOf } from './assertregistry.mjs';
+import { controls as rpControls } from './runprogress.mjs';
 import { cleanControls as evCleanControls } from './evidence.mjs';
 import { lastFullNotInLedger } from './sincefull.mjs';
 import { parseDecisionTable, decisionProblems, DECISION_FILE } from './procdecisions.mjs';
@@ -402,6 +403,8 @@ section('突變的 expect 都找得到（A2；共用慣例 v6 §5.9，2026-09-23
     fs.writeFileSync(path.join(dir, 'scripts/mutationtest.mjs'), `const MUTATIONS = [\n${mutationsLiteral}\n];\n`);
     fs.writeFileSync(path.join(dir, 'scripts/faketest.mjs'), 'ok(x, "A2 假的斷言訊息");\n');
     fs.writeFileSync(path.join(dir, 'target.txt'), 'alpha beta\n');
+    // 2026-10-02 起 checkmutations 要求戳記條數＝帶 expect 的條數：先在暫存資料夾裡戳好（這幾條要驗的是別的擋法）
+    spawnSync(process.execPath, [path.join(dir, 'scripts/assertregistry.mjs'), '--stamp', '--all'], { cwd: dir, encoding: 'utf8' });
     try { lastOut = execFileSync(process.execPath, [path.join(dir, 'scripts/checkmutations.mjs')], { cwd: dir, encoding: 'utf8' }); return 0; }
     catch (e) { lastOut = String(e.stdout ?? ''); return e.status ?? -1; } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   };
@@ -413,7 +416,8 @@ section('突變的 expect 都找得到（A2；共用慣例 v6 §5.9，2026-09-23
   // 比對理由，不只看回傳值：這兩條的 expect 都是對的，只有 find 那一段會讓它不通過
   const badFind = "{ name: 'f', file: 'target.txt', find: 'gamma', replace: 'omega', test: 'faketest', expect: 'A2 假的斷言訊息' },";
   const rcMissing = runIn(badFind); const outMissing = lastOut;
-  ok(rcMissing !== 0 && outMissing.includes('find 出現 0 次') && !outMissing.includes('expect'),
+  // 「理由不是 expect」只看 STALE 行（2026-10-02 起輸出另有一行 STAMPS「帶 expect 的突變…」，那是說明，不是理由）
+  ok(rcMissing !== 0 && outMissing.includes('find 出現 0 次') && !outMissing.split('\n').filter((l) => l.startsWith('STALE ')).some((l) => l.includes('expect')),
     `A5 checkmutations：find 在目標檔裡找不到 → 非 0，理由是「find 出現 0 次」（回傳 ${rcMissing}）`);
   const twiceFind = "{ name: 't', file: 'target.txt', find: 'a', replace: 'o', test: 'faketest', expect: 'A2 假的斷言訊息' },";
   const rcTwice = runIn(twiceFind); const outTwice = lastOut;
@@ -976,6 +980,14 @@ section('只差空白或行尾的突變要被擋（2026-10-02 Dispatch；v11.3 �
     const entry = `const MUTATIONS = [\n  { name: "WS探針：只在尾巴多一個空白", why: "x", file: "js/version.js", find: ${JSON.stringify(line)}, replace: ${JSON.stringify(`${line} `)}, test: "doctest", expect: "WS1 " },`;
     fs.writeFileSync(mtFile, src.replace('const MUTATIONS = [', () => entry));
     const readBack = fs.readFileSync(mtFile, 'utf8').includes('WS探針：只在尾巴多一個空白') && !!line;
+    // 探針帶 expect：先在 clone 裡戳上，不然「戳記條數≠帶 expect 條數」會多一行 STALE，WS3 就分不出是哪一道擋的
+    // （直接寫戳記，不經 --stamp：探針的 expect「WS1 」在 doctest 裡出現兩處——這一行的字面也算——--stamp 會因歧義拒絕）
+    {
+      const sf = path.join(clone, 'scripts/expect-review.json');
+      const sd = JSON.parse(fs.readFileSync(sf, 'utf8'));
+      sd.stamps['WS探針：只在尾巴多一個空白'] = { test: 'doctest', ...arStampOf(fs.readFileSync(path.join(clone, 'scripts/doctest.mjs'), 'utf8')) };
+      fs.writeFileSync(sf, JSON.stringify(sd));
+    }
     const r1 = cm();
     const staleLines = r1.out.split('\n').filter((l) => l.startsWith('STALE '));
     ok(readBack && r1.code !== 0 && staleLines.length === 1 && staleLines[0].includes('WS探針：只在尾巴多一個空白') && staleLines[0].includes('只差空白或行尾'),
@@ -1009,6 +1021,10 @@ section('入庫的證據由腳本從原始 log 逐項產生（共用慣例 v11.4
     const r2 = run(log(3, okLines), 'short.md');
     ok(r2.code !== 0 && r2.out.includes('差 1 條') && !fs.existsSync(path.join(dir, 'short.md')),
       `EV3 執行器選了 3 條、log 裡只有 2 條的結果 → 停、講明差 1 條、不寫檔（回 ${r2.code}）`);
+    // EV5（TripQuest 2026-10-02：兩份空清單互比得到「差異 0」）：選了 0 條、抽到 0 列，0＝0 不能當成一致
+    const r5 = run(log(0, []), 'empty.md');
+    ok(r5.code !== 0 && r5.out.includes('選了 0 條、抽到 0 列——有一邊是 0') && !fs.existsSync(path.join(dir, 'empty.md')),
+      `EV5 選了 0 條、log 裡也 0 列 → 停、講明有一邊是 0、不寫檔（回 ${r5.code}）`);
     fs.writeFileSync(path.join(dir, 'ledger-bad.json'), JSON.stringify({ entries: { ...ledgerOk.entries, 甲突變: { last: { red: false, counted: true, kind: 'assert', seconds: 3 } } } }));
     const r3 = run(log(2, okLines), 'bad.md', 'ledger-bad.json');
     ok(r3.code !== 0 && r3.out.includes('log 說抓到，帳本 red=false') && !fs.existsSync(path.join(dir, 'bad.md')),
@@ -1323,6 +1339,16 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     ok(r8.code !== 0 && r8.out.includes('預期清單過期：expect「這一句已經不在測試裡」在 scripts/affw.mjs 裡找不到') && !r8.out.includes('紅了，但紅的不是')
       && !r8.out.includes('實際紅了') && led8?.counted === false && fs.readFileSync(path.join(root, 'scripts/affwtarget.mjs'), 'utf8') === tgtBefore,
     `受影響 D18j expect 在測試裡找不到 → 開跑前擋下、訊息是「預期清單過期」、沒有跑（不是紅錯地方）、帳本不算數（回 ${r8.code}；紀錄 ${JSON.stringify(led8 && { counted: led8.counted, kind: led8.kind })}）`);
+    // D18m（2026-10-02，照每機器小時驗到的條數逐段跑）：--never-full --test 只留指定測試的。此刻從沒整套跑過的有
+    // AFF逾時（affslow）、AFFW探針、AFFX探針（affw）三條；--test affw 要選 2 條、--test 打錯字要停
+    const dry = (args) => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, ...args, '--dry-run'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } };
+    const m0 = dry(['--never-full']); const m1 = dry(['--never-full', '--test', 'affw']); const m2 = dry(['--never-full', '--test', 'nosuchtest']);
+    ok(m0.out.includes('選了 3 條突變') && m1.out.includes('選了 2 條突變') && m1.out.includes('只留測試「affw」') && m2.code !== 0 && m2.out.includes('--test 指定的測試在突變清單裡一條都沒有：nosuchtest'),
+      `受影響 D18m --test：不帶時選 3 條（前提）、--test affw 選 2 條、打錯字的測試名停下（回 ${m2.code}）`);
+    // D18n（2026-10-02 JLPT：60 秒取樣，幾秒的測試永遠取樣不到）：取樣間隔可以指定、印出來；不帶是 60；亂給要停
+    const i0 = dry(['--never-full']); const i1 = dry(['--never-full', '--reslog-interval', '5']); const i2 = dry(['--never-full', '--reslog-interval', '0']);
+    ok(i0.out.includes('資源紀錄的取樣間隔：每 60 秒') && i1.out.includes('資源紀錄的取樣間隔：每 5 秒') && i2.code !== 0 && i2.out.includes('--reslog-interval 要接 1 到 600 之間的秒數'),
+      `受影響 D18n 資源紀錄的取樣間隔：不帶是 60、--reslog-interval 5 印 5、給 0 停下（回 ${i2.code}）`);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -1502,6 +1528,16 @@ section('斷言登記表與「預期需要複審」（2026-10-02 Dispatch 選 A�
     const s4 = nodeIn(['scripts/assertregistry.mjs', '--stamp', 'aliastest']);
     ok(!!aliasM && s4.status !== 0 && s4.stdout.includes('有歧義的不戳') && s4.stdout.includes(aliasM.name) && fs.readFileSync(stampFile, 'utf8') === before4,
       `AR4 有歧義的不准戳：aliastest 多一條訊息含既有 expect 的斷言 → --stamp 回 ${s4.status}、點名那一條、戳記檔沒變`);
+    // AR5：母體的兩個數字（帶 expect 的突變、戳記）都從資料數、都印，不相等就擋——拿掉一條戳記，checkmutations 要回非 0、兩個數字都印
+    const stDoc = JSON.parse(before4);
+    const dropped = Object.keys(stDoc.stamps)[0];
+    delete stDoc.stamps[dropped];
+    fs.writeFileSync(stampFile, `${JSON.stringify(stDoc, null, 1)}\n`);
+    const nE = muts.filter((m) => m.expect != null).length;
+    const c5 = cm();
+    ok(nE > 0 && c5.code !== 0 && c5.out.includes(`STAMPS 帶 expect 的突變 ${nE} 條（從清單數）、戳記 ${nE - 1} 條`) && c5.out.includes('STALE 戳記與帶 expect 的突變條數對不上'),
+      `AR5 戳記少一條（${dropped}）→ checkmutations 回 ${c5.code}、兩個數字都印（${nE} 與 ${nE - 1}）、判對不上`);
+    fs.writeFileSync(stampFile, before4);
     fs.writeFileSync(af, asrc);
   }
 }
@@ -1540,6 +1576,19 @@ section('bash 解成完整路徑，解到 WSL 的不用（2026-10-02，JLPT 撞�
   const out = `${r.stdout}${r.stderr}`;
   ok(r.status === 8 && out.split('\n').some((l) => l.startsWith(`${NO_SCENARIO_MARK}：PATH 裡找不到 bash`)) && !out.includes('【對照：原樣】') && !out.includes('假 git 的對照組'),
     `BS7 gatemutants 解不出 bash → 回 ${r.status}（預期 8）、判情境未成立、一條都沒跑`);
+}
+
+section('一場突變的逐條進度（2026-10-02 Dispatch：中途被叫停時分得出跑完／開了頭沒跑完／還沒跑，不只記總數）');
+{
+  eq(rpControls(), [], 'RP1 進度表的對照組：算數、不算數、開了頭沒跑完（帳本 inflight）、別的 commit 跑的與計畫之前跑的都算還沒跑、母體 0 條要報');
+  const planF = path.join(os.tmpdir(), `mm-plan-${process.pid}.json`);
+  const s = spawnSync(process.execPath, ['scripts/runprogress.mjs', '--save-plan', planF], { cwd: ROOT, encoding: 'utf8' });
+  const n = fs.existsSync(planF) ? JSON.parse(fs.readFileSync(planF, 'utf8')).names.length : -1;
+  const r = spawnSync(process.execPath, ['scripts/runprogress.mjs', planF], { cwd: ROOT, encoding: 'utf8' });
+  const rowLines = r.stdout.split('\n').filter((l) => /^ {2}(跑完、算數|跑完、不算數|開了頭沒跑完|還沒跑)｜/.test(l)).length;
+  ok(s.status === 0 && n > 0 && r.status === 0 && rowLines === n && r.stdout.includes(`母體 ${n} 條（計畫檔逐條數的）`),
+    `RP2 從真實入口：--save-plan 存了 ${n} 條、進度表逐條列出 ${rowLines} 行（每一條都有自己的狀態，不只總數）`);
+  fs.rmSync(planF, { force: true });
 }
 
 section('共用的暫存 clone：每一節開頭都回到基準（情境之間互不污染）；用完刪掉');

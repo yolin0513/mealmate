@@ -50,6 +50,15 @@
 
 **下一場的估時（2026-10-02 晚，開跑前給 Dispatch）**：從沒整套跑過 170 條（今晚新寫的都在裡面，不另加）＝doctest 141×約 62 秒（10-02 實測 doctest 一次 63 秒；帳本中位數 31 秒是新節加進來之前的，不用）＋resume-verify 11×190 秒（帳本 11 次）＋assertaudit 1 條連基準約 1,000 秒（09-23／24 實測 433–528 秒）＋recipeviewtest 2 條連基準約 140 秒（09-23 實測 46 秒）＋shelltest 2 條連基準約 33 秒（09-23）＋recipetest 13 條**沒量過**（09-23 那次記 1 秒，不像突變時的耗時，不採用）≈ 12,300 秒；另外 resume-verify 整支 189 秒、versionmixtest 3 條連基準約 220 秒（10-01 實測 40–54 秒）、gatemutants `--only` 兩次共 5 個情境約 415 秒（38 條 3,148 秒的平均）、歧義修正牽動的 recipetest 3 條（沒量過）＋doctest 1 條約 62 秒。**合計約 13,100 秒（約 3.6 小時），另有 recipetest 16 條沒量過**。**改共用 worktree 之後（b68d016）重估**：doctest 直接用 node 跑實測 49.2、49.3、50.6、51.3 秒（改前 70.1 秒，同一個量法），從沒整套跑過變成 173 條（doctest 144）；doctest 144×約 49 秒＝約 7,100 秒（改前 141×62＝8,750 秒），整場約 11,400 秒（約 3.2 小時），recipetest 16 條仍沒量過。170 條裡帳本記得「算數地紅過」的 20 條、從沒被證明紅過的 150 條（其中 dbc104f 之後新加的 33 條）；結果照這三群分開報。
 
+**下一場的跑法（Dispatch 2026-10-02 晚定的順序：照每機器小時驗到的條數，今天跑不完、先跑價值高的）**
+0. 先 `npm run doctest`＋commit（工作區有沒 commit 的改動：TripQuest 的空母體三道、`--test`、`scripts/runprogress.mjs`）。
+1. `node scripts/runprogress.mjs --save-plan .logs/plan-<commit>.json` 存母體（從帳本算的從沒整套跑過，現在 176 條＋這次新加的）。
+2. 抽 5 條計時：`--never-full --test <assertaudit|resume-verify|doctest|recipeviewtest|recipetest> --limit 1` 各一，回報秒數與外推，等 Dispatch 放行。
+3. `--never-full --test shelltest|recipeviewtest` → 4. `--test doctest` → 5. `--test recipetest` → 6. `--test resume-verify`、resume-verify 整支、versionmixtest 3 條（`--only`）、gatemutants `--only` → 7. `--test assertaudit` 最後。
+- 隨時 `node scripts/runprogress.mjs <計畫檔>` 逐條列「跑完、算數／跑完、不算數／開了頭沒跑完／還沒跑」；各類相加＝母體是結構上必然的（每條只落一類），防「只剩總數」靠逐條都列出來。
+- 峰值看到 0、1 這種異常低的數字（尤其 gatemutants 經 bash 開的那段），照 TripQuest 作廢、不當成量到的。
+- 2026-10-02 晚我為了驗證反覆跑 doctest（常規測試、不需要許可），跟 JLPT 的閘門驗法搶了資源、拖慢它；記下來。
+
 **等 Dispatch 排的重負載（2026-10-02 晚）**：① resume-verify（加了讀回確認之後還沒重跑）；② 新突變 `--only`：hook 3 條、D18i 2 條、D18j 1 條、GM 4 條、BS 3 條、RC 3 條、AR 6 條（含 D18k）、CC1 ×3、EV ×5、R4（PID 重用）、R3c；歧義那 6 條改完的 4 條 recipetest／doctest 突變也排這裡；gatemutants --only「取不到 diff」與「M4」（理由碼改法要實跑確認）；③ `versionmixtest` 那 3 條崩潰才抓到的（瀏覽器）；④ 最後：從沒整套跑過的 137 條，先抽 5 條、各來自不同測試、避開最快那一端量秒數再外推。
 
 **收尾快照（2026-09-25）——先讀這一段**
@@ -75,7 +84,7 @@
     - 畫面：食譜頁家人那一段（`data-unconfirmed-note`）寫「「醬油」未確認是否含蛋、奶；…買的時候看包裝標示」；食材表那幾樣旁邊標「未確認是否含蛋、奶」（`data-unconfirmed`）。本週頁、今天頁**沒做**（只在食譜頁）。
     - 資料驅動：Yolin 填 `docs/待確認_加工品葷素.md` 的「你的決定」→ 開發 Session 轉進 foodtags.json（素→checked 三項；含蛋／含奶／含五辛→tags；葷→tags.meat 或 seafood）→ 標示自動消失。表上加了「編號」欄；`scripts/procdecisions.mjs` 核對兩邊，doctest「待確認 P1–P8」：填了沒轉 → 紅。
     - 測試：recipetest「A 方案 U0–U7」（U7：兩條查詢路徑在真實資料上一致）；recipeviewtest「A 方案 V1–V5」（瀏覽器，**還沒跑**）；突變 15 條（recipetest 7、recipeviewtest 2、doctest 6）。
-  - **驗證時要做的**：`node --check`、`checkmutations`（615 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
+  - **驗證時要做的**：`node --check`、`checkmutations`（622 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
   （之前那一批——檢查器修補 P0／P1、F8–F10、擋法表、環境變數、補充說明十一——2026-09-25 已收尾。）
 - **App 最後一版仍是 `mealmate-v0.41.0`（2026-09-23）**。09-24、09-25 全是 scripts／docs，沒有 bump、沒有部署。
 - **檢查器修補的全部證據**：`docs/EVIDENCE_檢查器修補.md`，涵蓋 P0、P1、F8、F9、F10、擋法表、環境變數兩類、補充說明十一。STATUS 各節只留摘要。
@@ -275,7 +284,7 @@
 Node 端：datatest 76、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 151、plannertest 513、shoppingtest 150、timelinetest 71、doctest 277；
 瀏覽器端（puppeteer）：shelltest 162、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 199、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 116（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 44。（2026-09-24 F8 那一輪 `npm test` 數的）
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **615 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **622 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
 · **突變整套**＝`npm run mutationtest -- --full` 跑完全部（2026-10-02 起要明講 `--full`；以前是「不帶 `--only`」）。下面的耗時是 09-24 的 442 條（每條都把對應的那一支測試整支跑一次）。**實測約 17,119 秒（約 4.8 小時）**，2026-09-24 對 v0.41.0 量的（09-21 的 428 條約 16,600 秒、09-19 的 366 條約 13,500 秒）。

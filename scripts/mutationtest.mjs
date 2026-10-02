@@ -4627,7 +4627,7 @@ const MUTATIONS = [
     name: "checkmutations 不報預期需要複審",
     why: "算了但沒印：看不見等於沒有。",
     file: "scripts/checkmutations.mjs",
-    find: "  const rv = reviewNeeded(MUTATIONS, loadStamps(ROOT), readTestFrom(ROOT));\n",
+    find: "  const rv = reviewNeeded(MUTATIONS, stampsNow, readTestFrom(ROOT));\n",
     replace: "  const rv = [];\n",
     test: "doctest",
     expect: "AR2 ",
@@ -4694,6 +4694,69 @@ const MUTATIONS = [
     replace: "    if (false) { console.log(",
     test: "doctest",
     expect: "AR4 ",
+  },
+  {
+    name: "證據檔：兩邊都是 0 也當成一致",
+    why: "選了 0 條、抽到 0 列，0＝0 就寫出一份空的證據檔——什麼都沒比（TripQuest 2026-10-02 兩份空清單互比得到「差異 0」）。",
+    file: "scripts/evidence.mjs",
+    find: "  else if (parsed.selected === 0 || parsed.rows.length === 0) out.push(",
+    replace: "  else if (false) out.push(",
+    test: "doctest",
+    expect: "EV5 ",
+  },
+  {
+    name: "checkmutations：戳記與帶 expect 的條數不比",
+    why: "兩個母體數字只印不比，對不上（或戳記檔讀出 0 條）也照樣過。",
+    file: "scripts/checkmutations.mjs",
+    find: "  if (nExpect === 0 || nExpect !== nStamps) {",
+    replace: "  if (false) {",
+    test: "doctest",
+    expect: "AR5 ",
+  },
+  {
+    name: "登記表：一筆都抽不到也給戳記",
+    why: "抽取規則壞掉、兩邊都是 0 筆，戳記一樣，就比成「母體沒變」。",
+    file: "scripts/assertregistry.mjs",
+    find: "  if (entries.length === 0) return null;\n",
+    replace: "\n",
+    test: "doctest",
+    expect: "AR1 ",
+  },
+  {
+    name: "執行器：--test 沒有作用",
+    why: "照每機器小時驗到的條數逐段跑時，「只跑 shelltest 那 2 條」其實把全部從沒整套跑過的都跑了——排程整個失準。",
+    file: "scripts/mutationtest.mjs",
+    find: "  SELECTED = SELECTED.filter((m) => want.includes(m.test));\n",
+    replace: "\n",
+    test: "doctest",
+    expect: "D18m ",
+  },
+  {
+    name: "進度表：開了頭沒跑完的當成還沒跑",
+    why: "中途被叫停時，改壞了還沒收尾的那一條混進「還沒跑」，看不出工作區可能還留著壞檔、下次要先還原。",
+    file: "scripts/runprogress.mjs",
+    find: "    if (inflight === name) state = '開了頭沒跑完';\n    else if",
+    replace: "    if",
+    test: "doctest",
+    expect: "RP1 ",
+  },
+  {
+    name: "進度表：別的 commit 跑的也算這一場",
+    why: "09-24 整套或別的場次的結果被算成這一場跑完——叫停時以為跑了、其實沒跑。",
+    file: "scripts/runprogress.mjs",
+    find: "String(l.commit ?? '').replace(/[-+]dirty$/, '') === plan.commit && String(l.date ?? '') >= String(plan.date ?? '');",
+    replace: "true;",
+    test: "doctest",
+    expect: "RP1 ",
+  },
+  {
+    name: "執行器：--reslog-interval 沒有作用",
+    why: "指定了 5 秒，實際還是 60 秒取樣——只跑幾秒的測試照樣取樣不到，峰值照樣系統性偏低，卻以為縮短過了。",
+    file: "scripts/mutationtest.mjs",
+    find: "峰值系統性偏低）\nconst RESLOG_INTERVAL = argOf('--reslog-interval') === null ? 60 : Number(argOf('--reslog-interval'));",
+    replace: "峰值系統性偏低）\nconst RESLOG_INTERVAL = 60;",
+    test: "doctest",
+    expect: "D18n ",
   },
   // ---- 2026-10-02：判對時也印實際紅了哪幾條（StockDiary 挖出來的；doctest D18i）----
   {
@@ -5364,6 +5427,8 @@ const MODE_FLAGS = ['--affected', '--never-full', '--full'].filter((f) => proces
 const MODE = only ? 'only' : MODE_FLAGS[0] === '--full' ? 'full' : MODE_FLAGS[0] === '--never-full' ? 'never-full' : 'affected';
 const LIMIT = argOf('--limit') === null ? null : Number(argOf('--limit'));
 const DRY = process.argv.includes('--dry-run');
+// 資源紀錄的間隔（秒；2026-10-02 JLPT：60 秒取樣時，只跑幾秒的測試永遠取樣不到，峰值系統性偏低）
+const RESLOG_INTERVAL = argOf('--reslog-interval') === null ? 60 : Number(argOf('--reslog-interval'));
 const LEDGER_PATH = process.env.MM_LEDGER ? path.resolve(process.env.MM_LEDGER) : path.join(ROOT, LEDGER_FILE);
 
 // 每支測試的逾時（分鐘）。assertaudit 要把整條測試鏈 26 支都跑一遍，2026-10-01 實測約 18 分鐘——
@@ -5449,6 +5514,7 @@ let inflightCleared = false;
 const argProblems = [];
 if (MODE_FLAGS.length > 1 || (only && MODE_FLAGS.length)) argProblems.push('--only、--affected、--never-full、--full 只能選一個');
 if (LIMIT !== null && !(Number.isInteger(LIMIT) && LIMIT > 0)) argProblems.push('--limit 要接正整數');
+if (!(RESLOG_INTERVAL >= 1 && RESLOG_INTERVAL <= 600)) argProblems.push('--reslog-interval 要接 1 到 600 之間的秒數');
 eq(argProblems, [], '參數沒有衝突');
 if (argProblems.length) { done('mutationtest'); process.exit(1); }
 
@@ -5520,6 +5586,16 @@ else if (MODE === 'never-full') {
   // 整套：這個 commit 上已經算數地跑過、雜湊也沒變的跳過（續跑）
   SELECTED = MUTATIONS.filter((m) => !doneAt(ledger.entries[m.name], COMMIT, curOf(m)));
 }
+// --test <a|b>（2026-10-02，Dispatch 排的順序要逐段跑：照每機器小時驗到的條數，先跑便宜的）：
+// 在上面選好的母體裡，只留指定測試的（測試名完全相同，不是子字串）。指定的測試名在清單裡一條都沒有＝打錯字，停
+const TEST_FILTER = argOf('--test');
+if (TEST_FILTER !== null) {
+  const want = TEST_FILTER.split('|').map((s) => s.trim()).filter(Boolean);
+  const known = new Set(MUTATIONS.map((m) => m.test));
+  const unknown = want.filter((t) => !known.has(t));
+  if (!want.length || unknown.length) refuse(`--test 指定的測試在突變清單裡一條都沒有：${unknown.join('、') || '（空的）'}`);
+  SELECTED = SELECTED.filter((m) => want.includes(m.test));
+}
 const CANDIDATES = SELECTED.length;
 const CANDIDATE_SET = new Set(SELECTED.map((m) => m.name));
 // 只差空白或行尾的突變：改了等於沒改，而執行器判斷「是不是原樣」只比內容——跑了會顯示通過、什麼都沒驗到（checkmutations.whitespaceOnly）
@@ -5547,7 +5623,8 @@ const TESTS = [...new Set(SELECTED.map((m) => m.test))];
 const missingTests = TESTS.filter((t) => !fs.existsSync(path.join(ROOT, 'scripts', `${t}.mjs`)));
 eq(missingTests, [], '每條突變指定的測試檔都存在');
 note(`這一次：${taiwanToday()}、commit ${COMMIT}、跑法 ${MODE}`);   // 證據檔（scripts/evidence.mjs）從這一行取日期與 commit
-const pickedLine = `選了 ${SELECTED.length} 條突變（共 ${MUTATIONS.length}）${only ? `，關鍵字「${only}」` : ''}；跑法 ${MODE}${LIMIT !== null ? `，這一段最多 ${LIMIT} 條（符合的有 ${CANDIDATES} 條）` : ''}`;
+note(`資源紀錄的取樣間隔：每 ${RESLOG_INTERVAL} 秒（比最短的那支測試還長時，那支的程序可能一次都取樣不到，峰值會偏低）`);
+const pickedLine = `選了 ${SELECTED.length} 條突變（共 ${MUTATIONS.length}）${only ? `，關鍵字「${only}」` : ''}${TEST_FILTER !== null ? `，只留測試「${TEST_FILTER}」` : ''}；跑法 ${MODE}${LIMIT !== null ? `，這一段最多 ${LIMIT} 條（符合的有 ${CANDIDATES} 條）` : ''}`;
 // --only 對不到任何一條是打錯字（F1-11）；受影響／從沒全跑過／整套續跑選到 0 條，是「沒有要跑的」，不是錯
 if (MODE === 'only') ok(SELECTED.length > 0, pickedLine);
 else note(pickedLine);
@@ -5588,8 +5665,8 @@ if (SELECTED.length >= 10 || process.argv.includes('--reslog')) {
   const logDir = process.env.MM_LOGDIR ? path.resolve(process.env.MM_LOGDIR) : path.join(ROOT, '.logs');
   reslogFile = path.join(logDir, `${taiwanToday()}_${(COMMIT ?? 'nogit').replace('+', '-')}_${MODE}_reslog.log`);
   fs.mkdirSync(path.dirname(reslogFile), { recursive: true });
-  reslog = spawn(process.execPath, [path.join(ROOT, 'scripts/reslog.mjs'), '--root', String(process.pid), '--out', reslogFile, '--interval', '60'], { stdio: 'ignore' });
-  note(`資源紀錄：${path.relative(ROOT, reslogFile)}（每 60 秒一行；同時最多 ${MAX_WORKERS} 個工作程序是共用上限，本執行器一次只跑一支測試）`);
+  reslog = spawn(process.execPath, [path.join(ROOT, 'scripts/reslog.mjs'), '--root', String(process.pid), '--out', reslogFile, '--interval', String(RESLOG_INTERVAL)], { stdio: 'ignore' });
+  note(`資源紀錄：${path.relative(ROOT, reslogFile)}（每 ${RESLOG_INTERVAL} 秒一行；同時最多 ${MAX_WORKERS} 個工作程序是共用上限，本執行器一次只跑一支測試）`);
 }
 
 section('基準：沒有突變時全部要綠');

@@ -94,9 +94,16 @@ function main() {
   console.log(`WSCHECKED ${wsChecked.size}`);
   console.log(`TOTAL ${MUTATIONS.length}`);
   console.log(`EXPECTCOUNT ${MUTATIONS.filter((m) => m.expect != null).length}`);
+  // 母體的兩個數字都從資料數、都印，不相等就擋（TripQuest 2026-10-02：兩份空清單互比得到「差異 0」）：
+  // 帶 expect 的突變幾條（從清單數）＝戳記檔裡幾條（從戳記檔數）；有一邊是 0 也擋
+  const stampsNow = loadStamps(ROOT);
+  const nExpect = MUTATIONS.filter((m) => m.expect != null).length;
+  const nStamps = Object.keys(stampsNow).length;
+  console.log(`STAMPS 帶 expect 的突變 ${nExpect} 條（從清單數）、戳記 ${nStamps} 條（從 scripts/expect-review.json 數）`);
+  if (nExpect === 0 || nExpect !== nStamps) { console.log(`STALE 戳記與帶 expect 的突變條數對不上（${nStamps} ≠ ${nExpect}，或有一邊是 0）：新加的先跑 node scripts/assertregistry.mjs --stamp <名稱>`); stale += 1; }
   console.log(`STALECOUNT ${stale}`);
   // 預期需要複審（2026-10-02 A＋）：只報、不擋——母體變了、戳記還是舊的那幾條；複審完用 node scripts/assertregistry.mjs --stamp 重戳
-  const rv = reviewNeeded(MUTATIONS, loadStamps(ROOT), readTestFrom(ROOT));
+  const rv = reviewNeeded(MUTATIONS, stampsNow, readTestFrom(ROOT));
   for (const x of rv.slice(0, 10)) console.log(`REVIEW 預期需要複審：${x.test}｜${x.name}｜${x.why}`);
   if (rv.length > 10) console.log(`REVIEW …另 ${rv.length - 10} 條（node scripts/assertregistry.mjs 列全部）`);
   console.log(`REVIEWCOUNT ${rv.length}`);

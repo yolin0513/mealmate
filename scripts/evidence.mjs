@@ -83,6 +83,8 @@ export function evidenceProblems(parsed, ledger) {
     if (!parsed.commit && cs.size === 1) parsed.commit = [...cs][0];
   }
   if (parsed.selected === null) out.push('log 裡找不到「選了 N 條突變」——不知道母體有幾條');
+  // 兩邊都是 0（選了 0 條、抽到 0 列）也算對不上：0＝0 不是「一致」，是什麼都沒比（TripQuest 2026-10-02）
+  else if (parsed.selected === 0 || parsed.rows.length === 0) out.push(`選了 ${parsed.selected} 條、抽到 ${parsed.rows.length} 列——有一邊是 0，什麼都沒比到`);
   else if (parsed.rows.length !== parsed.selected) out.push(`證據 ${parsed.rows.length} 列，執行器選了 ${parsed.selected} 條——差 ${parsed.selected - parsed.rows.length} 條（log 不完整，或解析漏了）`);
   for (const r of parsed.rows) {
     const l = ledger?.entries?.[r.name]?.last;
