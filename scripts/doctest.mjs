@@ -951,6 +951,17 @@ section('重負載的資源紀錄（共用慣例 v11 §5.19、§5.20：紀錄要
   const s = summarizeProcs(rows, 100, 105);
   eq([s.workers, s.descendants, Math.round(s.bytes / MB)], [2, 4, 610],
     '資源紀錄 R1 node 算一個、瀏覽器實例算一個（它的子程序不另算）、git 不算個數；記憶體四個都算；記錄工具自己與別的主程式底下的不算');
+  // PID 重用（2026-10-02，JLPT 把 OneDrive 認成自己的子程序）：舊程序 300 的「父程序 PID」剛好等於這次的 root 100，
+  // 但它比 root 還早建立——不是 root 的子程序；它自己的子程序 301 也不算。真的子程序 101 照算。
+  const reuseRows = [
+    { pid: 100, ppid: 1, name: 'node.exe', bytes: 50 * MB, created: 1000 },
+    { pid: 101, ppid: 100, name: 'node.exe', bytes: 100 * MB, created: 1100 },
+    { pid: 300, ppid: 100, name: 'node.exe', bytes: 700 * MB, created: 500 },
+    { pid: 301, ppid: 300, name: 'node.exe', bytes: 70 * MB, created: 600 },
+  ];
+  const ru = summarizeProcs(reuseRows, 100);
+  eq([ru.workers, ru.descendants, Math.round(ru.bytes / MB), ru.reused], [1, 1, 100, 1],
+    '資源紀錄 R4 PID 重用：比 root 還早建立、父程序 PID 卻剛好等於 root 的舊程序（與它的子孫）不算——工作程序、全部程序、記憶體都不被灌水');
   const pk = peakOf('# 標頭\n2026-10-02 01:00:00\t工作程序 3\t合計記憶體 900 MB\t系統可用 6000 MB\t（子孫 5 個）\n2026-10-02 01:01:00\t工作程序 1\t合計記憶體 300 MB\t系統可用 7000 MB\t（子孫 2 個）\n2026-10-02 01:02:00\t取不到程序表\t系統可用 7000 MB\n');
   eq([pk.lines, pk.peakWorkers, pk.peakMB, pk.minFreeMB, pk.unreadable], [2, 3, 900, 6000, 1], '資源紀錄 R3 峰值取最大的那一行、可用記憶體取最低；取不到的行另外算，不當成 0');
   // 真的記得到（§5.20）：在一個已知有程序在跑的時刻記一行，工作程序數必須非 0；收掉之後必須是 0（兩個方向）

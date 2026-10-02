@@ -4663,6 +4663,15 @@ const MUTATIONS = [
     expect: "資源紀錄 R1",
   },
   {
+    name: "資源紀錄：認子程序不看建立時間（PID 重用）",
+    why: "父程序早就結束、號碼被這次的主程式拿去時，無關的舊程序（JLPT 實例：OneDrive）被認成子程序，全部程序數與記憶體被灌水。",
+    file: "scripts/reslog.mjs",
+    find: "    if (olderThanParent(r, parent)) { reused += 1; continue; }",
+    replace: "    void olderThanParent;",
+    test: "doctest",
+    expect: "資源紀錄 R4",
+  },
+  {
     name: "資源紀錄：峰值取最後一行而不是最大的",
     why: "整套收尾時程序最少；取最後一行，回報的峰值就是最低點。",
     file: "scripts/reslog.mjs",

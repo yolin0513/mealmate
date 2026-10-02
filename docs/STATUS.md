@@ -29,7 +29,7 @@
     - 畫面：食譜頁家人那一段（`data-unconfirmed-note`）寫「「醬油」未確認是否含蛋、奶；…買的時候看包裝標示」；食材表那幾樣旁邊標「未確認是否含蛋、奶」（`data-unconfirmed`）。本週頁、今天頁**沒做**（只在食譜頁）。
     - 資料驅動：Yolin 填 `docs/待確認_加工品葷素.md` 的「你的決定」→ 開發 Session 轉進 foodtags.json（素→checked 三項；含蛋／含奶／含五辛→tags；葷→tags.meat 或 seafood）→ 標示自動消失。表上加了「編號」欄；`scripts/procdecisions.mjs` 核對兩邊，doctest「待確認 P1–P8」：填了沒轉 → 紅。
     - 測試：recipetest「A 方案 U0–U7」（U7：兩條查詢路徑在真實資料上一致）；recipeviewtest「A 方案 V1–V5」（瀏覽器，**還沒跑**）；突變 15 條（recipetest 7、recipeviewtest 2、doctest 6）。
-  - **驗證時要做的**：`node --check`、`checkmutations`（578 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
+  - **驗證時要做的**：`node --check`、`checkmutations`（579 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
   （之前那一批——檢查器修補 P0／P1、F8–F10、擋法表、環境變數、補充說明十一——2026-09-25 已收尾。）
 - **App 最後一版仍是 `mealmate-v0.41.0`（2026-09-23）**。09-24、09-25 全是 scripts／docs，沒有 bump、沒有部署。
 - **檢查器修補的全部證據**：`docs/EVIDENCE_檢查器修補.md`，涵蓋 P0、P1、F8、F9、F10、擋法表、環境變數兩類、補充說明十一。STATUS 各節只留摘要。
@@ -229,7 +229,7 @@
 Node 端：datatest 76、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 151、plannertest 513、shoppingtest 150、timelinetest 71、doctest 277；
 瀏覽器端（puppeteer）：shelltest 162、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 199、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 116（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 44。（2026-09-24 F8 那一輪 `npm test` 數的）
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **578 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **579 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
 · **突變整套**＝`npm run mutationtest -- --full` 跑完全部（2026-10-02 起要明講 `--full`；以前是「不帶 `--only`」）。下面的耗時是 09-24 的 442 條（每條都把對應的那一支測試整支跑一次）。**實測約 17,119 秒（約 4.8 小時）**，2026-09-24 對 v0.41.0 量的（09-21 的 428 條約 16,600 秒、09-19 的 366 條約 13,500 秒）。
@@ -564,6 +564,12 @@ v11.3 比 v11.1 多的三件：§5.19 歸類**按次**（依這次挑到的範�
 · **第二支檔**：還原紀錄還在時要改另一支檔 → 拒絕（「一次只改一支」是現在的結構，不是機制保證的）。
 · 驗法：`scripts/resume-verify.mjs` 加「護欄」一段，每一道各一個情境、各有反向（刪掉還原紀錄 → 拒絕；人工還原後 → 照跑。工作區有改動 → --full 拒絕、--only 照跑。目標檔已是改壞後的樣子 → --only 拒絕。還原後不清紀錄的那一版 → 改第二支時拒絕）。守護欄的突變 7 條（`test: "resume-verify"`），兩個方向都有；突變共 564 條、`checkmutations` 0 過期。
 · 對照 TripQuest 的發現（`finally` 寫回、被殺掉時不跑）：本 App 同一種寫法，但改壞前先寫磁碟上的還原紀錄、下次啟動先還原——四個 App 裡唯一有這道的；寫進 `docs/HOWTO_範圍化突變與帳本.md` 第七節給另外三個 App 抄。
+
+**「重負載」的定義依 Dispatch 2026-10-02 的判準調整**（統籌者會寫進條文）：
+· 舊（v11.3 §5.19 的字面）：會開 2 個以上工作程序、或這一次預估超過 1 分鐘的，開跑前要許可。照字面，連 2 個程序跑 43 秒都要許可——不是這條規則的本意（本意是防筆電過熱、記憶體吃光而卡死）。
+· 新：**重負載 ＝（2 個以上工作程序且預期超過 60 秒）或 任何預期超過 600 秒的 或 任何會開瀏覽器的套件。** 其餘照跑、不用許可，但要記進資源紀錄。
+· 先前幾場秒級的 clone 對照組（WS、資源紀錄的假工作）照新判準不需要許可；不回頭記成違規。
+**資源紀錄的 PID 重用（2026-10-02，JLPT 挖出、照查本 App 的 `scripts/reslog.mjs`）**：本 App 同一個洞——認子程序只看「父程序 PID」，沒看建立時間；父程序早就結束、號碼被這次的主程式拿去時，無關的舊程序會被認成子程序。已修：認子程序要求子程序不早於父程序建立，排除的與建立時間不明的各自計數、印在每一行；doctest「資源紀錄 R4」（合成的 PID 重用樣本）＋一條「不看建立時間」的突變。**修好之前報的峰值**：報的是「工作程序」數（只數 node／python／瀏覽器實例），每一行的「子孫 N 個」是全部程序數——兩者都可能被無關的舊程序灌水，舊紀錄沒有建立時間、無法事後確認。
 
 **第 5 步　v10 三條新做法的現況（這張工單不動手）**
 · §5.11 推上去的每一個 commit 單獨 checkout 都要是綠的：**尚未符合（沒有機器檢查）**——做法上程式與它牽動的文件數字放同一個 commit，但沒有東西擋；這一輪的兩個本機 WIP commit 推送前會整理成各自是綠的。等交辦。

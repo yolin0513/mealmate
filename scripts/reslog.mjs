@@ -21,16 +21,18 @@ export const BROWSER_RX = /^(chrome|chrome-headless-shell|chromium|msedge|firefo
 /** 讀整台機器的程序表：[{ pid, ppid, name, bytes }]。取不到就丟錯。 */
 export function processTable() {
   if (process.platform === 'win32') {
+    // 建立時間（毫秒）一起取：認子程序要用它擋 PID 重用（見 summarize）
     const out = execFileSync('powershell', ['-NoProfile', '-Command',
-      'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,WorkingSetSize | ConvertTo-Json -Compress'],
+      'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,WorkingSetSize,@{n="Created";e={ if ($_.CreationDate) { [DateTimeOffset]::new($_.CreationDate).ToUnixTimeMilliseconds() } else { $null } }} | ConvertTo-Json -Compress'],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 });
     const rows = JSON.parse(out);
-    return (Array.isArray(rows) ? rows : [rows]).map((r) => ({ pid: r.ProcessId, ppid: r.ParentProcessId, name: String(r.Name ?? ''), bytes: Number(r.WorkingSetSize ?? 0) }));
+    return (Array.isArray(rows) ? rows : [rows]).map((r) => ({ pid: r.ProcessId, ppid: r.ParentProcessId, name: String(r.Name ?? ''), bytes: Number(r.WorkingSetSize ?? 0), created: Number.isFinite(Number(r.Created)) && r.Created !== null ? Number(r.Created) : null }));
   }
-  const out = execFileSync('ps', ['-eo', 'pid=,ppid=,rss=,comm='], { encoding: 'utf8' });
+  const now = Date.now();
+  const out = execFileSync('ps', ['-eo', 'pid=,ppid=,rss=,etimes=,comm='], { encoding: 'utf8' });
   return out.split('\n').filter((l) => l.trim()).map((l) => {
-    const [pid, ppid, rss, ...name] = l.trim().split(/\s+/);
-    return { pid: Number(pid), ppid: Number(ppid), name: path.basename(name.join(' ')), bytes: Number(rss) * 1024 };
+    const [pid, ppid, rss, etimes, ...name] = l.trim().split(/\s+/);
+    return { pid: Number(pid), ppid: Number(ppid), name: path.basename(name.join(' ')), bytes: Number(rss) * 1024, created: Number.isFinite(Number(etimes)) ? now - Number(etimes) * 1000 : null };
   });
 }
 
@@ -42,13 +44,19 @@ export function summarize(rows, rootPid, selfPid = null) {
   const kids = new Map();
   for (const r of rows) { if (!kids.has(r.ppid)) kids.set(r.ppid, []); kids.get(r.ppid).push(r); }
   const byPid = new Map(rows.map((r) => [r.pid, r]));
+  // PID 重用（2026-10-02，JLPT 把 OneDrive 認成自己的子程序）：Windows 不會改寫「父程序 PID」——父程序早就結束、號碼被新程序拿去，
+  // 舊程序就被認成新程序的子程序。認子程序要求「子程序不早於父程序建立」；建立時間任一邊不知道時照舊認（並在 unknownAge 計數）。
+  const olderThanParent = (child, parent) => child.created !== null && child.created !== undefined && parent?.created !== null && parent?.created !== undefined && child.created < parent.created;
   const out = []; const stack = [...(kids.get(rootPid) ?? [])];
-  const seen = new Set();
+  const seen = new Set(); let reused = 0; let unknownAge = 0;
   while (stack.length) {
     const r = stack.pop();
     if (seen.has(r.pid) || r.pid === rootPid) continue;
     seen.add(r.pid);
     if (selfPid !== null && r.pid === selfPid) continue;                 // 記錄工具自己與它的子程序不算
+    const parent = byPid.get(r.ppid);
+    if (olderThanParent(r, parent)) { reused += 1; continue; }            // 比父程序還早建立：不是它的子程序（PID 重用），連同它的子孫都不算
+    if (r.created === null || r.created === undefined || parent?.created === null || parent?.created === undefined) unknownAge += 1;
     out.push(r);
     stack.push(...(kids.get(r.pid) ?? []));
   }
@@ -58,13 +66,13 @@ export function summarize(rows, rootPid, selfPid = null) {
     if (WORKER_RX.test(r.name)) names.push(r.name);
     else if (BROWSER_RX.test(r.name) && !(parent && BROWSER_RX.test(parent.name))) names.push(r.name);
   }
-  return { workers: names.length, bytes: out.reduce((s, r) => s + (Number.isFinite(r.bytes) ? r.bytes : 0), 0), descendants: out.length, names };
+  return { workers: names.length, bytes: out.reduce((s, r) => s + (Number.isFinite(r.bytes) ? r.bytes : 0), 0), descendants: out.length, names, reused, unknownAge };
 }
 
 const mb = (b) => Math.round(b / 1048576);
 export function lineOf(now, s, freeBytes) {
   const t = new Date(now.getTime() + 8 * 3600000).toISOString().replace('T', ' ').slice(0, 19);
-  return s ? `${t}\t工作程序 ${s.workers}\t合計記憶體 ${mb(s.bytes)} MB\t系統可用 ${mb(freeBytes)} MB\t（子孫 ${s.descendants} 個）`
+  return s ? `${t}\t工作程序 ${s.workers}\t合計記憶體 ${mb(s.bytes)} MB\t系統可用 ${mb(freeBytes)} MB\t（全部程序 ${s.descendants} 個；PID 重用排除 ${s.reused ?? 0}、建立時間不明 ${s.unknownAge ?? 0}）`
     : `${t}\t取不到程序表\t系統可用 ${mb(freeBytes)} MB`;
 }
 
