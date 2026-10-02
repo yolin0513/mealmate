@@ -38,7 +38,15 @@
 - 四、裸寫的 `bash`（JLPT 撞出來的：Windows 上照 PATH 先解到 WSL 的 bash，閘門驗法沒跑起來、幾秒回 1）。本 repo 由 node 叫 bash 的只有 `gatemutants.mjs` 4 處（搜 `spawnSync|execFileSync|spawn|execSync` 接 bash／sh／python／wsl，命中 4 處——搜尋式是活的；`shell: true` 0 處；package.json 0 處）。實測：從 Git Bash 開的 node 解到 Git 的 bash；**PowerShell 的 PATH 第一支是系統目錄的 bash.exe（WSL），第二支在 WindowsApps**——從 PowerShell 跑 gatemutants 就會中。改成 `resolveBash()`：照 PATH 找第一支，落在系統目錄或 WindowsApps 的直接拒絕、不執行；其餘問 uname，必須是 MINGW／MSYS；解不出來判情境未成立、回 8、一條都沒跑。doctest BS1–BS7（BS7 從真實入口），突變 3 條。推送閘門本身是我從 Git Bash 下 `bash scripts/pushgate.sh`，閘門裡再叫 bash 時 PATH 已經是 Git Bash 的。
 - 待決（給統籌者／Yolin）：JLPT 的「預期只用編號、整組完全相同」與「預期寫成對母體的完整劃分」。gatemutants 已經是這個形狀（預期＝情境編號、整組比對、總數取自原樣那一次），只差 must／mustNot 那幾段理由文字；執行器的 600 條是另一回事——改成每條對全部斷言表態，要先讓每個斷言有唯一編號，而且每條突變的完整劃分要實跑才寫得出來（等於一次整套）。見回報裡的選項。
 
-**等 Dispatch 排的重負載（2026-10-02 晚）**：① resume-verify（加了讀回確認之後還沒重跑）；② 新突變 `--only`：hook 3 條、D18i 2 條、D18j 1 條、GM 4 條、BS 3 條、CC1 ×3、EV ×5、R4（PID 重用）、R3c；歧義那 6 條改完也排這裡；③ `versionmixtest` 那 3 條崩潰才抓到的（瀏覽器）；④ 最後：從沒整套跑過的 137 條，先抽 5 條、各來自不同測試、避開最快那一端量秒數再外推。
+**結構化預期：A＋（Dispatch 2026-10-02 晚裁示）**
+- 先講清楚現況：執行器的 expect 比對，**帶 expect 的全部都是「失敗那一行的任何位置含這段字」（比開頭 0 條、比中間全部）**。所以問題不是「有 6 條有歧義」，而是「全部都用一個可能被不屬於它的內容滿足的方式在比對，其中 6 條已經確定真的會」。那 6 條已修（改測試訊息加固定標籤、更新 expect；doctest A2 的重複改成從突變清單取）；修完重量：609 條、帶 expect 276 條，**沒問題 158、有歧義 0、判斷不了 118**（判斷不了＝訊息執行時才組出來或在資料表裡，單獨一類）。
+- gatemutants 的理由：以前 3 條用 must／mustNot 比「輸出裡某處含這段字」，改成**理由碼集合完全相同**（閘門驗法每行「編號 名稱｜理由｜判定」，取判不符合那幾行第二欄冒號前那段）與 gatescan 命中行的**類別欄完全相同**。第 11 種取不到 diff 那條，實情是兩個理由碼都在（取 diff 失敗之後前置斷言也不成立），以前的「含有」看不出來；下一條（拿掉明講）只剩一個，靠集合相等分開——**這一點是讀程式推論的，要用 `gatemutants --only` 實跑確認**。預期清單過期也查理由碼在不在閘門驗法裡。doctest RC1–RC4，突變 3 條。
+- 斷言登記表＋母體戳記（`scripts/assertregistry.mjs`）：每支測試檔的斷言呼叫（`ASSERT_FNS` 登記：ok、eq、near、throws、noneOf、everyOf、detects、step）從呼叫開始收到右括號為一筆，編號＝正規化內容的雜湊；字串、樣板字面、regex、註解裡的不算（doctest 的探針原始碼寫在字串裡，第一版沒排掉，多算了二十幾筆、還造出兩組假的重複）；括號收不齊的那支不給戳記（判斷不了）。現況 15 支測試、0 重複、0 收不齊。每條帶 expect 的突變在 `scripts/expect-review.json` 記寫（或複審）時的母體筆數與雜湊；`checkmutations`（REVIEWCOUNT、REVIEW 行）與執行器開跑前（「預期需要複審」一節，說明行）都報母體變了的，**只報不擋**；複審完 `node scripts/assertregistry.mjs --stamp <關鍵字或測試名>`。2026-10-02 第一次全部戳上＝當時的母體，不代表逐條複審過；今晚自己改了 doctest、recipetest 之後重戳，複審依據是歧義量測 0 條（新加的斷言沒有一條含既有的 expect）。doctest AR1–AR3（AR2、AR3 從 checkmutations 的真實入口、在 clone 裡）、D18k，突變 6 條。
+  已知的代價：doctest 幾乎每一輪都會加斷言，一加，doctest 那 ~140 條帶 expect 的就全部「需要複審」。照「只報不擋、分批複審」處理；如果實際上變成每次都整批重戳、沒人看，就是這個機制失效的訊號，要回頭縮小母體（例如只算同一節的斷言）。
+- **不做 B（每條突變對全部斷言逐一表態的完整劃分），理由**：這是本 repo 的工程取捨，不是條文問題（Dispatch 2026-10-02 判斷，我同意）。600 多條 × 每支測試幾十到幾百個斷言，不是人寫得出來的；真值要靠一次約 5 小時的整套才有；而它要擋的兩種風險——expect 被別的斷言滿足（歧義）、母體長大了 expect 沒跟上——A＋用歧義量測與母體戳記以很小的成本擋下大部分。JLPT 做得到完整劃分是因為它只有 33 個情境。將來要改，從這裡的理由重新評估。
+- 註：doctest 今晚從約 31 秒（帳本裡 9 次的中位數）變成實測 63 秒（含 npm），主因是新加的幾節各自 clone 一份 repo（WS、GM、AR）。每條 doctest 突變都要跑一次 doctest，這個成本會乘上 ~240 條；之後可以合併成一份 clone 共用。
+
+**等 Dispatch 排的重負載（2026-10-02 晚）**：① resume-verify（加了讀回確認之後還沒重跑）；② 新突變 `--only`：hook 3 條、D18i 2 條、D18j 1 條、GM 4 條、BS 3 條、RC 3 條、AR 6 條（含 D18k）、CC1 ×3、EV ×5、R4（PID 重用）、R3c；歧義那 6 條改完的 4 條 recipetest／doctest 突變也排這裡；gatemutants --only「取不到 diff」與「M4」（理由碼改法要實跑確認）；③ `versionmixtest` 那 3 條崩潰才抓到的（瀏覽器）；④ 最後：從沒整套跑過的 137 條，先抽 5 條、各來自不同測試、避開最快那一端量秒數再外推。
 
 **收尾快照（2026-09-25）——先讀這一段**
 - **突變整套：暫停（2026-10-01 晚上，Dispatch 指示）**——今天兩次非預期關機，都發生在整套跑的時候；原因查清楚、和其他專案協調好之前**不要重跑**。四次開跑都沒跑完、結果都不採用：`aa3f99c` 基準段 assertaudit 逾時；`78192f2` 跑到 266 條時關機；`5dc6664` 基準段 23 支同時失敗、沒有輸出（分不出原因，促成 `aad9a1a` 的 runkind）；`aad9a1a` 跑到 42 條時關機。
@@ -63,7 +71,7 @@
     - 畫面：食譜頁家人那一段（`data-unconfirmed-note`）寫「「醬油」未確認是否含蛋、奶；…買的時候看包裝標示」；食材表那幾樣旁邊標「未確認是否含蛋、奶」（`data-unconfirmed`）。本週頁、今天頁**沒做**（只在食譜頁）。
     - 資料驅動：Yolin 填 `docs/待確認_加工品葷素.md` 的「你的決定」→ 開發 Session 轉進 foodtags.json（素→checked 三項；含蛋／含奶／含五辛→tags；葷→tags.meat 或 seafood）→ 標示自動消失。表上加了「編號」欄；`scripts/procdecisions.mjs` 核對兩邊，doctest「待確認 P1–P8」：填了沒轉 → 紅。
     - 測試：recipetest「A 方案 U0–U7」（U7：兩條查詢路徑在真實資料上一致）；recipeviewtest「A 方案 V1–V5」（瀏覽器，**還沒跑**）；突變 15 條（recipetest 7、recipeviewtest 2、doctest 6）。
-  - **驗證時要做的**：`node --check`、`checkmutations`（600 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
+  - **驗證時要做的**：`node --check`、`checkmutations`（609 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
   （之前那一批——檢查器修補 P0／P1、F8–F10、擋法表、環境變數、補充說明十一——2026-09-25 已收尾。）
 - **App 最後一版仍是 `mealmate-v0.41.0`（2026-09-23）**。09-24、09-25 全是 scripts／docs，沒有 bump、沒有部署。
 - **檢查器修補的全部證據**：`docs/EVIDENCE_檢查器修補.md`，涵蓋 P0、P1、F8、F9、F10、擋法表、環境變數兩類、補充說明十一。STATUS 各節只留摘要。
@@ -263,7 +271,7 @@
 Node 端：datatest 76、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 151、plannertest 513、shoppingtest 150、timelinetest 71、doctest 277；
 瀏覽器端（puppeteer）：shelltest 162、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 199、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 116（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 44。（2026-09-24 F8 那一輪 `npm test` 數的）
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **600 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **609 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
 · **突變整套**＝`npm run mutationtest -- --full` 跑完全部（2026-10-02 起要明講 `--full`；以前是「不帶 `--only`」）。下面的耗時是 09-24 的 442 條（每條都把對應的那一支測試整支跑一次）。**實測約 17,119 秒（約 4.8 小時）**，2026-09-24 對 v0.41.0 量的（09-21 的 428 條約 16,600 秒、09-19 的 366 條約 13,500 秒）。

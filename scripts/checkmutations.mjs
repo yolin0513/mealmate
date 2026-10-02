@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { reviewNeeded, loadStamps, readTestFrom } from './assertregistry.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -94,6 +95,11 @@ function main() {
   console.log(`TOTAL ${MUTATIONS.length}`);
   console.log(`EXPECTCOUNT ${MUTATIONS.filter((m) => m.expect != null).length}`);
   console.log(`STALECOUNT ${stale}`);
+  // 預期需要複審（2026-10-02 A＋）：只報、不擋——母體變了、戳記還是舊的那幾條；複審完用 node scripts/assertregistry.mjs --stamp 重戳
+  const rv = reviewNeeded(MUTATIONS, loadStamps(ROOT), readTestFrom(ROOT));
+  for (const x of rv.slice(0, 10)) console.log(`REVIEW 預期需要複審：${x.test}｜${x.name}｜${x.why}`);
+  if (rv.length > 10) console.log(`REVIEW …另 ${rv.length - 10} 條（node scripts/assertregistry.mjs 列全部）`);
+  console.log(`REVIEWCOUNT ${rv.length}`);
   // 有過期的就回傳非 0：只印字、回 0 的話，接在 `&&` 後面的指令照樣會跑（2026-09-23 推送閘門同一類的坑）
   if (stale > 0) process.exitCode = 1;
 }

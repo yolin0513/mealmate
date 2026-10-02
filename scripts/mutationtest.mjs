@@ -20,6 +20,7 @@ import { shouldRecordFull, writeLastFull, LASTFULL_FILE, taiwanToday, currentVer
 import { execFileSync, spawn } from 'node:child_process';
 import { peakOf } from './reslog.mjs';
 import { whitespaceOnly, expectProblems } from './checkmutations.mjs';
+import { reviewNeeded, loadStamps, readTestFrom } from './assertregistry.mjs';
 import {
   LEDGER_FILE, contentHash, scopeFor, scopeHash, mutationDefHash, runnerHash, rerunReasons,
   emptyLedger, ledgerProblems, recordRun, neverFullNames, fullComplete, doneAt, ledgerOrphans,
@@ -3025,7 +3026,7 @@ const MUTATIONS = [
     find: "    { \"food\": \"麵線\", \"label\": \"麵線\", \"grams\": 200, \"track\": \"base\" },",
     replace: "    { \"food\": \"麵線\", \"label\": \"麵線\", \"grams\": 200, \"track\": \"base\" },\n    { \"food\": \"油條\", \"label\": \"油條\", \"grams\": 54, \"track\": \"base\" },",
     test: "recipetest",
-    expect: "用到成分沒寫的加工品",
+    expect: "用到成分沒寫的加工品的菜都是純葷的",
   },
   {
     name: "新補的全素早餐有一道不是早餐",
@@ -3052,7 +3053,7 @@ const MUTATIONS = [
     find: "  \"time\": 40,",
     replace: "  \"time\": 45,",
     test: "recipetest",
-    expect: "全部在週末早餐的 40 分鐘內",
+    expect: "早餐再補 14 道：全部在週末早餐的 40 分鐘內",
   },
   {
     name: "新早餐的步驟出現禁用詞",
@@ -3061,7 +3062,7 @@ const MUTATIONS = [
     find: "把湯和料舀到麵上。",
     replace: "把湯和料舀到麵上，建議趁熱吃。",
     test: "recipetest",
-    expect: "名稱、食材、步驟都沒有禁用詞",
+    expect: "早餐再補 14 道：名稱、食材、步驟都沒有禁用詞",
   },
   // ---- 2026-09-19 測試範圍修訂一：mutationtest 拆出 npm test、全面檢測兩行紀錄、sincefull ----
   {
@@ -4499,8 +4500,8 @@ const MUTATIONS = [
     name: "gatemutants：不查預期的情境在不在",
     why: "預期清單寫了一種閘門驗法已經沒有的情境，跑下去變成「不如預期」，被讀成閘門有問題。",
     file: "scripts/gatemutants.mjs",
-    find: "if (!ids.has(id)) out.push(",
-    replace: "if (false) out.push(",
+    find: "for (const id of c.expect ?? []) if (!ids.has(id)) out.push(",
+    replace: "for (const id of c.expect ?? []) if (false) out.push(",
     test: "doctest",
     expect: "GM2 ",
   },
@@ -4557,6 +4558,88 @@ const MUTATIONS = [
     replace: "  if (false) { console.log(",
     test: "doctest",
     expect: "BS7 ",
+  },
+  {
+    name: "gatemutants：理由碼不分 1 與 11",
+    why: "第 1 種的理由把第 11 種的行也算進來，理由碼集合就被別的情境的內容滿足。",
+    file: "scripts/gatemutants.mjs",
+    find: "!f[0].startsWith(`${id} `)",
+    replace: "!f[0].startsWith(`${id}`)",
+    test: "doctest",
+    expect: "RC1b ",
+  },
+  {
+    name: "gatemutants：理由碼只要含有就算對",
+    why: "退回「含有」：多出來的理由（例：該明講的沒明講、只剩前置不成立）看不出來——正是要拿掉的那種比對。",
+    file: "scripts/gatemutants.mjs",
+    find: "reasonCodes(out, id).join('\\n') === [...want].sort().join('\\n')",
+    replace: "want.some((w) => reasonCodes(out, id).includes(w))",
+    test: "doctest",
+    expect: "RC2 ",
+  },
+  {
+    name: "gatemutants：理由碼不查在不在",
+    why: "閘門驗法的理由改了字，清單裡的理由碼過期，跑下去變成「理由不對」，被讀成閘門有問題。",
+    file: "scripts/gatemutants.mjs",
+    find: "      for (const code of codes) if (!vsrc.includes(`｜${code}`)) out.push(",
+    replace: "      for (const code of codes) if (false) out.push(",
+    test: "doctest",
+    expect: "RC3 ",
+  },
+  // ---- 2026-10-02 A＋：斷言登記表與「預期需要複審」（scripts/assertregistry.mjs；doctest AR1–AR3、D18k）----
+  {
+    name: "登記表：字串裡的 ok( 也算成斷言",
+    why: "探針的原始碼寫在字串裡（doctest 一堆）；算進去母體就是錯的，重複與筆數都失真。",
+    file: "scripts/assertregistry.mjs",
+    find: "    if (mask[start]) continue;\n",
+    replace: "\n",
+    test: "doctest",
+    expect: "AR1 ",
+  },
+  {
+    name: "登記表：括號收不齊照樣給戳記",
+    why: "數不清楚的母體被當成一個版本，之後改了也可能比對成「沒變」（§5.13：判斷不了不是沒有問題）。",
+    file: "scripts/assertregistry.mjs",
+    find: "  if (unparsed.length) return null;\n",
+    replace: "\n",
+    test: "doctest",
+    expect: "AR1 ",
+  },
+  {
+    name: "戳記只看筆數、不看內容",
+    why: "刪一條、加一條，筆數一樣，母體其實換了；斷言改了字也一樣。",
+    file: "scripts/assertregistry.mjs",
+    find: "  return { n: entries.length, hash: sha(entries.map((e) => e.id).sort().join('\\n')).slice(0, 16) };",
+    replace: "  return { n: entries.length, hash: String(entries.length) };",
+    test: "doctest",
+    expect: "AR3 ",
+  },
+  {
+    name: "複審判斷不比雜湊",
+    why: "母體換了、戳記還是舊的，也不報——正是要擋的那種靜默。",
+    file: "scripts/assertregistry.mjs",
+    find: "old.test !== m.test || old.hash !== now.hash",
+    replace: "old.test !== m.test",
+    test: "doctest",
+    expect: "AR2 ",
+  },
+  {
+    name: "checkmutations 不報預期需要複審",
+    why: "算了但沒印：看不見等於沒有。",
+    file: "scripts/checkmutations.mjs",
+    find: "  const rv = reviewNeeded(MUTATIONS, loadStamps(ROOT), readTestFrom(ROOT));\n",
+    replace: "  const rv = [];\n",
+    test: "doctest",
+    expect: "AR2 ",
+  },
+  {
+    name: "執行器開跑前不報預期需要複審",
+    why: "只在 checkmutations 看得到；跑突變的那一次（真的要用到 expect 的時候）看不到。",
+    file: "scripts/mutationtest.mjs",
+    find: "要複審的 ${rv.length} 條`);\n  for (const x of rv) note(",
+    replace: "要複審的 ${rv.length} 條`);\n  for (const x of []) note(",
+    test: "doctest",
+    expect: "D18k ",
   },
   // ---- 2026-10-02：判對時也印實際紅了哪幾條（StockDiary 挖出來的；doctest D18i）----
   {
@@ -5463,6 +5546,15 @@ for (const t of TESTS) {
   const fails = r.out.split('\n').filter((l) => l.trimStart().startsWith('✗')).slice(0, 5);
   ok(r.passed, `基準 ${t} 通過`, r.passed ? '' : [`（${KIND_LABELS[r.kind]}，${r.seconds} 秒）`, ...(fails.length ? fails : r.out.split('\n').filter(Boolean).slice(-8))].join('\n      '));
   if (!r.passed) baselineOk = false;
+}
+
+// 預期需要複審（2026-10-02 A＋）：這一次要跑的、帶 expect 的突變裡，測試的斷言母體跟戳記不一樣的——只報、不擋。
+// 跑出來的「紅在預期那一條」照樣算，但它的 expect 寫的時候還沒有後來新增的斷言，要找時間複審（scripts/assertregistry.mjs）
+{
+  const rv = reviewNeeded(SELECTED, loadStamps(ROOT), readTestFrom(ROOT));
+  section('預期需要複審');
+  note(`這一次要跑的 ${SELECTED.length} 條裡，帶 expect 的 ${SELECTED.filter((m) => m.expect != null).length} 條；母體跟戳記不一樣、要複審的 ${rv.length} 條`);
+  for (const x of rv) note(`預期需要複審：${x.test}｜${x.name}｜${x.why}`);
 }
 
 let ran = 0; // 實際跑到（改壞、跑測試、還原）的條數；整套完整跑完才寫 mutation-lastfull.json

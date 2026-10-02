@@ -23,7 +23,8 @@ import {
 import { listen as serveListen } from './serve.mjs';
 import { summarize as summarizeProcs, peakOf } from './reslog.mjs';
 import { verifyCopies } from './copycheck.mjs';
-import { CASES as GM_CASES, staleProblems as gmStaleProblems, resolveBash as gmResolveBash } from './gatemutants.mjs';
+import { CASES as GM_CASES, staleProblems as gmStaleProblems, resolveBash as gmResolveBash, reasonCodes as gmReasonCodes, reasonsMatch as gmReasonsMatch } from './gatemutants.mjs';
+import { controls as arControls } from './assertregistry.mjs';
 import { cleanControls as evCleanControls } from './evidence.mjs';
 import { lastFullNotInLedger } from './sincefull.mjs';
 import { parseDecisionTable, decisionProblems, DECISION_FILE } from './procdecisions.mjs';
@@ -368,7 +369,8 @@ section('突變的 expect 都找得到（A2；共用慣例 v6 §5.9，2026-09-23
     withExpect.filter((m) => expectProblems(m, readRel).length).slice(0, 3).map((m) => `${m.name}：${expectProblems(m, readRel).join('；')}`).join(' ／ '));
   // 對照組：合成的假突變，跑同一個檢查。正例含 StockDiary 點名的坑——拿執行時才組出來的字（插值之後的）當 expect
   const REAL_TEST = 'doctest';
-  const REAL_LINE = 'A2 每一條 expect 都是對應測試原始碼裡的一段字面';
+  // 取自突變清單裡那一條的 expect（2026-10-02：以前在這裡再寫一次同一段字，這段 expect 就在 doctest 裡出現兩處——歧義量測點名）
+  const REAL_LINE = MUTS.find((m) => m.name === '真實的 expect 過期了（斷言訊息的錨點被拿掉）')?.expect ?? '（突變清單裡找不到那一條）';
   const fakeTestSrc = 'ok(x, `${label}：標了 ${want}`);';
   const fakeRead = (rel) => (rel === 'scripts/fake-a2.mjs' ? fakeTestSrc : readRel(rel));
   detects((m) => expectProblems(m, fakeRead).length > 0, {
@@ -396,7 +398,7 @@ section('突變的 expect 都找得到（A2；共用慣例 v6 §5.9，2026-09-23
   const runIn = (mutationsLiteral) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-checkmut-'));
     fs.mkdirSync(path.join(dir, 'scripts'));
-    fs.copyFileSync(path.join(ROOT, 'scripts/checkmutations.mjs'), path.join(dir, 'scripts/checkmutations.mjs'));
+    for (const f of ['checkmutations.mjs', 'assertregistry.mjs']) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(dir, 'scripts', f));   // checkmutations 2026-10-02 起 import assertregistry
     fs.writeFileSync(path.join(dir, 'scripts/mutationtest.mjs'), `const MUTATIONS = [\n${mutationsLiteral}\n];\n`);
     fs.writeFileSync(path.join(dir, 'scripts/faketest.mjs'), 'ok(x, "A2 假的斷言訊息");\n');
     fs.writeFileSync(path.join(dir, 'target.txt'), 'alpha beta\n');
@@ -611,7 +613,7 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
   // 稽核器：checkmutations 的突變清單是空的 → 判失敗（不是 0 個過期）
   const cm = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-f1cm-'));
   fs.mkdirSync(path.join(cm, 'scripts'));
-  fs.copyFileSync(path.join(ROOT, 'scripts/checkmutations.mjs'), path.join(cm, 'scripts/checkmutations.mjs'));
+  for (const f of ['checkmutations.mjs', 'assertregistry.mjs']) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(cm, 'scripts', f));
   fs.writeFileSync(path.join(cm, 'scripts/mutationtest.mjs'), 'const MUTATIONS = [\n];\n');
   const cme = runP(process.execPath, [path.join(cm, 'scripts/checkmutations.mjs')], { cwd: cm });
   ok(cme.code !== 0 && cme.out.includes('突變清單是空的'), `F1-10 稽核器（checkmutations）：突變清單是空的 → 回 ${cme.code}，理由「突變清單是空的」`);
@@ -1223,6 +1225,9 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     ok(seen1.startsWith('  · 實際紅了 1 條；含「AFF 探針」的 1 條：✗ AFF 探針') && !r1.out.split('\n').some((l) => l.trimStart().startsWith('✗'))
       && led1?.entries?.['AFF探針']?.last?.failed === 1 && led1?.entries?.['AFF探針']?.last?.expectHits === 1,
     `受影響 D18i 判對時也印出實際紅了哪幾條（說明行，不在行首放 ✗），帳本記紅了幾條、含 expect 的幾條：${seen1.trim() || '（沒有這一行）'}`);
+    // D18k（2026-10-02 A＋）：執行器開跑前也報「預期需要複審」（暫存 repo 沒有戳記檔 → 那一條沒有戳記），只報不擋
+    ok(r1.out.split('\n').some((l) => l.startsWith('  · 預期需要複審：affprobe｜AFF探針｜沒有戳記')) && r1.code === 0,
+      `受影響 D18k 執行器開跑前列出要複審的（這裡是沒有戳記的那一條），用說明行、不擋（回 ${r1.code}）`);
     const r2 = run();
     ok(r2.code === 0 && r2.out.includes('選了 0 條突變') && r2.out.includes('沿用上次結果 1 條'), `受影響 D18b 第二次什麼都沒改 → 沿用、0 條要跑（回 ${r2.code}）`);
     // D18g（遊戲專案 2026-10-02 撞出來的同一件事）：帳本裡「沒有結果／逾時被殺」的那一條，選擇時要當成沒跑過——
@@ -1399,6 +1404,67 @@ section('預期清單過期要用獨立的訊息、開跑前擋（2026-10-02；g
     fs.rmSync(clone, { recursive: true, force: true });
   }
   ok(!fs.existsSync(clone), 'GM（清理）暫存 clone 用完刪掉了');
+}
+
+section('gatemutants 的理由改成理由碼、集合完全相同（2026-10-02 Dispatch 選 A：不再用「輸出裡某處含這段字」）');
+{
+  const sample = [
+    '7 全部正常｜回傳 0（預期 0）｜假遠端 a → b（預期 local）｜符合',
+    '11 ++ 開頭的新增行｜取不到 diff｜不符合（情境沒造成，中止）',
+    '11 ++ 開頭的新增行｜前置不成立：+++ 應該恰好 3 行，實際 0 行｜不符合（情境沒造成，中止）',
+    '1 自查命中｜回傳 0（預期 1）｜假遠端 a → b（預期 same）｜不符合',
+    '12 只刪不增｜前置不成立：範圍裡要有 commit｜符合',
+  ].join('\n');
+  eq(gmReasonCodes(sample, '11').join('、'), '前置不成立、取不到 diff', 'RC1 擷取第 11 種的理由碼：取第二欄冒號前那一段、兩行都抓到（擷取本身的對照組，§5.11 第二層）');
+  eq(gmReasonCodes(sample, '1').join('、'), '回傳 0（預期 1）', 'RC1b 第 1 種只抓「1 」開頭的，不把第 11 種的行算進來');
+  eq(gmReasonCodes(sample, '12').join('、'), '', 'RC1c 判定欄不是「不符合」的行不算（第 12 種那一行是符合）');
+  ok(gmReasonsMatch(sample, { 11: ['取不到 diff', '前置不成立'] }) && !gmReasonsMatch(sample, { 11: ['前置不成立'] }) && !gmReasonsMatch(sample, { 11: ['取不到 diff'] }),
+    'RC2 理由碼要「集合完全相同」：兩個都寫才對；只寫其中一個（以前的「含有」會過）→ 不對');
+  const p = gmStaleProblems([{ label: '合成：理由碼不存在', find: null, expect: ['11'], reasons: { 11: ['沒有這個理由碼'] } }],
+    (rel) => (rel === 'scripts/pushgate-verify.sh' ? 's11() { fresh\n  echo "11 x｜取不到 diff｜不符合"; }\n' : null));
+  ok(p.length === 1 && p[0].includes('理由碼「沒有這個理由碼」在閘門驗法裡找不到'), `RC3 預期的理由碼在閘門驗法裡找不到 → 算預期清單過期（${p.join('｜')}）`);
+  ok(GM_CASES.every((c) => c.must === undefined && c.mustNot === undefined) && GM_CASES.filter((c) => c.reasons || c.category).length === 3,
+    'RC4 清單裡已經沒有用文字比對理由的（must／mustNot）；改成理由碼的 3 條都在');
+}
+
+section('斷言登記表與「預期需要複審」（2026-10-02 Dispatch 選 A＋：母體戳上版本，長大了要被看見）');
+{
+  const arc = arControls();
+  ok(arc.length === 0, `AR1 登記表的對照組（字串裡的 ok( 不算、跨行收齊、重複、收不齊不給戳記、多一個或改一個斷言戳記會變、沒戳記的列出來）：${arc.join('｜') || '全過'}`);
+  const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-areg-'));
+  try {
+    execFileSync('git', ['clone', '-q', ROOT, clone], { stdio: ['ignore', 'pipe', 'pipe'] });
+    for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(clone, 'scripts', f));
+    const ccAr = verifyCopies(path.join(ROOT, 'scripts'), path.join(clone, 'scripts'));
+    if (ccAr.problems.length) console.log(`${NO_SCENARIO_MARK}：AR 的 clone 沒有含工作區這一份 scripts/：${ccAr.problems.slice(0, 3).join('、')}`);
+    ok(ccAr.problems.length === 0 && ccAr.checked >= 40, `（前提）AR 的 clone 蓋上工作區的 scripts/、讀回相同（比了 ${ccAr.checked} 支）`);
+    const nodeIn = (args) => spawnSync(process.execPath, args, { cwd: clone, encoding: 'utf8' });
+    const st = nodeIn(['scripts/assertregistry.mjs', '--stamp', '--all']);
+    const cm = () => { const r = nodeIn(['scripts/checkmutations.mjs']); return { code: r.status, out: r.stdout, count: Number((/REVIEWCOUNT (\d+)/.exec(r.stdout) ?? [])[1] ?? -1), lines: r.stdout.split('\n').filter((l) => l.startsWith('REVIEW 預期需要複審：')) }; };
+    const c0 = cm();
+    ok(st.status === 0 && c0.code === 0 && c0.count === 0, `AR2a（反向）clone 裡剛戳完 → checkmutations 回 ${c0.code}、要複審 ${c0.count} 條（預期 0）`);
+    const muts = loadMutations(fs.readFileSync(path.join(clone, 'scripts/mutationtest.mjs'), 'utf8')) ?? [];
+    const aliasN = muts.filter((m) => m.test === 'aliastest' && m.expect != null).length;
+    const af = path.join(clone, 'scripts/aliastest.mjs');
+    const asrc = fs.readFileSync(af, 'utf8');
+    const di = asrc.lastIndexOf('done(');
+    fs.writeFileSync(af, `${asrc.slice(0, di)}ok(typeof done === 'function', '新加的一條斷言（AR 探針）');\n${asrc.slice(di)}`);
+    const c1 = cm();
+    ok(aliasN >= 1 && c1.code === 0 && c1.count === aliasN && c1.lines.length === Math.min(aliasN, 10) && c1.lines.every((l) => l.includes('aliastest｜') && l.includes(`從 `) && l.includes('筆')),
+      `AR2 aliastest 多一條斷言 → 帶 expect 的那 ${aliasN} 條都報「預期需要複審」、別支測試的不報、只報不擋（回 ${c1.code}；報了 ${c1.count} 條）`);
+    fs.writeFileSync(af, asrc);
+    const rf = path.join(clone, 'scripts/recipetest.mjs');
+    const rsrc = fs.readFileSync(rf, 'utf8');
+    const anchor = "'早餐再補 14 道：全部在週末早餐的 40 分鐘內'";
+    fs.writeFileSync(rf, rsrc.replace(anchor, "'早餐再補 14 道：全部在週末早餐的 40 分鐘內（改過字）'"));
+    const recN = muts.filter((m) => m.test === 'recipetest' && m.expect != null).length;
+    const c3 = cm();
+    ok(rsrc.split(anchor).length === 2 && c3.count === recN && c3.lines.length > 0 && c3.lines.every((l) => l.includes('recipetest｜') && l.includes('筆數一樣、內容變了')),
+      `AR3 recipetest 斷言條數不變、改了一條的內容 → 那 ${recN} 條報「筆數一樣、內容變了」（報了 ${c3.count} 條）`);
+  } finally {
+    fs.rmSync(clone, { recursive: true, force: true });
+  }
+  ok(!fs.existsSync(clone), 'AR（清理）暫存 clone 用完刪掉了');
 }
 
 section('bash 解成完整路徑，解到 WSL 的不用（2026-10-02，JLPT 撞出來的；gatemutants 是本 repo 唯一由 node 叫 bash 的地方）');

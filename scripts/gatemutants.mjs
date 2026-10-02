@@ -20,7 +20,7 @@ const FAKE_DIFF = ['-p', '--no-color', '-U0'];
 
 /**
  * { label, file（預設閘門）, find（null＝不改）, replace, fakeGit（選填：失敗條件）, runner（'verify' 預設｜'gatescan'）,
- *   order（選填：閘門驗法的順序）, expect（verify：預期不符合的情境編號）, must／mustNot（選填：輸出裡一定要有／不能有的字）, exit（選填） }
+ *   order（選填：閘門驗法的順序）, expect（verify：預期不符合的情境編號）, reasons（選填：{ 情境編號: [理由碼] }，那一種判不符合的理由碼集合要完全相同）、category（gatescan：命中那一行的類別欄要完全相同）, exit（選填） }
  */
 export const CASES = [
   { label: '對照：原樣', find: null, expect: [] },
@@ -39,11 +39,13 @@ export const CASES = [
     replace: 'git fetch -q "$REMOTE" main > "$LOG" 2>&1', expect: ['21'] },
   // ---- 閘門驗法第 11 種的失敗路徑（F10：假 git 讓取 diff 那一個子指令失敗）----
   { label: '失敗路徑：第 11 種取不到 diff → 明講、判不符合', find: null, fakeGit: FAKE_DIFF,
-    expect: ['11'], must: '11 ++ 開頭的新增行｜取不到 diff｜不符合（情境沒造成，中止）' },
+    // 取 diff 失敗之後檔案是空的，後面的前置斷言（+++ 要 3 行）也會不成立——兩個理由碼都在才是實情；
+    // 下一條（拿掉「明講」）只剩前置不成立，靠「集合完全相同」分得開（以前用 must／mustNot 兩段字）
+    expect: ['11'], reasons: { 11: ['前置不成立', '取不到 diff'] } },
   { label: '突變：拿掉「取不到 diff 就明講」→ 被後面的前置斷言接住、理由不對（算紅）', file: VERIFY, fakeGit: FAKE_DIFF,
     find: '  if ! git log -p --no-color --format= -U0 origin/main..HEAD > "$T/k.diff"; then echo "11 ++ 開頭的新增行｜取不到 diff｜不符合（情境沒造成，中止）"; FAIL=1; fi',
     replace: '  git log -p --no-color --format= -U0 origin/main..HEAD > "$T/k.diff"',
-    expect: ['11'], must: '11 ++ 開頭的新增行｜前置不成立', mustNot: '取不到 diff' },
+    expect: ['11'], reasons: { 11: ['前置不成立'] } },
   // ---- 擋法表（2026-09-25，F9 補）：每一種必備情境一條只紅它的突變；共用的一環另列一條 ----
   { label: '擋法表｜23 執行環境有 GIT_ 開頭的變數 → 入口不拒絕', find: '  case "$u" in GIT_*)', replace: '  case "$u" in NO_SUCH_PREFIX_*)', expect: ['23'] },
   { label: '擋法表｜23 名稱不分大小寫 → 不轉大寫（小寫的 git_dir 漏掉）', find: '  u="${v^^}"', replace: '  u="$v"', expect: ['23'] },
@@ -80,7 +82,7 @@ export const CASES = [
     replace: 'fresh() { rm -f scripts/.mutation-pending.json; restore_all; register_work; }', expect: ['6', '7', '12', '17', '18', '22', '25'] },
   { label: 'M4：第 11 種前置斷言改回接管線 → gatescan 點名那一行', file: VERIFY, runner: 'gatescan',
     find: `  PP="$(grep -c '^+++ ' "$T/k.diff")"`, replace: `  PP="$(git log -p --no-color --format= -U0 origin/main..HEAD | grep -c '^+++ ')"`,
-    must: '｜pipe｜' },
+    category: 'pipe' },
 ];
 const B0_START = '# 第零關之二：F8 驗法登記';
 const B0_END = 'node scripts/selfcheck.mjs "$REMOTE" > "$LOG" 2>&1';
@@ -110,6 +112,26 @@ export function mutate(src, c) {
 }
 
 /**
+ * 理由碼（2026-10-02，Dispatch 選 A：理由不再用「輸出裡某處含這段字」比對——那正是會有歧義的形狀）。
+ * 閘門驗法每一行是「編號 名稱｜理由｜判定」；某一種情境判不符合的那幾行，取第二欄冒號前的那一段當理由碼。
+ * 回這一種情境的理由碼（排序、去重）。
+ */
+export function reasonCodes(out, id) {
+  const codes = new Set();
+  for (const l of String(out).split('\n')) {
+    const f = l.split('｜');
+    if (f.length < 3 || !f[0].startsWith(`${id} `) || !f[f.length - 1].startsWith('不符合')) continue;
+    codes.add(f[1].split('：')[0]);
+  }
+  return [...codes].sort();
+}
+/** 每一種寫了理由的情境，理由碼的集合要跟預期完全相同（不是「含有」）；沒寫 reasons 的不比 */
+export function reasonsMatch(out, reasons) {
+  if (!reasons) return true;
+  return Object.entries(reasons).every(([id, want]) => reasonCodes(out, id).join('\n') === [...want].sort().join('\n'));
+}
+
+/**
  * 預期清單過期（2026-10-02，四個專案同一天各踩一次，本 App 是 M6）：開跑前、一條都還沒跑之前，用獨立的訊息擋下。
  * 過期的樣子是「不如預期」或「多紅了別組」，會被讀成閘門有問題。查兩件：
  *   1. 每一條（含 also）的錨點在 HEAD 那一份檔裡剛好一次（gatemutants 跑的是 HEAD 的 worktree）
@@ -124,6 +146,10 @@ export function staleProblems(cases, readHead) {
   if (ids.size === 0) return [`${VERIFY} 裡一種情境都數不到（判斷不了情境編號）`];
   for (const c of cases) {
     for (const id of c.expect ?? []) if (!ids.has(id)) out.push(`【${c.label}】預期的第 ${id} 種不在閘門驗法裡（現有 ${ids.size} 種）`);
+    for (const [id, codes] of Object.entries(c.reasons ?? {})) {
+      if (!ids.has(id)) out.push(`【${c.label}】理由寫給第 ${id} 種，閘門驗法裡沒有這一種`);
+      for (const code of codes) if (!vsrc.includes(`｜${code}`)) out.push(`【${c.label}】第 ${id} 種的理由碼「${code}」在閘門驗法裡找不到`);
+    }
     if (c.find === null) continue;
     for (const m of [{ file: c.file ?? GATE, find: c.find, replace: c.replace }, ...(c.also ?? [])]) {
       const src = readHead(m.file);
@@ -236,18 +262,17 @@ function runCase(repo, origHead, c, expectedTotal) {
       const r = spawnSync(process.execPath, ['scripts/gatescan.mjs'], { cwd: wt, encoding: 'utf8', env });
       const text = r.stdout + r.stderr;
       const hits = text.split('\n').filter((l) => l.startsWith('命中｜'));
-      const ok = r.status === 1 && hits.length === 1 && (!c.must || hits[0].includes(c.must));
+      const ok = r.status === 1 && hits.length === 1 && (!c.category || hits[0].split('｜')[1] === c.category);
       return { ok, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜gatescan 回傳 ${r.status}（預期 1）｜命中 ${hits.length} 處（預期 1）：${hits.map((h) => h.slice(0, 80)).join(' ／ ') || '無'}｜${ok ? '如預期' : '不如預期'}` };
     }
     const r = spawnSync(BASH, [VERIFY], { cwd: wt, encoding: 'utf8', env });
     const text = r.stdout + r.stderr;
     const v = verdictsOf(text);
     const wantExit = c.exit ?? (c.expect.length ? 1 : 0);
-    const mustOk = !c.must || text.includes(c.must);
-    const mustNotOk = !c.mustNot || !text.includes(c.mustNot);
+    const reasonOk = reasonsMatch(text, c.reasons);
     const totalOk = v.total > 0 && (expectedTotal === null || v.total === expectedTotal);
-    const ok = totalOk && v.bad.join(',') === c.expect.join(',') && r.status === wantExit && mustOk && mustNotOk;
-    return { ok, total: v.total, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜回傳 ${r.status}（預期 ${wantExit}）｜${v.total} 種、不符合：${v.bad.join('、') || '無'}（預期：${c.expect.join('、') || '無'}）${c.must || c.mustNot ? `｜理由${mustOk && mustNotOk ? '對' : '不對'}` : ''}｜${ok ? '如預期' : '不如預期'}` };
+    const ok = totalOk && v.bad.join(',') === c.expect.join(',') && r.status === wantExit && reasonOk;
+    return { ok, total: v.total, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜回傳 ${r.status}（預期 ${wantExit}）｜${v.total} 種、不符合：${v.bad.join('、') || '無'}（預期：${c.expect.join('、') || '無'}）${c.reasons ? `｜理由${reasonOk ? '對' : `不對（實際 ${JSON.stringify(Object.fromEntries(Object.keys(c.reasons).map((id) => [id, reasonCodes(text, id)])))}）`}` : ''}｜${ok ? '如預期' : '不如預期'}` };
   } finally {
     execFileSync('git', ['-C', repo, 'worktree', 'remove', '--force', wt]);
     if (fakeDir) fs.rmSync(fakeDir, { recursive: true, force: true });

@@ -125,7 +125,7 @@ section('早餐再補 14 道：全素 10 道、台式葷食 4 道（2026-09-19�
     vegan.filter((r) => !fitsDiet(r, 'veganNoAllium')).map((r) => r.name).join('、'));
   // Yolin 核准的是「至少 6 道」；實際補了 8 道，門檻守實際值，少一道就紅
   ok(vegan.filter((r) => r.time <= 20).length >= 8, `全素那批平日 20 分鐘內做得完的有 ${vegan.filter((r) => r.time <= 20).length} 道（≥ 8；核准的下限是 6）`);
-  everyOf([...vegan, ...taiwan], (r) => r.time <= 40, '全部在週末早餐的 40 分鐘內');
+  everyOf([...vegan, ...taiwan], (r) => r.time <= 40, '早餐再補 14 道：全部在週末早餐的 40 分鐘內');
   const breakfasts = recipes.filter((r) => r.role === 'breakfast');
   const veganBf = breakfasts.filter((r) => fitsDiet(r, 'veganNoAllium'));
   ok(veganBf.length >= 16 && veganBf.filter((r) => r.time <= 20).length >= 11,
@@ -134,7 +134,7 @@ section('早餐再補 14 道：全素 10 道、台式葷食 4 道（2026-09-19�
   everyOf(taiwan, (r) => r.vegMode === 'meatOnly', '台式那 4 道都標成純葷');
   everyOf(taiwan, (r) => ['lactoOvo', 'ovo', 'lacto', 'vegan', 'veganNoAllium', 'lactoOvoNoAllium'].every((d) => !fitsDiet(r, d)), '台式那 4 道，任何一種素食的家人都吃不到');
   const words = ['健康', '降', '控制', '療效', '治療', '建議', '應該'];
-  noneOf([...vegan, ...taiwan].flatMap((r) => [r.name, ...r.ingredients.map((i) => i.label), ...r.steps.map((st) => st.text)]), (t) => words.some((w) => t.includes(w)), '名稱、食材、步驟都沒有禁用詞');
+  noneOf([...vegan, ...taiwan].flatMap((r) => [r.name, ...r.ingredients.map((i) => i.label), ...r.steps.map((st) => st.text)]), (t) => words.some((w) => t.includes(w)), '早餐再補 14 道：名稱、食材、步驟都沒有禁用詞');
 }
 
 section('加工品照食藥署的「內容物描述」判葷素（2026-09-19：分類看不出來，要明列）');
@@ -191,7 +191,7 @@ section('使用者自己的食譜：加工品的葷素由他說了算（2026-09-
   const BACON = 'R5100801';  // 培根：加工調理食品，只有 meat
   const crepe = idx.byId.get(CREPE);
   ok(!!crepe && PROCESSED_CATS.has(crepe.cat) && tagsOfFood(crepe, ctx.foodTags).has('meat') && tagsOfFood(crepe, ctx.foodTags).has('allium'),
-    `（前提）冷凍蛋餅皮是加工品類（${crepe?.cat}）、資料庫標了肉與五辛：${[...tagsOfFood(crepe, ctx.foodTags)].join('、')}`);
+    `（前提）蛋餅皮 ${CREPE} 是加工品類（${crepe?.cat}）、資料庫標了肉與五辛：${[...tagsOfFood(crepe, ctx.foodTags)].join('、')}`);
   const userDish = (over = {}) => ({
     id: 'r-user-crepe', name: '素蛋餅', role: 'breakfast', servings: 2, time: 10, method: 'pan', vegMode: 'nativeVeg',
     texture: 'normal', season: [], source: 'user', vegModeConfirmed: true,

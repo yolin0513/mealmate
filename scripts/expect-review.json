@@ -1,0 +1,1385 @@
+{
+ "note": "每條帶 expect 的突變：寫（或複審）這條 expect 時，那支測試的斷言母體（筆數、雜湊）。由 node scripts/assertregistry.mjs --stamp 寫，不手改。2026-10-02 第一次全部戳上＝當時的母體，不代表逐條複審過。",
+ "stamps": {
+  "「扁豆」被設成鵲豆莢的別名": {
+   "test": "aliastest",
+   "n": 27,
+   "hash": "638f56e40fe966df"
+  },
+  "「要先冷凍」對蔬菜也講": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "一道牛肉主菜被改成配菜（牛肉主菜少於門檻）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "一道雞肉主菜被改成配菜（雞肉主菜少於門檻）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "三杯小卷順手寫進米酒": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "三態：改成排除制（只有加工品類算推不出來）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "三態：沒標的一律回答推斷不含（回到分不出來的樣子）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "三態：查不到的食材回答推斷不含": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "三態：素那一邊看錯軌（看了葷那一軌）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "三態：推不出來蓋過含": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "三態：整道菜忽略推不出來的那幾樣": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "土司沒有標成奶製品": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "不必真的選過素葷，預設的「素」就算使用者的判斷": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "什麼食材都讓使用者推翻（不限加工品類）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "內建食譜也能被推翻": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "加工品的五辛（蘿蔔糕、蛋餅皮、韓式泡菜）沒標": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "包子那道要蒸 40 分鐘": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "包子那道從早餐池子裡消失": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "只差空白的突變：判斷永遠說「不是」": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "只差空白的突變：執行器開跑前不擋": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "只差空白的突變：檢查的條數不核對": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "可分流卻整道沒有肉時一律不擋（R3 放到最寬）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "四季豆的類別回到豆類（排菜）": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "四季豆的類別回到豆類（買菜分區）": {
+   "test": "shoppingtest",
+   "n": 148,
+   "hash": "e4352e2bfe303c2a"
+  },
+  "奶油沒有標成奶製品": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "本週頁不掛「我的」小標": {
+   "test": "weekviewtest",
+   "n": 187,
+   "hash": "7541d81dff2d7246"
+  },
+  "本週頁不掛「我的」小標（版面樣本也跟著少一個標籤）": {
+   "test": "layouttest",
+   "n": 109,
+   "hash": "888a503a983a1cbf"
+  },
+  "全素早餐有一道平日做不完": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "全素早餐裡混進雞蛋": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "成分沒寫的油條放進素的菜": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "早餐完全不輪替": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "早餐輪替只看有沒有吃過、不看次數": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "早餐輪替扣分退回 2": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "有既有群組的食材也另外加 highprotein": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "自查入口不拒絕 GIT_ 開頭的環境變數": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "自查入口拒絕不轉大寫": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "自查取不到訊息與作者欄也不停": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "自查抽取跟 numstat 對不上也不停": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "冷凍蛋餅皮沒有標成肉": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "冷凍豬肉包子、小籠包沒有標 meat": {
+   "test": "datatest",
+   "n": 76,
+   "hash": "987870dac4abd835"
+  },
+  "判斷 npm test 鏈裡沒有 mutationtest 的函式永遠通過": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "把 2026-09-21 補的九道菜從統計的池子拿掉": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "沒帶 expect 的上限比實際少一條": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "沒帶 expect 的突變沒有上限": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "沒超過上限也照樣印那一行": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "沒點清單、直接打的食材名稱不解析": {
+   "test": "recipeviewtest",
+   "n": 156,
+   "hash": "00abfb33a38ab762"
+  },
+  "沒點清單、直接打的食材名稱不解析（Node 端）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "使用者選過素葷，查不到的食材就順手不標 unresolved": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "依賴範圍：什麼檔都算進去（跳過永遠不會發生）": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：未知類別的檔當成不受影響": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：判斷不出的不退回整個 repo": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：帳本檔也算進整個 repo": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：漏認 export … from": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：漏認 import … from（含跨行）": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：漏認 import('字面')": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：漏認只為了副作用的 import '…'": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：認不出瀏覽器測試": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：寫死路徑的讀檔不收": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：瀏覽器測試裡指到不存在的檔一律退回整個 repo": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：讀不出內容的檔當成空的": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：App 程式寫不死的載入只算它自己 import 的": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：data/ 不再一律算進去": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：docs/ 裡有可 import 的檔也不退回整個 repo": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：import 只走一層、不遞迴": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：import 指到不存在的檔當成沒有關係": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：import( 接變數也當成看得出來": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：package-lock.json 不再算進去": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "依賴範圍：serve.mjs 不管是不是瀏覽器測試都放行": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "兩道新配菜的主角撞在一起": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "味噌湯少一道（被換成鹽）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "咖哩塊沒有標成奶製品": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "孤兒測試永遠抓不到": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "放寬保存期限時不分冷凍與不耐放": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "花生麵筋罐頭沒有標 peanut": {
+   "test": "datatest",
+   "n": 76,
+   "hash": "987870dac4abd835"
+  },
+  "表單只對「查不到的食材」跳素葷提示，資料庫標葷的加工品不跳": {
+   "test": "recipeviewtest",
+   "n": 156,
+   "hash": "00abfb33a38ab762"
+  },
+  "表單路徑：步驟一個字都沒打就存不進去": {
+   "test": "recipeviewtest",
+   "n": 156,
+   "hash": "00abfb33a38ab762"
+  },
+  "保存期限的理由只講第一樣放不住的": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "待確認清單：找不到表頭也不停": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "待確認清單：看不懂的決定當成空白": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "待確認清單：填「含蛋」卻沒進 tags 也放行": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "待確認清單：填「素」、tags 卻標了五辛也放行": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "待確認清單：填「素」卻沒轉進 checked 也放行": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "待確認清單：填「葷」卻沒進 tags 也放行": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "指定菜色的清單又被同角色佔滿": {
+   "test": "weekviewtest",
+   "n": 187,
+   "hash": "7541d81dff2d7246"
+  },
+  "要不要重跑：上次不算數也不跑": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "要不要重跑：上次沒紅也不跑": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "要不要重跑：沒記雜湊的也沿用": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "要不要重跑：依賴範圍改了也不跑": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "要不要重跑：突變本身改了也不跑": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "要不要重跑：執行器改了也不跑": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "食譜步驟裡寫「保證」": {
+   "test": "copytest",
+   "n": 7,
+   "hash": "326f3ab5da9c16f0"
+  },
+  "剛好在上限上也報「已超過」": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "烤的主菜少一道（烹法變化少於門檻）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "真實的 expect 過期了（斷言訊息的錨點被拿掉）": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "素食成員那一餐的蛋白質加分整個關掉（真實入口）": {
+   "test": "scenariotest",
+   "n": 38,
+   "hash": "2c985a6e98f510d5"
+  },
+  "素菜包那一樣沒講要買標示全素的": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "素菜包被放進共用那一欄（素那一欄就空了）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "高蛋白質那條路不排除帶肉、海鮮標籤的食材": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "高蛋白質那條路不排除穀物類、澱粉類": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "高蛋白質那條路用每份 4 克、不看含量（菇靠份量硬湊）": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "高蛋白質那條路排在既有四條路前面": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "高蛋白質的含量門檻從 14 掉到 10": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "高蛋白質的每份門檻從 6 掉到 3": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "高蛋白質食材沒有輪替群組（R1 拿掉）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "高蛋白質食材那條路整個沒有": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "執行器：判對時不印實際紅了哪幾條": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "執行器：帳本不記紅了幾條": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "執行器：預期清單過期照跑": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "執行器的雜湊：找不到突變清單也不停": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "執行器的雜湊：沒拿掉突變清單": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "執行器的雜湊：import 不到的檔也照算": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "執行器開跑前不報預期需要複審": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "基準清單是空的也當成沒問題": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "基準清單與 STATUS 的比對永遠通過": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "崩潰又算成抓到（不列在不算數裡）": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "帳本：日期看不懂也放行": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "帳本：受影響、--only 的跑法也記成在整套裡跑過": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "帳本孤兒：帳本有、清單沒有的不報": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "帶 --only 或沒跑完也寫基準清單": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "從未整套跑過改回條數相減": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "情境未成立：不列在不算數裡": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "情境未成立：不看痕跡、一律當成情境成立": {
+   "test": "resume-verify",
+   "n": 14,
+   "hash": "26337e04f6e9a05e"
+  },
+  "情境未成立：回 0 時照樣判成通過": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "情境未成立：那幾個字出現在任何地方都算宣告": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "情境未成立：宣告了也照樣判成斷言失敗": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "推翻之後，肉的標籤照樣寫進那道菜": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "推翻時把那樣食材的標籤全丟掉（連蛋、奶、五辛一起）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "理由句的食材名稱寫死黃豆芽": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "第二道新配菜的主角也用豆干家族": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "測試鏈解析不出任何測試": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "登記表：字串裡的 ok( 也算成斷言": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "登記表：括號收不齊照樣給戳記": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "菜列的標籤不收在同一格（回到改版前）": {
+   "test": "layouttest",
+   "n": 109,
+   "hash": "888a503a983a1cbf"
+  },
+  "超過上限也不提": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "新早餐的步驟出現禁用詞": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "新早餐超過週末的 40 分鐘": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "新補的全素早餐有一道不是早餐": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "新補的配菜之一主角換成菇（不是蛋白質來源）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "新補的配菜之一混進五辛（青蔥）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "新補的配菜之一被登記成主食": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "新補的湯之一要煮 45 分鐘": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "資源紀錄：把記錄工具自己也算進去": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "資源紀錄：取不到程序表的行默默略過": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "資源紀錄：取程序數那一步永遠回 0": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "資源紀錄：峰值取最後一行而不是最大的": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "資源紀錄：認子程序不看建立時間（PID 重用）": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "資源紀錄：瀏覽器的子程序也各算一個": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "載不到突變清單時 A2 變成空集合": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "達標判定不跳過常備品": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "嫩莢類的口語別名少一個（長豆）": {
+   "test": "aliastest",
+   "n": 27,
+   "hash": "638f56e40fe966df"
+  },
+  "嫩莢類的採買單位少一筆（甜豆回到「個」）": {
+   "test": "unittest",
+   "n": 72,
+   "hash": "7335ba33fbe273e3"
+  },
+  "標成「葷」卻沒有肉時一律不擋（R2 放到最寬）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "標籤沒有跟著食材索引走（indexFoods 收下了卻不掛上）": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "蔬菜看含量的那條拿掉（黃豆芽不再算）": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "蔬菜蛋白質改看每 100 克": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "蔬菜蛋白質那條不限蔬菜類": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "蔬菜蛋白質門檻變成 0": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "蔬菜蛋白質剛好 4 克不算（>= 變 >）": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "蔬菜類又走豆製品的名稱規則（黃豆芽算豆製品）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "複審判斷不比雜湊": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "豬肉酥沒有標成肉": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "輪替群組只看每 100 克、不看每份吃到幾克": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "輪替群組用自己的一份門檻（不引用 isHighProteinFood）": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "輪替群組沒有每份門檻（掃全部內建食譜）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "輪替群組的份數一律除以總份數（不分素葷那一欄）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "靠黃豆芽達標時理由句也說是豆製品的菜": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "靠麵腸達標時，理由句說它是「豆製品」的菜": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "整套上限：剛好 30 條不算「30 條以上」": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "整套上限：超過 14 天也不提": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "整套收齊：不看是不是同一個 commit": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "整套的上限跟 STATUS 寫的對不上": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "購物清單的數量太長時右緣對不齊": {
+   "test": "layouttest",
+   "n": 109,
+   "hash": "888a503a983a1cbf"
+  },
+  "還原紀錄欄位不對也照寫": {
+   "test": "resume-verify",
+   "n": 14,
+   "hash": "26337e04f6e9a05e"
+  },
+  "還原紀錄讀不懂就當成沒有紀錄": {
+   "test": "resume-verify",
+   "n": 14,
+   "hash": "26337e04f6e9a05e"
+  },
+  "韓式泡菜沒有標成海鮮": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "戳記只看筆數、不看內容": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "證據檔：不跟帳本核對": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "證據檔：列數跟條數對不上也照寫": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "證據檔：使用者名稱不洗": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "證據檔：清洗連分類資訊一起洗掉": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "證據檔：磁碟機路徑不洗": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "類別覆寫表找不到的編號靜默略過": {
+   "test": "datatest",
+   "n": 76,
+   "hash": "987870dac4abd835"
+  },
+  "類別覆寫表被清空": {
+   "test": "datatest",
+   "n": 76,
+   "hash": "987870dac4abd835"
+  },
+  "麵腸、麵筋併進 soy": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229"
+  },
+  "護欄：「是不是原樣」逐位元組比（不統一行尾）": {
+   "test": "resume-verify",
+   "n": 14,
+   "hash": "26337e04f6e9a05e"
+  },
+  "護欄：不在帳本記開跑未完成": {
+   "test": "resume-verify",
+   "n": 14,
+   "hash": "26337e04f6e9a05e"
+  },
+  "護欄：帳本有未收尾的紀錄就一律拒絕（檔案已經是原樣也拒絕）": {
+   "test": "resume-verify",
+   "n": 14,
+   "hash": "26337e04f6e9a05e"
+  },
+  "護欄：還原紀錄被移掉也照跑": {
+   "test": "resume-verify",
+   "n": 14,
+   "hash": "26337e04f6e9a05e"
+  },
+  "護欄：還原紀錄還在時照樣改第二支檔": {
+   "test": "resume-verify",
+   "n": 14,
+   "hash": "26337e04f6e9a05e"
+  },
+  "護欄一：--only 也要求工作區等於 HEAD": {
+   "test": "resume-verify",
+   "n": 14,
+   "hash": "26337e04f6e9a05e"
+  },
+  "護欄一：--only 的目標檔已經是改壞後的樣子也照跑": {
+   "test": "resume-verify",
+   "n": 14,
+   "hash": "26337e04f6e9a05e"
+  },
+  "護欄一：工作區不等於 HEAD 也照跑整套": {
+   "test": "resume-verify",
+   "n": 14,
+   "hash": "26337e04f6e9a05e"
+  },
+  "讀回確認：什麼都沒比也算通過": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "讀回確認：內容不同也當成相同": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "讀回確認：複本少了某一支也不報": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "蘿蔔糕沒有標成肉": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "蘿蔔糕沒有標成海鮮": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "A 方案：不分素版葷版、整道一起看": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "A 方案：不看 checked（確認過的照樣標未確認）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "A 方案：吃不了這道的家人也標": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "A 方案：同一樣食材列兩次": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "A 方案：食材表不標未確認的那幾樣（真實畫面）": {
+   "test": "recipeviewtest",
+   "n": 156,
+   "hash": "00abfb33a38ab762"
+  },
+  "A 方案：食譜頁不列家人的未確認標示（真實畫面）": {
+   "test": "recipeviewtest",
+   "n": 156,
+   "hash": "00abfb33a38ab762"
+  },
+  "A 方案：家人吃的也標（不看他不吃什麼）": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "A 方案：推斷不含的也標成未確認": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "A 方案：確認過任何一項就當成每一項都確認過": {
+   "test": "recipetest",
+   "n": 224,
+   "hash": "850f7a091fb60227"
+  },
+  "assertaudit 把一支工具當成測試來掃": {
+   "test": "assertaudit",
+   "n": 14,
+   "hash": "08bbf917805299e8"
+  },
+  "assertaudit 的母體回到「scripts/ 底下有什麼就算什麼」": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "auditrules 的常數述詞樣式失效": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "auditrules 的雙反斜線不再排除「前面還有反斜線」": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "build-foods 不檢查分類整個不見": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "build-foods 不檢查必要欄位": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "build-foods 不檢查營養素有沒有值": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "build-recipes 少了幾道也照樣寫檔": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "build-recipes 的 0 道照樣寫檔": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "buildguard 工作區有改動一律當成沒改動": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "buildguard 比對模式不查兩份是不是同一個版本": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "buildguard 在整份輸出裡找點名": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "buildguard 登記不管工作區乾不乾淨": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "buildguard 登記不管是不是 HEAD": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "buildguard 登記讀不到雜湊就留著舊登記": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "buildguard 點名不對邊界": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "checkmutations 不再檢查 find 出現幾次": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "checkmutations 不報預期需要複審": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "checkmutations 有過期也回傳 0": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "checkmutations 的突變清單是空的也算通過": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "doctest 的 F1 探針帶著 MM_AUDIT 跑": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "doctest 試寫基準清單的暫存資料夾用完不刪": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "expect 檢查永遠放行": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatemutants：不查預期的情境在不在": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatemutants：不查錨點是不是剛好一次": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatemutants：不問 bash 是不是 Git Bash": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatemutants：查出過期也照跑": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatemutants：理由碼不分 1 與 11": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatemutants：理由碼不查在不在": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatemutants：理由碼只要含有就算對": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatemutants：解不出 bash 就退回裸寫的 bash": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatemutants：數不到情境當成全部不過期": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatemutants：bash 在系統目錄也照用": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatescan 不跑跳脫掃描": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatescan 取不到追蹤清單就當成沒有孤兒": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatescan 的 shell 樣式回到「整行有反斜線就算」": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatescan 的孤兒檢查只報已登記例外的那幾支": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatescan 的管線樣式失效": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatescan 某個分支的樣本被別的分支順便抓到": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatescan 看不到間接讀取環境變數": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatescan 登記的例外沒用到也照樣通過": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatescan 跳脫掃描不做孤兒核對": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatescan 跳脫掃描只走 scripts/": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatescan 讀不到被掃的檔時當成 0 個問題": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatescan 讀環境變數一律當成已登記": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "gatescan 讀環境變數不看自己讀自己": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "layouttest 不再自己造「數量比一整行寬」的列": {
+   "test": "layouttest",
+   "n": 109,
+   "hash": "888a503a983a1cbf"
+  },
+  "mutationtest --affected 不管理由一律全跑": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "mutationtest 不分「不算數」": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "mutationtest 不再列為例外": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "mutationtest 不寫帳本": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "mutationtest 把不算數的也算成跑到了": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "mutationtest 的 expect 比對認「行裡有 ✗ 這個字」": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "pre-commit hook：一律當成沒有還原紀錄": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "pre-commit hook：不看帳本的 inflight": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "pre-commit hook：不看磁碟上的還原紀錄": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "runkind 不認得沒跑起來": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "runkind 不認得逾時": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "runkind 把「✓ 行裡提到 ✗」當成斷言失敗": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "runkind 把崩潰當成斷言失敗": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "serve.mjs 又會送 docs/": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "shelltest 的 regex 擷取改回只看 .test(／.exec(": {
+   "test": "shelltest",
+   "n": 140,
+   "hash": "6c3b7497af3f05f9"
+  },
+  "shelltest 的跳脫判準改回「兩個反斜線接類別字元就算」": {
+   "test": "shelltest",
+   "n": 140,
+   "hash": "6c3b7497af3f05f9"
+  },
+  "sincefull 格式壞掉時回傳 0 天而不是報錯": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "sincefull 耗時無紀錄時省略整段": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "sincefull 讀不出「上次突變整套」那一行": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "sincefull：上次整套名單和帳本對不上也不停": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "tap 一條斷言都沒有就結束也算通過": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "writeAtomically 沒寫成也去刪暫存檔的位置": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  },
+  "writeAtomically 清理失敗就中斷": {
+   "test": "doctest",
+   "n": 369,
+   "hash": "7736f8741becfe58"
+  }
+ }
+}
