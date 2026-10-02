@@ -13400,19 +13400,36 @@
   "還原紀錄讀不懂就當成沒有紀錄": {
    "last": {
     "date": "2026-10-02",
-    "commit": "244a2c2d9bb4+dirty",
-    "mode": "only",
+    "commit": "37389a88dceb",
+    "mode": "never-full",
     "defHash": "07c104e4e9072879ed247d254c363bc262f6e4ef58b3f53f691d3554bdcb68d3",
-    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
-    "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
+    "depHash": "76b782f406f826e819e1b673b19424b8359197b04f2bcdb672faf4c59edf4c29",
+    "runnerHash": "e94b90c57f34bed26560390e950df9ff3e8980ec8f0bd3d07c8b060e0e9d9946",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
     "red": true,
     "expectMatched": true,
-    "seconds": 188
+    "failed": 7,
+    "expectHits": 1,
+    "seconds": 191
    },
-   "lastFull": null
+   "lastFull": {
+    "date": "2026-10-02",
+    "commit": "37389a88dceb",
+    "mode": "never-full",
+    "defHash": "07c104e4e9072879ed247d254c363bc262f6e4ef58b3f53f691d3554bdcb68d3",
+    "depHash": "76b782f406f826e819e1b673b19424b8359197b04f2bcdb672faf4c59edf4c29",
+    "runnerHash": "e94b90c57f34bed26560390e950df9ff3e8980ec8f0bd3d07c8b060e0e9d9946",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 7,
+    "expectHits": 1,
+    "seconds": 191
+   }
   },
   "還原紀錄欄位不對也照寫": {
    "last": {
@@ -13600,8 +13617,144 @@
     "seconds": 30
    },
    "lastFull": null
+  },
+  "三態：沒標的一律回答推斷不含（回到分不出來的樣子）": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "37389a88dceb",
+    "mode": "never-full",
+    "defHash": "8b964d7fa56b6b65e8083fa8780756cec3d640d2515a90212f6eebbc8fc49c0c",
+    "depHash": "76b782f406f826e819e1b673b19424b8359197b04f2bcdb672faf4c59edf4c29",
+    "runnerHash": "e94b90c57f34bed26560390e950df9ff3e8980ec8f0bd3d07c8b060e0e9d9946",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 13,
+    "expectHits": 1,
+    "seconds": 0
+   },
+   "lastFull": {
+    "date": "2026-10-02",
+    "commit": "37389a88dceb",
+    "mode": "never-full",
+    "defHash": "8b964d7fa56b6b65e8083fa8780756cec3d640d2515a90212f6eebbc8fc49c0c",
+    "depHash": "76b782f406f826e819e1b673b19424b8359197b04f2bcdb672faf4c59edf4c29",
+    "runnerHash": "e94b90c57f34bed26560390e950df9ff3e8980ec8f0bd3d07c8b060e0e9d9946",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 13,
+    "expectHits": 1,
+    "seconds": 0
+   }
+  },
+  "A 方案：食譜頁不列家人的未確認標示（真實畫面）": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "37389a88dceb",
+    "mode": "never-full",
+    "defHash": "148f7173af530e636fabf237815a912d76ca33588d8f3959d2f23ce2df9d0648",
+    "depHash": "49b826b2fe016847598d22101742952dc396fee1db1d9a8e0c3cde9e3e2b52f8",
+    "runnerHash": "e94b90c57f34bed26560390e950df9ff3e8980ec8f0bd3d07c8b060e0e9d9946",
+    "scope": "browser",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 45
+   },
+   "lastFull": {
+    "date": "2026-10-02",
+    "commit": "37389a88dceb",
+    "mode": "never-full",
+    "defHash": "148f7173af530e636fabf237815a912d76ca33588d8f3959d2f23ce2df9d0648",
+    "depHash": "49b826b2fe016847598d22101742952dc396fee1db1d9a8e0c3cde9e3e2b52f8",
+    "runnerHash": "e94b90c57f34bed26560390e950df9ff3e8980ec8f0bd3d07c8b060e0e9d9946",
+    "scope": "browser",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 45
+   }
+  },
+  "build-recipes 的 0 道照樣寫檔": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "37389a88dceb",
+    "mode": "never-full",
+    "defHash": "34ed8f10de6f06e572caae4a257c706e8eed800187fc6c0efe4aa103f5d7ede2",
+    "depHash": "76b782f406f826e819e1b673b19424b8359197b04f2bcdb672faf4c59edf4c29",
+    "runnerHash": "e94b90c57f34bed26560390e950df9ff3e8980ec8f0bd3d07c8b060e0e9d9946",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 5,
+    "expectHits": 1,
+    "seconds": 51
+   },
+   "lastFull": {
+    "date": "2026-10-02",
+    "commit": "37389a88dceb",
+    "mode": "never-full",
+    "defHash": "34ed8f10de6f06e572caae4a257c706e8eed800187fc6c0efe4aa103f5d7ede2",
+    "depHash": "76b782f406f826e819e1b673b19424b8359197b04f2bcdb672faf4c59edf4c29",
+    "runnerHash": "e94b90c57f34bed26560390e950df9ff3e8980ec8f0bd3d07c8b060e0e9d9946",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 5,
+    "expectHits": 1,
+    "seconds": 51
+   }
+  },
+  "assertaudit 把一支工具當成測試來掃": {
+   "last": {
+    "date": "2026-10-02",
+    "commit": "37389a88dceb",
+    "mode": "never-full",
+    "defHash": "6cf657c0ae92b858fb944cbd124d12e206c20569bff75feb692acfb8e9d4db27",
+    "depHash": "76b782f406f826e819e1b673b19424b8359197b04f2bcdb672faf4c59edf4c29",
+    "runnerHash": "e94b90c57f34bed26560390e950df9ff3e8980ec8f0bd3d07c8b060e0e9d9946",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 522
+   },
+   "lastFull": {
+    "date": "2026-10-02",
+    "commit": "37389a88dceb",
+    "mode": "never-full",
+    "defHash": "6cf657c0ae92b858fb944cbd124d12e206c20569bff75feb692acfb8e9d4db27",
+    "depHash": "76b782f406f826e819e1b673b19424b8359197b04f2bcdb672faf4c59edf4c29",
+    "runnerHash": "e94b90c57f34bed26560390e950df9ff3e8980ec8f0bd3d07c8b060e0e9d9946",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 522
+   }
   }
  },
- "runSeq": 6,
+ "runSeq": 11,
  "inflight": null
 }

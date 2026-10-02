@@ -1578,17 +1578,22 @@ section('bash 解成完整路徑，解到 WSL 的不用（2026-10-02，JLPT 撞�
     `BS7 gatemutants 解不出 bash → 回 ${r.status}（預期 8）、判情境未成立、一條都沒跑`);
 }
 
-section('一場突變的逐條進度（2026-10-02 Dispatch：中途被叫停時分得出跑完／開了頭沒跑完／還沒跑，不只記總數）');
+section('一場突變的結果統計：收到的／被停掉的／沒輪到的分開數（2026-10-02 Dispatch；遊戲專案「相加永遠等於清單長度」那一種要擋得住）');
 {
-  eq(rpControls(), [], 'RP1 進度表的對照組：算數、不算數、開了頭沒跑完（帳本 inflight）、別的 commit 跑的與計畫之前跑的都算還沒跑、母體 0 條要報');
-  const planF = path.join(os.tmpdir(), `mm-plan-${process.pid}.json`);
-  const s = spawnSync(process.execPath, ['scripts/runprogress.mjs', '--save-plan', planF], { cwd: ROOT, encoding: 'utf8' });
-  const n = fs.existsSync(planF) ? JSON.parse(fs.readFileSync(planF, 'utf8')).names.length : -1;
-  const r = spawnSync(process.execPath, ['scripts/runprogress.mjs', planF], { cwd: ROOT, encoding: 'utf8' });
-  const rowLines = r.stdout.split('\n').filter((l) => /^ {2}(跑完、算數|跑完、不算數|開了頭沒跑完|還沒跑)｜/.test(l)).length;
-  ok(s.status === 0 && n > 0 && r.status === 0 && rowLines === n && r.stdout.includes(`母體 ${n} 條（計畫檔逐條數的）`),
-    `RP2 從真實入口：--save-plan 存了 ${n} 條、進度表逐條列出 ${rowLines} 行（每一條都有自己的狀態，不只總數）`);
-  fs.rmSync(planF, { force: true });
+  eq(rpControls(), [], 'RP1 統計的對照組：正常（收到 2、停掉 1、沒輪到 1）、同一份 log 給兩次報重複與相加對不上、計畫外的點名、少給一份 log 報帳本與 log 對不上、母體 0 條要報');
+  const plan = path.join(os.tmpdir(), `mm-plan-${process.pid}.json`); const lgA = path.join(os.tmpdir(), `mm-logA-${process.pid}.log`); const led = path.join(os.tmpdir(), `mm-led-${process.pid}.json`);
+  fs.writeFileSync(plan, JSON.stringify({ commit: 'abc1234', date: '2026-10-02', names: ['甲', '乙', '丙'] }));
+  fs.writeFileSync(lgA, '— 前置 —\n  · 選了 2 條突變（共 9）；跑法 never-full\n\n— 逐條突變 —\n  ✓ 【t】甲\n  ✓ 【t】乙\n');
+  fs.writeFileSync(led, JSON.stringify({ inflight: null, entries: { 甲: { last: { commit: 'abc1234def56', date: '2026-10-02' } }, 乙: { last: { commit: 'abc1234def56', date: '2026-10-02' } } } }));
+  const cli = (...a) => spawnSync(process.execPath, ['scripts/runprogress.mjs', plan, ...a, '--ledger', led], { cwd: ROOT, encoding: 'utf8' });
+  const r2 = cli(lgA);
+  ok(r2.status === 0 && r2.stdout.includes('計畫 3 條；收到的結果 2 列（從 1 份 log 逐行數，含重複；') && r2.stdout.includes('＋沒輪到 1 ＝ 3') && r2.stdout.includes('帳本那一側記著這一場跑了計畫裡的 2 條、log 那一側收到 2 條'),
+    `RP2 從真實入口：收到 2、沒輪到 1、相加 3＝計畫 3，帳本與 log 兩邊各數到 2（回 ${r2.status}）`);
+  const r3 = cli(lgA, lgA);
+  ok(r3.status !== 0 && r3.stdout.includes('同一條收到不只一次') && r3.stdout.includes('三類相加 5 條 ≠ 計畫 3 條'), `RP3 同一份 log 給兩次 → 報重複、相加 5≠3、回 ${r3.status}`);
+  const r4 = cli(lgA, '--complete');
+  ok(r4.status !== 0 && r4.stdout.includes('宣稱跑完，卻還有沒輪到的 1 條'), `RP4 宣稱跑完、還有沒輪到的 → 擋（回 ${r4.status}）`);
+  for (const f of [plan, lgA, led]) fs.rmSync(f, { force: true });
 }
 
 section('共用的暫存 clone：每一節開頭都回到基準（情境之間互不污染）；用完刪掉');

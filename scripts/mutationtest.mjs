@@ -4732,22 +4732,58 @@ const MUTATIONS = [
     expect: "D18m ",
   },
   {
-    name: "進度表：開了頭沒跑完的當成還沒跑",
-    why: "中途被叫停時，改壞了還沒收尾的那一條混進「還沒跑」，看不出工作區可能還留著壞檔、下次要先還原。",
+    name: "結果統計：同一條收到兩次不報",
+    why: "同一份 log 算兩次（或同一條跑了兩次），收到的條數灌水，看起來跑得比實際多。",
     file: "scripts/runprogress.mjs",
-    find: "    if (inflight === name) state = '開了頭沒跑完';\n    else if",
-    replace: "    if",
+    find: "  if (dup.length) problems.push(",
+    replace: "  if (false) problems.push(",
+    test: "doctest",
+    expect: "RP3 ",
+  },
+  {
+    name: "結果統計：三類相加不比計畫",
+    why: "相加≠計畫正是重複、計畫外會造成的；不比，就退回「印出來給人看」。",
+    file: "scripts/runprogress.mjs",
+    find: "  if (sum !== names.length) problems.push(",
+    replace: "  if (false) problems.push(",
+    test: "doctest",
+    expect: "RP3 ",
+  },
+  {
+    name: "結果統計：計畫外的不報",
+    why: "收到一條計畫裡沒有的（例：同一個 commit 上順手補跑的），混進這一場的結果。",
+    file: "scripts/runprogress.mjs",
+    find: "  if (outside.length) problems.push(",
+    replace: "  if (false) problems.push(",
     test: "doctest",
     expect: "RP1 ",
   },
   {
-    name: "進度表：別的 commit 跑的也算這一場",
-    why: "09-24 整套或別的場次的結果被算成這一場跑完——叫停時以為跑了、其實沒跑。",
+    name: "結果統計：帳本與 log 兩邊不核對",
+    why: "少給一份 log 時，那幾條被算成沒輪到——帳本明明記著跑過；只有兩個來源互相核對才看得出 log 給少了。",
     file: "scripts/runprogress.mjs",
-    find: "String(l.commit ?? '').replace(/[-+]dirty$/, '') === plan.commit && String(l.date ?? '') >= String(plan.date ?? '');",
-    replace: "true;",
+    find: "  if (ledgerSide !== logSide) problems.push(",
+    replace: "  if (false) problems.push(",
     test: "doctest",
     expect: "RP1 ",
+  },
+  {
+    name: "結果統計：commit 比完全相等",
+    why: "帳本記 12 碼、計畫記 7 碼，比完全相等的話帳本那一側永遠是 0（2026-10-02 第一次對真資料就是這樣）。",
+    file: "scripts/runprogress.mjs",
+    find: "(x.startsWith(y) || y.startsWith(x))",
+    replace: "x === y",
+    test: "doctest",
+    expect: "RP1 ",
+  },
+  {
+    name: "結果統計：宣稱跑完不查沒輪到的",
+    why: "叫停之後用 --complete 收尾，還有沒輪到的也照樣過。",
+    file: "scripts/runprogress.mjs",
+    find: "  if (complete && (notRun.length || stopped.length)) problems.push(",
+    replace: "  if (false) problems.push(",
+    test: "doctest",
+    expect: "RP4 ",
   },
   {
     name: "執行器：--reslog-interval 沒有作用",
@@ -5663,7 +5699,7 @@ let reslog = null; let reslogFile = null;
 if (SELECTED.length >= 10 || process.argv.includes('--reslog')) {
   // 在 worktree 裡跑整套時，MM_LOGDIR 指回主 repo 的 .logs/（worktree 刪掉，紀錄不跟著消失；同 MM_LEDGER）
   const logDir = process.env.MM_LOGDIR ? path.resolve(process.env.MM_LOGDIR) : path.join(ROOT, '.logs');
-  reslogFile = path.join(logDir, `${taiwanToday()}_${(COMMIT ?? 'nogit').replace('+', '-')}_${MODE}_reslog.log`);
+  reslogFile = path.join(logDir, `${taiwanToday()}_${(COMMIT ?? 'nogit').replace('+', '-')}_${MODE}_run${RUN_SEQ}_reslog.log`);   // 帶第幾次開跑（2026-10-02：同一天同一個 commit 跑好幾次，以前全寫進同一個檔、峰值是累積的）
   fs.mkdirSync(path.dirname(reslogFile), { recursive: true });
   reslog = spawn(process.execPath, [path.join(ROOT, 'scripts/reslog.mjs'), '--root', String(process.pid), '--out', reslogFile, '--interval', String(RESLOG_INTERVAL)], { stdio: 'ignore' });
   note(`資源紀錄：${path.relative(ROOT, reslogFile)}（每 ${RESLOG_INTERVAL} 秒一行；同時最多 ${MAX_WORKERS} 個工作程序是共用上限，本執行器一次只跑一支測試）`);
