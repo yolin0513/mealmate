@@ -31,11 +31,14 @@
 
 **判對時也印實際紅了哪幾條、expect 歧義、預期清單過期（Dispatch 2026-10-02 晚交辦的三件，StockDiary／遊戲專案挖出來的）**
 - 一、執行器以前**只在判錯時**印實際紅了哪幾條。改成判對、判錯都印一行說明行「  · 實際紅了 N 條；含「expect」的 K 條：…」（✗ 不在行首，不會被行首判定當成失敗）；K>1 時提示可能有歧義。帳本每條多記 `failed`、`expectHits`。順手把 `resume-verify` 4 處、執行器基準段 1 處「第一個 ✗」的顯示改成只認行首（只影響顯示，不影響判定）。doctest D18i，突變 2 條。
-- 二、expect 歧義：`node scripts/expectambiguity.mjs`（一次性量測，附五類合成對照組，分錯就不印結果；不在測試鏈裡）。執行器比對的是「失敗那一行的**任何位置**含 expect」（中間，不是開頭）。2026-10-02 量的：突變 597 條，帶 expect 264 條、沒帶 333 條；**沒問題 152、有歧義 6、判斷不了 106、找不到 0**。判斷不了＝訊息在樣板字串裡（執行時才組出來）或在資料表裡（一行字串產生好幾個斷言），靜態數不出對到幾個斷言，**不併進沒問題**；分布 doctest 52、recipetest 20、plannertest 15、其他 19。
+- 二、expect 歧義：`node scripts/expectambiguity.mjs`（一次性量測，附五類合成對照組，分錯就不印結果；不在測試鏈裡）。執行器比對的是「失敗那一行的**任何位置**含 expect」（中間，不是開頭）。2026-10-02 量的（commit 後重量）：突變 600 條，帶 expect 267 條、沒帶 333 條；**沒問題 152、有歧義 6、判斷不了 109、找不到 0**。判斷不了＝訊息在樣板字串裡（執行時才組出來）或在資料表裡（一行字串產生好幾個斷言），靜態數不出對到幾個斷言，**不併進沒問題**；分布 doctest 52、recipetest 20、plannertest 15、其他 19。
   有歧義的 6 條（**待修**：改測試訊息加固定標籤、更新 expect，再用 `--only` 證明各自仍紅在自己那一條——重負載，排時段）：recipetest「冷凍蛋餅皮沒有標成肉」「加工品的五辛…沒標」（expect「冷凍蛋餅皮」同時對到資料表與前提斷言）、「成分沒寫的油條放進素的菜」（對到母體斷言與 everyOf）、「新早餐超過週末的 40 分鐘」「新早餐的步驟出現禁用詞」（兩組 everyOf／noneOf 用同一句訊息）；doctest「真實的 expect 過期了」（A2 兩處）。另有一條是這次自己新寫的 GM1（前提斷言也含「GM1 」），已當場改掉。
 - 三、預期清單過期，用獨立訊息、開跑前擋：**執行器**——expect 在測試原始碼裡找不到 → 「預期清單過期：…」、不改壞檔、帳本記不算數（kind stale、下次再挑），不再跑成「紅錯地方」（doctest D18j，突變 1 條）。**gatemutants**——開跑前查每一條的錨點在 HEAD 剛好一次、預期的情境編號在閘門驗法裡（`sN()` 函式）都在；不在就印「預期清單過期（N 處），一條都沒跑」、回 6（doctest GM0–GM3，GM1 從真實入口在 clone 裡弄壞 M6 的錨點；突變 4 條）。證據檔腳本也認得這一類。
 
-**等 Dispatch 排的重負載（2026-10-02 晚）**：① resume-verify（加了讀回確認之後還沒重跑）；② 新突變 `--only`：hook 3 條、D18i 2 條、D18j 1 條、GM 4 條、CC1 ×3、EV ×5、R4（PID 重用）、R3c；歧義那 6 條改完也排這裡；③ `versionmixtest` 那 3 條崩潰才抓到的（瀏覽器）；④ 最後：從沒整套跑過的 137 條，先抽 5 條、各來自不同測試、避開最快那一端量秒數再外推。
+- 四、裸寫的 `bash`（JLPT 撞出來的：Windows 上照 PATH 先解到 WSL 的 bash，閘門驗法沒跑起來、幾秒回 1）。本 repo 由 node 叫 bash 的只有 `gatemutants.mjs` 4 處（搜 `spawnSync|execFileSync|spawn|execSync` 接 bash／sh／python／wsl，命中 4 處——搜尋式是活的；`shell: true` 0 處；package.json 0 處）。實測：從 Git Bash 開的 node 解到 Git 的 bash；**PowerShell 的 PATH 第一支是系統目錄的 bash.exe（WSL），第二支在 WindowsApps**——從 PowerShell 跑 gatemutants 就會中。改成 `resolveBash()`：照 PATH 找第一支，落在系統目錄或 WindowsApps 的直接拒絕、不執行；其餘問 uname，必須是 MINGW／MSYS；解不出來判情境未成立、回 8、一條都沒跑。doctest BS1–BS7（BS7 從真實入口），突變 3 條。推送閘門本身是我從 Git Bash 下 `bash scripts/pushgate.sh`，閘門裡再叫 bash 時 PATH 已經是 Git Bash 的。
+- 待決（給統籌者／Yolin）：JLPT 的「預期只用編號、整組完全相同」與「預期寫成對母體的完整劃分」。gatemutants 已經是這個形狀（預期＝情境編號、整組比對、總數取自原樣那一次），只差 must／mustNot 那幾段理由文字；執行器的 600 條是另一回事——改成每條對全部斷言表態，要先讓每個斷言有唯一編號，而且每條突變的完整劃分要實跑才寫得出來（等於一次整套）。見回報裡的選項。
+
+**等 Dispatch 排的重負載（2026-10-02 晚）**：① resume-verify（加了讀回確認之後還沒重跑）；② 新突變 `--only`：hook 3 條、D18i 2 條、D18j 1 條、GM 4 條、BS 3 條、CC1 ×3、EV ×5、R4（PID 重用）、R3c；歧義那 6 條改完也排這裡；③ `versionmixtest` 那 3 條崩潰才抓到的（瀏覽器）；④ 最後：從沒整套跑過的 137 條，先抽 5 條、各來自不同測試、避開最快那一端量秒數再外推。
 
 **收尾快照（2026-09-25）——先讀這一段**
 - **突變整套：暫停（2026-10-01 晚上，Dispatch 指示）**——今天兩次非預期關機，都發生在整套跑的時候；原因查清楚、和其他專案協調好之前**不要重跑**。四次開跑都沒跑完、結果都不採用：`aa3f99c` 基準段 assertaudit 逾時；`78192f2` 跑到 266 條時關機；`5dc6664` 基準段 23 支同時失敗、沒有輸出（分不出原因，促成 `aad9a1a` 的 runkind）；`aad9a1a` 跑到 42 條時關機。
@@ -60,7 +63,7 @@
     - 畫面：食譜頁家人那一段（`data-unconfirmed-note`）寫「「醬油」未確認是否含蛋、奶；…買的時候看包裝標示」；食材表那幾樣旁邊標「未確認是否含蛋、奶」（`data-unconfirmed`）。本週頁、今天頁**沒做**（只在食譜頁）。
     - 資料驅動：Yolin 填 `docs/待確認_加工品葷素.md` 的「你的決定」→ 開發 Session 轉進 foodtags.json（素→checked 三項；含蛋／含奶／含五辛→tags；葷→tags.meat 或 seafood）→ 標示自動消失。表上加了「編號」欄；`scripts/procdecisions.mjs` 核對兩邊，doctest「待確認 P1–P8」：填了沒轉 → 紅。
     - 測試：recipetest「A 方案 U0–U7」（U7：兩條查詢路徑在真實資料上一致）；recipeviewtest「A 方案 V1–V5」（瀏覽器，**還沒跑**）；突變 15 條（recipetest 7、recipeviewtest 2、doctest 6）。
-  - **驗證時要做的**：`node --check`、`checkmutations`（597 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
+  - **驗證時要做的**：`node --check`、`checkmutations`（600 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
   （之前那一批——檢查器修補 P0／P1、F8–F10、擋法表、環境變數、補充說明十一——2026-09-25 已收尾。）
 - **App 最後一版仍是 `mealmate-v0.41.0`（2026-09-23）**。09-24、09-25 全是 scripts／docs，沒有 bump、沒有部署。
 - **檢查器修補的全部證據**：`docs/EVIDENCE_檢查器修補.md`，涵蓋 P0、P1、F8、F9、F10、擋法表、環境變數兩類、補充說明十一。STATUS 各節只留摘要。
@@ -260,7 +263,7 @@
 Node 端：datatest 76、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 151、plannertest 513、shoppingtest 150、timelinetest 71、doctest 277；
 瀏覽器端（puppeteer）：shelltest 162、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 199、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 116（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 44。（2026-09-24 F8 那一輪 `npm test` 數的）
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **597 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **600 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
 · **突變整套**＝`npm run mutationtest -- --full` 跑完全部（2026-10-02 起要明講 `--full`；以前是「不帶 `--only`」）。下面的耗時是 09-24 的 442 條（每條都把對應的那一支測試整支跑一次）。**實測約 17,119 秒（約 4.8 小時）**，2026-09-24 對 v0.41.0 量的（09-21 的 428 條約 16,600 秒、09-19 的 366 條約 13,500 秒）。

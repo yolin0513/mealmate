@@ -23,7 +23,7 @@ import {
 import { listen as serveListen } from './serve.mjs';
 import { summarize as summarizeProcs, peakOf } from './reslog.mjs';
 import { verifyCopies } from './copycheck.mjs';
-import { CASES as GM_CASES, staleProblems as gmStaleProblems } from './gatemutants.mjs';
+import { CASES as GM_CASES, staleProblems as gmStaleProblems, resolveBash as gmResolveBash } from './gatemutants.mjs';
 import { cleanControls as evCleanControls } from './evidence.mjs';
 import { lastFullNotInLedger } from './sincefull.mjs';
 import { parseDecisionTable, decisionProblems, DECISION_FILE } from './procdecisions.mjs';
@@ -1399,6 +1399,42 @@ section('預期清單過期要用獨立的訊息、開跑前擋（2026-10-02；g
     fs.rmSync(clone, { recursive: true, force: true });
   }
   ok(!fs.existsSync(clone), 'GM（清理）暫存 clone 用完刪掉了');
+}
+
+section('bash 解成完整路徑，解到 WSL 的不用（2026-10-02，JLPT 撞出來的；gatemutants 是本 repo 唯一由 node 叫 bash 的地方）');
+{
+  // 合成的 PATH：路徑在執行時才組出來（不在原始碼裡寫磁碟代號）；exists 只認登記的那幾支
+  const sysDir = path.join(process.env.SystemRoot ?? path.join(path.parse(os.tmpdir()).root, 'Windows'), 'System32');
+  const appsDir = path.join(os.tmpdir(), 'Microsoft', 'WindowsApps');
+  const gitDir = path.join(os.tmpdir(), 'fake-git', 'usr', 'bin');
+  const only = (...ps) => (p) => ps.includes(p);
+  let probed = 0;
+  const probe = (out) => () => { probed += 1; return out; };
+  const w = (dirs, ex, pr) => gmResolveBash({ pathStr: dirs.join(path.delimiter), platform: 'win32', exists: ex, probe: pr });
+  probed = 0;
+  const b1 = w([sysDir, gitDir], only(path.join(sysDir, 'bash.exe'), path.join(gitDir, 'bash.exe')), probe('MINGW64_NT-10.0'));
+  ok(!b1.bash && /WSL 的 bash/.test(b1.problem ?? '') && probed === 0, `BS1 PATH 第一支 bash 在系統目錄 → 拒絕、而且沒有執行它（${b1.problem}；問了 ${probed} 次）`);
+  probed = 0;
+  const b2 = w([appsDir, gitDir], only(path.join(appsDir, 'bash.exe'), path.join(gitDir, 'bash.exe')), probe('MINGW64_NT-10.0'));
+  ok(!b2.bash && /WSL 的 bash/.test(b2.problem ?? '') && probed === 0, `BS2 PATH 第一支 bash 在 WindowsApps → 拒絕、沒有執行它（${b2.problem}）`);
+  const b3 = w([gitDir], only(path.join(gitDir, 'bash.exe')), probe('Linux'));
+  ok(!b3.bash && (b3.problem ?? '').includes('「Linux」，不是 Git Bash'), `BS3 路徑看不出來、但問出來的系統不是 MINGW／MSYS → 拒絕（${b3.problem}）`);
+  const b4 = w([gitDir], only(path.join(gitDir, 'bash.exe')), probe('MINGW64_NT-10.0-26300'));
+  ok(b4.bash === path.join(gitDir, 'bash.exe'), `BS4（反向）Git Bash 排在前面 → 用它的完整路徑（${b4.bash ? path.basename(b4.bash) : b4.problem}）`);
+  const b5 = w([gitDir], () => false, probe('MINGW64'));
+  ok(!b5.bash && b5.problem === 'PATH 裡找不到 bash', `BS5 PATH 裡沒有 bash → 拒絕，不是退回裸寫的 bash（${b5.problem}）`);
+  if (process.platform === 'win32') {
+    const real = gmResolveBash();
+    ok(!!real.bash, `BS6（反向）這台機器、這個 PATH 解得出 Git Bash（${real.bash ? path.basename(real.bash) : real.problem}）`);
+  }
+  // BS7 從真實入口：PATH 裡只有 node 那一個資料夾 → gatemutants 開頭就停、回 8、行首是情境未成立、一條都沒跑
+  const env = { ...process.env }; delete env.MM_AUDIT; delete env.MM_AUDIT_OUT; delete env.MM_LEDGER;
+  for (const k of Object.keys(env)) if (k.toUpperCase() === 'PATH') delete env[k];
+  env.PATH = path.dirname(process.execPath);
+  const r = spawnSync(process.execPath, ['scripts/gatemutants.mjs'], { cwd: ROOT, encoding: 'utf8', env });
+  const out = `${r.stdout}${r.stderr}`;
+  ok(r.status === 8 && out.split('\n').some((l) => l.startsWith(`${NO_SCENARIO_MARK}：PATH 裡找不到 bash`)) && !out.includes('【對照：原樣】') && !out.includes('假 git 的對照組'),
+    `BS7 gatemutants 解不出 bash → 回 ${r.status}（預期 8）、判情境未成立、一條都沒跑`);
 }
 
 done('doctest');

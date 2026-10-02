@@ -4531,6 +4531,33 @@ const MUTATIONS = [
     test: "doctest",
     expect: "GM3 ",
   },
+  {
+    name: "gatemutants：bash 在系統目錄也照用",
+    why: "PowerShell 開的程序裡，PATH 第一支 bash 是 WSL 的；閘門驗法根本沒跑起來、幾秒回非 0，看起來像紅了。",
+    file: "scripts/gatemutants.mjs",
+    find: "  if (platform === 'win32' && (low.includes('\\\\system32\\\\') || low.includes('\\\\windowsapps\\\\'))) {\n",
+    replace: "  if (false) {\n",
+    test: "doctest",
+    expect: "BS1 ",
+  },
+  {
+    name: "gatemutants：不問 bash 是不是 Git Bash",
+    why: "路徑看不出來的 WSL 或別的 bash（例如自己裝在別處）照用。",
+    file: "scripts/gatemutants.mjs",
+    find: "  if (platform === 'win32' && !/^(MINGW|MSYS)/.test(String(p).trim())) return {",
+    replace: "  if (false) return {",
+    test: "doctest",
+    expect: "BS3 ",
+  },
+  {
+    name: "gatemutants：解不出 bash 就退回裸寫的 bash",
+    why: "解不出來時照舊用 bash，交給 PATH 決定——正好回到出事的那一種。",
+    file: "scripts/gatemutants.mjs",
+    find: "  if (!rb.bash) { console.log(",
+    replace: "  if (false) { console.log(",
+    test: "doctest",
+    expect: "BS7 ",
+  },
   // ---- 2026-10-02：判對時也印實際紅了哪幾條（StockDiary 挖出來的；doctest D18i）----
   {
     name: "執行器：判對時不印實際紅了哪幾條",

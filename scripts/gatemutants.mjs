@@ -143,9 +143,34 @@ function envWithPath(prefixDir) {
   return env;
 }
 
+/**
+ * bash 解成完整路徑（2026-10-02，JLPT 撞出來的：裸寫的 bash 在 Windows 上照 PATH 可能先解到 WSL 的 bash——
+ * 從 PowerShell 開的程序就是這樣（系統目錄與 WindowsApps 裡各有一支 bash.exe，排在 Git 前面）。那時閘門驗法根本沒跑起來，
+ * 幾秒就回非 0，看起來像「紅了」）。照 PATH 找第一支 bash；落在系統目錄或 WindowsApps 的直接拒絕、不執行它；
+ * 其餘再實際問一次 uname，Windows 上必須是 Git Bash（MINGW／MSYS）才用。回 { bash: 完整路徑 } 或 { problem: 理由 }。
+ * pathStr、platform、exists、probe 可以換掉（doctest 用；正式呼叫一律用預設值）。
+ */
+export function resolveBash({ pathStr = process.env.PATH ?? process.env.Path ?? '', platform = process.platform, exists = fs.existsSync, probe } = {}) {
+  const names = platform === 'win32' ? ['bash.exe', 'bash'] : ['bash'];
+  let found = null;
+  for (const d of pathStr.split(path.delimiter).filter(Boolean)) {
+    for (const n of names) { const p = path.join(d, n); if (exists(p)) { found = p; break; } }
+    if (found) break;
+  }
+  if (!found) return { problem: 'PATH 裡找不到 bash' };
+  const low = found.toLowerCase().replace(/\//g, '\\');
+  if (platform === 'win32' && (low.includes('\\system32\\') || low.includes('\\windowsapps\\'))) {
+    return { problem: `bash 解到 ${path.basename(path.dirname(found))} 底下那一支（WSL 的 bash），不是 Git Bash——沒有執行它` };
+  }
+  const p = probe ? probe(found) : spawnSync(found, ['-c', 'uname -s'], { encoding: 'utf8' }).stdout ?? '';
+  if (platform === 'win32' && !/^(MINGW|MSYS)/.test(String(p).trim())) return { problem: `bash 解到的那一支回報系統是「${String(p).trim() || '（沒有輸出）'}」，不是 Git Bash` };
+  return { bash: found };
+}
+let BASH = 'bash';   // main() 開頭換成解出來的完整路徑；解不出來就不跑
+
 /** 假 git：args 同時含 failWhen 的每一個就回 128，其他交給真的 git。回假 git 所在的資料夾。 */
 export function makeFakeGit(failWhen) {
-  const real = spawnSync('bash', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+  const real = spawnSync(BASH, ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
   if (!real) throw new Error('找不到真的 git');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-fakegit-'));
   const conds = failWhen.map((w) => `has ${JSON.stringify(w)}`).join(' && ');
@@ -161,8 +186,8 @@ exec ${JSON.stringify(real)} "$@"
 
 /** 假 git 自己的對照組（F10）：指定的子指令必須失敗；不相干的、同一個子指令不帶那些旗標的，都必須照常。 */
 export function fakeControls(wt, fakeDir, failWhen) {
-  const run = (cmd) => spawnSync('bash', ['-c', cmd], { cwd: wt, encoding: 'utf8', env: envWithPath(fakeDir) });
-  const real = (cmd) => spawnSync('bash', ['-c', cmd], { cwd: wt, encoding: 'utf8' });
+  const run = (cmd) => spawnSync(BASH, ['-c', cmd], { cwd: wt, encoding: 'utf8', env: envWithPath(fakeDir) });
+  const real = (cmd) => spawnSync(BASH, ['-c', cmd], { cwd: wt, encoding: 'utf8' });
   const target = run(`git log ${failWhen.join(' ')} --format= -1 HEAD`);
   const head = real('git rev-parse HEAD').stdout.trim();
   const unrelated = run('git rev-parse HEAD').stdout.trim();
@@ -214,7 +239,7 @@ function runCase(repo, origHead, c, expectedTotal) {
       const ok = r.status === 1 && hits.length === 1 && (!c.must || hits[0].includes(c.must));
       return { ok, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜gatescan 回傳 ${r.status}（預期 1）｜命中 ${hits.length} 處（預期 1）：${hits.map((h) => h.slice(0, 80)).join(' ／ ') || '無'}｜${ok ? '如預期' : '不如預期'}` };
     }
-    const r = spawnSync('bash', [VERIFY], { cwd: wt, encoding: 'utf8', env });
+    const r = spawnSync(BASH, [VERIFY], { cwd: wt, encoding: 'utf8', env });
     const text = r.stdout + r.stderr;
     const v = verdictsOf(text);
     const wantExit = c.exit ?? (c.expect.length ? 1 : 0);
@@ -230,6 +255,10 @@ function runCase(repo, origHead, c, expectedTotal) {
 }
 
 function main() {
+  // 先把 bash 解成完整路徑：解到 WSL 的、找不到的，判情境未成立、一條都不跑（回 8）
+  const rb = resolveBash();
+  if (!rb.bash) { console.log(`⊘ 情境未成立：${rb.problem}。一條都沒跑（不是閘門壞了，是跑不起來）`); return 8; }
+  BASH = rb.bash;
   // 擷取的對照組：抓空的話，「不符合的恰好是預期那幾種」會退化成永遠「沒有不符合」
   const sample = '15 動到 build｜回傳 0（預期 5）｜假遠端 a → a（預期 same）｜不符合\n7 全部正常｜回傳 0（預期 0）｜假遠端 a → b（預期 local）｜符合\n'
     + '11 ++ 開頭的新增行｜取不到 diff｜不符合（情境沒造成，中止）\n閘門驗法：…';
