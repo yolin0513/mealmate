@@ -4440,6 +4440,52 @@ const MUTATIONS = [
     test: "doctest",
     expect: "受影響 D1 ",
   },
+  // ---- 2026-10-02 v11.4 §5.7：入庫的證據由腳本從原始 log 逐項產生（scripts/evidence.mjs）----
+  {
+    name: "證據檔：磁碟機路徑不洗",
+    why: "原始 log 裡的本機絕對路徑帶使用者名稱（§2.4 個資），照抄進版控的證據檔就公開了。",
+    file: "scripts/evidence.mjs",
+    find: "'g'), '<本機路徑>');               // 磁碟機路徑（反斜線或斜線）",
+    replace: "'g'), (m) => m);               // 磁碟機路徑（反斜線或斜線）",
+    test: "doctest",
+    expect: "EV1 ",
+  },
+  {
+    name: "證據檔：使用者名稱不洗",
+    why: "使用者名稱單獨出現在 log 裡（不在路徑中）時，只靠路徑規則洗不到。",
+    file: "scripts/evidence.mjs",
+    find: "  if (user && user.length >= 2) t = t.replace(new RegExp(escapeRx(user), 'g'), '<使用者>');",
+    replace: "  void escapeRx;",
+    test: "doctest",
+    expect: "EV1 ",
+  },
+  {
+    name: "證據檔：清洗連分類資訊一起洗掉",
+    why: "清洗過頭時，證據檔留下的只剩空殼——「情境未成立」「紅錯地方」這些判定被洗掉，就複核不了（反方向的對照組）。",
+    file: "scripts/evidence.mjs",
+    find: "  if (user && user.length >= 2) t = t.replace(new RegExp(escapeRx(user), 'g'), '<使用者>');",
+    replace: "  t = t.replace(/情境未成立/g, '<x>'); if (user && user.length >= 2) t = t.replace(new RegExp(escapeRx(user), 'g'), '<使用者>');",
+    test: "doctest",
+    expect: "EV1 ",
+  },
+  {
+    name: "證據檔：列數跟條數對不上也照寫",
+    why: "log 不完整（中斷、截斷）或解析漏掉幾條時，證據檔看起來完整、其實少了——JLPT 的 29 條只剩總數就是同一族。",
+    file: "scripts/evidence.mjs",
+    find: "  else if (parsed.rows.length !== parsed.selected) out.push(",
+    replace: "  else if (false) out.push(",
+    test: "doctest",
+    expect: "EV3 ",
+  },
+  {
+    name: "證據檔：不跟帳本核對",
+    why: "log 與帳本說的不一樣時，證據檔照寫，兩份進版控的紀錄互相矛盾、沒人發現。",
+    file: "scripts/evidence.mjs",
+    find: "    if (r.verdict === '抓到' && l.red !== true) out.push(",
+    replace: "    if (false) out.push(",
+    test: "doctest",
+    expect: "EV4 ",
+  },
   // ---- 2026-10-02 v11.4 §5.20：暫存複本要含要測的改動，並讀回確認（scripts/copycheck.mjs）----
   {
     name: "讀回確認：內容不同也當成相同",
@@ -5244,6 +5290,7 @@ if (LIMIT !== null) SELECTED = SELECTED.slice(0, LIMIT);
 const TESTS = [...new Set(SELECTED.map((m) => m.test))];
 const missingTests = TESTS.filter((t) => !fs.existsSync(path.join(ROOT, 'scripts', `${t}.mjs`)));
 eq(missingTests, [], '每條突變指定的測試檔都存在');
+note(`這一次：${taiwanToday()}、commit ${COMMIT}、跑法 ${MODE}`);   // 證據檔（scripts/evidence.mjs）從這一行取日期與 commit
 const pickedLine = `選了 ${SELECTED.length} 條突變（共 ${MUTATIONS.length}）${only ? `，關鍵字「${only}」` : ''}；跑法 ${MODE}${LIMIT !== null ? `，這一段最多 ${LIMIT} 條（符合的有 ${CANDIDATES} 條）` : ''}`;
 // --only 對不到任何一條是打錯字（F1-11）；受影響／從沒全跑過／整套續跑選到 0 條，是「沒有要跑的」，不是錯
 if (MODE === 'only') ok(SELECTED.length > 0, pickedLine);

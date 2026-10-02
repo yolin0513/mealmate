@@ -23,6 +23,7 @@ import {
 import { listen as serveListen } from './serve.mjs';
 import { summarize as summarizeProcs, peakOf } from './reslog.mjs';
 import { verifyCopies } from './copycheck.mjs';
+import { cleanControls as evCleanControls } from './evidence.mjs';
 import { lastFullNotInLedger } from './sincefull.mjs';
 import { parseDecisionTable, decisionProblems, DECISION_FILE } from './procdecisions.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
@@ -952,6 +953,35 @@ section('只差空白或行尾的突變要被擋（2026-10-02 Dispatch；v11.3 �
     ok(r2.code !== 0 && r2.out.includes('只差空白或行尾，拒絕執行') && r2.out.includes('WS探針'),
       `WS4 執行器開跑前也擋：--only 選到那一條 → 回 ${r2.code}、拒絕並點名`);
   } finally { fs.rmSync(clone, { recursive: true, force: true }); }
+}
+
+section('入庫的證據由腳本從原始 log 逐項產生（共用慣例 v11.4 §5.7；scripts/evidence.mjs，從命令列入口跑）');
+{
+  eq(evCleanControls(), [], 'EV1 清洗的雙向對照組：含本機路徑、email、使用者名稱的合成樣本被洗掉；帶分類資訊的樣本原封不動');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-ev-'));
+  try {
+    const log = (n, lines) => `— 前置 —\n  ✓ 選了 ${n} 條突變（共 9），關鍵字「x」；跑法 only\n\n— 逐條突變 —\n${lines.join('\n')}\n`;
+    const okLines = ['  ✓ 【doctest】甲突變', '  ✗ 【resume-verify】乙突變', '      不算數：resume-verify 情境未成立（要測的狀況這一次沒有發生）（9 秒），這條突變沒有被驗到，要重跑'];
+    const ledgerOk = { entries: { 甲突變: { last: { red: true, counted: true, kind: 'assert', seconds: 3 } }, 乙突變: { last: { red: false, counted: false, kind: 'noscenario', seconds: 9 } } } };
+    fs.writeFileSync(path.join(dir, 'ledger.json'), JSON.stringify(ledgerOk));
+    const run = (logText, out, ledgerFile = 'ledger.json') => {
+      fs.writeFileSync(path.join(dir, 'run.log'), logText);
+      fs.rmSync(path.join(dir, out), { force: true });
+      try { return { code: 0, out: execFileSync(process.execPath, [path.join(ROOT, 'scripts/evidence.mjs'), path.join(dir, 'run.log'), '--ledger', path.join(dir, ledgerFile), '--out', path.join(dir, out)], { encoding: 'utf8' }) }; }
+      catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') }; }
+    };
+    const r1 = run(log(2, okLines), 'ok.md');
+    const rows1 = fs.existsSync(path.join(dir, 'ok.md')) ? fs.readFileSync(path.join(dir, 'ok.md'), 'utf8').split('\n').filter((l) => /^\| \d/.test(l)) : [];
+    ok(r1.code === 0 && rows1.length === 2 && rows1[1].includes('情境未成立') && rows1[1].includes('noscenario'),
+      `EV2 一致的 log 與帳本 → 寫出證據檔，2 列＝選了 2 條，情境未成立那一列取自帳本的結束方式（回 ${r1.code}）`);
+    const r2 = run(log(3, okLines), 'short.md');
+    ok(r2.code !== 0 && r2.out.includes('差 1 條') && !fs.existsSync(path.join(dir, 'short.md')),
+      `EV3 執行器選了 3 條、log 裡只有 2 條的結果 → 停、講明差 1 條、不寫檔（回 ${r2.code}）`);
+    fs.writeFileSync(path.join(dir, 'ledger-bad.json'), JSON.stringify({ entries: { ...ledgerOk.entries, 甲突變: { last: { red: false, counted: true, kind: 'assert', seconds: 3 } } } }));
+    const r3 = run(log(2, okLines), 'bad.md', 'ledger-bad.json');
+    ok(r3.code !== 0 && r3.out.includes('log 說抓到，帳本 red=false') && !fs.existsSync(path.join(dir, 'bad.md')),
+      `EV4 log 說抓到、帳本說沒紅 → 停、點名那一條、不寫檔（回 ${r3.code}）`);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 }
 
 section('重負載的資源紀錄（共用慣例 v11 §5.19、§5.20：紀錄要先證明真的記得到）');
