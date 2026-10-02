@@ -75,8 +75,9 @@ export const CASES = [
     find: '  grep -q -- "$must" "$T/out" || outOk=no', replace: '  true', also: [{ file: GATE, find: 'if [ ! -f "$REG" ]; then', replace: 'if false; then' }], expect: [] },
   // ---- 改閘門驗法本身的（以前的 M4、M6）----
   { label: 'M6：fresh 不清 hook（預設順序看得出來）', file: VERIFY,
-    find: 'fresh() { rm -f "$T/remote.git/hooks/pre-receive" "$T/remote.git/hooks/post-receive"; restore_all; register_work; }',
-    replace: 'fresh() { restore_all; register_work; }', expect: ['6', '7', '12', '17', '18', '22', '25'] },
+    // 2026-10-02：fresh 多清一個突變的還原紀錄（第 26 種用）；這一條只拿掉「清 hook」，還原紀錄照清，所以預期不變
+    find: 'fresh() { rm -f "$T/remote.git/hooks/pre-receive" "$T/remote.git/hooks/post-receive" scripts/.mutation-pending.json; restore_all; register_work; }',
+    replace: 'fresh() { rm -f scripts/.mutation-pending.json; restore_all; register_work; }', expect: ['6', '7', '12', '17', '18', '22', '25'] },
   { label: 'M4：第 11 種前置斷言改回接管線 → gatescan 點名那一行', file: VERIFY, runner: 'gatescan',
     find: `  PP="$(grep -c '^+++ ' "$T/k.diff")"`, replace: `  PP="$(git log -p --no-color --format= -U0 origin/main..HEAD | grep -c '^+++ ')"`,
     must: '｜pipe｜' },
@@ -221,13 +222,19 @@ function main() {
     if (!goodOk || !coarseCaught) { console.log('gatemutants：假 git 的對照組不對（檢查器壞了），不往下跑'); return 1; }
   } finally { fs.rmSync(good, { recursive: true, force: true }); fs.rmSync(coarse, { recursive: true, force: true }); }
   let bad = 0; let expectedTotal = null;
-  for (const c of CASES) {
+  // --only <關鍵字>（2026-10-02）：只跑標籤含關鍵字的幾條（改了某一條的錨點之後補跑用）；「對照：原樣」那一條一定跑（它定「應該幾種全部符合」）
+  const oi = process.argv.indexOf('--only');
+  const onlyKey = oi >= 0 ? String(process.argv[oi + 1] ?? '') : '';
+  const picked = onlyKey ? CASES.filter((c) => c.label === '對照：原樣' || c.label.includes(onlyKey)) : CASES;
+  if (onlyKey && picked.length < 2) { console.log(`gatemutants：--only「${onlyKey}」沒有對到任何一條`); return 1; }
+  if (onlyKey) console.log(`只跑 ${picked.length} 條（關鍵字「${onlyKey}」＋「對照：原樣」），不是整套 ${CASES.length} 條`);
+  for (const c of picked) {
     const res = runCase(repo, origHead, c, expectedTotal);
     if (c.find === null && !c.fakeGit && !c.order && (c.runner ?? 'verify') === 'verify') expectedTotal = res.total ?? null;
     if (!res.ok) bad += 1;
     console.log(res.line);
   }
-  console.log(bad ? `gatemutants：${bad} 條不如預期` : `gatemutants：${CASES.length} 條全部如預期（對照 ${expectedTotal} 種全部符合；每一條只紅在預期的地方）`);
+  console.log(bad ? `gatemutants：${bad} 條不如預期` : `gatemutants：${picked.length} 條全部如預期${onlyKey ? `（只跑了 ${picked.length}／${CASES.length} 條）` : ''}（對照 ${expectedTotal} 種全部符合；每一條只紅在預期的地方）`);
   return bad ? 1 : 0;
 }
 
