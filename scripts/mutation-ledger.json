@@ -13298,16 +13298,17 @@
   "護欄：不在帳本記開跑未完成": {
    "last": {
     "date": "2026-10-02",
-    "commit": "244a2c2d9bb4+dirty",
+    "commit": "b98b41aa28a4+dirty",
     "mode": "only",
     "defHash": "c825d3aed2349e0756b402ff5457a90ecff1f35e1a4e99763c4f2f796c2ec5cd",
-    "depHash": "c879d8c9a73e982088311625af22a0078e68a33f1293da34a7f53e1b33d32c02",
+    "depHash": "a91de5c8c9893c83d4ab1c75d1dc59c1e903b81c663eb48a2311e0147869710f",
     "runnerHash": "477f6014ed1bf0988d55b528fc93deaf7344740bea9b63a23cb553055a32859b",
     "scope": "repo",
-    "kind": "noscenario",
-    "counted": false,
-    "red": false,
-    "seconds": 113
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "seconds": 190
    },
    "lastFull": null
   },
@@ -13601,6 +13602,6 @@
    "lastFull": null
   }
  },
- "runSeq": 5,
+ "runSeq": 6,
  "inflight": null
 }
