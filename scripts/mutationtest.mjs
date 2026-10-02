@@ -3693,10 +3693,28 @@ const MUTATIONS = [
     name: "runkind 把崩潰當成斷言失敗",
     why: "輸出裡沒有任何 ✗ 的失敗不是某條斷言紅的；混在一起，「被別的東西碰巧擋下」會被算成抓到了。",
     file: "scripts/runkind.mjs",
-    find: "  return out.split('\\n').some((l) => l.includes('✗')) ? 'assert' : 'crash';",
+    find: "  return out.split('\\n').some((l) => l.trimStart().startsWith('✗')) ? 'assert' : 'crash';",
     replace: "  return 'assert';",
     test: "doctest",
     expect: "R3 回傳非 0、輸出裡沒有 ✗",
+  },
+  {
+    name: "runkind 把「✓ 行裡提到 ✗」當成斷言失敗",
+    why: "通過的那一行訊息裡提到 ✗（例：「✓ R2 回傳非 0、輸出裡有 ✗ → 斷言失敗」），不代表有斷言紅了；崩潰會被誤記成「紅在斷言」。",
+    file: "scripts/runkind.mjs",
+    find: "  return out.split('\\n').some((l) => l.trimStart().startsWith('✗')) ? 'assert' : 'crash';",
+    replace: "  return out.split('\\n').some((l) => l.includes('✗')) ? 'assert' : 'crash';",
+    test: "doctest",
+    expect: "R3b ",
+  },
+  {
+    name: "mutationtest 的 expect 比對認「行裡有 ✗ 這個字」",
+    why: "通過的行（✓ …）訊息裡提到 ✗、又含 expect 的字，突變就被判成「紅在預期那一條」——其實那一條是綠的。",
+    file: "scripts/mutationtest.mjs",
+    find: "\n    const failLine = (l) => l.trimStart().startsWith('✗');",
+    replace: "\n    const failLine = (l) => l.includes('✗');",
+    test: "doctest",
+    expect: "受影響 D18h",
   },
   {
     name: "mutationtest 不分「不算數」",
@@ -5281,13 +5299,16 @@ if (baselineOk) {
     if (result.kind === 'crash') { tally.crash += 1; note(`【${m.test}】${m.name}：紅在崩潰（輸出裡沒有任何 ✗），不是某條斷言（${result.seconds} 秒）`); }
     // expect（選填）：紅的一定要是這一條。改食譜檔或 foodtags.json 的突變一定會讓「recipes.json 是最新的」紅，
     // 只看有沒有紅的話，新斷言有沒有在檢查東西根本看不出來（2026-09-19 補早餐時發現）。
-    const expectHit = !m.expect || result.out.split('\n').some((l) => l.includes('✗') && l.includes(m.expect));
+    // 只認「以 ✗ 開頭」的行（2026-10-02）：以前只看「那一行有沒有 ✗ 這個字」，通過的行（✓ …）訊息裡提到 ✗ 也會被當成「紅在這一條」
+    // ——例：「✓ R2 回傳非 0、輸出裡有 ✗ → 斷言失敗」、resume-verify 的「✓ 護欄 …（回 1；✗ 上一次中斷過…）」。
+    const failLine = (l) => l.trimStart().startsWith('✗');
+    const expectHit = !m.expect || result.out.split('\n').some((l) => failLine(l) && l.includes(m.expect));
     // 紅的是不是預期那一種（v11 §5.18 第 4 點）：有 expect 的記比對結果；沒寫 expect 的記 null（判不出紅錯地方，照實記）
     record({ kind: result.kind, counted: true, red: !result.passed && expectHit && restored, expectMatched: m.expect ? (!result.passed && expectHit) : null, seconds: result.seconds });
     ok(!result.passed && expectHit && restored, `【${m.test}】${m.name}`,
       !restored ? `${m.file} 沒有還原成功！`
         : result.passed ? `改壞之後 ${m.test} 居然還是綠的 —— 對應的斷言沒有在檢查東西。${m.why}`
-          : `${m.test} 紅了，但紅的不是含「${m.expect}」的那一條 —— 對應的斷言沒有在檢查東西。${m.why}\n      實際紅的（前 4 行 ✗）：${result.out.split('\n').filter((l) => l.includes('✗')).slice(0, 4).map((l) => l.trim().slice(0, 160)).join('｜') || '（輸出裡沒有 ✗）'}`);
+          : `${m.test} 紅了，但紅的不是含「${m.expect}」的那一條 —— 對應的斷言沒有在檢查東西。${m.why}\n      實際紅的（前 4 行 ✗）：${result.out.split('\n').filter(failLine).slice(0, 4).map((l) => l.trim().slice(0, 160)).join('｜') || '（輸出裡沒有 ✗）'}`);
   }
   note(`結束方式統計：紅在斷言 ${tally.assert} 條、紅在崩潰 ${tally.crash} 條、不算數（逾時／被殺／沒跑起來）${tally.uncounted.length} 條${tally.uncounted.length ? `：${tally.uncounted.join('、')}` : ''}`);
 } else {

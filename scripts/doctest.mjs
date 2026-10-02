@@ -674,6 +674,7 @@ section('測試怎麼結束的（runkind；2026-10-01：逾時、沒跑起來、
   eq(node("console.log('ok')").kind, 'pass', 'R1 回傳 0 → 通過');
   eq(node("console.log('  ✗ 某條斷言'); process.exit(1)").kind, 'assert', 'R2 回傳非 0、輸出裡有 ✗ → 斷言失敗');
   eq(node("throw new Error('boom')").kind, 'crash', 'R3 回傳非 0、輸出裡沒有 ✗（未處理的例外）→ 崩潰，不是斷言失敗');
+  eq(node("console.log('  ✓ 某條通過的斷言，訊息裡提到 ✗ 這個字'); process.exit(1)").kind, 'crash', 'R3b 回傳非 0、✗ 只出現在通過的那一行訊息裡（不在行首）→ 崩潰，不是斷言失敗');
   const slow = node('setTimeout(() => {}, 20000)', { timeoutMs: 700 });
   eq(slow.kind, 'timeout', `R4 超過時限被殺 → 逾時（不是斷言失敗、也不是崩潰）（${slow.seconds} 秒）`);
   eq(runProgram([], { timeoutMs: 3000, exe: path.join(os.tmpdir(), 'mm-no-such-program.exe') }).kind, 'spawn', 'R5 程式根本沒跑起來 → 沒跑起來');
@@ -902,6 +903,11 @@ section('只差空白或行尾的突變要被擋（2026-10-02 Dispatch；v11.3 �
   const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-ws-'));
   try {
     execFileSync('git', ['clone', '-q', ROOT, clone], { stdio: ['ignore', 'pipe', 'pipe'] });
+    // clone 拿到的是已 commit 的版本；要驗的是工作區這一份（突變執行器改的就是工作區）——把 scripts/ 蓋過去。
+    // 2026-10-02：沒蓋的時候，守 WS2–WS4 的三條突變全部沒抓到——複本裡跑的一直是沒被改壞的程式（§5.11：改壞的那一份要真的被執行到）
+    for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) {
+      if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(clone, 'scripts', f));
+    }
     const cm = () => { try { return { code: 0, out: execFileSync(process.execPath, ['scripts/checkmutations.mjs'], { cwd: clone, encoding: 'utf8' }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') }; } };
     const total = (loadMutations(fs.readFileSync(path.join(clone, 'scripts/mutationtest.mjs'), 'utf8')) ?? []).length;
     const r0 = cm();
@@ -1184,6 +1190,17 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     ok(r6.code !== 0 && r6.out.includes('不算數：affslow 逾時被殺') && slow?.last?.counted === false && slow?.last?.red === false && !slow?.lastFull
       && led6.entries?.['AFF探針']?.lastFull?.red === true && led6.entries?.['AFF探針']?.lastFull?.mode === 'never-full',
     `受影響 D18f 同一輪補跑（--never-full）：算數的那一條記成在整套裡跑過、紅；逾時的那一條記成不算數、沒紅、沒有「在整套裡跑過」（回 ${r6.code}；紀錄 ${JSON.stringify(slow?.last ? { counted: slow.last.counted, red: slow.last.red, kind: slow.last.kind } : null)}）`);
+    // D18h（2026-10-02）：「紅在哪一條」只認以 ✗ 開頭的行。探針改壞時：一條「✓ AFFW 探針」通過、但訊息裡提到 ✗，另一條別的斷言 ✗ 紅——
+    // 這條突變要被判成「紅錯地方」，不能因為那一行 ✓ 裡有 ✗ 這個字、又含 expect，就被判成「紅在預期那一條」
+    fs.writeFileSync(path.join(root, 'scripts/affwtarget.mjs'), 'export const BROKEN = false;\n');
+    fs.writeFileSync(path.join(root, 'scripts/affw.mjs'), "import { ok, done } from './tap.mjs';\nimport { BROKEN } from './affwtarget.mjs';\nok(typeof BROKEN === 'boolean', 'AFFW 探針（訊息裡提到 ✗ 這個字）');\nok(!BROKEN, '別的一條');\ndone('affw');\n");
+    const src3 = fs.readFileSync(mtFile, 'utf8');
+    const p3 = src3.indexOf('const MUTATIONS = [\n') + 'const MUTATIONS = ['.length;
+    fs.writeFileSync(mtFile, `${src3.slice(0, p3)}\n  { name: "AFFW探針", why: "x", file: "scripts/affwtarget.mjs", find: "export const BROKEN = false;", replace: "export const BROKEN = true;", test: "affw", expect: "AFFW 探針" },${src3.slice(p3)}`);
+    g('add', '-A'); g('commit', '-qm', '加紅錯地方的探針');
+    const r7 = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--only', 'AFFW探針'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();
+    ok(r7.code !== 0 && r7.out.includes('紅了，但紅的不是含「AFFW 探針」的那一條'),
+      `受影響 D18h 改壞後紅的是別條、預期那一條是綠的（只是訊息裡提到 ✗）→ 判成紅錯地方，不算抓到（回 ${r7.code}）`);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

@@ -42,7 +42,8 @@ export function classifyRun(e) {
   if (e.status === null || e.status === undefined) return 'spawn';
   const out = `${e.stdout ?? ''}\n${e.stderr ?? ''}`;
   if (hasNoScenario(out)) return 'noscenario';                       // 宣告了情境未成立：就算也有 ✗，那些 ✗ 量的不是要測的東西
-  return out.split('\n').some((l) => l.includes('✗')) ? 'assert' : 'crash';
+  // 只認以 ✗ 開頭的行（2026-10-02）：通過的行（✓ …）訊息裡提到 ✗ 的，不是某條斷言紅了
+  return out.split('\n').some((l) => l.trimStart().startsWith('✗')) ? 'assert' : 'crash';
 }
 
 /** 跑一支程式：回 { passed, kind, out, seconds }。exe 預設是目前的 node（測試可以傳別的，造「沒跑起來」）。 */
