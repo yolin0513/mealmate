@@ -4641,6 +4641,33 @@ const MUTATIONS = [
     test: "doctest",
     expect: "D18k ",
   },
+  {
+    name: "執行器：預期清單過期的前置通過時不印",
+    why: "通過時一行不印，「0 條過期」跟「根本沒查」在輸出上長得一樣（StockDiary 2026-10-02）。",
+    file: "scripts/mutationtest.mjs",
+    find: "\n  note(`預期清單過期的前置：這一次帶 expect",
+    replace: "\n  void (`預期清單過期的前置：這一次帶 expect",
+    test: "doctest",
+    expect: "D18l ",
+  },
+  {
+    name: "gatemutants：預期清單過期的前置通過時不印",
+    why: "同上：沒過期時什麼都不印，就分不出是查過了還是沒查。",
+    file: "scripts/gatemutants.mjs",
+    find: "  console.log(`預期清單過期的前置：查了 ${picked.length} 條",
+    replace: "  void (`預期清單過期的前置：查了 ${picked.length} 條",
+    test: "doctest",
+    expect: "GM5 ",
+  },
+  {
+    name: "pre-commit hook：通過時不印",
+    why: "通過時一行不印，「沒擋」跟「hook 根本沒裝、沒跑」在 commit 的輸出上長得一樣。",
+    file: "scripts/hooks/pre-commit",
+    find: "\necho \"pre-commit：查了 $PENDINGF",
+    replace: "\n: \"pre-commit：查了 $PENDINGF",
+    test: "doctest",
+    expect: "hook H1 ",
+  },
   // ---- 2026-10-02：判對時也印實際紅了哪幾條（StockDiary 挖出來的；doctest D18i）----
   {
     name: "執行器：判對時不印實際紅了哪幾條",
@@ -5555,6 +5582,11 @@ for (const t of TESTS) {
   section('預期需要複審');
   note(`這一次要跑的 ${SELECTED.length} 條裡，帶 expect 的 ${SELECTED.filter((m) => m.expect != null).length} 條；母體跟戳記不一樣、要複審的 ${rv.length} 條`);
   for (const x of rv) note(`預期需要複審：${x.test}｜${x.name}｜${x.why}`);
+  // 預期清單過期的前置，通過時也印（2026-10-02，StockDiary：通過時一行不印，「0 個過期」就只能從「沒看到報錯」推出來）
+  const withE = SELECTED.filter((m) => m.expect != null);
+  const readR = (rel) => (fs.existsSync(path.join(ROOT, rel)) ? fs.readFileSync(path.join(ROOT, rel), 'utf8') : null);
+  const staleE = withE.filter((m) => expectProblems(m, readR).length > 0);
+  note(`預期清單過期的前置：這一次帶 expect 的 ${withE.length} 條，查了 ${withE.length} 條（expect 在測試原始碼裡找不找得到），找不到 ${staleE.length} 條${staleE.length ? `（逐條裡另外報「預期清單過期」：${staleE.map((m) => m.name).join('、')}）` : ''}`);
 }
 
 let ran = 0; // 實際跑到（改壞、跑測試、還原）的條數；整套完整跑完才寫 mutation-lastfull.json

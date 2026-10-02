@@ -1228,6 +1228,8 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     // D18k（2026-10-02 A＋）：執行器開跑前也報「預期需要複審」（暫存 repo 沒有戳記檔 → 那一條沒有戳記），只報不擋
     ok(r1.out.split('\n').some((l) => l.startsWith('  · 預期需要複審：affprobe｜AFF探針｜沒有戳記')) && r1.code === 0,
       `受影響 D18k 執行器開跑前列出要複審的（這裡是沒有戳記的那一條），用說明行、不擋（回 ${r1.code}）`);
+    ok(r1.out.split('\n').some((l) => l.startsWith('  · 預期清單過期的前置：這一次帶 expect 的 1 條，查了 1 條（expect 在測試原始碼裡找不找得到），找不到 0 條')),
+      '受影響 D18l 預期清單過期的前置沒抓到東西時也印一行：查了幾條、找不到幾條（不能只靠「沒看到報錯」）');
     const r2 = run();
     ok(r2.code === 0 && r2.out.includes('選了 0 條突變') && r2.out.includes('沿用上次結果 1 條'), `受影響 D18b 第二次什麼都沒改 → 沿用、0 條要跑（回 ${r2.code}）`);
     // D18g（遊戲專案 2026-10-02 撞出來的同一件事）：帳本裡「沒有結果／逾時被殺」的那一條，選擇時要當成沒跑過——
@@ -1338,7 +1340,7 @@ section('pre-commit hook：突變的還原紀錄還在就不給 commit（Dispatc
     const TAG = '【擋下：突變的還原紀錄】';
 
     const h1 = tryCommit();
-    ok(h1.code === 0 && h1.moved && !h1.out.includes(TAG), `hook H1 沒有還原紀錄、帳本 inflight 是 null → 照常 commit（回 ${h1.code}；${h1.out.trim()}）`);
+    ok(h1.code === 0 && h1.moved && !h1.out.includes(TAG) && h1.out.includes('pre-commit：查了 scripts/.mutation-pending.json 與帳本的 inflight，都沒有還原紀錄'), `hook H1 沒有還原紀錄、帳本 inflight 是 null → 照常 commit（回 ${h1.code}；${h1.out.trim()}）`);
 
     fs.writeFileSync(PENDING, JSON.stringify({ rel: 'js/probe-target.js', content: 'x' }));
     const h2 = tryCommit();
@@ -1386,6 +1388,15 @@ section('預期清單過期要用獨立的訊息、開跑前擋（2026-10-02；g
     ok(p2.length === 1 && p2[0].includes('預期的第 99 種不在閘門驗法裡'), `GM2 預期清單裡有一種閘門驗法沒有的情境（第 99 種）→ 點名那一種，第 7 種不報（${p2.join('｜')}）`);
     const p3 = gm.staleProblems(gm.CASES, (rel) => (rel === 'scripts/pushgate-verify.sh' ? '# 沒有任何情境\n' : readHeadOf(clone)(rel)));
     ok(p3.length === 1 && p3[0].includes('一種情境都數不到'), `GM3 閘門驗法裡一種情境都數不到 → 判成判斷不了，不是「全部不過期」（${p3.join('｜')}）`);
+    // GM5（2026-10-02，StockDiary）：通過時也要留下算過的痕跡——查了幾條、幾處錨點、幾個情境編號，不能只靠「沒看到報錯」
+    {
+      const env5 = { ...process.env }; delete env5.MM_AUDIT; delete env5.MM_AUDIT_OUT; delete env5.MM_LEDGER;
+      const r5 = spawnSync(process.execPath, ['scripts/gatemutants.mjs', '--check-only'], { cwd: clone, encoding: 'utf8', env: env5 });
+      const anchors = gm.CASES.filter((c) => c.find !== null).reduce((a, c) => a + 1 + (c.also?.length ?? 0), 0);
+      const line = `${r5.stdout}`.split('\n').find((l) => l.startsWith('預期清單過期的前置：')) ?? '';
+      ok(r5.status === 0 && line.startsWith(`預期清單過期的前置：查了 ${gm.CASES.length} 條（錨點 ${anchors} 處、`) && line.endsWith('過期 0 處') && !`${r5.stdout}`.includes('【對照：原樣】'),
+        `GM5 預期清單沒過期時也印一行：查了幾條、錨點幾處（回 ${r5.status}；${line || '（沒有這一行）'}）`);
+    }
     // GM1 從真實入口：把 M6 的錨點弄壞（多一個空白）、commit，跑 gatemutants——開跑前就要停、用獨立的訊息、一條都沒跑
     const vf = path.join(clone, 'scripts/pushgate-verify.sh');
     const vsrc = fs.readFileSync(vf, 'utf8');

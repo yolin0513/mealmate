@@ -18,4 +18,6 @@ if [ -e "$LEDGERF" ] && grep -q -F '"inflight": {' "$LEDGERF"; then
   echo "【擋下：突變的還原紀錄】帳本 $LEDGERF 記著一條改壞了還沒收尾的突變（inflight），先跑一次 node scripts/mutationtest.mjs --dry-run 核對兩處紀錄，再 commit"
   exit 1
 fi
+# 通過時也留一行（2026-10-02：「沒擋」跟「hook 根本沒跑」在輸出上要分得出來）
+echo "pre-commit：查了 $PENDINGF 與帳本的 inflight，都沒有還原紀錄"
 exit 0

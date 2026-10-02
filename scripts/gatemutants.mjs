@@ -284,6 +284,7 @@ function main() {
   const rb = resolveBash();
   if (!rb.bash) { console.log(`⊘ 情境未成立：${rb.problem}。一條都沒跑（不是閘門壞了，是跑不起來）`); return 8; }
   BASH = rb.bash;
+  console.log(`bash：PATH 上第一支是 ${path.basename(path.dirname(rb.bash))} 底下的 ${path.basename(rb.bash)}，問過是 Git Bash，用它的完整路徑`);
   // 擷取的對照組：抓空的話，「不符合的恰好是預期那幾種」會退化成永遠「沒有不符合」
   const sample = '15 動到 build｜回傳 0（預期 5）｜假遠端 a → a（預期 same）｜不符合\n7 全部正常｜回傳 0（預期 0）｜假遠端 a → b（預期 local）｜符合\n'
     + '11 ++ 開頭的新增行｜取不到 diff｜不符合（情境沒造成，中止）\n閘門驗法：…';
@@ -310,7 +311,12 @@ function main() {
   const readHead = (rel) => { const r = spawnSync('git', ['-C', repo, 'show', `${origHead}:${rel}`], { encoding: 'utf8' }); return r.status === 0 ? r.stdout : null; };
   const stale = staleProblems(picked, readHead);
   if (stale.length) { console.log(`gatemutants：預期清單過期（${stale.length} 處），一條都沒跑——先更新清單，不是閘門壞了：\n  ${stale.join('\n  ')}`); return 6; }
-  console.log(`預期清單：${picked.length} 條的錨點都剛好一次、預期的情境編號都在閘門驗法裡`);
+  // 通過時也留下算過的痕跡（2026-10-02，StockDiary：「抓到 0 個」跟「根本沒跑」在輸出上長得一樣）：查了幾筆、涵蓋什麼
+  const anchors = picked.filter((c) => c.find !== null).reduce((a, c) => a + 1 + (c.also?.length ?? 0), 0);
+  const ids = picked.reduce((a, c) => a + (c.expect?.length ?? 0), 0);
+  const codes = picked.reduce((a, c) => a + Object.values(c.reasons ?? {}).reduce((x, v) => x + v.length, 0), 0);
+  console.log(`預期清單過期的前置：查了 ${picked.length} 條（錨點 ${anchors} 處、預期的情境編號 ${ids} 個、理由碼 ${codes} 個），對 HEAD ${origHead.slice(0, 7)} 的檔，過期 0 處`);
+  if (process.argv.includes('--check-only')) { console.log('gatemutants：--check-only，只查預期清單，一條都沒跑'); return 0; }
   for (const c of picked) {
     const res = runCase(repo, origHead, c, expectedTotal);
     if (c.find === null && !c.fakeGit && !c.order && (c.runner ?? 'verify') === 'verify') expectedTotal = res.total ?? null;
