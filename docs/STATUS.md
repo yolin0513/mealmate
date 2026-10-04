@@ -6,6 +6,16 @@
 
 ## 目前進行中／交接（2026-09-25 收尾，寫給下一個 Session）
 
+**2026-10-04 暫停（Yolin 指示：App 的工作全部暫停，等他說做才開工）——接手先讀這一段**
+- **線上版本 `mealmate-v0.42.0`（A 方案）維持不動。** 遠端 main 是這一段推上去的那個 commit；本機沒有未推的 commit。
+- **停在十項待辦的第 1 項（推送閘門鎖定 commit＋逾時）**，下面「正式那場收尾」那一段的待辦清單與順序不變。第 1 項的狀態：
+  - **程式寫好了、沒驗、沒 commit**：`scripts/pushgate.sh`（開頭鎖定 commit；自查只掃到它、推送只推它〔`LOCK_SHA:refs/heads/main`〕、第三關跟它比；推送前後各查一次 HEAD 有沒有動，動了回 9；取遠端 120 秒、自查 300 秒、推送 120 秒、問遠端 60 秒的逾時，用寫死的 `/usr/bin/timeout`，找不到就停）、`scripts/selfcheck.mjs`（`--head <commit>`）、`scripts/pushgate-verify.sh`（第 28 種：假 node 在自查之後 commit；第 29 種：假 git 在推送時 commit）、`scripts/gatemutants.mjs`（9 個錨點跟上新寫法、新加 2 條：只紅 28、只紅 29）。
+  - **只做過秒級檢查**：`bash -n`、`node --check`、gatescan 通過、gatemutants 的預期清單對工作區查 0 處過期。**沒跑**：doctest、推送閘門的驗法（29 種）、gatemutants（受影響的 11 條＋對照：原樣）。逾時那幾道沒有情境守（要真的等到逾時才能造，不為測試開後門）——照實列為盲區。
+  - **這些改動不在工作區**：為了不把沒驗完的東西 commit 進去、又讓工作區乾淨，收進 `git stash`（`stash@{0}`，訊息「未驗：推送閘門鎖定 commit＋逾時」），另存一份 patch 在 `.logs/wip-pushgate-lock-2026-10-03.patch`（247 行；sha256 `e0e086bd9dc2e84d583f6a139d42be7492ffc81a6c3979292181fa5c9d3d71ff`；`.logs/` 不進版控，兩份都只在這台機器上）。`git apply --check` 確認可以套回現在的 HEAD。
+- **暫行硬規則仍然生效**（鎖定 commit 還沒做完）：commit 全部做完 → `bash scripts/pushgate.sh`（它自己跑自查）→ 立刻推；**自查到推送之間不得有任何新 commit、amend、rebase**；中途修了就重跑。推完回報「自查掃到的範圍尾端是哪一個 commit」。
+- 其他留著的東西：暫存目錄裡 2 個 `mm-` 開頭的資料夾（10-02 留的，見 `.logs/restart-inventory.txt`；2026-10-03 App 重開過，主人程序已不在是重開造成的，不是殘留），留到第 9 項盤點。v11.6 工單副本已進版控，CONVENTIONS 副本還沒更新（第 10 項；其中 hook 相關的，等 Claude Code 2.1.288 的 PreToolUse 修正到位再做）。
+- **恢復時的第一件事**：先讀這一段與下面「正式那場收尾」的待辦，然後把第 1 項的程式拿回來（`git stash pop`；stash 不見了就 `git apply .logs/wip-pushgate-lock-2026-10-03.patch`，套之前先比對上面的 sha256），**向 Dispatch 回報程序數與預估耗時、拿到許可後**依序跑 doctest＋copytest（node 2–4 支、約 55 秒）→ `bash scripts/pushgate-verify.sh`（29 種，約 90–110 秒）→ `node scripts/gatemutants.mjs --only <受影響的關鍵字>`（12 次、約 17 分鐘），全部如預期才 commit、推送，再撤掉暫行硬規則並寫進這裡。
+
 **v0.42.0 部署（2026-10-02）**
 - 使用者看得到的：加工品葷素 A 方案（Yolin 2026-10-01「先依A方案實作」）——照常排；對不吃蛋／奶／五辛的家人，食譜頁具體列出「「醬油」未確認是否含蛋、奶」，食材表那幾樣旁邊也標；只標推不出來的；`data/foodtags.json` 的 `checked` 補上確認後標示自動消失（待確認清單 `docs/待確認_加工品葷素.md`）。其餘是測試工具與文件（只跑受影響的突變、帳本、資源紀錄、執行器三道護欄、推送閘門第零關之零、情境未成立類別、共用慣例 v11.4 副本）。
 - 部署前跑過（Dispatch 2026-10-02 放行的時段，JLPT 之後）：
