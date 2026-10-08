@@ -4596,16 +4596,19 @@
   "手改之後不留建議值": {
    "last": {
     "date": "2026-10-08",
-    "commit": "987a758c3f1e+dirty",
+    "commit": "4c0f4f867ece",
     "mode": "only",
     "defHash": "151993553eb31967cbd8e6b6676ad1d220ec5840106eedcc649a6ddec7703af0",
-    "depHash": "9cbc6b763d5300ba963a83c5292240c7187c8c7704920c5e5c40d7e235844baa",
+    "depHash": "f371eb820e58e993d0162329498f385d641ce7dcf6afa5df59d6836cfed0e8bf",
     "runnerHash": "c39f9d3789b8ecd1a6f9febc6c36badf07bb7aeffc34b64ae28455646c2b7368",
     "scope": "node",
-    "kind": "cut",
-    "counted": false,
-    "red": false,
-    "seconds": 1
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": null,
+    "failed": 4,
+    "expectHits": null,
+    "seconds": 2
    },
    "lastFull": {
     "date": "2026-09-24",
@@ -6951,16 +6954,19 @@
   "不換算成顆、把": {
    "last": {
     "date": "2026-10-08",
-    "commit": "987a758c3f1e+dirty",
+    "commit": "4c0f4f867ece",
     "mode": "only",
     "defHash": "b0a0bf1f95c30c1f0744af2c1792b950fdd16c956064f6c8df0f1be40b5e54b8",
-    "depHash": "9cbc6b763d5300ba963a83c5292240c7187c8c7704920c5e5c40d7e235844baa",
+    "depHash": "f371eb820e58e993d0162329498f385d641ce7dcf6afa5df59d6836cfed0e8bf",
     "runnerHash": "c39f9d3789b8ecd1a6f9febc6c36badf07bb7aeffc34b64ae28455646c2b7368",
     "scope": "node",
-    "kind": "cut",
-    "counted": false,
-    "red": false,
-    "seconds": 1
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": null,
+    "failed": 16,
+    "expectHits": null,
+    "seconds": 2
    },
    "lastFull": {
     "date": "2026-09-24",
@@ -20893,6 +20899,6 @@
    "lastFull": null
   }
  },
- "runSeq": 56,
+ "runSeq": 57,
  "inflight": null
 }
