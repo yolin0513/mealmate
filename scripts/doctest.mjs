@@ -1824,6 +1824,19 @@ section('共用慣例副本跟主檔一致（2026-10-08，Dispatch：過期的�
   // CV3 主檔路徑讀不到 → 紅、講明讀不到主檔（不當成通過）
   const gone = convCheck(ROOT, { masterRel: '../../沒有這個工作區/CONVENTIONS.md' });
   ok(!gone.ok && gone.why === '讀不到主檔', `CV3 主檔讀不到 → 判不一致、講明「${gone.why}」（不當成通過）`);
+  // CV4、CV5（2026-10-08，抄 TripQuest）：擋在檢查程式裡——同一個實體檔時內容必然永遠相同，比對永遠是綠的
+  const self = convCheck(ROOT, { masterRel: CONV_COPY_REL });
+  ok(!self.ok && self.why.includes('指到同一個路徑'), `CV4 主檔指到副本自己 → 判不一致、點名「指到同一個路徑」：${self.why}`);
+  const hl = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-cvlink-'));
+  try {
+    fs.mkdirSync(path.join(hl, 'docs'));
+    fs.copyFileSync(path.join(ROOT, CONV_COPY_REL), path.join(hl, CONV_COPY_REL));
+    fs.linkSync(path.join(hl, CONV_COPY_REL), path.join(hl, 'master.md'));
+    const linked = fs.statSync(path.join(hl, 'master.md'), { bigint: true }).nlink;
+    ok(linked >= 2n, `（前提）CV5 硬連結造出來了（連結數 ${linked}）`);
+    const hard = convCheck(hl, { masterRel: 'master.md' });
+    ok(!hard.ok && hard.why.includes('是同一個實體檔'), `CV5 主檔是副本的硬連結（路徑字串不同）→ 判不一致、點名「是同一個實體檔」：${hard.why}`);
+  } finally { fs.rmSync(hl, { recursive: true, force: true }); }
 }
 
 section('doctest 開 node 腳本的子程序都帶上限（2026-10-08，第 7 項：npm test 這條路沒有外層上限）');

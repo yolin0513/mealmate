@@ -32,8 +32,28 @@ export function compareConv(copyText, masterText) {
   return { ok: true, why: `一致（${cv}）` };
 }
 
+/**
+ * 副本和主檔是不是同一個實體檔（2026-10-08，抄 TripQuest 的做法：擋在檢查程式裡，不只在測試裡比路徑字串）。
+ * 同一個實體檔時兩邊內容必然永遠相同，比對永遠是綠的——而路徑字串可以看起來完全不同（硬連結、符號連結、接合點）。
+ * 兩層、各報不同的理由：一、實際路徑（realpath，解開符號連結與接合點）相同 → 指到同一個路徑；
+ * 二、路徑不同、但磁碟與檔案編號相同 → 硬連結，是同一個實體檔。讀不到的不在這裡判（交給「讀不到主檔／副本」）。
+ */
+export function sameFile(a, b) {
+  let ra; let rb;
+  try { ra = fs.realpathSync.native(a); rb = fs.realpathSync.native(b); } catch { return null; }
+  if (ra.toLowerCase() === rb.toLowerCase()) return '指到同一個路徑（解開連結之後）';
+  try {
+    const sa = fs.statSync(ra, { bigint: true }); const sb = fs.statSync(rb, { bigint: true });
+    if (sa.dev === sb.dev && sa.ino === sb.ino && sa.ino !== 0n) return '是同一個實體檔（硬連結：磁碟與檔案編號相同）';
+  } catch { return null; }
+  return null;
+}
+
 /** 從 repo 根目錄讀兩份來比 */
 export function convCheck(root, { masterRel = MASTER_REL, copyRel = COPY_REL } = {}) {
-  const read = (p) => { try { return fs.readFileSync(path.resolve(root, p), 'utf8'); } catch { return null; } };
-  return compareConv(read(copyRel), read(masterRel));
+  const ca = path.resolve(root, copyRel); const ma = path.resolve(root, masterRel);
+  const same = sameFile(ca, ma);
+  if (same) return { ok: false, why: `副本與主檔${same}——內容必然永遠相同，比對沒有意義` };
+  const read = (p) => { try { return fs.readFileSync(p, 'utf8'); } catch { return null; } };
+  return compareConv(read(ca), read(ma));
 }

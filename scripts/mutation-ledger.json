@@ -20519,8 +20519,46 @@
     "seconds": 101
    },
    "lastFull": null
+  },
+  "副本比對：不擋指到同一個路徑": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "408fcd19c38b+dirty",
+    "mode": "only",
+    "defHash": "ecd6dbf4a52864734b9d35d805ae7b6c22d24de8300dd53402e98c5941191c28",
+    "depHash": "7f2a9c48aaeecc79736a137c6b443c66afc868b8e97739799fc0edfea52577ac",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 104
+   },
+   "lastFull": null
+  },
+  "副本比對：不擋硬連結": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "408fcd19c38b+dirty",
+    "mode": "only",
+    "defHash": "b2709b2e90fd6b1535c45bf8f549b794da8d018e689e644439a32998f6ceceb3",
+    "depHash": "7f2a9c48aaeecc79736a137c6b443c66afc868b8e97739799fc0edfea52577ac",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 104
+   },
+   "lastFull": null
   }
  },
- "runSeq": 45,
+ "runSeq": 46,
  "inflight": null
 }
