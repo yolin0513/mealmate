@@ -3,17 +3,20 @@
  "entries": {
   "某一頁載不起來時 router 不通報（回到只 console.error）": {
    "last": {
-    "date": "2026-10-02",
-    "commit": "f8261d7d269c",
+    "date": "2026-10-08",
+    "commit": "8439e697ff27+dirty",
     "mode": "only",
-    "defHash": "a1ffe4421b0450f0bdd0ef659f85ff0fe0f2dc0a279b5f48bfe6ecd678cb5956",
-    "depHash": "bf8bcb8120c33d2d506c1272da48148544fd01e11f8d0ea96f2d1f85bd1c1b38",
+    "defHash": "e04e75902f7d9866d0f671feb97b186ce395dcfba5124ad6b8f7c149e1d8357c",
+    "depHash": "a89b1b716636d6695f0f309bab2f6f9d4ebcaa35e1b7881930f27bcd5182ffd2",
     "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
     "scope": "repo",
-    "kind": "crash",
-    "counted": false,
-    "red": false,
-    "seconds": 41
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 50
    },
    "lastFull": {
     "date": "2026-09-24",
@@ -332,17 +335,20 @@
   },
   "index.html 不載開機看門狗": {
    "last": {
-    "date": "2026-10-02",
-    "commit": "f8261d7d269c",
+    "date": "2026-10-08",
+    "commit": "8439e697ff27+dirty",
     "mode": "only",
-    "defHash": "711a7c2ac767555dced9d179fe77c5e4cbebc5b1104482a5f146f80c0df0c8e2",
-    "depHash": "bf8bcb8120c33d2d506c1272da48148544fd01e11f8d0ea96f2d1f85bd1c1b38",
+    "defHash": "fc276ecbed42a989d3b4d07f53a2f27f58d8d2c5c3ada0cc2892ca5be92d96a1",
+    "depHash": "3f1bba5fa9ec6d7240323402bd752cfc1f5f95ab773e3ec7a0e8518fe86e00ac",
     "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
     "scope": "repo",
-    "kind": "crash",
-    "counted": false,
-    "red": false,
-    "seconds": 55
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 60
    },
    "lastFull": {
     "date": "2026-09-24",
@@ -361,17 +367,20 @@
   },
   "看門狗判斷「畫面還是空的」永遠回 false": {
    "last": {
-    "date": "2026-10-02",
-    "commit": "f8261d7d269c",
+    "date": "2026-10-08",
+    "commit": "8439e697ff27+dirty",
     "mode": "only",
-    "defHash": "c6bce72cf7082a2dc0f409ce3af83b90d919411c36596a0ddd63e92ca0119b50",
-    "depHash": "bf8bcb8120c33d2d506c1272da48148544fd01e11f8d0ea96f2d1f85bd1c1b38",
+    "defHash": "be77a7dc513bf1a32ef219b9996988ab0e9a00de2f36844a4b7283f0bda4b917",
+    "depHash": "3f1bba5fa9ec6d7240323402bd752cfc1f5f95ab773e3ec7a0e8518fe86e00ac",
     "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
     "scope": "repo",
-    "kind": "crash",
-    "counted": false,
-    "red": false,
-    "seconds": 54
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 60
    },
    "lastFull": {
     "date": "2026-09-24",
@@ -15954,19 +15963,19 @@
   },
   "依賴範圍：import 只走一層、不遞迴": {
    "last": {
-    "date": "2026-10-02",
-    "commit": "d27f14861762",
-    "mode": "never-full",
-    "defHash": "c20275ff2e42dd37fcc2f20fb9ae346a36b0c374554e8cb2d08f0f4bf50f711f",
-    "depHash": "8cd9002053d35c22cb20ba7dac9112e9c0e741e2042dac8d001f7e6d42f16f96",
-    "runnerHash": "f4d2ba139e34411fe2e7c5b98090f130e8c5eacad40906b239503f9d495130bc",
+    "date": "2026-10-08",
+    "commit": "8439e697ff27+dirty",
+    "mode": "only",
+    "defHash": "fde43f53dd06f8102a589762f6ba08d44929d161277e2cf3bfbe465199c3e4ff",
+    "depHash": "3f1bba5fa9ec6d7240323402bd752cfc1f5f95ab773e3ec7a0e8518fe86e00ac",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
-    "red": false,
-    "expectMatched": false,
-    "failed": 5,
-    "expectHits": 0,
+    "red": true,
+    "expectMatched": true,
+    "failed": 7,
+    "expectHits": 1,
     "seconds": 53
    },
    "lastFull": {
@@ -19690,8 +19699,27 @@
     "seconds": 0
    },
    "lastFull": null
+  },
+  "D17c 的「只走一層」複本其實沒套上突變（兩邊一樣）": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "8439e697ff27+dirty",
+    "mode": "only",
+    "defHash": "8d20687a2a6384575152899d15050d38c1567803c9ba513c0ea4b99892e8fba3",
+    "depHash": "3f1bba5fa9ec6d7240323402bd752cfc1f5f95ab773e3ec7a0e8518fe86e00ac",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 5,
+    "expectHits": 1,
+    "seconds": 58
+   },
+   "lastFull": null
   }
  },
- "runSeq": 19,
+ "runSeq": 22,
  "inflight": null
 }

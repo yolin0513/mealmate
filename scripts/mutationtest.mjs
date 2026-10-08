@@ -51,6 +51,8 @@ const MUTATIONS = [
     find: "      if (renderError && my === gen) { try { renderError(e, path); } catch (e2) { console.error(e2); } }",
     replace: "      void renderError;",
     test: "versionmixtest",
+    // 2026-10-08：以前等那張卡的 waitForSelector 逾時丟例外、整支崩潰（不算數）；改成「等不到＝這一條紅」
+    expect: "需要更新卡出現：",
   },
   {
     name: "菜色選項卡的按鈕列退回 flex（各顆寬度不一、換行參差）",
@@ -141,6 +143,7 @@ const MUTATIONS = [
     find: "  <script src=\"./js/bootguard.js\"></script>\n",
     replace: "",
     test: "versionmixtest",
+    expect: "看門狗的卡出現：",
   },
   {
     name: "看門狗判斷「畫面還是空的」永遠回 false",
@@ -149,6 +152,7 @@ const MUTATIONS = [
     find: "    return text.length === 0 || !!view.querySelector('.spinner');",
     replace: "    return false;",
     test: "versionmixtest",
+    expect: "看門狗的卡出現：",
   },
   {
     name: "開機成功不標 data-booted",
@@ -4523,7 +4527,8 @@ const MUTATIONS = [
     find: "      if (has(target) && !seen.has(target)) stack.push(target);",
     replace: "      if (has(target) && !seen.has(target)) seen.add(target);",
     test: "doctest",
-    expect: "受影響 D1 ",
+    // 2026-10-08：原本 expect 是 D1，但 D1 的第二層剛好是目標檔的直接 import，少走一層也看不出差別（10-02 正式那場紅錯地方）；改由 D1b 守
+    expect: "受影響 D1b ",
   },
   // ---- 2026-10-02 v11.4 §5.7：入庫的證據由腳本從原始 log 逐項產生（scripts/evidence.mjs）----
   {
@@ -4886,6 +4891,15 @@ const MUTATIONS = [
     replace: "      if (false) {\n",
     test: "doctest",
     expect: "D18o ",
+  },
+  {
+    name: "D17c 的「只走一層」複本其實沒套上突變（兩邊一樣）",
+    why: "兩份一模一樣的解析互比，「範圍不同 0 條」永遠成立——等於沒有檢查（兩份一樣的來源比成一致，是今天最常見的假檢查）。",
+    file: "scripts/doctest.mjs",
+    find: "fs.writeFileSync(dgFile, dgSrc.replace(oneLayer.find, () => oneLayer.replace));",
+    replace: "fs.writeFileSync(dgFile, dgSrc);",
+    test: "doctest",
+    expect: "受影響 D17c ",
   },
   // ---- 2026-10-02：判對時也印實際紅了哪幾條（StockDiary 挖出來的；doctest D18i）----
   {

@@ -72,7 +72,14 @@
      - 補的斷言（recipetest）：A1（同一邊有一樣含、一樣推不出來 → 含）、A2（沒有含、只有推不出來 → 推不出來）、B1（單一原料確認過＝已確認不含／沒確認＝推斷不含）、C1（整道全推斷不含＝推斷不含／有一樣推不出來＝推不出來）。A1、A2 各有一條前置斷言先確認情境存在。食材層的 T1–T3 守單一食材的兩個方向。
      - 突變（`--only` 實跑，全部紅在預期那一條）：「推不出來蓋過含」的 expect 由 T7 改成 A1（這次只紅 A1 一條）；新加 7 條——整道有推不出來就說成含（A2）、整道全推斷不含也說成推不出來（C1）、加工品不看標籤一律推不出來（T3）、沒標的加工品當成含（T1）、單一原料不看確認（B1）、沒人確認的說成已確認（B1）、推斷不含一律說成推不出來（T2）；另 2 條把 A1、A2 的樣本改到情境消失，前置斷言擋下（A1 本身照樣綠——正是沒有前置斷言就看不出來的那種）。
      - 只動了測試與突變清單，`js/recipeschema.js` 的行為沒改；線上不受影響。
-  3. versionmixtest 那 3 條改成紅在斷言上（補的是斷言，不是偵測）。
+  3. **（2026-10-08 做完）** versionmixtest 那 3 條改成紅在斷言上（補的是斷言，不是偵測）。
+     - 根因：三條都卡在 `waitForSelector` 等一張永遠不會出現的卡（router 沒通報→「需要更新」卡；看門狗沒裝／判斷壞掉→「載入卡住了」卡），逾時丟例外、整支崩潰。改成 `appears()`：等不到就是一條紅的斷言（「需要更新卡出現：」「看門狗的卡出現：」），依賴卡內容的檢查跳過、頁面照樣關。三條補上 expect。看門狗兩條共用同一個偵測（畫面上的結果都是那張卡沒出現）——照實寫。
+     - 第一次實跑時看門狗兩條各拖到 235 秒：把「拿不到的檔」還原的那一行被包進了「卡有出現才做」的區塊，卡沒出現就沒還原，後面每一節都在 app.js 拿不到的狀態下等到逾時（情境之間互相污染，我這次的改法造成的）。還原改成一律做，重跑各 60 秒。
+     - 結果（`--only`）：router 那條 50 秒、看門狗兩條各 60 秒，全部紅在預期那一條、0 條不算數；versionmixtest 整支原樣 68 項全過。估值偏差照記：第一次估約 4 分鐘、實際 552 秒（污染造成）。
+  4. **（2026-10-08 做完一部分）** D1：
+     - D1b：第二層的檔不是目標檔的合成樣本（測試 → a.js → b.js，目標是不相干的 c.js），附前置斷言。「只走一層」那條突變的 expect 由 D1 改成 D1b，`--only` 實跑紅在 D1b（D1 本身不紅——10-02 同一條突變紅在 WS2、WS3，沒紅 D1）。
+     - D17c（常設，每版跑）：真實 repo 上「遞迴」與「只走一層」（突變清單裡那條的 find／replace 套在 depgraph 的暫存複本上）各算一次，兩邊條數都印，兩邊都是 0 或沒有差異都判紅。現在 637／637、範圍不同 37 條。另一條突變把複本換成沒套突變的原樣（兩份一樣互比），D17c 紅。
+     - **還沒做**：那 37 條的實際驗證——改 js/recipeschema.js、js/nutrition.js、js/units.js，確認在「只跑受影響的」模式下那 37 條真的被挑進來（算得出來不等於挑得到）。挑選器要求工作區等於 HEAD，要在暫存 worktree 裡造 commit 試跑。
   4. D1：第二層的檔不是目標檔的樣本（反向：原樣本照樣分不出）＋真實 repo 雙解析常設檢查（兩邊筆數都印、兩邊都空不算相同）＋改 js/recipeschema.js、js/nutrition.js、js/units.js 確認 37 條都被挑進來。
   5. 共用複本的雜訊：突變進行中時標成「突變進行中、不計入」，不關掉錨點檢查；「先前改 scripts/ 的突變，紅錯地方的偵測一直被這個雜訊削弱」。
   6. GM1 的退化行為（擋被拿掉時不能退化成整套照跑）；「會讓測試耗時暴增好幾倍的突變，設計要改」。
@@ -137,7 +144,7 @@
     - 畫面：食譜頁家人那一段（`data-unconfirmed-note`）寫「「醬油」未確認是否含蛋、奶；…買的時候看包裝標示」；食材表那幾樣旁邊標「未確認是否含蛋、奶」（`data-unconfirmed`）。本週頁、今天頁**沒做**（只在食譜頁）。
     - 資料驅動：Yolin 填 `docs/待確認_加工品葷素.md` 的「你的決定」→ 開發 Session 轉進 foodtags.json（素→checked 三項；含蛋／含奶／含五辛→tags；葷→tags.meat 或 seafood）→ 標示自動消失。表上加了「編號」欄；`scripts/procdecisions.mjs` 核對兩邊，doctest「待確認 P1–P8」：填了沒轉 → 紅。
     - 測試：recipetest「A 方案 U0–U7」（U7：兩條查詢路徑在真實資料上一致）；recipeviewtest「A 方案 V1–V5」（瀏覽器，**還沒跑**）；突變 15 條（recipetest 7、recipeviewtest 2、doctest 6）。
-  - **驗證時要做的**：`node --check`、`checkmutations`（636 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
+  - **驗證時要做的**：`node --check`、`checkmutations`（637 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
   （之前那一批——檢查器修補 P0／P1、F8–F10、擋法表、環境變數、補充說明十一——2026-09-25 已收尾。）
 - **App 最後一版仍是 `mealmate-v0.41.0`（2026-09-23）**。09-24、09-25 全是 scripts／docs，沒有 bump、沒有部署。
 - **檢查器修補的全部證據**：`docs/EVIDENCE_檢查器修補.md`，涵蓋 P0、P1、F8、F9、F10、擋法表、環境變數兩類、補充說明十一。STATUS 各節只留摘要。
@@ -337,7 +344,7 @@
 Node 端：datatest 76、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 151、plannertest 513、shoppingtest 150、timelinetest 71、doctest 277；
 瀏覽器端（puppeteer）：shelltest 162、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 199、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 116（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 44。（2026-09-24 F8 那一輪 `npm test` 數的）
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **636 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **637 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
 · **突變整套**＝`npm run mutationtest -- --full` 跑完全部（2026-10-02 起要明講 `--full`；以前是「不帶 `--only`」）。下面的耗時是 09-24 的 442 條（每條都把對應的那一支測試整支跑一次）。**實測約 17,119 秒（約 4.8 小時）**，2026-09-24 對 v0.41.0 量的（09-21 的 428 條約 16,600 秒、09-19 的 366 條約 13,500 秒）。

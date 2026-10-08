@@ -89,6 +89,17 @@ async function freshPage() {
   return { ctx, page, logs };
 }
 
+/**
+ * 等一個「該出現的東西」：等不到就是一條紅的斷言，不是讓整支測試丟例外崩潰（2026-10-08）。
+ * 以前直接 waitForSelector：router 不通報、看門狗沒裝或判斷壞掉時，那張卡永遠不出現，等待逾時丟例外——
+ * 三條突變都只「崩潰」、沒有任何斷言紅（判定器把崩潰列為不算數，10-02 正式那場三條都沒驗到）。
+ */
+async function appears(page, sel, timeout, label) {
+  const found = await page.waitForSelector(sel, { timeout }).then(() => true, () => false);
+  ok(found, label);
+  return found;
+}
+
 /** 開起來、按掉首次說明、產生本週菜單（「一起煮」按鈕要有菜才會出現）。 */
 async function bootWithPlan(page) {
   await page.goto(BASE, { waitUntil: 'networkidle0' });
@@ -251,7 +262,7 @@ try {
     await page.goto(BASE, { waitUntil: 'networkidle0' });
     await page.waitForSelector('[data-action="acceptDisclaimer"]');
     await page.click('[data-action="acceptDisclaimer"]');
-    await page.waitForSelector('[data-card="versionMismatch"]', { timeout: 20000 });
+    if (await appears(page, '[data-card="versionMismatch"]', 20000, '需要更新卡出現：那一頁畫不出來時，20 秒內出現「需要更新」那張卡（router 有通報，不是停在轉圈圈）')) {
     const card = await page.evaluate(() => {
       const el = document.querySelector('[data-card="versionMismatch"]');
       return {
@@ -274,6 +285,7 @@ try {
     eq(card.title, '需要更新', '頂列標題也換成「需要更新」');
     eq(card.tabs, 4, '底部分頁在，使用者沒有被困住');
     eq(await page.$('[data-card="weekHead"]'), null, '（對照）菜單真的沒畫出來 —— 上面那張卡不是多餘的');
+    }
     await ctx.close();
   }
 
@@ -362,7 +374,7 @@ try {
     }));
     eq(blank.booted, null, '（前提）app.js 真的沒跑起來');
     eq(blank.tabs, 0, '（前提）連底部分頁都還沒畫 —— 這正是使用者回報的那個畫面');
-    await page.waitForSelector('[data-card="bootStuck"]', { timeout: 30000 });
+    if (await appears(page, '[data-card="bootStuck"]', 30000, '看門狗的卡出現：整張 module 圖載不到時，30 秒內出現「載入卡住了」那張卡（看門狗有裝、也判斷得出畫面是空的）')) {
     const card = await page.evaluate(() => {
       const c = document.querySelector('[data-card="bootStuck"]');
       const btns = [...c.querySelectorAll('button')].map((b) => ({ label: b.textContent.trim(), action: b.dataset.action, h: Math.round(b.getBoundingClientRect().height) }));
@@ -391,6 +403,10 @@ try {
     eq(fixed.stuck, false, '那張「載入卡住了」也不見了');
     eq(fixed.tabs, 4, '底部四個分頁回來了');
     ok(fixed.cards >= 1, `畫面上有 ${fixed.cards} 張卡`);
+    }
+    // 卡沒出現（上面那段跳過）時也要把「拿不到的檔」還原，不然後面每一節都在 app.js 拿不到的狀態下等到逾時
+    // （2026-10-08：看門狗那兩條突變因此從約 55 秒拖到 235 秒——情境之間互相污染）
+    state.missing = new Set();
     await ctx.close();
   }
 

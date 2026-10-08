@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX, whitespaceOnly } from './checkmutations.mjs';
 import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts, escapeScan } from './gatescan.mjs';
@@ -1082,6 +1082,9 @@ section('只跑受影響的突變：依賴範圍與「要不要重跑」的分�
     'scripts/tap.mjs': 'export const ok = 1;\n',
     'scripts/mutationtest.mjs': "import { ok } from './tap.mjs';\nconst MUTATIONS = [\n  { name: 'a' },\n];\nrun();\n",
     'scripts/nodetest.mjs': "import { f } from '../js/a.js';\nimport fs from 'node:fs';\nfs.readFileSync(path.join(ROOT, 'docs/lit.md'), 'utf8');\n",
+    // D1b（2026-10-08）：測試 → js/a.js → js/b.js，而突變的目標是不相干的 js/c.js——第二層的 b.js 不是目標檔，
+    // 「目標檔一律在範圍裡」那條規則幫不上忙，只能靠遞迴走到第二層
+    'scripts/nodetest2.mjs': "import { f } from '../js/a.js';\n",
     'js/a.js': "import { g } from './b.js';\nexport const f = 1;\n",
     'js/b.js': 'export const g = 2;\n',
     'js/c.js': 'export const h = 3;\n',
@@ -1110,6 +1113,12 @@ section('只跑受影響的突變：依賴範圍與「要不要重跑」的分�
   const BROWSER = { file: 'js/a.js', test: 'browsertest' };
   ok(depOf(NODE, SYN).kind === 'node' && depOf(BROWSER, SYN).kind === 'browser', `（前提）合成 repo 裡 nodetest 是 node、browsertest 是 browser（實際：${depOf(NODE, SYN).kind}、${depOf(BROWSER, SYN).kind}）`);
   ok(changes(NODE, { 'js/b.js': 'export const g = 99;\n' }), '受影響 D1 改了測試間接 import 的檔（隔兩層）→ 要重跑');
+  // D1 的樣本裡第二層的 b.js 剛好是目標檔 a.js 的直接 import（a.js 是起點之一），少走一層也看不出差別——
+  // 2026-10-02 正式那場「只走一層」那條突變沒紅；真實 repo 上兩種解析有 37 條範圍不同。D1b 的第二層不是目標檔
+  const FAR = { file: 'js/c.js', test: 'nodetest2' };
+  ok(!SYN['js/c.js'].includes('import') && SYN['scripts/nodetest2.mjs'].includes("'../js/a.js'") && SYN['js/a.js'].includes("'./b.js'") && !SYN['scripts/nodetest2.mjs'].includes('b.js'),
+    '（前提）D1b 的合成樣本：目標檔 c.js 沒有任何 import；測試只 import a.js、a.js 才 import b.js（b.js 只能靠走第二層到）');
+  ok(changes(FAR, { 'js/b.js': 'export const g = 99;\n' }), '受影響 D1b 第二層的檔不是目標檔（測試 → a.js → b.js，目標是 c.js）：改了 b.js → 要重跑（只走一層會漏掉）');
   ok(!changes(NODE, { 'js/c.js': 'export const h = 99;\n' }), '受影響 D2 改了沒有任何 import 關係的檔 → 跳過（跳過真的會發生）');
   ok(changes(NODE, { 'data/d.json': '{"x":1}\n' }), '受影響 D3 data/ 一律算進範圍');
   ok(changes(NODE, { 'package-lock.json': '{"x":1}\n' }), '受影響 D4 package-lock.json 一律算進範圍');
@@ -1229,6 +1238,31 @@ section('只跑受影響的突變：依賴範圍與「要不要重跑」的分�
   ok(['node', 'browser', 'repo'].every((k) => kinds.has(k)), `（前提）真實 repo 裡三種範圍都有：${[...kinds].join('、')}`);
   ok(fs.existsSync(path.join(ROOT, LEDGER_FILE)) && ledgerProblems(JSON.parse(fs.readFileSync(path.join(ROOT, LEDGER_FILE), 'utf8'))).length === 0,
     `受影響 D17b 帳本 ${LEDGER_FILE} 在、讀得懂`);
+
+  // D17c（2026-10-08，常設的雙解析檢查）：用真實 repo 的引用關係，把「遞迴」跟「只走一層」各算一次每條突變的範圍——
+  // 合成樣本太淺就測不到第二層（D1 就是），真實的引用關係不會。「只走一層」用的是突變清單裡那一條的 find／replace，
+  // 套在 depgraph.mjs 的暫存複本上（不改工作區）。兩邊的條數都印；兩邊都是 0 不算相同；要有差異，這道保護才算真的被測到
+  const oneLayer = mutations.find((m) => m.name === '依賴範圍：import 只走一層、不遞迴');
+  const dgSrc = fs.readFileSync(path.join(ROOT, 'scripts/depgraph.mjs'), 'utf8');
+  const anchors = oneLayer ? dgSrc.split(oneLayer.find).length - 1 : 0;
+  ok(anchors === 1, `（前提）D17c 「只走一層」那條突變在突變清單裡、它的錨點在 depgraph.mjs 剛好一次（${anchors} 次）`);
+  if (anchors === 1) {
+    const dgDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-d17c-'));
+    try {
+      const dgFile = path.join(dgDir, 'depgraph-onelayer.mjs');
+      fs.writeFileSync(dgFile, dgSrc.replace(oneLayer.find, () => oneLayer.replace));
+      const one = await import(pathToFileURL(dgFile).href);
+      let nA = 0; let nB = 0; let differ = 0; let example = '';
+      for (const m of mutations) {
+        const a = scopeFor(m, tracked, readReal); const b = one.scopeFor(m, tracked, readReal);
+        nA += 1; nB += 1;
+        const missing = [...a.files].filter((f) => !b.files.has(f));
+        if (missing.length || a.kind !== b.kind) { differ += 1; if (!example) example = `「${m.name}」少了 ${missing.join('、')}`; }
+      }
+      ok(nA > 0 && nB > 0 && nA === mutations.length && nB === mutations.length && differ > 0,
+        `受影響 D17c 真實 repo 的雙解析：遞迴算了 ${nA} 條、只走一層算了 ${nB} 條（清單 ${mutations.length} 條），範圍不同的 ${differ} 條（例：${example || '（沒有）'}）——有差異，這道保護在真實的引用關係上被測到`);
+    } finally { fs.rmSync(dgDir, { recursive: true, force: true }); }
+  }
 }
 
 section('只跑受影響的突變：從真實入口（mutationtest --affected 在暫存 git repo 裡連跑三次）');
