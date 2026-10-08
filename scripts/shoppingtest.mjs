@@ -179,16 +179,17 @@ section('逐項手改數量：建議 2 條、我要買 3 條');
   const key = base.ranges[0].key;
   const item0 = base.ranges[0].items.find((it) => it.foodId === CABBAGE);
   ok(item0, '（前提）清單裡有高麗菜');
-  eq(item0.buy.qty, 0.5, '（手算）建議 0.5 顆（500 g，一顆 1000 g，無條件進位到 0.5）');
+  // 這一節的取值一律用 ?.：buy、suggested 變成 null 時要紅在斷言上，不是整支崩掉（崩掉＝情境未成立、不算數，2026-10-08 實跑抓到 2 條）
+  eq(item0.buy?.qty, 0.5, '（手算）建議 0.5 顆（500 g，一顆 1000 g，無條件進位到 0.5）');
   eq(item0.manual, undefined, '沒改過就沒有 manual 記號');
-  eq(item0.suggested.buy.qty, 0.5, '建議值一併留著（才回得去、也才講得出「原本建議多少」）');
+  eq(item0.suggested?.buy?.qty, 0.5, '建議值一併留著（才回得去、也才講得出「原本建議多少」）');
 
   const edited = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [], manualByRange: { [key]: { [CABBAGE]: 3 } } });
   const item1 = edited.ranges[0].items.find((it) => it.foodId === CABBAGE);
-  eq(item1.buy.qty, 3, '手改成 3 顆 → 就是 3 顆（不會再被進位規則改掉）');
-  eq(item1.buy.grams, 3000, '（手算）3 顆 × 1000 g ＝ 3000 g');
+  eq(item1.buy?.qty, 3, '手改成 3 顆 → 就是 3 顆（不會再被進位規則改掉）');
+  eq(item1.buy?.grams, 3000, '（手算）3 顆 × 1000 g ＝ 3000 g');
   eq(item1.manual, true, '標成手改過');
-  eq(item1.suggested.buy.qty, 0.5, '建議值還在（原本 0.5 顆）');
+  eq(item1.suggested?.buy?.qty, 0.5, '建議值還在（原本 0.5 顆）');
   eq(suggestedText(item1), '約 0.5 顆（500 g）', '「原本建議」的文字講得出來');
   eq(quantityText(item1), '約 3 顆', '畫面上顯示的是改過的值，而且不再附克數 —— 那是食譜需要的量，不是她要買的量');
   ok(quantityText(item0).includes('（500 g）'), `（對照）沒改過的仍然附需要的克數：${quantityText(item0)}`);
@@ -201,7 +202,7 @@ section('逐項手改數量：建議 2 條、我要買 3 條');
 
   // 改回建議值
   const reset = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [], manualByRange: { [key]: {} } });
-  eq(reset.ranges[0].items.find((it) => it.foodId === CABBAGE).buy.qty, 0.5, '拿掉手改的值 → 回到建議的 0.5 顆');
+  eq(reset.ranges[0].items.find((it) => it.foodId === CABBAGE)?.buy?.qty, 0.5, '拿掉手改的值 → 回到建議的 0.5 顆');
 
   // 沒有採買單位的食材：改的是克數。單一道菜的清單裡每一項都有換算，要用大一點的清單才找得到。
   eq(manualUnitOf({ grams: 300 }).unit, 'g', '沒有「幾顆幾把」換算的食材 → 用克數改');
@@ -216,13 +217,13 @@ section('逐項手改數量：建議 2 條、我要買 3 條');
   const after = g2.ranges[0].items.find((it) => it.foodId === noUnit.foodId);
   eq(after.grams, 250, '沒有換算的食材，手改的就是克數');
   eq(after.manual, true, '也標成手改過');
-  eq(after.suggested.grams, noUnit.grams, `建議值仍然留著（原本 ${noUnit.grams} g）`);
+  eq(after.suggested?.grams, noUnit.grams, `建議值仍然留著（原本 ${noUnit.grams} g）`);
 
   // 亂填的值不可以把清單弄壞
   everyOf([0, -3, NaN, 'abc', null], (bad) => {
     const r = buildShoppingList({ plan: p, recipesById: byId, members: fam, idx, units, shoppingDays: [], manualByRange: { [key]: { [CABBAGE]: bad } } });
     const x = r.ranges[0].items.find((it) => it.foodId === CABBAGE);
-    return x.buy.qty === 0.5 && !x.manual;
+    return x?.buy?.qty === 0.5 && !x.manual;
   }, '0、負數、NaN、字串、null 都當作沒改（不會出現 0 顆或負的克數）');
 
   // 複製出去的文字要帶「已改」
