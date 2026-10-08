@@ -939,27 +939,37 @@
   "監看：不從執行器往下走": {
    "test": "memwatchtest",
    "n": 8,
-   "hash": "f3a757e9caab887c"
+   "hash": "2046df4589d7270d"
   },
   "監看：找不到執行器也不結束": {
    "test": "memwatchtest",
    "n": 8,
-   "hash": "f3a757e9caab887c"
+   "hash": "2046df4589d7270d"
   },
   "監看：綁外殼（舊版的缺陷）": {
    "test": "memwatchtest",
    "n": 8,
-   "hash": "f3a757e9caab887c"
+   "hash": "2046df4589d7270d"
   },
   "監看：瀏覽器按指令列認（舊版的缺陷）": {
    "test": "memwatchtest",
    "n": 8,
-   "hash": "f3a757e9caab887c"
+   "hash": "2046df4589d7270d"
   },
   "監看：觸發時停錯對象": {
    "test": "memwatchtest",
    "n": 8,
-   "hash": "f3a757e9caab887c"
+   "hash": "2046df4589d7270d"
+  },
+  "監看測試：不記這次開的程序": {
+   "test": "memwatchtest",
+   "n": 8,
+   "hash": "2046df4589d7270d"
+  },
+  "監看測試：收尾不逐一停": {
+   "test": "memwatchtest",
+   "n": 8,
+   "hash": "2046df4589d7270d"
   },
   "標成「葷」卻沒有肉時一律不擋（R2 放到最寬）": {
    "test": "recipetest",

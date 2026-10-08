@@ -5230,6 +5230,24 @@ const MUTATIONS = [
   },
   // ---- 2026-10-08：外部記憶體監看（scripts/memwatch.mjs；node scripts/memwatchtest.mjs）——前兩條是舊版（.logs/ 那一版）的兩個缺陷 ----
   {
+    name: "監看測試：收尾不逐一停",
+    why: "測試中途出錯時開出來的程序留下來——收尾那一步本來就是為這種時候準備的。",
+    file: "scripts/memwatchtest.mjs",
+    find: "  for (const pid of leftovers.keys()) kill(pid);\n",
+    replace: "  void '收尾不停';\n",
+    test: "memwatchtest",
+    expect: "監看・收尾：",
+  },
+  {
+    name: "監看測試：不記這次開的程序",
+    why: "收尾要停哪幾支、要確認哪幾支不在，全靠這份紀錄；沒記，收尾就是空轉，照樣說「都不在了」。",
+    file: "scripts/memwatchtest.mjs",
+    find: "const track = (pid) => { if (!pid || leftovers.has(pid)) return;",
+    replace: "const track = (pid) => { if (pid !== '不記') return;",
+    test: "memwatchtest",
+    expect: "監看・收尾：",
+  },
+  {
     name: "監看：瀏覽器按指令列認（舊版的缺陷）",
     why: "puppeteer 開的 chrome 指令列不含 MealMate 也不含 mm-，按指令列認一定認不到——工作程序少算，「最多 4 個」量不到瀏覽器。",
     file: "scripts/memwatch.mjs",

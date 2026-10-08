@@ -14,7 +14,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ok, section, done, note } from './tap.mjs';
 
@@ -38,6 +38,12 @@ if (process.platform !== 'win32') {
   done('memwatchtest');
   process.exit(0);
 }
+// 整支放進 Job（2026-10-08，Dispatch 准）：被執行器跑時它本來就在 Job 裡（MM_JOBRUN 有值）；單獨跑時自己經 jobrun 重新開一次——
+// 中途出錯、有程序沒記到時，測試結束、Job 關閉也會把它們收掉。收尾本身不靠這一道（見下面 finally）
+if (!process.env.MM_JOBRUN) {
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'jobrun.mjs'), process.execPath, fileURLToPath(import.meta.url), ...process.argv.slice(2)], { stdio: 'inherit' });
+  process.exit(r.status ?? 1);
+}
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-mwtest-'));
 const runWatch = (extra, logName) => new Promise((resolve) => {
@@ -46,7 +52,9 @@ const runWatch = (extra, logName) => new Promise((resolve) => {
   const p = spawn(process.execPath, [WATCH, '--interval', '1', '--runner', RUNNER, '--log', log, ...extra], { cwd: ROOT, stdio: 'ignore' });
   p.on('exit', (code) => resolve({ code, log: fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '' }));
 });
-const leftovers = [];
+// 這次開的每一支程序：PID → 建立時間（收尾逐一停、逐一確認不在；建立時間防 PID 被重用時誤判）
+const leftovers = new Map();
+const track = (pid) => { if (!pid || leftovers.has(pid)) return; const x = procs().find((p) => p.ProcessId === pid); leftovers.set(pid, x?.Created ?? null); };
 try {
   fs.mkdirSync(path.join(tmp, 'scripts'));
   // 假執行器：睡 N 秒；第二個參數是 browser 時，另外用相對路徑開假測試（假測試開瀏覽器）
@@ -54,9 +62,9 @@ try {
   fs.writeFileSync(path.join(tmp, 'shell.mjs'), `import { spawn } from 'node:child_process';\nconst c = spawn(process.execPath, [${JSON.stringify(RUNNER)}, process.argv[2] ?? '90'], { cwd: process.argv[3], detached: true, stdio: 'ignore' });\nc.unref();\nsetTimeout(() => {}, 120000);\n`);
   const startShell = async (secs) => {
     const sh = spawn(process.execPath, [path.join(tmp, 'shell.mjs'), String(secs), tmp], { stdio: 'ignore' });
-    leftovers.push(sh.pid);
+    track(sh.pid);
     const runner = await waitFor(() => procs().find((x) => x.Name === 'node.exe' && x.ParentProcessId === sh.pid && (x.CommandLine ?? '').includes(RUNNER)), 15000, '假執行器開起來');
-    leftovers.push(runner.ProcessId);
+    track(runner.ProcessId);
     return { sh, runner };
   };
 
@@ -92,13 +100,14 @@ try {
     const pup = pathToFileURL(path.join(ROOT, 'node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js')).href;
     fs.writeFileSync(path.join(tmp, 'scripts/faketest.mjs'), `import puppeteer from ${JSON.stringify(pup)};\nimport fs from 'node:fs';\nconst b = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });\nfs.writeFileSync(process.argv[2], String(b.process().pid));\nawait new Promise((r) => setTimeout(r, 40000));\nawait b.close();\n`);
     const runner = spawn(process.execPath, [RUNNER, '90', 'browser', 'browser.pid'], { cwd: tmp, stdio: 'ignore' });
-    leftovers.push(runner.pid);
+    track(runner.pid);
     const ready = path.join(tmp, 'browser.pid');
     const bpid = Number(await waitFor(() => fs.existsSync(ready) && fs.readFileSync(ready, 'utf8'), 30000, '假測試的瀏覽器開起來'));
-    leftovers.push(bpid);
+    track(bpid);
     const all = procs();
     const bp = all.find((x) => x.ProcessId === bpid);
     const ft = bp && all.find((x) => x.ProcessId === bp.ParentProcessId);
+    if (ft) track(ft.ProcessId);
     const rn = all.find((x) => x.ProcessId === runner.pid);
     const plain = (x) => !!x && !(x.CommandLine ?? '').includes('MealMate') && !(x.CommandLine ?? '').includes('mm-');
     ok(!!ft && ft.Name === 'node.exe' && ft.ParentProcessId === runner.pid && plain(rn) && plain(ft) && plain(bp),
@@ -108,13 +117,22 @@ try {
     ok(n === '1', `監看・瀏覽器：開著一個，監看數到 ${n ?? '（沒有這一行）'} 個`);
     kill(bpid); if (ft) kill(ft.ProcessId); kill(runner.pid);
   }
+  // 收尾探針：正常路徑上每一支都在各自那一節停掉了，收尾那一步沒東西可停——拿掉它也照樣綠、等於沒驗到。
+  // 這一支只睡覺、刻意不在中途停，只能靠收尾停掉（放在最後：不讓同時開著的超過 4 個）
+  const probe = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)'], { stdio: 'ignore' });
+  track(probe.pid);
 } catch (e) {
   ok(false, `監看・測試本身出錯：${e.message}`);
 } finally {
-  for (const pid of leftovers) if (pid) { try { execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* 已經不在 */ } }
+  // 逐一停（只停這次開的、PID 記在 leftovers 裡的），**不用 taskkill /T**：靠父程序編號往下找子孫，殺不到經 Git Bash 開的——
+  // 2026-10-08 照 v11.6 的驗法實測（.logs/taskkill-tree-probe.mjs）：node 經 Git Bash 開 2 支 sleep，taskkill /T /F 停掉 node 之後 2 支照樣活著。
+  // 原本的收尾斷言只找「指令列含暫存資料夾名稱」的程序——假執行器、假測試都用相對路徑開，指令列裡沒有那個名稱，漏了也看不見
+  //（量測跟被量共用了同一個設計：為了讓監看只能靠往下走認它們，指令列刻意不含名稱）。改成逐支照 PID＋建立時間確認
+  for (const pid of leftovers.keys()) kill(pid);
   await sleep(1500);
-  const still = procs().filter((x) => (x.CommandLine ?? '').includes(path.basename(tmp)));
-  ok(still.length === 0, `監看・收尾：指令列含這次暫存資料夾的程序 ${still.length} 支`);
+  const now = procs();
+  const still = [...leftovers].filter(([pid, created]) => now.some((x) => x.ProcessId === pid && (created === null || x.Created === created)));
+  ok(leftovers.size >= 6 && still.length === 0, `監看・收尾：這次開的 ${leftovers.size} 支程序（外殼、假執行器、假測試、瀏覽器、收尾探針）都已不在——還在的 ${still.length} 支${still.length ? `：${still.map(([p]) => p).join('、')}` : ''}`);
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 done('memwatchtest');

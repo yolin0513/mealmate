@@ -1,169 +1,195 @@
 {
- "note": "測試鏈逐支耗時（scripts/chaintime.mjs 寫，不手改）：每支最近一次量到的秒數、結束碼、日期、commit。執行器的時限照這裡的最長值算 3 倍餘裕。",
+ "note": "測試鏈逐支耗時（scripts/chaintime.mjs 寫，不手改）：每支最近一次量到的秒數、結束碼、日期、commit、via（怎麼量的）。執行器的時限照這裡的最長值算 3 倍餘裕。via 不同的不是同一把尺（經 Job 每支多約 1–2 秒）。",
  "tests": {
   "datatest": {
-   "seconds": 0.1,
+   "seconds": 1.4,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "3fb6e4265e11",
+   "via": "經 Job"
   },
   "aliastest": {
-   "seconds": 0.1,
+   "seconds": 1.3,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "3fb6e4265e11",
+   "via": "經 Job"
   },
   "unittest": {
    "seconds": 0.2,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "edutest": {
    "seconds": 0.1,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "recipetest": {
    "seconds": 0.3,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "copytest": {
    "seconds": 0.2,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "membertest": {
    "seconds": 0.1,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "nutritiontest": {
    "seconds": 0.1,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "plannertest": {
    "seconds": 85.2,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "shoppingtest": {
    "seconds": 0.5,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "timelinetest": {
    "seconds": 0.1,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "shelltest": {
    "seconds": 6,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "familytest": {
    "seconds": 19.4,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "recipeviewtest": {
    "seconds": 45.7,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "backuptest": {
    "seconds": 2.6,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "weekviewtest": {
    "seconds": 56.9,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "shoppingviewtest": {
    "seconds": 24,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "todaytest": {
    "seconds": 6,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "racetest": {
    "seconds": 30.3,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "versionmixtest": {
    "seconds": 30,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "layouttest": {
    "seconds": 103.1,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "uikittest": {
    "seconds": 16.6,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "pwatest": {
    "seconds": 5.3,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "doctest": {
    "seconds": 95.3,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "redlinetest": {
    "seconds": 12.4,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   },
   "scenariotest": {
    "seconds": 18.2,
    "code": 0,
    "date": "2026-10-08",
-   "commit": "fe81f37b9673"
+   "commit": "fe81f37b9673",
+   "via": "未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）"
   }
  },
  "lastRun": {
   "date": "2026-10-08",
-  "commit": "fe81f37b9673",
-  "scope": "只量 plannertest、shoppingtest、timelinetest、shelltest、familytest、recipeviewtest、backuptest",
-  "expected": 7,
-  "measured": 7,
+  "commit": "3fb6e4265e11",
+  "scope": "只量 datatest、aliastest",
+  "expected": 2,
+  "measured": 2,
   "notOk": [],
   "missing": []
  }

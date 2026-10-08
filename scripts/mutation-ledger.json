@@ -20557,8 +20557,46 @@
     "seconds": 104
    },
    "lastFull": null
+  },
+  "監看測試：收尾不逐一停": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "3fb6e4265e11+dirty",
+    "mode": "only",
+    "defHash": "3e280f62563e6e6ddbcd22692f7da5bd69a2485df3468b9b3ba0b6fecd4f34fd",
+    "depHash": "3a3c9f386761de4013e0294bff572334322b3cbb96c7b365b091925e8a4e0193",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 54
+   },
+   "lastFull": null
+  },
+  "監看測試：不記這次開的程序": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "3fb6e4265e11+dirty",
+    "mode": "only",
+    "defHash": "e7ebe9837d7d81c71b5fff1a5f180fbc2315123c148aa1916d418455c32e7e20",
+    "depHash": "3a3c9f386761de4013e0294bff572334322b3cbb96c7b365b091925e8a4e0193",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 50
+   },
+   "lastFull": null
   }
  },
- "runSeq": 46,
+ "runSeq": 47,
  "inflight": null
 }
