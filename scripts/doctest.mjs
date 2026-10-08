@@ -931,7 +931,7 @@ function cmClean(r, rel = PENDING_REL) {
 }
 
 let SHARED_CLONE = null;
-const overlaysToShared = (f) => /\.(m?js|sh)$/.test(f) || f === 'expect-review.json';
+const overlaysToShared = (f) => /\.(m?js|sh|ps1)$/.test(f) || f === 'expect-review.json';
 function sharedClone() {
   const g = (...a) => execFileSync('git', ['-C', SHARED_CLONE.dir, '-c', 'user.name=probe', '-c', 'user.email=probe@users.noreply.github.com', ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   if (!SHARED_CLONE) {
