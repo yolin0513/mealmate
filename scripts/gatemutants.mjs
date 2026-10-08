@@ -311,8 +311,11 @@ function main() {
   // --only <關鍵字>（2026-10-02）：只跑標籤含關鍵字的幾條（改了某一條的錨點之後補跑用）；「對照：原樣」那一條一定跑（它定「應該幾種全部符合」）
   const oi = process.argv.indexOf('--only');
   const onlyKey = oi >= 0 ? String(process.argv[oi + 1] ?? '') : '';
-  const picked = onlyKey ? CASES.filter((c) => c.label === '對照：原樣' || c.label.includes(onlyKey)) : CASES;
-  if (onlyKey && picked.length < 2) { console.log(`gatemutants：--only「${onlyKey}」沒有對到任何一條`); return 1; }
+  // 多個關鍵字用 | 分開（2026-10-08：受影響的子集一次跑完，「對照：原樣」只跑一次）；每個關鍵字都要至少對到一條，對不到就停（打錯字）
+  const onlyKeys = onlyKey ? onlyKey.split('|').map((k) => k.trim()).filter(Boolean) : [];
+  const picked = onlyKey ? CASES.filter((c) => c.label === '對照：原樣' || onlyKeys.some((k) => c.label.includes(k))) : CASES;
+  const deadKeys = onlyKeys.filter((k) => !CASES.some((c) => c.label !== '對照：原樣' && c.label.includes(k)));
+  if (onlyKey && (picked.length < 2 || deadKeys.length)) { console.log(`gatemutants：--only「${onlyKey}」裡有對不到任何一條的關鍵字：${deadKeys.join('、') || '（全部）'}`); return 1; }
   if (onlyKey) console.log(`只跑 ${picked.length} 條（關鍵字「${onlyKey}」＋「對照：原樣」），不是整套 ${CASES.length} 條`);
   const readHead = (rel) => { const r = spawnSync('git', ['-C', repo, 'show', `${origHead}:${rel}`], { encoding: 'utf8' }); return r.status === 0 ? r.stdout : null; };
   const stale = staleProblems(picked, readHead);
