@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { sweep as sweepWorktrees, wtPrefix } from './worktreesweep.mjs';
 
 const GATE = 'scripts/pushgate.sh';
@@ -253,6 +254,55 @@ export function gatescanOk(status, hits, category) {
   return status === 1 && hits.length === 1 && (!category || hits[0].split('｜')[2] === category);
 }
 
+// ---- 每條的帳（2026-10-09，Dispatch）：M4 的類別比對從 10-02 寫下到 10-09 一次都沒被執行過，子集報告每次都全綠——
+// 沒有任何地方記著「這一條從沒在現在這版程式下跑過」。這本帳把它變成一行查得到的東西（--list-stale）。
+// 三個雜湊：這一條的定義、被驗的檔（HEAD 的內容）、gatemutants 本身（拿掉 CASES 那一段）——**M4 的錯就在最後這一層，不算它就照樣躲得過**。
+export const LEDGER_REL = 'scripts/gatemutants-ledger.json';
+export const LEDGER_NOTE = 'gatemutants 每條上次在現在這版程式下跑過沒有（scripts/gatemutants.mjs 每跑完一條就寫，不手改）。'
+  + '三個雜湊：定義、被驗的檔、gatemutants 本身。逾時不算數、不記。'
+  + '**剛建好時是空的，--list-stale 會印 40 條「從沒跑過」——不要從舊 log 回填：舊 log 沒有記雜湊，回填等於假裝它們是在現在這版跑的；那個好看是假的，而且假得完全看不出來（Dispatch 2026-10-09）。**';
+const sha = (s) => createHash('sha256').update(s).digest('hex').slice(0, 16);
+// 執行器自己會寫、或內容一直在變的資料檔：閘門讀它們，但它們變了不代表被驗的程式變了（算進去的話，每跑一次全部變成要重跑）
+const LEDGERISH = new Set(['scripts/mutation-ledger.json', LEDGER_REL, 'scripts/mutation-lastfull.json', 'scripts/.mutation-pending.json', 'scripts/test-timings.json', 'scripts/expect-review.json']);
+/** 一條的定義（改了任何一個欄位都算改了） */
+export function caseDefHash(c) { return sha(JSON.stringify(c)); }
+/** 被驗的檔：閘門、驗法、這一條改的檔，加上閘門與驗法字面提到的每一支 scripts/ 底下的檔（從寬；資料檔除外） */
+export function depFiles(c, readHead) {
+  const files = new Set([GATE, VERIFY, JOBRUN, 'scripts/jobhelper.ps1', c.file ?? GATE, ...(c.also ?? []).map((a) => a.file ?? GATE)]);
+  if ((c.runner ?? 'verify') === 'gatescan') files.add('scripts/gatescan.mjs');
+  for (const f of [GATE, VERIFY]) for (const m of String(readHead(f) ?? '').matchAll(/scripts\/[\w.-]+\.(?:mjs|sh|ps1|json)/g)) files.add(m[0]);
+  return [...files].filter((f) => !LEDGERISH.has(f)).sort();
+}
+export function caseDepHash(c, readHead) { return sha(depFiles(c, readHead).map((f) => `${f}\n${readHead(f) ?? '（不存在）'}`).join('\n\0\n')); }
+/** gatemutants 本身：拿掉 CASES 那一段（加一條、改一條的預期不該讓全部變成「gatemutants 本身改了」——那由定義的雜湊管）。找不到頭尾就丟錯 */
+export function runnerHashOf(src) {
+  const s = String(src); const a = s.indexOf('export const CASES = ['); const b = s.indexOf('\n];', a);
+  if (a < 0 || b < 0) throw new Error('gatemutants.mjs 裡找不到 CASES 的頭尾');
+  return sha(s.slice(0, a) + s.slice(b + 3));
+}
+export const STALE = { NEVER: '從沒跑過', DEF: '定義改了', DEP: '被驗的檔改了', RUNNER: 'gatemutants 本身改了', NOT_OK: '上次不如預期' };
+/** 這一條在現在這版程式下要不要重跑：回理由（空＝現在這版跑過、而且如預期） */
+export function staleReasons(entry, cur) {
+  if (!entry) return [STALE.NEVER];
+  const r = [];
+  if (entry.defHash !== cur.defHash) r.push(STALE.DEF);
+  if (entry.depHash !== cur.depHash) r.push(STALE.DEP);
+  if (entry.runnerHash !== cur.runnerHash) r.push(STALE.RUNNER);
+  if (entry.result !== '如預期') r.push(STALE.NOT_OK);
+  return r;
+}
+/** 記一筆：逾時（不算數）不記——不算數就是沒跑過 */
+export function recordCase(ledger, label, res, cur, meta) {
+  if (res.uncounted) return false;
+  ledger.entries[label] = { date: meta.date, commit: meta.commit, mode: meta.mode, result: res.ok ? '如預期' : '不如預期', ...cur };
+  return true;
+}
+/** 兩個方向的孤兒：帳本有、清單沒有；清單有、帳本沒提到 */
+export function ledgerOrphans(labels, ledger) {
+  const L = new Set(labels); const E = Object.keys(ledger.entries ?? {});
+  return { notInList: E.filter((k) => !L.has(k)), notInLedger: labels.filter((l) => !(l in (ledger.entries ?? {}))) };
+}
+
 function runCase(repo, origHead, c, expectedTotal) {
   const wt = fs.mkdtempSync(wtPrefix('gatemut'));   // 名字帶建立者（PID＋建立時間）：被殺時，下一次開頭的收拾認得出來
   fs.rmSync(wt, { recursive: true });
@@ -287,6 +337,7 @@ function runCase(repo, origHead, c, expectedTotal) {
     if (c.order) env.PUSHGATE_VERIFY_ORDER = c.order;
     if ((c.runner ?? 'verify') === 'gatescan') {
       const r = spawnSync(process.execPath, ['scripts/gatescan.mjs'], { cwd: wt, encoding: 'utf8', env, timeout: 120000 });   // gatescan 一次幾秒；120 秒上限（2026-10-08）
+      if (r.error?.code === 'ETIMEDOUT') return { ok: false, uncounted: true, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜gatescan 逾時（120 秒）——不算數，要重跑（不是不如預期）` };
       const text = r.stdout + r.stderr;
       keep(c, text);
       const hits = text.split('\n').filter((l) => l.startsWith('命中｜'));
@@ -296,7 +347,7 @@ function runCase(repo, origHead, c, expectedTotal) {
     // 經 jobrun 開、15 分鐘上限（2026-10-08，待辦第 7 項）：以前沒設逾時，閘門驗法卡住就一直卡著；而且它經 Git Bash 開一堆 git、node，
     // 只殺直接那一支殺不乾淨。驗法一次約 110 秒，15 分鐘是 8 倍餘裕。逾時＝這一條不算數（不是如預期、也不是不如預期）
     const r = spawnSync(process.execPath, [JOBRUN, BASH, VERIFY], { cwd: wt, encoding: 'utf8', env, timeout: 900000 });
-    if (r.error?.code === 'ETIMEDOUT') return { ok: false, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜閘門驗法逾時（15 分鐘）——不算數，要重跑（不是不如預期）` };
+    if (r.error?.code === 'ETIMEDOUT') return { ok: false, uncounted: true, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜閘門驗法逾時（15 分鐘）——不算數，要重跑（不是不如預期）` };
     const text = r.stdout + r.stderr;
     keep(c, text);
     const v = verdictsOf(text);
@@ -311,7 +362,49 @@ function runCase(repo, origHead, c, expectedTotal) {
   }
 }
 
+/** 讀帳本：不存在、讀不懂都丟錯（不當成空帳本——帳本已進版控，不見了是出事，不是「從沒跑過」） */
+function readLedger(repo) {
+  const p = path.join(repo, LEDGER_REL);
+  if (!fs.existsSync(p)) throw new Error(`帳本 ${LEDGER_REL} 不存在`);
+  const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+  if (!j || typeof j.entries !== 'object' || j.entries === null) throw new Error(`帳本 ${LEDGER_REL} 的格式不對（要有 entries）`);
+  return j;
+}
+function saveLedger(repo, ledger) {
+  const p = path.join(repo, LEDGER_REL);
+  fs.writeFileSync(`${p}.tmp`, `${JSON.stringify(ledger, null, 1)}\n`);
+  fs.renameSync(`${p}.tmp`, p);
+}
+function curOf(c, readHead, runnerHash) { return { defHash: caseDefHash(c), depHash: caseDepHash(c, readHead), runnerHash }; }
+
+/** --list-stale：一條都不跑，逐條印「現在這版程式下跑過沒有」；母體兩個方向都核對 */
+function listStale(repo) {
+  let ledger;
+  try { ledger = readLedger(repo); } catch (e) { console.log(`gatemutants：${e.message}——讀不到不是「全部從沒跑過」，停下（不當成空帳本）`); return 1; }
+  const head = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  const readHead = (rel) => { const r = spawnSync('git', ['-C', repo, 'show', `${head}:${rel}`], { encoding: 'utf8' }); return r.status === 0 ? r.stdout : null; };
+  const rh = runnerHashOf(fs.readFileSync(fileURLToPath(import.meta.url), 'utf8'));
+  const tally = {}; let fresh = 0; let printed = 0;
+  for (const c of CASES) {
+    const e = ledger.entries[c.label];
+    const why = staleReasons(e, curOf(c, readHead, rh));
+    printed += 1;
+    if (!why.length) { fresh += 1; console.log(`  · 現在這版跑過：【${c.label}】${e.date}、${e.commit.slice(0, 7)}、${e.mode}、如預期`); } else {
+      for (const w of why) tally[w] = (tally[w] ?? 0) + 1;
+      console.log(`  · 要跑：【${c.label}】${why.join('、')}${e ? `（上次 ${e.date}、${e.commit.slice(0, 7)}、${e.result}）` : ''}`);
+    }
+  }
+  const orph = ledgerOrphans(CASES.map((c) => c.label), ledger);
+  for (const k of orph.notInList) console.log(`  · 帳本有、清單已經沒有：【${k}】`);
+  console.log(`gatemutants --list-stale：清單 ${CASES.length} 條、逐條印了 ${printed} 條；現在這版跑過、如預期 ${fresh} 條，要跑 ${printed - fresh} 條（${Object.entries(tally).map(([k, v]) => `${k} ${v}`).join('、') || '沒有'}）`);
+  console.log(`  兩個方向的孤兒：清單有、帳本沒提到 ${orph.notInLedger.length} 條（＝從沒跑過）；帳本有、清單已經沒有 ${orph.notInList.length} 條；對 HEAD ${head.slice(0, 7)}`);
+  // 母體：逐條印的條數要等於清單條數；「從沒跑過」的條數要等於「清單有、帳本沒提到」的條數（兩個來源：逐條判斷 vs 帳本的鍵）
+  if (printed !== CASES.length || (tally[STALE.NEVER] ?? 0) !== orph.notInLedger.length) { console.log('gatemutants：母體對不上（檢查器壞了）'); return 1; }
+  return 0;
+}
+
 function main() {
+  if (process.argv.includes('--list-stale')) return listStale(execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim());
   // 先把 bash 解成完整路徑：解到 WSL 的、找不到的，判情境未成立、一條都不跑（回 8）
   const rb = resolveBash();
   if (!rb.bash) { console.log(`⊘ 情境未成立：${rb.problem}。一條都沒跑（不是閘門壞了，是跑不起來）`); return 8; }
@@ -371,12 +464,21 @@ function main() {
   const codes = picked.reduce((a, c) => a + Object.values(c.reasons ?? {}).reduce((x, v) => x + v.length, 0), 0);
   console.log(`預期清單過期的前置：查了 ${picked.length} 條（錨點 ${anchors} 處、預期的情境編號 ${ids} 個、理由碼 ${codes} 個），對 HEAD ${origHead.slice(0, 7)} 的檔，過期 0 處`);
   if (process.argv.includes('--check-only')) { console.log('gatemutants：--check-only，只查預期清單，一條都沒跑'); return 0; }
+  // 每條的帳：開跑前讀得到才跑（讀不到就停，不當成空帳本、也不在跑完後才發現寫不進去）
+  let ledger;
+  try { ledger = readLedger(repo); } catch (e) { console.log(`gatemutants：${e.message}——不往下跑`); return 1; }
+  const rh = runnerHashOf(fs.readFileSync(fileURLToPath(import.meta.url), 'utf8'));
+  const meta = { date: new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), commit: origHead, mode: onlyKey ? 'only' : 'full' };
+  let recorded = 0;
   for (const c of picked) {
+    const cur = curOf(c, readHead, rh);
     const res = runCase(repo, origHead, c, expectedTotal);
     if (c.find === null && !c.fakeGit && !c.order && (c.runner ?? 'verify') === 'verify') expectedTotal = res.total ?? null;
     if (!res.ok) bad += 1;
+    if (recordCase(ledger, c.label, res, cur, meta)) { saveLedger(repo, ledger); recorded += 1; }
     console.log(res.line);
   }
+  console.log(`帳本：記了 ${recorded} 條（不算數的不記）到 ${LEDGER_REL}`);
   console.log(bad ? `gatemutants：${bad} 條不如預期` : `gatemutants：${picked.length} 條全部如預期${onlyKey ? `（只跑了 ${picked.length}／${CASES.length} 條）` : ''}（對照 ${expectedTotal} 種全部符合；每一條只紅在預期的地方）`);
   return bad ? 1 : 0;
 }

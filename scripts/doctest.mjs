@@ -31,7 +31,9 @@ import {
 import { listen as serveListen } from './serve.mjs';
 import { summarize as summarizeProcs, peakOf } from './reslog.mjs';
 import { verifyCopies } from './copycheck.mjs';
-import { CASES as GM_CASES, staleProblems as gmStaleProblems, resolveBash as gmResolveBash, reasonCodes as gmReasonCodes, reasonsMatch as gmReasonsMatch } from './gatemutants.mjs';
+import { CASES as GM_CASES, staleProblems as gmStaleProblems, resolveBash as gmResolveBash, reasonCodes as gmReasonCodes, reasonsMatch as gmReasonsMatch,
+  staleReasons as gmStaleReasons, STALE as GM_STALE, runnerHashOf as gmRunnerHashOf, depFiles as gmDepFiles, caseDepHash as gmCaseDepHash, caseDefHash as gmCaseDefHash,
+  recordCase as gmRecordCase, ledgerOrphans as gmLedgerOrphans, LEDGER_REL as GM_LEDGER_REL } from './gatemutants.mjs';
 import { controls as arControls, stampOf as arStampOf } from './assertregistry.mjs';
 import { controls as rpControls } from './runprogress.mjs';
 import { cleanControls as evCleanControls } from './evidence.mjs';
@@ -1737,6 +1739,70 @@ section('斷言登記表與「預期需要複審」（2026-10-02 Dispatch 選 A�
     fs.writeFileSync(stampFile, before4);
     fs.writeFileSync(af, asrc);
   }
+}
+
+section('gatemutants 每條的帳（2026-10-09 Dispatch：M4 的類別比對寫下後七天沒被執行過，沒有任何地方記著「這一條從沒在現在這版程式下跑過」）');
+{
+  const cur = { defHash: 'd', depHash: 'p', runnerHash: 'r' };
+  const e = (x) => ({ date: '2026-10-09', commit: 'abc1234', mode: 'full', result: '如預期', ...cur, ...x });
+  eq([gmStaleReasons(undefined, cur), gmStaleReasons(e({}), cur)], [[GM_STALE.NEVER], []], 'GL1a 帳本沒有這一條 → 從沒跑過；三個雜湊都沒變、上次如預期 → 現在這版跑過');
+  eq(gmStaleReasons(e({ defHash: 'old' }), cur), [GM_STALE.DEF], 'GL1b 這一條的定義改了 → 要跑');
+  eq(gmStaleReasons(e({ depHash: 'old' }), cur), [GM_STALE.DEP], 'GL1c 被驗的檔改了 → 要跑');
+  eq(gmStaleReasons(e({ runnerHash: 'old' }), cur), [GM_STALE.RUNNER], 'GL1d gatemutants 本身改了 → 要跑（M4 的錯就在這一層）');
+  eq(gmStaleReasons(e({ result: '不如預期' }), cur), [GM_STALE.NOT_OK], 'GL1e 上次不如預期 → 要跑');
+  const srcA = 'const x = 1;\nexport const CASES = [\n  { label: "a" },\n];\nfunction f() {}\n';
+  const srcB = srcA.replace('{ label: "a" }', '{ label: "a" },\n  { label: "b" }');
+  const srcC = srcA.replace('function f() {}', 'function f() { return 1; }');
+  let rhThrew = false; try { gmRunnerHashOf('沒有清單'); } catch { rhThrew = true; }
+  eq([gmRunnerHashOf(srcA) === gmRunnerHashOf(srcB), gmRunnerHashOf(srcA) === gmRunnerHashOf(srcC), rhThrew], [true, false, true],
+    'GL2 gatemutants 本身的雜湊：只改 CASES → 不變（那由定義的雜湊管）；改 CASES 以外的程式 → 變；找不到 CASES 的頭尾 → 丟錯');
+  const files = { 'scripts/pushgate.sh': 'node scripts/selfcheck.mjs; grep scripts/mutation-ledger.json', 'scripts/pushgate-verify.sh': 'bash scripts/pushgate.sh', 'scripts/selfcheck.mjs': 'v1', 'scripts/x.mjs': 'x', 'scripts/y.sh': 'y', 'scripts/other.mjs': 'o' };
+  const rd = (f) => files[f] ?? null;
+  const c = { label: 'c', file: 'scripts/x.mjs', also: [{ file: 'scripts/y.sh' }] };
+  const df = gmDepFiles(c, rd);
+  const h0 = gmCaseDepHash(c, rd);
+  const hSelf = gmCaseDepHash(c, (f) => (f === 'scripts/selfcheck.mjs' ? 'v2' : rd(f)));
+  const hOther = gmCaseDepHash(c, (f) => (f === 'scripts/other.mjs' ? 'o2' : rd(f)));
+  ok(['scripts/pushgate.sh', 'scripts/pushgate-verify.sh', 'scripts/selfcheck.mjs', 'scripts/x.mjs', 'scripts/y.sh'].every((f) => df.includes(f)) && !df.includes('scripts/mutation-ledger.json')
+    && gmDepFiles({ label: 'g', runner: 'gatescan' }, rd).includes('scripts/gatescan.mjs') && h0 !== hSelf && h0 === hOther,
+  `GL3 被驗的檔：閘門、驗法、這一條改的檔（含 also）、閘門字面提到的檔都算，帳本這類資料檔不算；gatescan 那一種加 gatescan.mjs；閘門提到的檔改了 → 雜湊變，不相干的檔改了 → 不變（${df.length} 支）`);
+  const led = { entries: {} };
+  const r1 = gmRecordCase(led, 'u', { ok: false, uncounted: true }, cur, { date: 'd', commit: 'c', mode: 'full' });
+  const r2 = gmRecordCase(led, 'k', { ok: true }, cur, { date: 'd', commit: 'c', mode: 'full' });
+  const r3 = gmRecordCase(led, 'n', { ok: false }, cur, { date: 'd', commit: 'c', mode: 'only' });
+  eq([r1, 'u' in led.entries, r2, led.entries.k?.result, r3, led.entries.n?.result], [false, false, true, '如預期', true, '不如預期'],
+    'GL4 記帳：逾時（不算數）不記——不算數就是沒跑過；如預期、不如預期照實記');
+  eq(gmLedgerOrphans(['a', 'b'], { entries: { b: {}, z: {} } }), { notInList: ['z'], notInLedger: ['a'] }, 'GL5 兩個方向的孤兒：帳本有清單沒有（z）、清單有帳本沒提到（a）');
+  eq(gmCaseDefHash({ label: 'a', expect: ['1'] }) === gmCaseDefHash({ label: 'a', expect: ['1', '2'] }), false, 'GL5b 定義的雜湊：預期多一種 → 變（事後補的預期也算定義改了）');
+  // GL6 從真實入口：暫存 clone（蓋上工作區的 gatemutants.mjs 與帳本、讀回確認）跑 --list-stale
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gl6-'));
+  try {
+    execFileSync('git', ['clone', '-q', ROOT, dir], { stdio: 'ignore' });
+    for (const f of ['scripts/gatemutants.mjs', GM_LEDGER_REL]) fs.copyFileSync(path.join(ROOT, f), path.join(dir, f));
+    const same = ['scripts/gatemutants.mjs', GM_LEDGER_REL].every((f) => fs.readFileSync(path.join(dir, f), 'utf8') === fs.readFileSync(path.join(ROOT, f), 'utf8'));
+    const ls = () => spawnSync(process.execPath, ['scripts/gatemutants.mjs', '--list-stale'], { cwd: dir, encoding: 'utf8', timeout: SUB_TIMEOUT_MS });
+    const N = GM_CASES.length;
+    // 合成帳本：第 1 條照現在的雜湊記成如預期、第 2 條的被驗的檔是舊的、多一條清單沒有的
+    const head = execFileSync('git', ['-C', dir, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    const readHead = (rel) => { const r = spawnSync('git', ['-C', dir, 'show', `${head}:${rel}`], { encoding: 'utf8' }); return r.status === 0 ? r.stdout : null; };
+    const rh = gmRunnerHashOf(fs.readFileSync(path.join(dir, 'scripts/gatemutants.mjs'), 'utf8'));
+    const [c1, c2] = GM_CASES;
+    const base = { date: '2026-10-09', commit: head, mode: 'full', result: '如預期' };
+    const syn = { note: '合成帳本（第六項用）', entries: {
+      [c1.label]: { ...base, defHash: gmCaseDefHash(c1), depHash: gmCaseDepHash(c1, readHead), runnerHash: rh },
+      [c2.label]: { ...base, defHash: gmCaseDefHash(c2), depHash: 'old', runnerHash: rh },
+      '幽靈：清單已經沒有這一條': { ...base, defHash: 'x', depHash: 'x', runnerHash: 'x' } } };
+    fs.writeFileSync(path.join(dir, GM_LEDGER_REL), `${JSON.stringify(syn, null, 1)}\n`);
+    const a = ls();
+    const L = a.stdout.split('\n');
+    ok(same && a.status === 0 && L.some((l) => l.startsWith(`  · 現在這版跑過：【${c1.label}】`)) && L.some((l) => l.startsWith(`  · 要跑：【${c2.label}】${GM_STALE.DEP}`))
+      && L.some((l) => l.startsWith('  · 帳本有、清單已經沒有：【幽靈：清單已經沒有這一條】')) && a.stdout.includes(`清單 ${N} 條、逐條印了 ${N} 條；現在這版跑過、如預期 1 條，要跑 ${N - 1} 條`)
+      && a.stdout.includes(`清單有、帳本沒提到 ${N - 2} 條（＝從沒跑過）；帳本有、清單已經沒有 1 條`),
+    `GL6 從真實入口（--list-stale，合成帳本）：照現在雜湊記的那一條判跑過、被驗的檔舊了的那一條點名理由、帳本多出來的報出來；逐條印的＝清單 ${N} 條、兩個方向的孤兒都印（回 ${a.status}）`);
+    fs.rmSync(path.join(dir, GM_LEDGER_REL));
+    const b = ls();
+    ok(b.status === 1 && b.stdout.includes('不當成空帳本'), `GL6c 帳本不見了 → 回 1、講明不當成空帳本（不是印 ${N} 條從沒跑過）（回 ${b.status}）`);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 }
 
 section('bash 解成完整路徑，解到 WSL 的不用（2026-10-02，JLPT 撞出來的；gatemutants 是本 repo 唯一由 node 叫 bash 的地方）');

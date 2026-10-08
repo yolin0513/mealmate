@@ -1,0 +1,4 @@
+{
+ "note": "gatemutants 每條上次在現在這版程式下跑過沒有（scripts/gatemutants.mjs 每跑完一條就寫，不手改）。三個雜湊：定義、被驗的檔、gatemutants 本身。逾時不算數、不記。**剛建好時是空的，--list-stale 會印 40 條「從沒跑過」——不要從舊 log 回填：舊 log 沒有記雜湊，回填等於假裝它們是在現在這版跑的；那個好看是假的，而且假得完全看不出來（Dispatch 2026-10-09）。**",
+ "entries": {}
+}

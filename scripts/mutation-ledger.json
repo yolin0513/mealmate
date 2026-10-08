@@ -21087,8 +21087,160 @@
     "seconds": 133
    },
    "lastFull": null
+  },
+  "gatemutants 帳：被驗的檔改了也算跑過": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "4fc9c6b575d0+dirty",
+    "mode": "only",
+    "defHash": "040c225424ca665d618dbf7226f0f50486f909ec2c6d8a7655e53d00d05d4602",
+    "depHash": "f4cc0a29b4757607c9084f22d61cd9538f2b4f1daddb8f146bae67ec0e32fcd8",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 174
+   },
+   "lastFull": null
+  },
+  "gatemutants 帳：gatemutants 本身改了也算跑過": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "4fc9c6b575d0+dirty",
+    "mode": "only",
+    "defHash": "80936dc41cefb365230d646ae64291b8b5c17ed9f7a52ae043689e6c3d0b5f7c",
+    "depHash": "f4cc0a29b4757607c9084f22d61cd9538f2b4f1daddb8f146bae67ec0e32fcd8",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 174
+   },
+   "lastFull": null
+  },
+  "gatemutants 帳：上次不如預期也算跑過": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "4fc9c6b575d0+dirty",
+    "mode": "only",
+    "defHash": "3553eb4c31948e7d7439471df5d2d1cdc63221b81f784ba27309b141b59c7e8b",
+    "depHash": "f4cc0a29b4757607c9084f22d61cd9538f2b4f1daddb8f146bae67ec0e32fcd8",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 175
+   },
+   "lastFull": null
+  },
+  "gatemutants 帳：gatemutants 本身的雜湊不拿掉 CASES": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "4fc9c6b575d0+dirty",
+    "mode": "only",
+    "defHash": "784c3cae4a2b9e6b3c6dd4c23b8bcbd8fee7ff606628db76a3dd2a46de0ab82d",
+    "depHash": "f4cc0a29b4757607c9084f22d61cd9538f2b4f1daddb8f146bae67ec0e32fcd8",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 175
+   },
+   "lastFull": null
+  },
+  "gatemutants 帳：被驗的檔不展開閘門提到的": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "4fc9c6b575d0+dirty",
+    "mode": "only",
+    "defHash": "e9ac92881234b90b7f3ac33944e0fb0414729e268b47dd580e06ee8aeef6d9ff",
+    "depHash": "f4cc0a29b4757607c9084f22d61cd9538f2b4f1daddb8f146bae67ec0e32fcd8",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 159
+   },
+   "lastFull": null
+  },
+  "gatemutants 帳：逾時也記成跑過": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "4fc9c6b575d0+dirty",
+    "mode": "only",
+    "defHash": "95ef631406d46b42ebabf3759391fa04031abea3e23544831ca5028c6d8c0ecc",
+    "depHash": "f4cc0a29b4757607c9084f22d61cd9538f2b4f1daddb8f146bae67ec0e32fcd8",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 174
+   },
+   "lastFull": null
+  },
+  "gatemutants 帳：帳本多出來的不報": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "4fc9c6b575d0+dirty",
+    "mode": "only",
+    "defHash": "813186027ccbe0fad56771ba868c9f946f1827b7fbfc24409c9eb5f43f789270",
+    "depHash": "f4cc0a29b4757607c9084f22d61cd9538f2b4f1daddb8f146bae67ec0e32fcd8",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 174
+   },
+   "lastFull": null
+  },
+  "gatemutants 帳：帳本不見了當成空的": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "4fc9c6b575d0+dirty",
+    "mode": "only",
+    "defHash": "101d88a160f7113d2e766f0ed0820bf43875424db269619011421f5602aed323",
+    "depHash": "f4cc0a29b4757607c9084f22d61cd9538f2b4f1daddb8f146bae67ec0e32fcd8",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 200
+   },
+   "lastFull": null
   }
  },
- "runSeq": 58,
+ "runSeq": 59,
  "inflight": null
 }
