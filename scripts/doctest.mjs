@@ -911,6 +911,25 @@ section('加工品待確認清單 ⇄ data/foodtags.json（2026-10-01 A 方案�
 // 而每條 doctest 突變都要跑一次 doctest。改成整支 doctest 共用一份：第一次用到時 clone、把工作區的 scripts/ 蓋上去並 commit（＝基準），
 // 之後每一節開頭 reset 回基準、清掉未追蹤的檔，各節的改動不會帶到下一節（§5.11 第四層：情境之間互不污染）。
 // 各節自己的「讀回確認」照舊做（它確認的是這一節拿到的就是工作區這一份）；最後在檔尾刪掉。
+// 突變進行中（主 repo 有還原紀錄）時，共用複本蓋上去的是「改壞的那一支」——改那一支的突變，錨點在複本裡找不到，
+// checkmutations 會報 STALE。那是突變進行中造成的、不是錨點過期：分出來標成「突變進行中、不計入」，**不關掉錨點檢查**，
+// 其餘的 STALE 照樣算（2026-10-08，Dispatch 待辦第 5 項；以前這個雜訊讓 WS2、WS3、AR2a 在每一條改 scripts/ 的突變裡都紅，
+// 「紅錯地方」的偵測因此一直被削弱——結論還成立，是因為預期那一條也紅了）。
+function splitInProgress(out, pendingRel) {
+  const stale = String(out).split('\n').filter((l) => l.startsWith('STALE '));
+  const inProg = pendingRel ? stale.filter((l) => l.includes(`（${pendingRel}）：find 出現 0 次`)) : [];
+  return { stale: stale.filter((l) => !inProg.includes(l)), inProg };
+}
+const PENDING_REL = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts/.mutation-pending.json'), 'utf8')).rel ?? null; } catch { return null; } })();
+if (PENDING_REL) console.log(`  · 這一次 doctest 跑在突變進行中（${PENDING_REL} 是改壞的版本）：共用複本裡改它的那幾條突變報錨點找不到，標成「突變進行中、不計入」`);
+/** checkmutations 的結果算不算乾淨：回 0，或者唯一的 STALE 都是「突變進行中」造成的 */
+function cmClean(r, rel = PENDING_REL) {
+  if (r.code === 0) return true;
+  const s = splitInProgress(r.out, rel);
+  for (const l of s.inProg) console.log(`  · 突變進行中、不計入：${l.slice(6)}`);
+  return s.stale.length === 0 && s.inProg.length > 0;
+}
+
 let SHARED_CLONE = null;
 const overlaysToShared = (f) => /\.(m?js|sh)$/.test(f) || f === 'expect-review.json';
 function sharedClone() {
@@ -971,7 +990,7 @@ section('只差空白或行尾的突變要被擋（2026-10-02 Dispatch；v11.3 �
     const cm = () => { try { return { code: 0, out: execFileSync(process.execPath, ['scripts/checkmutations.mjs'], { cwd: clone, encoding: 'utf8' }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') }; } };
     const total = (loadMutations(fs.readFileSync(path.join(clone, 'scripts/mutationtest.mjs'), 'utf8')) ?? []).length;
     const r0 = cm();
-    ok(r0.code === 0 && total > 500 && r0.out.includes(`WSCHECKED ${total}`) && r0.out.includes(`TOTAL ${total}`),
+    ok(cmClean(r0) && total > 500 && r0.out.includes(`WSCHECKED ${total}`) && r0.out.includes(`TOTAL ${total}`),
       `WS2（反向）原樣的 clone：checkmutations 回 ${r0.code}、只差空白的檢查查了 ${(/WSCHECKED (\d+)/.exec(r0.out) ?? [])[1]} 條＝清單 ${total} 條，全部通過`);
     // 樣本：真實檔（js/version.js）裡真實的一行，改壞後只在尾巴多一個空白
     const line = fs.readFileSync(path.join(clone, 'js/version.js'), 'utf8').split('\n').find((l) => l.startsWith('export const APP_VERSION = '));
@@ -989,7 +1008,7 @@ section('只差空白或行尾的突變要被擋（2026-10-02 Dispatch；v11.3 �
       fs.writeFileSync(sf, JSON.stringify(sd));
     }
     const r1 = cm();
-    const staleLines = r1.out.split('\n').filter((l) => l.startsWith('STALE '));
+    const staleLines = splitInProgress(r1.out, PENDING_REL).stale;
     ok(readBack && r1.code !== 0 && staleLines.length === 1 && staleLines[0].includes('WS探針：只在尾巴多一個空白') && staleLines[0].includes('只差空白或行尾'),
       `WS3 clone 裡加一條只在尾巴多一個空白的突變（樣本讀回 ${readBack}）→ checkmutations 回 ${r1.code}、只點名那一條（${staleLines.length} 行 STALE）`);
     let r2 = { code: 0, out: '' };
@@ -1504,12 +1523,14 @@ section('預期清單過期要用獨立的訊息、開跑前擋（2026-10-02；g
     const broke = vsrc.split(anchor).length === 2 && !readHeadOf(clone)('scripts/pushgate-verify.sh').includes(anchor);
     ok(broke, '（前提）弄壞錨點的那份 clone 裡 M6 的錨點真的弄壞了（原本剛好一次、HEAD 那一份已經沒有）');
     const env = { ...process.env }; delete env.MM_AUDIT; delete env.MM_AUDIT_OUT; delete env.MM_LEDGER;
-    const r = spawnSync(process.execPath, ['scripts/gatemutants.mjs'], { cwd: clone, encoding: 'utf8', env });
+    // 帶 --check-only、設 120 秒上限（2026-10-08，GM1 的退化行為）：以前不帶，「開跑前停」那道被突變拿掉時，gatemutants 就照常把
+    // 40 條整套跑下去（約 77 分鐘），doctest 被執行器的 10 分鐘時限殺掉——那兩條突變只能記成逾時、不算數，而且留下一整棵殘留程序。
+    // 帶 --check-only 之後：那道擋還在＝回 6；被拿掉＝印「過期 0 處」後就收手、回 0——兩種都在幾秒內結束，突變紅在這一條
+    const r = spawnSync(process.execPath, ['scripts/gatemutants.mjs', '--check-only'], { cwd: clone, encoding: 'utf8', env, timeout: 120000 });
     const out = `${r.stdout}${r.stderr}`;
     ok(broke && r.status === 6 && out.includes('gatemutants：預期清單過期（1 處），一條都沒跑') && out.includes('【M6：fresh 不清 hook（預設順序看得出來）】scripts/pushgate-verify.sh 的錨點不是剛好一次')
       && !out.includes('【對照：原樣】') && !out.includes('不如預期'),
-    `GM1 gatemutants 的錨點過期 → 開跑前停（回 ${r.status}，預期 6）、訊息是「預期清單過期」、點名 M6、一條都沒跑（不是「不如預期」）`);
-  }
+    `GM1 gatemutants 的錨點過期 → 開跑前停（回 ${r.status}，預期 6${r.error ? `；${r.error.code}` : ''}）、訊息是「預期清單過期」、點名 M6、一條都沒跑（不是「不如預期」）`);  }
 }
 
 section('gatemutants 的理由改成理由碼、集合完全相同（2026-10-02 Dispatch 選 A：不再用「輸出裡某處含這段字」）');
@@ -1546,7 +1567,7 @@ section('斷言登記表與「預期需要複審」（2026-10-02 Dispatch 選 A�
     const st = nodeIn(['scripts/assertregistry.mjs', '--stamp', '--all']);
     const cm = () => { const r = nodeIn(['scripts/checkmutations.mjs']); return { code: r.status, out: r.stdout, count: Number((/REVIEWCOUNT (\d+)/.exec(r.stdout) ?? [])[1] ?? -1), lines: r.stdout.split('\n').filter((l) => l.startsWith('REVIEW 預期需要複審：')) }; };
     const c0 = cm();
-    ok(st.status === 0 && c0.code === 0 && c0.count === 0, `AR2a（反向）clone 裡剛戳完 → checkmutations 回 ${c0.code}、要複審 ${c0.count} 條（預期 0）`);
+    ok(st.status === 0 && cmClean(c0) && c0.count === 0, `AR2a（反向）clone 裡剛戳完 → checkmutations 回 ${c0.code}、要複審 ${c0.count} 條（預期 0）`);
     const muts = loadMutations(fs.readFileSync(path.join(clone, 'scripts/mutationtest.mjs'), 'utf8')) ?? [];
     const aliasN = muts.filter((m) => m.test === 'aliastest' && m.expect != null).length;
     const af = path.join(clone, 'scripts/aliastest.mjs');
@@ -1554,7 +1575,7 @@ section('斷言登記表與「預期需要複審」（2026-10-02 Dispatch 選 A�
     const di = asrc.lastIndexOf('done(');
     fs.writeFileSync(af, `${asrc.slice(0, di)}ok(typeof done === 'function', '新加的一條斷言（AR 探針）');\n${asrc.slice(di)}`);
     const c1 = cm();
-    ok(aliasN >= 1 && c1.code === 0 && c1.count === aliasN && c1.lines.length === Math.min(aliasN, 10) && c1.lines.every((l) => l.includes('aliastest｜') && l.includes(`從 `) && l.includes('筆')),
+    ok(aliasN >= 1 && cmClean(c1) && c1.count === aliasN && c1.lines.length === Math.min(aliasN, 10) && c1.lines.every((l) => l.includes('aliastest｜') && l.includes(`從 `) && l.includes('筆')),
       `AR2 aliastest 多一條斷言 → 帶 expect 的那 ${aliasN} 條都報「預期需要複審」、別支測試的不報、只報不擋（回 ${c1.code}；報了 ${c1.count} 條）`);
     fs.writeFileSync(af, asrc);
     const rf = path.join(clone, 'scripts/recipetest.mjs');
@@ -1652,6 +1673,13 @@ section('共用的暫存 clone：每一節開頭都回到基準（情境之間�
   const c2 = sharedClone();
   ok(placed && c2 === c1 && fs.readFileSync(path.join(c2, 'scripts', 'aliastest.mjs'), 'utf8') === fs.readFileSync(path.join(ROOT, 'scripts', 'aliastest.mjs'), 'utf8') && !fs.existsSync(path.join(c2, 'leftover-probe.txt')),
     'SC1 共用 clone：上一節改的檔回到工作區那一份、留下的未追蹤檔不見了（同一個目錄，沒有重新 clone）');
+  // SP1、SP2（2026-10-08）：突變進行中造成的 STALE 分得出來、其餘照算（合成的 checkmutations 輸出；真的情境只在突變執行中才會有）
+  const spOut = ['STALE 甲突變（js/x.js）：find 出現 0 次', 'STALE 乙突變（js/y.js）：find 出現 0 次', 'STALE 丙突變（js/x.js）：find 出現 2 次', 'STALECOUNT 3'].join('\n');
+  const sp = splitInProgress(spOut, 'js/x.js'); const spNone = splitInProgress(spOut, null);
+  ok(sp.inProg.length === 1 && sp.inProg[0].includes('甲突變') && sp.stale.length === 2 && spNone.inProg.length === 0 && spNone.stale.length === 3,
+    `SP1 突變進行中（js/x.js 是改壞的）：只有「改它、錨點找不到」的那一條標成不計入；別的檔、出現 2 次的照算 STALE；沒有突變進行中時一條都不分（不計入 ${sp.inProg.length}、照算 ${sp.stale.length}）`);
+  ok(!cmClean({ code: 1, out: 'TOTAL 5\nSTALECOUNT 0\n' }, 'js/x.js') && cmClean({ code: 1, out: 'STALE 甲突變（js/x.js）：find 出現 0 次\n' }, 'js/x.js') && !cmClean({ code: 1, out: spOut }, 'js/x.js'),
+    'SP2 checkmutations 回 1、卻一行 STALE 都沒有 → 不算乾淨（不是突變進行中造成的）；唯一的 STALE 是進行中造成的 → 算乾淨；還有別的 STALE → 不算');
   ok(overlaysToShared('mutationtest.mjs') && overlaysToShared('pushgate.sh') && overlaysToShared('expect-review.json')
     && !overlaysToShared('mutation-ledger.json') && !overlaysToShared('.mutation-pending.json'),
   'SC2 共用 clone 只蓋程式與戳記檔；帳本與還原紀錄不蓋（突變執行中它們記著 inflight，蓋過去複本裡的執行器會拒絕開跑、只差空白那一節紅在別的理由上）');

@@ -4901,6 +4901,34 @@ const MUTATIONS = [
     test: "doctest",
     expect: "受影響 D17c ",
   },
+  // ---- 2026-10-08：共用複本的雜訊——突變進行中造成的 STALE 標成不計入（doctest SP1、SP2）----
+  {
+    name: "共用複本雜訊：突變進行中照樣算 STALE",
+    why: "回到以前：每一條改 scripts/ 的突變，WS2、WS3、AR2a 都被這個雜訊弄紅，「紅錯地方」的偵測被削弱。",
+    file: "scripts/doctest.mjs",
+    find: "  const inProg = pendingRel ? stale.filter(",
+    replace: "  const inProg = false ? stale.filter(",
+    test: "doctest",
+    expect: "SP1 ",
+  },
+  {
+    name: "共用複本雜訊：所有 STALE 都當成突變進行中",
+    why: "分太寬：真的錨點過期（別支檔、出現 2 次）也被吞掉——那就是把錨點檢查關掉了。",
+    file: "scripts/doctest.mjs",
+    find: "stale.filter((l) => l.includes(`（${pendingRel}）：find 出現 0 次`))",
+    replace: "stale.filter(() => true)",
+    test: "doctest",
+    expect: "SP1 ",
+  },
+  {
+    name: "共用複本雜訊：checkmutations 回 1 卻沒有 STALE 也算乾淨",
+    why: "checkmutations 為了別的原因失敗（例：讀不到檔），沒有任何 STALE 行，卻被當成「只是突變進行中」——失敗被吞掉。",
+    file: "scripts/doctest.mjs",
+    find: "  return s.stale.length === 0 && s.inProg.length > 0;",
+    replace: "  return s.stale.length === 0;",
+    test: "doctest",
+    expect: "SP2 ",
+  },
   // ---- 2026-10-02：判對時也印實際紅了哪幾條（StockDiary 挖出來的；doctest D18i）----
   {
     name: "執行器：判對時不印實際紅了哪幾條",

@@ -16235,36 +16235,39 @@
   },
   "gatemutants：不查錨點是不是剛好一次": {
    "last": {
-    "date": "2026-10-02",
-    "commit": "d27f14861762",
-    "mode": "never-full",
+    "date": "2026-10-08",
+    "commit": "ce382be30298+dirty",
+    "mode": "only",
     "defHash": "a77beef3be9f439bb0a89e453262081b11831572e2cab72b1808db2b491b26d5",
-    "depHash": "8cd9002053d35c22cb20ba7dac9112e9c0e741e2042dac8d001f7e6d42f16f96",
-    "runnerHash": "f4d2ba139e34411fe2e7c5b98090f130e8c5eacad40906b239503f9d495130bc",
+    "depHash": "d01cf806d626ec41cfc7785e26e236bb7641baff113671696af4aa94096e3e61",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
     "scope": "repo",
-    "kind": "timeout",
-    "counted": false,
-    "red": false,
-    "seconds": 600
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 57
    },
    "lastFull": null
   },
   "gatemutants：查出過期也照跑": {
    "last": {
-    "date": "2026-10-02",
-    "commit": "d27f14861762",
-    "mode": "never-full",
+    "date": "2026-10-08",
+    "commit": "ce382be30298+dirty",
+    "mode": "only",
     "defHash": "557e9da7f1806e0e6974cb328ea4705001b6c8d6e57e630644696023ef87c267",
-    "depHash": "8cd9002053d35c22cb20ba7dac9112e9c0e741e2042dac8d001f7e6d42f16f96",
-    "runnerHash": "f4d2ba139e34411fe2e7c5b98090f130e8c5eacad40906b239503f9d495130bc",
+    "depHash": "d01cf806d626ec41cfc7785e26e236bb7641baff113671696af4aa94096e3e61",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
-    "red": false,
-    "expectMatched": false,
+    "red": true,
+    "expectMatched": true,
     "failed": 1,
-    "expectHits": 0,
-    "seconds": 9
+    "expectHits": 1,
+    "seconds": 57
    },
    "lastFull": {
     "date": "2026-10-02",
@@ -19718,8 +19721,65 @@
     "seconds": 58
    },
    "lastFull": null
+  },
+  "共用複本雜訊：突變進行中照樣算 STALE": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "ce382be30298+dirty",
+    "mode": "only",
+    "defHash": "2e5edcddb041aee162780e8583b5be6387ec663881be96d8d6c216ada9b96618",
+    "depHash": "d01cf806d626ec41cfc7785e26e236bb7641baff113671696af4aa94096e3e61",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 6,
+    "expectHits": 1,
+    "seconds": 57
+   },
+   "lastFull": null
+  },
+  "共用複本雜訊：所有 STALE 都當成突變進行中": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "ce382be30298+dirty",
+    "mode": "only",
+    "defHash": "1c77cba39235d574e439592ee086ef95a78ea49afd2a8793c95dee80c876f58c",
+    "depHash": "d01cf806d626ec41cfc7785e26e236bb7641baff113671696af4aa94096e3e61",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 3,
+    "expectHits": 1,
+    "seconds": 58
+   },
+   "lastFull": null
+  },
+  "共用複本雜訊：checkmutations 回 1 卻沒有 STALE 也算乾淨": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "ce382be30298+dirty",
+    "mode": "only",
+    "defHash": "f4d392f4e45064fea59e41acb53d7cf54fcee13ea025bb118e84c3a8012d1c91",
+    "depHash": "d01cf806d626ec41cfc7785e26e236bb7641baff113671696af4aa94096e3e61",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 57
+   },
+   "lastFull": null
   }
  },
- "runSeq": 22,
+ "runSeq": 23,
  "inflight": null
 }
