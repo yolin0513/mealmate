@@ -16,7 +16,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, note } from './tap.mjs';
-import { runProgram, KIND_LABELS, UNCOUNTED_KINDS } from './runkind.mjs';
+import { runProgram, KIND_LABELS, UNCOUNTED_KINDS, parseJobSum } from './runkind.mjs';
 import { shouldRecordFull, writeLastFull, LASTFULL_FILE, taiwanToday, currentVersion } from './sincefull.mjs';
 import { execFileSync, spawn } from 'node:child_process';
 import { peakOf } from './reslog.mjs';
@@ -4944,10 +4944,76 @@ const MUTATIONS = [
     name: "Job：執行器跑測試不經 jobrun",
     why: "runProgram 有 inJob，執行器卻沒打開——跟沒做一樣。",
     file: "scripts/mutationtest.mjs",
-    find: "（10-02 正式那場的教訓）\n  return runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, inJob: true });",
-    replace: "（10-02 正式那場的教訓）\n  return runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000 });",
+    find: "（10-02 正式那場的教訓）\n  const r = runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, inJob: true });",
+    replace: "（10-02 正式那場的教訓）\n  const r = runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000 });",
     test: "doctest",
     expect: "受影響 D18p ",
+  },
+  // ---- 2026-10-08：逐一計數與結束核對（jobhelper 的完成埠、jobrun 的結算行、runkind.parseJobSum、執行器的彙總）----
+  {
+    name: "Job 計數：程序結束不減",
+    why: "只加不減，峰值就是累計開過的支數——長跑時數字一路長大，看起來像很多程序同時在跑。",
+    file: "scripts/jobhelper.ps1",
+    find: "else if (msg == 7 || msg == 8) { Ended++; Active.Remove(pid); Born.Remove(pid); }",
+    replace: "else if (msg == 7 || msg == 8) { Ended++; Born.Remove(pid); }",
+    test: "jobtest",
+    expect: "Job・逐一計數：依序開 2 支時",
+  },
+  // 「完成埠在放進程序之後才接」：**實測出來的等價突變，已拿掉**（2026-10-08）——順序反過來，jobrun 自己照樣被數到
+  // （看起來接上完成埠時系統會補送已在 Job 裡的程序的 NEW_PROCESS；單次實測、沒有文件佐證）。原本寫的理由「jobrun 會漏數」不成立
+  {
+    name: "Job 計數：jobrun 不要結算",
+    why: "指令結束就直接走，沒有結算行——逐一計數永遠是「沒有結算」，峰值只剩取樣的那一個。",
+    file: "scripts/jobrun.mjs",
+    find: "helper.stdin.write('SUM\\n');",
+    replace: "void 0;",
+    test: "jobtest",
+    expect: "Job・逐一計數：兩次都有結算行",
+  },
+  {
+    name: "Job 計數：差值截成 0",
+    why: "收的比開的多（通知不保證送達）時印 0，看起來對得上，其實有通知不見了。",
+    file: "scripts/runkind.mjs",
+    find: "diff: started - ended,",
+    replace: "diff: Math.max(0, started - ended),",
+    test: "doctest",
+    expect: "JS1 收的比開的多",
+  },
+  {
+    name: "Job 計數：留下來的截成 0",
+    why: "jobrun 自己那一支沒被數到時，留下的是 -1；截成 0 就看不出計數漏了。",
+    file: "scripts/runkind.mjs",
+    find: "leftOthers: alive - 1,",
+    replace: "leftOthers: Math.max(0, alive - 1),",
+    test: "doctest",
+    expect: "JS1 收的比開的多",
+  },
+  {
+    name: "Job 計數：拿不到結算當成 0",
+    why: "被殺、逾時、協助程序沒回的那幾次，被算成「開 0、收 0、峰值 0」——拉低峰值，還算成有結算。",
+    file: "scripts/runkind.mjs",
+    find: "if (l.startsWith('JOB-SUM unavailable')) return { ok: false, why: l.slice('JOB-SUM '.length) };",
+    replace: "if (l.startsWith('JOB-SUM unavailable')) return { ok: true, started: 0, ended: 0, diff: 0, active: 1, leftOthers: 0, peak: 0, peakmix: '', left: '' };",
+    test: "doctest",
+    expect: "JS3 沒有結算行",
+  },
+  {
+    name: "Job 計數：有 stale 也當峰值可信",
+    why: "收不到結束通知的那幾支一直算在裡面，峰值偏高（jobtest 在 Job 裡跑時 138）卻照樣報出來，看起來完全合理。",
+    file: "scripts/runkind.mjs",
+    find: "peakOk: kv.peakok === 'yes' && stale === 0,",
+    replace: "peakOk: kv.peakok !== '不看',",
+    test: "doctest",
+    expect: "JS4 有 38 支已經不在",
+  },
+  {
+    name: "Job 計數：執行器不收集結算",
+    why: "每一支測試都印了結算，執行器沒收——收尾那一行永遠不出現，逐一計數等於沒有。",
+    file: "scripts/mutationtest.mjs",
+    find: "  JOB_SUMS.push({ name, ...parseJobSum(r.out) });\n  return r;",
+    replace: "  void 'JOB_SUMS 不收';\n  return r;",
+    test: "doctest",
+    expect: "受影響 D18q ",
   },
   // ---- 2026-10-08：doctest 開 node 腳本的子程序都帶上限（doctest TO1、TO2）----
   {
@@ -5741,10 +5807,14 @@ const LEDGER_PATH = process.env.MM_LEDGER ? path.resolve(process.env.MM_LEDGER) 
 // （Dispatch 2026-10-02：餘裕不到 3 倍，逾時就會把慢一點的突變記成不算數＝漏驗；倍數一律用最長那次算）
 const TEST_TIMEOUT_MIN = { assertaudit: 45, 'resume-verify': 15 };
 // 怎麼結束的要分清楚（scripts/runkind.mjs）：逾時、沒跑起來、被殺不算數；只有斷言失敗才是「紅在斷言」
+// 每一次跑測試的 Job 結算（逐一計數與結束核對，2026-10-08）：收尾時彙總，跟取樣的峰值並列
+const JOB_SUMS = [];
 function runTest(name) {
   const file = path.join(ROOT, 'scripts', `${name}.mjs`);
   // inJob（2026-10-08）：經 jobrun 開——逾時被殺時，測試經 Git Bash 或 detached 開出來的子孫一起被收掉（10-02 正式那場的教訓）
-  return runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, inJob: true });
+  const r = runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, inJob: true });
+  JOB_SUMS.push({ name, ...parseJobSum(r.out) });
+  return r;
 }
 const tally = { assert: 0, crash: 0, uncounted: [] };
 
@@ -6109,6 +6179,24 @@ if (reslog) {
   const pk = peakOf(fs.existsSync(reslogFile) ? fs.readFileSync(reslogFile, 'utf8') : '');
   note(`資源紀錄的峰值：工作程序 ${pk.lines ? pk.peakWorkers : '（沒有記到任何一行）'}、合計記憶體 ${pk.lines ? `${pk.peakMB} MB` : '—'}、系統可用最低 ${pk.minFreeMB ?? '—'} MB（${pk.lines} 行${pk.unreadable ? `、取不到程序表 ${pk.unreadable} 行` : ''}；${path.relative(ROOT, reslogFile)}）`);
   if (pk.lines && pk.peakWorkers > MAX_WORKERS) note(`⚠ 峰值 ${pk.peakWorkers} 個工作程序，超過共用上限 ${MAX_WORKERS}（v11 §5.19）`);
+}
+
+// 逐一計數與結束核對（2026-10-08，第 7 項；v11 §5.19「兩種峰值並列印出」）：每一次跑測試的 Job 結算彙總，印在取樣峰值旁邊。
+// 定義不同要講明：Job 裡算的是全部程序（含 jobrun 自己、conhost、Git Bash 的中間程序、瀏覽器子程序），取樣算的是「工作程序」——
+// 兩個峰值的差距不全是取樣漏掉的。開、收各自加總，差值照印（通知不保證送達，可能是負的）；沒有結算的次數另外數，不當成 0
+if (JOB_SUMS.length) {
+  const got = JOB_SUMS.filter((s) => s.ok);
+  // 峰值只取可信的那幾次：有 stale（已經不在、沒收到結束通知）的那一次只加不減、峰值偏高卻看起來合理——作廢，不拿來比大小
+  const voided = got.filter((s) => !s.peakOk);
+  const top = got.filter((s) => s.peakOk).reduce((a, s) => (!a || s.peak > a.peak ? s : a), null);
+  const ST = got.reduce((a, s) => a + s.stale, 0);
+  const S = got.reduce((a, s) => a + s.started, 0); const E = got.reduce((a, s) => a + s.ended, 0);
+  const leftovers = got.filter((s) => s.leftOthers !== 0);
+  const L = got.reduce((a, s) => a + s.leftOthers, 0);
+  note(`逐一計數（Job 結算；同一個 Job 裡同時存在的全部程序，跟取樣的「工作程序」定義不同）：跑測試 ${JOB_SUMS.length} 次，有結算 ${got.length} 次、沒有 ${JOB_SUMS.length - got.length} 次${got.length < JOB_SUMS.length ? `（${[...new Set(JOB_SUMS.filter((s) => !s.ok).map((s) => s.why))].slice(0, 3).join('；')}）` : ''}`
+    + `；峰值作廢 ${voided.length} 次（結算時已經不在、卻沒收到結束通知的合計 ${ST} 支——只加不減，峰值偏高卻看起來合理，不報${voided.length ? `；在 ${voided.slice(0, 3).map((s) => `${s.name}（${s.stale} 支；${s.stalemix}）`).join('、')}` : ''}）`
+    + `；峰值（只取可信的 ${got.length - voided.length} 次）${top ? `${top.peak}（${top.name}，那一刻 ${top.peakmix}；**名字只當參考、總數才準**：名字是程序進 Job 那一刻的，Git Bash 先分叉出 bash 再換成目標，sleep 常被記成 bash）` : `—（${got.length ? '全部作廢' : '沒有結算'}）`}`
+    + `；開 ${S}、收 ${E}、差 ${S - E}（照印，不截成 0：Windows 的這些通知不保證送達，開收不一致是正常現象；截成 0，真正的洩漏就跟正常的誤差長得一樣）；測試結束時還留在 Job 裡的（不含 jobrun 自己）合計 ${L} 支${leftovers.length ? `，在 ${leftovers.slice(0, 5).map((s) => `${s.name}（${s.leftOthers}；${s.left}）`).join('、')}——Job 關閉時被收掉` : ''}`);
 }
 
 done('mutationtest');

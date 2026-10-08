@@ -175,7 +175,7 @@ export function auditTargets(pkg, scriptFiles) {
 
 /** 檔名像測試（*test.mjs）卻沒登記進測試鏈的——新測試忘了登記，npm test 不會跑、assertaudit 也不會掃。 */
 // 刻意不在鏈裡：mutationtest 會改寫原始碼、要跑幾小時（doctest D4）；jobtest（2026-10-08）會開好幾支程序（Git Bash、sleep、
-// PowerShell 協助程序）去驗 Job Object 殺不殺得乾淨，約 37 秒、只在 Windows 有意義，單獨跑 node scripts/jobtest.mjs；
+// PowerShell 協助程序）去驗 Job Object 殺不殺得乾淨，約 75 秒（2026-10-08 加了逐一計數那一節之後）、只在 Windows 有意義，單獨跑 node scripts/jobtest.mjs；
 // memwatchtest（2026-10-08）開假執行器、外部監看與一個瀏覽器，約 1 分鐘、只在 Windows 有意義，單獨跑 node scripts/memwatchtest.mjs
 export const CHAIN_EXEMPT = new Set(['mutationtest', 'jobtest', 'memwatchtest']);
 export function orphanTests(pkg, scriptFiles) {

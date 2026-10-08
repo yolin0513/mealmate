@@ -20044,8 +20044,160 @@
     "seconds": 71
    },
    "lastFull": null
+  },
+  "Job 計數：程序結束不減": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "8dad26444e32+dirty",
+    "mode": "only",
+    "defHash": "e87f7dc55eb3907ba565756d068276860fc05c8c3df5afc1496cf427e3328569",
+    "depHash": "005ffab7da5d6f4bdb298c9360facd727c1c26e4964d64fb66d9026395764469",
+    "runnerHash": "5e1331402f2a1b421d5fcf6ffed5558e315f8fbba4525f4fcc10e8d841a65c4e",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 71
+   },
+   "lastFull": null
+  },
+  "Job 計數：完成埠在放進程序之後才接": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "8dad26444e32+dirty",
+    "mode": "only",
+    "defHash": "456b675c834e017e706059f7f34fc2c805961ea29c503f8a849bdcbc753f2879",
+    "depHash": "4a435c50990dc1e556ff35bdfc1f305bf5bef8d5a19a0eb932e65331ccefef1e",
+    "runnerHash": "1431d4bec5b38ae2507f3d975e473e5759f97209cc036e1bc46c51401825912a",
+    "scope": "repo",
+    "kind": "pass",
+    "counted": true,
+    "red": false,
+    "expectMatched": false,
+    "failed": 0,
+    "expectHits": 0,
+    "seconds": 71
+   },
+   "lastFull": null
+  },
+  "Job 計數：jobrun 不要結算": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "8dad26444e32+dirty",
+    "mode": "only",
+    "defHash": "9782313c5a1f24becc0beb0dacce7ee7900a53803ea0facf671305c0e767d046",
+    "depHash": "005ffab7da5d6f4bdb298c9360facd727c1c26e4964d64fb66d9026395764469",
+    "runnerHash": "5e1331402f2a1b421d5fcf6ffed5558e315f8fbba4525f4fcc10e8d841a65c4e",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 5,
+    "expectHits": 1,
+    "seconds": 88
+   },
+   "lastFull": null
+  },
+  "Job 計數：差值截成 0": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "8dad26444e32+dirty",
+    "mode": "only",
+    "defHash": "97ffdb0d9a13b0f525d5d3c216d4ca6fd1a60f813c48287e48ade2606e6c77ef",
+    "depHash": "005ffab7da5d6f4bdb298c9360facd727c1c26e4964d64fb66d9026395764469",
+    "runnerHash": "5e1331402f2a1b421d5fcf6ffed5558e315f8fbba4525f4fcc10e8d841a65c4e",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 79
+   },
+   "lastFull": null
+  },
+  "Job 計數：留下來的截成 0": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "8dad26444e32+dirty",
+    "mode": "only",
+    "defHash": "c58bc98c970de29953750e6c48ff7098f276a00306e1e64f29e4ec4308ef82a7",
+    "depHash": "005ffab7da5d6f4bdb298c9360facd727c1c26e4964d64fb66d9026395764469",
+    "runnerHash": "5e1331402f2a1b421d5fcf6ffed5558e315f8fbba4525f4fcc10e8d841a65c4e",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 81
+   },
+   "lastFull": null
+  },
+  "Job 計數：有 stale 也當峰值可信": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "8dad26444e32+dirty",
+    "mode": "only",
+    "defHash": "34ba8a6b983e421db66ce6615630fd744f62ee88a5ec519a2c4edcf924768b18",
+    "depHash": "005ffab7da5d6f4bdb298c9360facd727c1c26e4964d64fb66d9026395764469",
+    "runnerHash": "5e1331402f2a1b421d5fcf6ffed5558e315f8fbba4525f4fcc10e8d841a65c4e",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 79
+   },
+   "lastFull": null
+  },
+  "Job 計數：拿不到結算當成 0": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "8dad26444e32+dirty",
+    "mode": "only",
+    "defHash": "b50815d4774cd826a2718fbfab1797cc82096ed0f407f40e8d18717b17733096",
+    "depHash": "005ffab7da5d6f4bdb298c9360facd727c1c26e4964d64fb66d9026395764469",
+    "runnerHash": "5e1331402f2a1b421d5fcf6ffed5558e315f8fbba4525f4fcc10e8d841a65c4e",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 78
+   },
+   "lastFull": null
+  },
+  "Job 計數：執行器不收集結算": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "8dad26444e32+dirty",
+    "mode": "only",
+    "defHash": "73b3014a6fd6790057ccb6a1c07032d4a98d294711a425a5507564a4db415a44",
+    "depHash": "005ffab7da5d6f4bdb298c9360facd727c1c26e4964d64fb66d9026395764469",
+    "runnerHash": "5e1331402f2a1b421d5fcf6ffed5558e315f8fbba4525f4fcc10e8d841a65c4e",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 79
+   },
+   "lastFull": null
   }
  },
- "runSeq": 31,
+ "runSeq": 35,
  "inflight": null
 }

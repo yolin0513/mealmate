@@ -11,15 +11,16 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
 // 開 node 腳本的子程序一律帶上限（2026-10-08，第 7 項：npm test 這條路沒有任何外層上限，子程序卡住 doctest 就永遠不結束）。
-// doctest 整支約 70 秒，任何一個子程序都不會超過它；240 秒＝至少 3 倍餘裕（餘裕一律用最長那次算）。逾時 → 那一條紅，不會卡住。
+// doctest 整支實測最長 88 秒（2026-10-08，jobrun 結束前要結算之後；之前 71 秒），任何一個子程序都不會超過它；
+// 300 秒＝3.4 倍餘裕（餘裕一律用最長那次算、至少 3 倍；原本 240 秒是照 71 秒訂的）。逾時 → 那一條紅，不會卡住。
 // 已知限制：git 的小呼叫沒帶；逾時只殺直接那一支（不經 jobrun——經 jobrun 會讓 D18p 的探針繼承到中間那一層的 MM_JOBRUN）。
-const SUB_TIMEOUT_MS = 240000;
+const SUB_TIMEOUT_MS = 300000;
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX, whitespaceOnly } from './checkmutations.mjs';
 import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts, escapeScan } from './gatescan.mjs';
 import { selfcheck, gitEnvProblems } from './selfcheck.mjs';
-import { runProgram, classifyRun, UNCOUNTED_KINDS, NO_SCENARIO_MARK } from './runkind.mjs';
+import { runProgram, classifyRun, UNCOUNTED_KINDS, NO_SCENARIO_MARK, parseJobSum } from './runkind.mjs';
 import {
   scopeFor, scopeHash, accessOf, maskMutations, runnerHash, rerunReasons, RERUN, recordRun, emptyLedger, neverFullNames,
   fullComplete, ledgerProblems, contentHash, LEDGER_FILE, ledgerOrphans,
@@ -692,6 +693,18 @@ section('測試怎麼結束的（runkind；2026-10-01：逾時、沒跑起來、
   eq(slow.kind, 'timeout', `R4 超過時限被殺 → 逾時（不是斷言失敗、也不是崩潰）（${slow.seconds} 秒）`);
   eq(runProgram([], { timeoutMs: 3000, exe: path.join(os.tmpdir(), 'mm-no-such-program.exe') }).kind, 'spawn', 'R5 程式根本沒跑起來 → 沒跑起來');
   eq(classifyRun({ signal: 'SIGKILL', status: null }), 'signal', 'R6 被外部訊號殺掉（不是逾時）→ 被殺');
+  // Job 結算行（2026-10-08，逐一計數與結束核對）：合成的結算行 vs 解析器——差值照印、不截成 0；拿不到的不當成 0
+  {
+    const neg = parseJobSum('x\nJOB-SUM started=2 ended=3 active=0 alive=0 stale=0 peak=1 peakok=yes peakmix=nodex1 left=- stalemix=-\n');
+    ok(neg.ok && neg.diff === -1 && neg.leftOthers === -1, `JS1 收的比開的多（通知不保證送達）→ 差值照印 -1、留下的照印 -1，不截成 0（差 ${neg.diff}、留 ${neg.leftOthers}）`);
+    const pos = parseJobSum('JOB-SUM started=6 ended=5 active=1 alive=1 stale=0 peak=5 peakok=yes peakmix=bashx3,nodex1,sleepx1 left=nodex1 stalemix=-');
+    ok(pos.ok && pos.diff === 1 && pos.leftOthers === 0 && pos.peak === 5 && pos.peakOk && pos.peakmix === 'bashx3,nodex1,sleepx1', `JS2 正常的結算行讀得出開、收、峰值、組成，峰值可信（差 ${pos.diff}、留 ${pos.leftOthers}、峰值 ${pos.peak}）`);
+    // JS4：還記在 Job 裡、卻已經不在的（stale）——收不到結束通知、只加不減，峰值偏高卻看起來合理（jobtest 在 Job 裡跑時峰值 138）→ 峰值作廢
+    const st = parseJobSum('JOB-SUM started=140 ended=101 active=39 alive=1 stale=38 peak=43 peakok=no peakmix=nodex12 left=nodex1 stalemix=sleepx9');
+    ok(st.ok && st.peakOk === false && st.stale === 38 && st.leftOthers === 0, `JS4 有 38 支已經不在、沒收到結束通知 → 峰值判不可信（peakOk ${st.peakOk}）；真的留下來的照 alive 算（${st.leftOthers}）`);
+    const bad = ['', 'JOB-SUM unavailable reason=3 秒內沒回結算', 'JOB-SUM started=x ended=1 active=1 alive=1 stale=0 peak=1 peakok=yes', 'JOB-SUM started=6 ended=5 active=1 peak=5 peakmix=nodex1 left=nodex1'].map(parseJobSum);
+    ok(bad.every((b) => b.ok === false && b.started === undefined), `JS3 沒有結算行、unavailable、讀不懂、少了核對欄位的舊格式 → 不算有結算、不給任何數字（不當成 0）：${bad.map((b) => b.why).join('｜')}`);
+  }
   eq([...UNCOUNTED_KINDS].sort(), ['crash', 'noscenario', 'signal', 'spawn', 'timeout'], 'R7 不算數的是：逾時、被殺、沒跑起來、宣告情境未成立、崩潰——只有斷言失敗（完整跑完、某條斷言印出失敗）算抓到');
   ok(UNCOUNTED_KINDS.has('crash') && !UNCOUNTED_KINDS.has('assert'),
     'R3c 崩潰不算抓到（被改壞的程式崩潰，不是那道檢查發現了它；v11.4 §5.20）；斷言失敗才算');
@@ -1331,6 +1344,9 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
       const marks = fs.existsSync(jobMarker) ? fs.readFileSync(jobMarker, 'utf8').split('\n').filter(Boolean) : [];
       // 第二道：記到的值不能等於 doctest 自己環境裡的那個（上一層給的）——受測那一層沒給、跟上一層給了同一個值，在探針輸出上長得一樣
       const outer = process.env.MM_JOBRUN ?? '';
+      // D18q（2026-10-08，逐一計數與結束核對）：跑了幾次測試是情境自己定的（基準 1 次＋突變 1 次），彙總那一行要數到 2 次、2 次都有結算
+      const sumLine = r1.out.split('\n').find((l) => l.startsWith('  · 逐一計數（Job 結算')) ?? '';
+      ok(sumLine.includes('跑測試 2 次，有結算 2 次、沒有 0 次'), `受影響 D18q 執行器彙總每一次跑測試的 Job 結算（基準 1 次＋突變 1 次）：${sumLine.trim().slice(0, 140) || '（沒有這一行）'}`);
       ok(marks.length >= 2 && marks.every((m) => /^\d+$/.test(m) && m !== outer), `受影響 D18p 執行器跑測試經 jobrun 開（探針記到的 MM_JOBRUN：${marks.join('、') || '（探針沒留下紀錄）'}；doctest 自己環境裡的：${outer || '（沒有）'}）——逾時被殺時，測試開出來的子孫才會一起被收掉`);
     }
     fs.rmSync(jobMarker, { force: true });

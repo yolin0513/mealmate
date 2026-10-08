@@ -190,4 +190,36 @@ section('接到執行器：runProgram 逾時殺測試時，測試的子孫一起
   ok(j.kind === 'timeout' && j.after.length === 0, 'Job・執行器：runProgram 的 inJob——測試逾時被殺之後，它經 Git Bash 開的 sleep 一支都不剩', JSON.stringify(j));
 }
 
+// 2026-10-08：逐一計數與結束核對（v11 §5.19「峰值用逐一計數」；jobhelper 的完成埠＋jobrun 結束前要的那一行結算）。
+// 真相來源是我寫死的工作量（同時開 2 支／依序開 2 支／留 1 支在背景），計數器是另一個來源——兩個獨立，斷言才紅得起來
+section('逐一計數與結束核對：jobrun 結束前印一行 Job 結算');
+{
+  const { parseJobSum } = await import('./runkind.mjs');
+  const viaJob = (script) => {
+    const r = spawnSync(N, [JOBRUN, BASH, '-c', script], { encoding: 'utf8', timeout: 60000 });
+    return { code: r.status, sum: parseJobSum(r.stdout), raw: (r.stdout ?? '').split('\n').find((l) => l.startsWith('JOB-SUM')) ?? '（沒有結算行）' };
+  };
+  const conc = viaJob('sleep 2 & sleep 2 & wait');
+  const seq = viaJob('sleep 1; sleep 1');
+  note('下面結算行的 peakmix／left 是程序名：名字只當參考、總數才準——名字是程序進 Job 那一刻的，Git Bash 先分叉出 bash 再換成目標，sleep 常被記成 bash');
+  note(`同時開 2 支：${conc.raw}`);
+  note(`依序開 2 支：${seq.raw}`);
+  ok(conc.sum.ok && seq.sum.ok, 'Job・逐一計數：兩次都有結算行、讀得懂', JSON.stringify({ conc, seq }));
+  ok(conc.sum.ok && conc.sum.peak >= 4, `Job・逐一計數：同時開 2 支 sleep 的峰值至少 4（jobrun、bash、2 支 sleep）：${conc.sum.peak}`);
+  // 「同時開的峰值大於依序開的」分不出「只加不減」（那樣峰值＝累計開過的，6 照樣大於 5）——改成：依序開的工作量不可能全部同時存在，
+  // 所以峰值必須小於開過的總數；只加不減時兩者相等
+  ok(seq.sum.ok && seq.sum.peak < seq.sum.started, `Job・逐一計數：依序開 2 支時，峰值（${seq.sum.peak}）小於開過的總數（${seq.sum.started}）——峰值是同時存在的，不是累計開過的`);
+  ok(conc.sum.ok && seq.sum.ok && conc.sum.leftOthers === 0 && seq.sum.leftOthers === 0,
+    `Job・結束核對：正常結束時，留在 Job 裡的（不含 jobrun 自己）剛好 0（同時 ${conc.sum.leftOthers}、依序 ${seq.sum.leftOthers}）`);
+  // 留一支在背景：bash 先結束，sleep 還在 Job 裡——結算要數到它；jobrun 結束、Job 關閉之後它要被收掉
+  const secs = 7000 + Math.floor(Math.random() * 900);
+  const left = viaJob(`sleep ${secs} & exit 0`);
+  note(`留 1 支在背景：${left.raw}`);
+  await wait(1500);
+  const after = sleepPids(secs);
+  if (after.length) sweepSleep(secs);
+  ok(left.sum.ok && left.sum.leftOthers >= 1, `Job・結束核對：bash 先結束、sleep 留在背景 → 結算數到留下來的至少 1 支：${left.sum.leftOthers}（${left.sum.left}）`);
+  ok(after.length === 0, `Job・結束核對：結算之後 Job 關閉，留下來的那支 sleep 也被收掉（還活著 ${after.length} 支）`);
+}
+
 done('jobtest');

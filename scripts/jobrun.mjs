@@ -19,11 +19,14 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const [cmd, ...args] = process.argv.slice(2);
 if (!cmd) { console.error('用法：node scripts/jobrun.mjs <指令> [參數…]'); process.exit(2); }
 
+// 指令結束時怎麼收尾：預設直接帶結束碼結束；Windows 那一支會換成「先要結算、再結束」
+let finish = (code) => process.exit(code);
+
 function runIt() {
   // MM_JOBRUN：讓被包的那一支看得出自己是經 jobrun 開的（2026-10-08；doctest 用它確認執行器真的經 jobrun 跑測試）。只是標記，不改任何行為
   const child = spawn(cmd, args, { stdio: 'inherit', env: { ...process.env, MM_JOBRUN: String(process.pid) } });
   child.on('error', (e) => { console.error(`jobrun：開不了 ${cmd}：${e.message}`); process.exit(127); });
-  child.on('exit', (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
+  child.on('exit', (code, signal) => finish(code ?? (signal ? 1 : 0)));
 }
 
 if (process.platform !== 'win32') runIt();
@@ -42,4 +45,16 @@ else {
   helper.on('exit', (code) => fail(`協助程序結束，回傳 ${code}：${out.trim().slice(0, 200)}`));
   helper.on('error', (e) => fail(e.message));
   setTimeout(() => fail('等了 30 秒還沒回 JOB-OK'), 30000).unref();
+  // 結束核對（2026-10-08，第 7 項）：指令結束後向協助程序要一行結算（開幾支、收幾支、峰值……），原樣印到標準輸出再結束——
+  // 執行器只在成功時收標準輸出，所以印在這裡。3 秒內沒回就印「JOB-SUM unavailable」照樣結束（不為了結算卡住；沒結算＝那一支不算進逐一計數）
+  finish = (code) => {
+    const before = out.length;
+    const done = (line) => { process.stdout.write(`${line}\n`, () => process.exit(code)); };
+    const timer = setTimeout(() => done('JOB-SUM unavailable reason=3 秒內沒回結算'), 3000);
+    helper.stdout.on('data', () => {
+      const m = /^JOB-SUM .*$/m.exec(out.slice(before));
+      if (m) { clearTimeout(timer); done(m[0].trim()); }
+    });
+    try { helper.stdin.write('SUM\n'); } catch (e) { clearTimeout(timer); done(`JOB-SUM unavailable reason=${e.message}`); }
+  };
 }

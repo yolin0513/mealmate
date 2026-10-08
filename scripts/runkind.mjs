@@ -54,6 +54,27 @@ export function classifyRun(e) {
 // inJob（2026-10-08，v11.6 §5.19）：Windows 上經 scripts/jobrun.mjs 開——逾時殺的是 jobrun，Job 關閉時它底下整棵樹（含 Git Bash 開的、
 // detached 開的）一起被收掉。只有執行器跑測試時打開；doctest 裡幾秒時限的小探針不打開（Job 每次多約 0.85 秒，會吃掉很短的時限）
 const JOBRUN = path.join(path.dirname(fileURLToPath(import.meta.url)), 'jobrun.mjs');
+/**
+ * 讀 jobrun 印的結算行（2026-10-08，第 7 項「逐一計數與結束核對」）：
+ * 「JOB-SUM started= ended= active= alive= stale= peak= peakok= peakmix= left= stalemix=」。
+ * 開（started）、收（ended）各自照讀，差值＝開－收，**不截成 0**（Job 的通知不保證送達，開收不一致是正常現象；
+ * 截成 0，真正的洩漏就跟正常的誤差長得一樣）。
+ * active＝還記在 Job 裡的；協助程序結算時逐支核對：alive＝同一個 PID 還在、建立時間也對得上；stale＝已經不在、卻沒收到結束通知。
+ * 「測試留下來的」＝alive－1（jobrun 自己結算時還活著），同樣不截。有 stale → 只加不減、峰值偏高 → peakOk＝false（峰值作廢，不報）。
+ * 沒有結算行（被殺、逾時、不是 Windows）或「JOB-SUM unavailable」或讀不懂 → { ok: false, why }——不當成 0。
+ */
+export function parseJobSum(out) {
+  const lines = String(out ?? '').split('\n').map((l) => l.trim()).filter((l) => l.startsWith('JOB-SUM '));
+  if (!lines.length) return { ok: false, why: '沒有結算行' };
+  const l = lines[lines.length - 1];
+  if (l.startsWith('JOB-SUM unavailable')) return { ok: false, why: l.slice('JOB-SUM '.length) };
+  const kv = Object.fromEntries([...l.matchAll(/(\w+)=(\S*)/g)].map((m) => [m[1], m[2]]));
+  const n = (k) => (/^-?\d+$/.test(kv[k] ?? '') ? Number(kv[k]) : NaN);
+  const [started, ended, active, alive, stale, peak] = ['started', 'ended', 'active', 'alive', 'stale', 'peak'].map(n);
+  if ([started, ended, active, alive, stale, peak].some((x) => Number.isNaN(x)) || !['yes', 'no'].includes(kv.peakok)) return { ok: false, why: `結算行讀不懂：${l.slice(0, 120)}` };
+  return { ok: true, started, ended, diff: started - ended, active, alive, stale, leftOthers: alive - 1, peak, peakOk: kv.peakok === 'yes' && stale === 0, peakmix: kv.peakmix ?? '', left: kv.left ?? '', stalemix: kv.stalemix ?? '' };
+}
+
 export function runProgram(args, { cwd, timeoutMs, exe = process.execPath, inJob = false } = {}) {
   const t0 = Date.now();
   if (inJob && process.platform === 'win32') { args = [JOBRUN, exe, ...args]; exe = process.execPath; }
