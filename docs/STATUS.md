@@ -111,6 +111,7 @@
   - **觀察（單次，不是保證）**：2026-10-08 buildguard-verify 丟背景後 Session 進入待機，背景程序跑完時，完成通知把待機的 code session 叫醒，當場收了結果、推送。**「背景程序跑完會把待機的 code session 叫醒」這件事至少發生過一次；這是單次觀察，不是保證。**
   - **不要混成同一件事**：另一條線判斷過的「Session 無法主動通知外面（Dispatch／Yolin）」，是**對外**；這裡的「Session 自己開的背景程序跑完，能把自己叫醒」，是**對內**。前者不因後者成立而改變，後者也不能拿前者的結論否定。
   - 經過：Dispatch 從外面看到待機，下了「沒人收」的結論、沒先讀那一則回報；事後更正——那是從狀態推內情（待機、跑完沒收、通知沒送到，在外面那一側長得一樣），正是本檔一直要避開的同一個錯。
+- **自己產生的測試殘渣直接刪（Dispatch 2026-10-08）**：凡是這一輪跑測試時自己產生、而且已經確認內容是測試殘渣的檔，直接刪，不用核准；要問的是沒有自己造的、或內容判斷不了的。刪的時候用寫死的絕對路徑（Claude Code 的安全檢查會擋下目標是 shell 變數的 `rm`；被擋就照它的建議改寫，不要換工具繞過）。**Dispatch 要記的那一筆**：變數為空時，`rm -f "$DIR/$f"` 會變成刪 `/`——**而這件事在變數有值的那 99 次執行裡完全看不出來**。又是同一個家族：壞掉的那一次跟正常的那 99 次，在平常的輸出上長得一樣。
 - **不為填表造假情境（Dispatch 2026-10-08）**：「觸發時停掉真執行器」要實測就得打斷一場真的長跑，掛在推論；防 PID 重用那道擋造不出情境，標沒驗過。造不出情境就標沒驗過，比造一個假情境標已驗好。
 - **專案紀律（Dispatch 2026-10-08 要求寫進來）**：**會讓測試耗時暴增好幾倍的突變，量到的是「變慢了」，不是「某個性質壞了」**——它會被時限殺掉、記成逾時，而逾時什麼都沒證明（表面上有跑、有結果、有紀錄，實際上那條突變從沒被檢驗過），還會留下一整棵程序。凡是用時限當判斷依據的測試都適用：一條突變若會讓對應的測試耗時暴增，要改的是那條測試或突變的設計（讓它在幾秒內紅在某條斷言上），不是把時限拉長。實例：GM1（上面第 6 項）、versionmixtest 看門狗那兩條（第 3 項，從 235 秒回到 60 秒）。
   7. **（2026-10-08 第一段做完：Job Object 本身）** `scripts/jobhelper.ps1`、`scripts/jobrun.mjs`、`scripts/jobtest.mjs` 抄自 StockDiary（說明讀過；bash 改用 gatemutants 的 `resolveBash()`）。`node scripts/jobtest.mjs`（不在 npm test 鏈裡，約 37 秒）15 項全過；多加一節「停掉的是 jobrun 的父程序」：被殺的 sleep 不接任何管道（排除「管道斷了自己退出」），對照組停之前／之後的 PID 是同一批 2 支、經 jobrun 那一批 PID 一支都不在，查詢同時查 jobtest 自己（查不到＝查詢壞了，不當成 0 支）。突變 3 條（沒放進 Job、不等 JOB-OK、准許靜默脫離）全部紅在預期那一條；拿掉 0x2000 是**推論**的等價突變（包裝層是 node），沒實測、不列，包裝層不是 node 時要回頭補。**下一段**：執行器、閘門的驗法、resume-verify 改成經 jobrun 開子程序＋逾時補齊＋外部監看兩個待修，然後逐一計數與結束核對。原本的範圍：Job Object（先讀 StockDiary 的 `docs/HOWTO_JobObject殺程序樹.md`）＋停掉父程序時子孫有沒有被收掉的實測（存活程序不寫 stdout，排除管道斷掉這條路）＋逐一計數與結束核對（差值負數照印）＋被收掉的那一層建的 worktree 也要收＋逾時補齊（gatemutants 開閘門驗法、`npm test` 這條路的 doctest 子程序、buildguard-verify、resume-verify 呼叫執行器）＋外部監看兩個待修：**要綁當下在跑的那一支（今天外殼一停它就自己收手）、要能認得瀏覽器**；Job Object 會讓很短的逾時對照組失效，要重算。
@@ -186,7 +187,10 @@
      原本的範圍：暫存複本盤點（留了幾個、最早哪天、有沒有東西發現、名稱帶不帶建立者程序編號）。
   10. v11.6 工單的 22 條（副本 `docs/SPEC_共用慣例更新_v11.md` 已在 f8261d7 進版控）。
      **（2026-10-08 第 1 步做完：CONVENTIONS 副本更新到 v11.6）** 用程式從工單附錄的 ```` 圍欄之間抽出全文覆寫 `docs/CONVENTIONS.md`（`.logs/conventions-v116.mjs`；不手抄、不經 shell 寫檔）。U2：第一行逐字等於 `<!-- CONVENTIONS v11.6 2026-10-02 -->`、無 BOM、無 CR；U3：讀回與附錄全文逐位元組相同（227 行）；比對方法的對照組兩個方向：原樣複本判成相同、改一個字判成不同。**往後回執寫 `已讀共用慣例 v11.6（2026-10-02）`。**
-     **讀副本時發現今天一直在違反的兩條（v11.5 起，我之前用的 v11.4 副本還沒有；讀到之後照做）**：§5.5「寫檔、改檔一律用 Write／Edit，shell 只執行指令——不經 heredoc、`node -e`、`echo >`、`sed -i`，**不先判斷有沒有特殊字元**」——我今天的 commit 訊息都用 `printf … > 檔案` 寫（用 shell 寫檔）；§5.23「不要用 `git add -A`／`git add <目錄>`，逐路徑 add」——我今天每次 commit 都用 `git add -A scripts docs`。從這一個 commit 起：commit 訊息用 Write 寫、逐路徑 add。
+     **讀副本時發現今天一直在違反的兩條（v11.5 起，我之前用的 v11.4 副本還沒有；讀到之後照做）**：§5.5「寫檔、改檔一律用 Write／Edit，shell 只執行指令——不經 heredoc、`node -e`、`echo >`、`sed -i`，**不先判斷有沒有特殊字元**」——我今天的 commit 訊息都用 `printf … > 檔案` 寫（用 shell 寫檔）；§5.23「不要用 `git add -A`／`git add <目錄>`，逐路徑 add」——我今天每次 commit 都用 `git add -A scripts docs`。從這一個 commit 起：commit 訊息用 Write 寫、逐路徑 add。**這兩件都沒有造成後果，Dispatch 說不用回頭補救。** 逐路徑 add 真正換到的：`-A` 之下，commit 訊息說的和實際收進去的可以不一樣而沒人知道；`688d901` 實際收進去的正好是訊息說的那 2 支。
+     **成因（Dispatch 要寫明，不是「不小心」）**：我讀的是 v11.4 的副本，主檔已經到 v11.6——**兩者在我眼裡長得一樣：都叫「共用慣例」、都讀得通，沒有任何地方會告訴我手上那份過期了。** 跟今天一路在撞的是同一件事：過期的規則和現行的規則，在閱讀時長得一樣。
+     **補了一道每次都跑的擋（Dispatch 要的）**：`scripts/convcheck.mjs`＋doctest CV1–CV3——副本（`docs/CONVENTIONS.md`）跟主檔（統籌工作區的 `CONVENTIONS.md`，路徑用相對於 repo 根目錄的 `../../Fable_Planner/CONVENTIONS.md` 登記，不寫本機絕對路徑）比：版本行不同＝紅、版本相同但全文不同＝紅、**讀不到主檔＝紅（講明讀不到，不當成通過）**。先確認副本與主檔是兩個不同的實體檔（不是拿自己比自己）；比對器的對照組用副本的真實內容造（原樣→一致、只改版本行→版本不同、內文改一個字→全文不同、主檔讀不到→讀不到主檔）。突變 3 條（678 條），全部紅在預期那一條（兩批在前景，304＋203 秒）：不看版本行→CV1、讀不到主檔當成一致→CV3、只比版本行不比全文→CV1。**這一道比「抽取正確性」重要：抽得對但抽的是舊版，照樣全錯。** **主檔位置：由 Dispatch 於 2026-10-08 這一輪確認**——統籌工作區的 `CONVENTIONS.md`（本 repo 根目錄往上兩層的 `Fable_Planner/`）就是主檔，這是專案既定的安排（原本是我從內容推斷的，現在是已確認）；搬家了就改 `convcheck.mjs` 的 `MASTER_REL`。已知代價（保留）：換一台沒有統籌工作區的機器，doctest 會紅（讀不到主檔）——靜默跳過的版本比對等於沒有版本比對，紅了至少會有人問為什麼。
+     **跨專案的觀察（只讀，不碰、不查原因；Dispatch 會另外處理）**：怎麼看到的——2026-10-08 在本 repo 根目錄讀了這幾支檔**工作區**的第一行（沒有看它們的 git HEAD、沒有讀其他內容）：`../JLPT_App/docs/CONVENTIONS.md`、`../StockDiary/docs/CONVENTIONS.md`、`../TripQuest/docs/CONVENTIONS.md` 三支都是 `<!-- CONVENTIONS v9 2026-09-24 -->`；`../RentCheck/docs/CONVENTIONS.md` 是 v11.6；主檔是 v11.6。各專案自己複查：讀自己那支的第一行，跟主檔第一行比。
      第 2–6 步：照工單「你這一列」逐項對照已寫的程式，缺的補；重負載照例先要許可。
 - 規則（Dispatch 2026-10-02）：長跑進行中不得寫那個 repo 的工作區；工單或授權只寫「秒級／輕量」沒附數字的，先回程序數與預估耗時；逾時餘裕一律用最長那次算、不到 3 倍就調；要比對、要寫檔一律用工具，不經 shell（今天我仍違反了兩次）。
 
@@ -245,7 +249,7 @@
     - 畫面：食譜頁家人那一段（`data-unconfirmed-note`）寫「「醬油」未確認是否含蛋、奶；…買的時候看包裝標示」；食材表那幾樣旁邊標「未確認是否含蛋、奶」（`data-unconfirmed`）。本週頁、今天頁**沒做**（只在食譜頁）。
     - 資料驅動：Yolin 填 `docs/待確認_加工品葷素.md` 的「你的決定」→ 開發 Session 轉進 foodtags.json（素→checked 三項；含蛋／含奶／含五辛→tags；葷→tags.meat 或 seafood）→ 標示自動消失。表上加了「編號」欄；`scripts/procdecisions.mjs` 核對兩邊，doctest「待確認 P1–P8」：填了沒轉 → 紅。
     - 測試：recipetest「A 方案 U0–U7」（U7：兩條查詢路徑在真實資料上一致）；recipeviewtest「A 方案 V1–V5」（瀏覽器，**還沒跑**）；突變 15 條（recipetest 7、recipeviewtest 2、doctest 6）。
-  - **驗證時要做的**：`node --check`、`checkmutations`（675 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
+  - **驗證時要做的**：`node --check`、`checkmutations`（678 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
   （之前那一批——檢查器修補 P0／P1、F8–F10、擋法表、環境變數、補充說明十一——2026-09-25 已收尾。）
 - **App 最後一版仍是 `mealmate-v0.41.0`（2026-09-23）**。09-24、09-25 全是 scripts／docs，沒有 bump、沒有部署。
 - **檢查器修補的全部證據**：`docs/EVIDENCE_檢查器修補.md`，涵蓋 P0、P1、F8、F9、F10、擋法表、環境變數兩類、補充說明十一。STATUS 各節只留摘要。
@@ -447,7 +451,7 @@
 Node 端：datatest 76、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 151、plannertest 513、shoppingtest 150、timelinetest 71、doctest 277；
 瀏覽器端（puppeteer）：shelltest 162、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 199、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 116（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 44。（2026-09-24 F8 那一輪 `npm test` 數的）
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **675 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **678 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
 · **突變整套**＝`npm run mutationtest -- --full` 跑完全部（2026-10-02 起要明講 `--full`；以前是「不帶 `--only`」）。下面的耗時是 09-24 的 442 條（每條都把對應的那一支測試整支跑一次）。**實測約 17,119 秒（約 4.8 小時）**，2026-09-24 對 v0.41.0 量的（09-21 的 428 條約 16,600 秒、09-19 的 366 條約 13,500 秒）。

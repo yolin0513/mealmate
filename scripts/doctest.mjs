@@ -22,6 +22,7 @@ import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, 
 import { selfcheck, gitEnvProblems } from './selfcheck.mjs';
 import { runProgram, classifyRun, UNCOUNTED_KINDS, NO_SCENARIO_MARK, parseJobSum, hasFinalLine } from './runkind.mjs';
 import { sweep as sweepWorktrees, wtPrefix, ownerOf, judge, tempWorktrees } from './worktreesweep.mjs';
+import { convCheck, compareConv, MASTER_REL as CONV_MASTER_REL, COPY_REL as CONV_COPY_REL } from './convcheck.mjs';
 import {
   scopeFor, scopeHash, accessOf, maskMutations, runnerHash, rerunReasons, RERUN, recordRun, emptyLedger, neverFullNames,
   fullComplete, ledgerProblems, contentHash, LEDGER_FILE, ledgerOrphans,
@@ -1800,6 +1801,29 @@ section('被殺的那一層留下的 worktree：建立者已死的收掉、活�
   // 對照：掃不到的檔要判成沒讀到（不是靜默通過）
   const e0 = entry('scripts/沒有這支檔.mjs', SW);
   ok(!e0.read && e0.hits === 0, `WT5（對照）掃不到的檔 → 讀到檔 ${e0.read}（上面四條因此會紅，不會被當成通過）`);
+}
+
+section('共用慣例副本跟主檔一致（2026-10-08，Dispatch：過期的副本和現行的在閱讀時長得一樣，沒有任何地方會告訴你手上那份過期了）');
+{
+  // 兩個獨立來源：本 repo 的副本、統籌工作區的主檔——先確認是兩個不同的實體檔案（不是拿自己比自己）
+  const copyAbs = path.resolve(ROOT, CONV_COPY_REL); const masterAbs = path.resolve(ROOT, CONV_MASTER_REL);
+  const copyText = fs.existsSync(copyAbs) ? fs.readFileSync(copyAbs, 'utf8') : null;
+  ok(copyAbs.toLowerCase() !== masterAbs.toLowerCase() && copyText !== null, `（前提）CV 副本與主檔是兩個不同的檔（副本讀得到：${copyText !== null}）`);
+  // CV1 比對器的對照組，用副本的真實內容造：原樣→一致；只改版本行→版本不同；版本相同、內文改一個字→全文不同；主檔讀不到→讀不到主檔
+  if (copyText !== null) {
+    const first = copyText.split('\n')[0];
+    const otherVer = copyText.replace(first, '<!-- CONVENTIONS v0.0 2000-01-01 -->');
+    const otherBody = copyText.replace('適用：', '適應：');
+    const res = [compareConv(copyText, copyText), compareConv(copyText, otherVer), compareConv(copyText, otherBody), compareConv(copyText, null)];
+    ok(res[0].ok && !res[1].ok && res[1].why.startsWith('版本不同') && otherBody !== copyText && !res[2].ok && res[2].why.includes('全文不同') && !res[3].ok && res[3].why === '讀不到主檔',
+      `CV1 比對器：原樣→一致、只改版本行→版本不同、內文改一個字→全文不同、主檔讀不到→讀不到主檔（${res.map((x) => x.why.slice(0, 12)).join('｜')}）`);
+  }
+  // CV2 真的去比：副本跟主檔一致——不一致就紅（照主檔更新副本，照統籌者的工單）
+  const real = convCheck(ROOT);
+  ok(real.ok, `CV2 共用慣例副本跟主檔一致：${real.why}`);
+  // CV3 主檔路徑讀不到 → 紅、講明讀不到主檔（不當成通過）
+  const gone = convCheck(ROOT, { masterRel: '../../沒有這個工作區/CONVENTIONS.md' });
+  ok(!gone.ok && gone.why === '讀不到主檔', `CV3 主檔讀不到 → 判不一致、講明「${gone.why}」（不當成通過）`);
 }
 
 section('doctest 開 node 腳本的子程序都帶上限（2026-10-08，第 7 項：npm test 這條路沒有外層上限）');

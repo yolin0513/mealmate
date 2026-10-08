@@ -20462,8 +20462,65 @@
     "seconds": 102
    },
    "lastFull": null
+  },
+  "副本比對：不看版本行": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "688d901c20c8+dirty",
+    "mode": "only",
+    "defHash": "80acb8064ced6f128dab2eab7dd2b88ebb436d327ddeb1ea40ee526f004b316b",
+    "depHash": "390a1bbe884ed15d2611deee9d080f6cebfbd8d60ffccc7dc982478297387465",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 101
+   },
+   "lastFull": null
+  },
+  "副本比對：讀不到主檔當成一致": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "688d901c20c8+dirty",
+    "mode": "only",
+    "defHash": "7638acb8cd1fffb308c869bb76ad1d6734c50157db316184513c14c62bb50780",
+    "depHash": "390a1bbe884ed15d2611deee9d080f6cebfbd8d60ffccc7dc982478297387465",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 101
+   },
+   "lastFull": null
+  },
+  "副本比對：只比版本行、不比全文": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "688d901c20c8+dirty",
+    "mode": "only",
+    "defHash": "18bd58d3f3dce39591780ae02bd9d617b299cc82bae3349818fd832aa958f579",
+    "depHash": "390a1bbe884ed15d2611deee9d080f6cebfbd8d60ffccc7dc982478297387465",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 101
+   },
+   "lastFull": null
   }
  },
- "runSeq": 43,
+ "runSeq": 45,
  "inflight": null
 }
