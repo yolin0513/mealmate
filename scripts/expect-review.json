@@ -886,6 +886,31 @@
    "n": 72,
    "hash": "7335ba33fbe273e3"
   },
+  "監看：不從執行器往下走": {
+   "test": "memwatchtest",
+   "n": 8,
+   "hash": "f3a757e9caab887c"
+  },
+  "監看：找不到執行器也不結束": {
+   "test": "memwatchtest",
+   "n": 8,
+   "hash": "f3a757e9caab887c"
+  },
+  "監看：綁外殼（舊版的缺陷）": {
+   "test": "memwatchtest",
+   "n": 8,
+   "hash": "f3a757e9caab887c"
+  },
+  "監看：瀏覽器按指令列認（舊版的缺陷）": {
+   "test": "memwatchtest",
+   "n": 8,
+   "hash": "f3a757e9caab887c"
+  },
+  "監看：觸發時停錯對象": {
+   "test": "memwatchtest",
+   "n": 8,
+   "hash": "f3a757e9caab887c"
+  },
   "標成「葷」卻沒有肉時一律不擋（R2 放到最寬）": {
    "test": "recipetest",
    "n": 230,

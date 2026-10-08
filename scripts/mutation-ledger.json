@@ -15725,20 +15725,20 @@
   },
   "mutationtest 不再列為例外": {
    "last": {
-    "date": "2026-10-02",
-    "commit": "d27f14861762",
-    "mode": "never-full",
-    "defHash": "c55c80eb4308eee77262b61e0a99581568fb4aa551cf572a862f14355264effb",
-    "depHash": "8cd9002053d35c22cb20ba7dac9112e9c0e741e2042dac8d001f7e6d42f16f96",
-    "runnerHash": "f4d2ba139e34411fe2e7c5b98090f130e8c5eacad40906b239503f9d495130bc",
+    "date": "2026-10-08",
+    "commit": "77465e0e83db+dirty",
+    "mode": "only",
+    "defHash": "c724902ad29c8182075f860a71b759a373b887303c78af8e999846b115b845c0",
+    "depHash": "97ebb44c4896345f809df7b983f867ba656a5f31ed2a2a3364b437dde146af63",
+    "runnerHash": "f26a9c8b442eb44ac60f2f0e863b3df522b2048f7a2ffa810b3dbaa873ef6552",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
     "red": true,
     "expectMatched": true,
-    "failed": 6,
+    "failed": 2,
     "expectHits": 1,
-    "seconds": 53
+    "seconds": 71
    },
    "lastFull": {
     "date": "2026-10-02",
@@ -19873,8 +19873,103 @@
     "seconds": 58
    },
    "lastFull": null
+  },
+  "監看：瀏覽器按指令列認（舊版的缺陷）": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "77465e0e83db+dirty",
+    "mode": "only",
+    "defHash": "7ffec92d899eda1a94f1d3d577630082b06dca5f4afaa1a36c3e0a4b4e8c4bb7",
+    "depHash": "87123aaa59b046ad78b330450af80fd1df883cd8470c9ab53216a406344e7950",
+    "runnerHash": "f26a9c8b442eb44ac60f2f0e863b3df522b2048f7a2ffa810b3dbaa873ef6552",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 49
+   },
+   "lastFull": null
+  },
+  "監看：不從執行器往下走": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "77465e0e83db+dirty",
+    "mode": "only",
+    "defHash": "b2ba929e8f7fb5f14d9b36e4eaa737278731d44f77d805088f1e1fa427628b78",
+    "depHash": "87123aaa59b046ad78b330450af80fd1df883cd8470c9ab53216a406344e7950",
+    "runnerHash": "f26a9c8b442eb44ac60f2f0e863b3df522b2048f7a2ffa810b3dbaa873ef6552",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 49
+   },
+   "lastFull": null
+  },
+  "監看：綁外殼（舊版的缺陷）": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "77465e0e83db+dirty",
+    "mode": "only",
+    "defHash": "aa66edd0d220a44f9e966cdc11d274d19ff5620e83c21b3c036d299a353b0e0b",
+    "depHash": "87123aaa59b046ad78b330450af80fd1df883cd8470c9ab53216a406344e7950",
+    "runnerHash": "f26a9c8b442eb44ac60f2f0e863b3df522b2048f7a2ffa810b3dbaa873ef6552",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 3,
+    "expectHits": 1,
+    "seconds": 34
+   },
+   "lastFull": null
+  },
+  "監看：找不到執行器也不結束": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "77465e0e83db+dirty",
+    "mode": "only",
+    "defHash": "1e96c4e6a66bfcbda7277c872e2cf0c83e974e21cd4db96fd3ca09098dbb4006",
+    "depHash": "87123aaa59b046ad78b330450af80fd1df883cd8470c9ab53216a406344e7950",
+    "runnerHash": "f26a9c8b442eb44ac60f2f0e863b3df522b2048f7a2ffa810b3dbaa873ef6552",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 76
+   },
+   "lastFull": null
+  },
+  "監看：觸發時停錯對象": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "77465e0e83db+dirty",
+    "mode": "only",
+    "defHash": "061985daf3935008c928a51fa345396e592cfe0885b39e2c56bb4fadf754df27",
+    "depHash": "87123aaa59b046ad78b330450af80fd1df883cd8470c9ab53216a406344e7950",
+    "runnerHash": "f26a9c8b442eb44ac60f2f0e863b3df522b2048f7a2ffa810b3dbaa873ef6552",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 48
+   },
+   "lastFull": null
   }
  },
- "runSeq": 27,
+ "runSeq": 29,
  "inflight": null
 }
