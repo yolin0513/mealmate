@@ -10,6 +10,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
+// 開 node 腳本的子程序一律帶上限（2026-10-08，第 7 項：npm test 這條路沒有任何外層上限，子程序卡住 doctest 就永遠不結束）。
+// doctest 整支約 70 秒，任何一個子程序都不會超過它；240 秒＝至少 3 倍餘裕（餘裕一律用最長那次算）。逾時 → 那一條紅，不會卡住。
+// 已知限制：git 的小呼叫沒帶；逾時只殺直接那一支（不經 jobrun——經 jobrun 會讓 D18p 的探針繼承到中間那一層的 MM_JOBRUN）。
+const SUB_TIMEOUT_MS = 240000;
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX, whitespaceOnly } from './checkmutations.mjs';
@@ -267,7 +271,7 @@ section('STATUS：上次全面檢測／上次突變整套的兩行紀錄（npm r
   // D6 真實入口：直接跑 npm run sincefull 那支程式，驗它印的跟 STATUS 寫的上限一致。
   // 不寫死「現在沒超過」—— 2026-09-21 那一版加了 10 條突變就真的超過了，寫死現況的斷言會跟著紅。
   // 判準刻意不經 overLimitLine：那支函式正是被驗的對象，拿它當標準答案就成了「自己跟自己比」。
-  const cliOut = execFileSync(process.execPath, [path.join(ROOT, 'scripts/sincefull.mjs')], { cwd: ROOT, encoding: 'utf8' }).split(/\r?\n/).filter(Boolean);
+  const cliOut = execFileSync(process.execPath, [path.join(ROOT, 'scripts/sincefull.mjs')], { cwd: ROOT, encoding: 'utf8', timeout: SUB_TIMEOUT_MS }).split(/\r?\n/).filter(Boolean);
   const cliMut = cliOut.find((l) => l.startsWith('距上次突變整套（')) ?? '';
   const cliVers = Number(/：(\d+) 版/.exec(cliMut)?.[1]);
   const cliNever = Number(/其中 (\d+) 條/.exec(cliMut)?.[1]);
@@ -404,8 +408,8 @@ section('突變的 expect 都找得到（A2；共用慣例 v6 §5.9，2026-09-23
     fs.writeFileSync(path.join(dir, 'scripts/faketest.mjs'), 'ok(x, "A2 假的斷言訊息");\n');
     fs.writeFileSync(path.join(dir, 'target.txt'), 'alpha beta\n');
     // 2026-10-02 起 checkmutations 要求戳記條數＝帶 expect 的條數：先在暫存資料夾裡戳好（這幾條要驗的是別的擋法）
-    spawnSync(process.execPath, [path.join(dir, 'scripts/assertregistry.mjs'), '--stamp', '--all'], { cwd: dir, encoding: 'utf8' });
-    try { lastOut = execFileSync(process.execPath, [path.join(dir, 'scripts/checkmutations.mjs')], { cwd: dir, encoding: 'utf8' }); return 0; }
+    spawnSync(process.execPath, [path.join(dir, 'scripts/assertregistry.mjs'), '--stamp', '--all'], { cwd: dir, encoding: 'utf8', timeout: SUB_TIMEOUT_MS });
+    try { lastOut = execFileSync(process.execPath, [path.join(dir, 'scripts/checkmutations.mjs')], { cwd: dir, encoding: 'utf8', timeout: SUB_TIMEOUT_MS }); return 0; }
     catch (e) { lastOut = String(e.stdout ?? ''); return e.status ?? -1; } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   };
   let lastOut = '';
@@ -580,7 +584,7 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
   // 冒充成真的測試斷言（2026-09-24 完整 assertaudit 抓到：「沒有任何 everyOf／noneOf 的母體是空的」紅了）
   const probeEnv = () => { const e = { ...process.env }; delete e.MM_AUDIT; delete e.MM_AUDIT_OUT; return e; };
   const runP = (cmd, args, opts = {}) => {
-    try { return { code: 0, out: execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: probeEnv(), ...opts }) }; }
+    try { return { code: 0, out: execFileSync(cmd, args, { encoding: 'utf8', timeout: SUB_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'pipe'], env: probeEnv(), ...opts }) }; }
     catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; }
   };
   const cases = [
@@ -754,17 +758,17 @@ section('自查的失敗分支（F10 第 1b 點：node 呼叫的 git；每版都
   // SC-4 真的 git 失敗（F10 第 1b 點第 1 步：不存在的範圍；程式裡沒有為測試開的分支）。
   // 2026-09-25 以前用 GIT_DIR 造——自查加了入口拒絕之後，GIT_DIR 會在入口就被擋掉，這條照樣綠但理由變了，所以改造法、並斷言理由不是入口拒絕
   const pre = spawnSync('git', ['rev-list', 'no-such-ref-for-sc4..HEAD'], { cwd: ROOT, encoding: 'utf8' });
-  const ctl = spawnSync(process.execPath, ['scripts/selfcheck.mjs', '--range', 'HEAD~1..HEAD'], { cwd: ROOT, encoding: 'utf8' });
+  const ctl = spawnSync(process.execPath, ['scripts/selfcheck.mjs', '--range', 'HEAD~1..HEAD'], { cwd: ROOT, encoding: 'utf8', timeout: SUB_TIMEOUT_MS });
   ok(pre.status !== 0 && ctl.status === 0 && ctl.stdout.includes('自查通過'),
     `（前提）SC-4：不存在的範圍真的 git 會失敗（回傳 ${pre.status}）；正常範圍同一行自查照常通過（回傳 ${ctl.status}）`);
-  const sc4 = spawnSync(process.execPath, ['scripts/selfcheck.mjs', '--range', 'no-such-ref-for-sc4..HEAD'], { cwd: ROOT, encoding: 'utf8' });
+  const sc4 = spawnSync(process.execPath, ['scripts/selfcheck.mjs', '--range', 'no-such-ref-for-sc4..HEAD'], { cwd: ROOT, encoding: 'utf8', timeout: SUB_TIMEOUT_MS });
   ok(sc4.status !== 0 && !sc4.stdout.includes('自查通過') && !sc4.stdout.includes('【擋下：執行環境】'),
     `SC-4 真的 git 失敗 → 自查回非 0（${sc4.status}）、沒有印「自查通過」，理由不是入口拒絕`);
   // SC-5 node 這一層的入口拒絕（補充說明十一第 4 點）：前綴、不分大小寫、只放行三個；長得像的（GITHUB_）不攔
   eq(gitEnvProblems({ GIT_DIR: '', GIT_EDITOR: 'vim', Git_Pager: 'less', GITHUB_TOKEN: 't', git_exec_path: 'x', PATH: '/bin' }), ['GIT_DIR', 'git_exec_path'],
     'SC-5 自查的入口拒絕：GIT_ 開頭的（空字串、小寫也算）要攔；放行清單（不分大小寫）與只是長得像的 GITHUB_ 不攔');
   // SC-6 從真實入口：列舉寫法會漏的 GIT_EXEC_PATH，自查在入口就停
-  const sc6 = spawnSync(process.execPath, ['scripts/selfcheck.mjs', '--range', 'HEAD~1..HEAD'], { cwd: ROOT, env: { ...process.env, GIT_EXEC_PATH: path.join(os.tmpdir(), 'mm-no-such-exec') }, encoding: 'utf8' });
+  const sc6 = spawnSync(process.execPath, ['scripts/selfcheck.mjs', '--range', 'HEAD~1..HEAD'], { cwd: ROOT, env: { ...process.env, GIT_EXEC_PATH: path.join(os.tmpdir(), 'mm-no-such-exec') }, encoding: 'utf8', timeout: SUB_TIMEOUT_MS });
   ok(sc6.status !== 0 && sc6.stdout.includes('【擋下：執行環境】GIT_EXEC_PATH') && !sc6.stdout.includes('查了：'),
     `SC-6 設了 GIT_EXEC_PATH 跑自查 → 入口就停（回傳 ${sc6.status}）、點名它、沒開始查`);
 }
@@ -773,7 +777,7 @@ section('推送閘門、自查、驗法的壞寫法掃描（gatescan；共用慣
 {
   // G1 從真實入口跑：回傳值 0、對照組每一種都抓到、查的檔數正確（0 命中要附查了多少）
   let g1 = { code: 0, out: '' };
-  try { g1.out = execFileSync(process.execPath, [path.join(ROOT, 'scripts/gatescan.mjs')], { cwd: ROOT, encoding: 'utf8' }); }
+  try { g1.out = execFileSync(process.execPath, [path.join(ROOT, 'scripts/gatescan.mjs')], { cwd: ROOT, encoding: 'utf8', timeout: SUB_TIMEOUT_MS }); }
   catch (e) { g1 = { code: e.status ?? -1, out: String(e.stdout ?? '') }; }
   const ctlLines = g1.out.split('\n').filter((l) => l.startsWith('對照組｜') && !l.startsWith('對照組｜env-read｜'));
   const envCtlLine = g1.out.split('\n').find((l) => l.startsWith('對照組｜env-read｜')) ?? '';
@@ -987,7 +991,7 @@ section('只差空白或行尾的突變要被擋（2026-10-02 Dispatch；v11.3 �
     const ccWs = verifyCopies(path.join(ROOT, 'scripts'), path.join(clone, 'scripts'));
     if (ccWs.problems.length) console.log(`${NO_SCENARIO_MARK}：WS 的 clone 沒有含工作區這一份 scripts/：${ccWs.problems.slice(0, 3).join('、')}`);
     ok(ccWs.problems.length === 0 && ccWs.checked >= 40, `（前提）WS 的 clone 蓋上工作區的 scripts/ 之後讀回確認相同（比了 ${ccWs.checked} 支）`);
-    const cm = () => { try { return { code: 0, out: execFileSync(process.execPath, ['scripts/checkmutations.mjs'], { cwd: clone, encoding: 'utf8' }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') }; } };
+    const cm = () => { try { return { code: 0, out: execFileSync(process.execPath, ['scripts/checkmutations.mjs'], { cwd: clone, encoding: 'utf8', timeout: SUB_TIMEOUT_MS }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') }; } };
     const total = (loadMutations(fs.readFileSync(path.join(clone, 'scripts/mutationtest.mjs'), 'utf8')) ?? []).length;
     const r0 = cm();
     ok(cmClean(r0) && total > 500 && r0.out.includes(`WSCHECKED ${total}`) && r0.out.includes(`TOTAL ${total}`),
@@ -1012,7 +1016,7 @@ section('只差空白或行尾的突變要被擋（2026-10-02 Dispatch；v11.3 �
     ok(readBack && r1.code !== 0 && staleLines.length === 1 && staleLines[0].includes('WS探針：只在尾巴多一個空白') && staleLines[0].includes('只差空白或行尾'),
       `WS3 clone 裡加一條只在尾巴多一個空白的突變（樣本讀回 ${readBack}）→ checkmutations 回 ${r1.code}、只點名那一條（${staleLines.length} 行 STALE）`);
     let r2 = { code: 0, out: '' };
-    try { r2.out = execFileSync(process.execPath, ['scripts/mutationtest.mjs', '--only', 'WS探針', '--dry-run'], { cwd: clone, encoding: 'utf8' }); } catch (e) { r2 = { code: e.status ?? -1, out: String(e.stdout ?? '') }; }
+    try { r2.out = execFileSync(process.execPath, ['scripts/mutationtest.mjs', '--only', 'WS探針', '--dry-run'], { cwd: clone, encoding: 'utf8', timeout: SUB_TIMEOUT_MS }); } catch (e) { r2 = { code: e.status ?? -1, out: String(e.stdout ?? '') }; }
     ok(r2.code !== 0 && r2.out.includes('只差空白或行尾，拒絕執行') && r2.out.includes('WS探針'),
       `WS4 執行器開跑前也擋：--only 選到那一條 → 回 ${r2.code}、拒絕並點名`);
   }
@@ -1030,7 +1034,7 @@ section('入庫的證據由腳本從原始 log 逐項產生（共用慣例 v11.4
     const run = (logText, out, ledgerFile = 'ledger.json') => {
       fs.writeFileSync(path.join(dir, 'run.log'), logText);
       fs.rmSync(path.join(dir, out), { force: true });
-      try { return { code: 0, out: execFileSync(process.execPath, [path.join(ROOT, 'scripts/evidence.mjs'), path.join(dir, 'run.log'), '--ledger', path.join(dir, ledgerFile), '--out', path.join(dir, out)], { encoding: 'utf8' }) }; }
+      try { return { code: 0, out: execFileSync(process.execPath, [path.join(ROOT, 'scripts/evidence.mjs'), path.join(dir, 'run.log'), '--ledger', path.join(dir, ledgerFile), '--out', path.join(dir, out)], { encoding: 'utf8', timeout: SUB_TIMEOUT_MS }) }; }
       catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') }; }
     };
     const r1 = run(log(2, okLines), 'ok.md');
@@ -1085,7 +1089,7 @@ section('重負載的資源紀錄（共用慣例 v11 §5.19、§5.20：紀錄要
   // 真的記得到（§5.20）：在一個已知有程序在跑的時刻記一行，工作程序數必須非 0；收掉之後必須是 0（兩個方向）
   const fake = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 8000)'], { stdio: 'ignore' });
   await new Promise((r) => setTimeout(r, 800));
-  const once = () => execFileSync(process.execPath, [path.join(ROOT, 'scripts/reslog.mjs'), '--once', '--root', String(process.pid)], { encoding: 'utf8' });
+  const once = () => execFileSync(process.execPath, [path.join(ROOT, 'scripts/reslog.mjs'), '--once', '--root', String(process.pid)], { encoding: 'utf8', timeout: SUB_TIMEOUT_MS });
   const busy = once();
   fake.kill();
   await new Promise((r) => setTimeout(r, 800));
@@ -1317,7 +1321,7 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     ok(setUp && !fs.existsSync(path.join(root, LEDGER_FILE)), '（前提）暫存 git repo 造好了：突變清單換成那一條、還沒有帳本');
     // MM_JOBRUN 也清掉（D18p）：外層的突變執行器經 jobrun 開 doctest 時，環境裡本來就有它——不清，暫存執行器不經 jobrun，探針照樣繼承到外層的值
     const env = { ...process.env }; delete env.MM_AUDIT; delete env.MM_AUDIT_OUT; delete env.MM_LEDGER; delete env.MM_JOBRUN;
-    const run = () => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--affected'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } };
+    const run = () => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--affected'], { cwd: root, encoding: 'utf8', timeout: SUB_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } };
     const r1 = run();
     const led1 = fs.existsSync(path.join(root, LEDGER_FILE)) ? JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8')) : null;
     ok(r1.code === 0 && r1.out.includes('選了 1 條突變') && led1?.entries?.['AFF探針']?.last?.red === true,
@@ -1375,7 +1379,7 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     if (setUp2) fs.writeFileSync(mtFile, (src2.slice(0, p0) + slowMut + src2.slice(p0)).replace(tmLine, () => "const TEST_TIMEOUT_MIN = { assertaudit: 45, 'resume-verify': 15, affslow: 0.05 };"));
     g('add', '-A'); g('commit', '-qm', '加逾時突變');
     ok(setUp2, '（前提）D18f 的逾時突變與 3 秒時限放進暫存 repo 的執行器了');
-    const r6 = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--never-full'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();
+    const r6 = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--never-full'], { cwd: root, encoding: 'utf8', timeout: SUB_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();
     const led6 = JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8'));
     const slow = led6.entries?.['AFF逾時'];
     ok(r6.code !== 0 && r6.out.includes('不算數：affslow 逾時被殺') && slow?.last?.counted === false && slow?.last?.red === false && !slow?.lastFull
@@ -1389,7 +1393,7 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     const p3 = src3.indexOf('const MUTATIONS = [\n') + 'const MUTATIONS = ['.length;
     fs.writeFileSync(mtFile, `${src3.slice(0, p3)}\n  { name: "AFFW探針", why: "x", file: "scripts/affwtarget.mjs", find: "export const BROKEN = false;", replace: "export const BROKEN = true;", test: "affw", expect: "AFFW 探針" },${src3.slice(p3)}`);
     g('add', '-A'); g('commit', '-qm', '加紅錯地方的探針');
-    const r7 = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--only', 'AFFW探針'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();
+    const r7 = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--only', 'AFFW探針'], { cwd: root, encoding: 'utf8', timeout: SUB_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();
     ok(r7.code !== 0 && r7.out.includes('紅了，但紅的不是含「AFFW 探針」的那一條'),
       `受影響 D18h 改壞後紅的是別條、預期那一條是綠的（只是訊息裡提到 ✗）→ 判成紅錯地方，不算抓到（回 ${r7.code}）`);
     // D18j（2026-10-02）：expect 在測試原始碼裡已經找不到（預期清單過期）→ 開跑前就擋、用獨立的訊息、不改壞檔、帳本不算數；
@@ -1399,14 +1403,14 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     fs.writeFileSync(mtFile, `${src4.slice(0, p4)}\n  { name: "AFFX探針", why: "x", file: "scripts/affwtarget.mjs", find: "export const BROKEN = false;", replace: "export const BROKEN = true;", test: "affw", expect: "這一句已經不在測試裡" },${src4.slice(p4)}`);
     g('add', '-A'); g('commit', '-qm', '加預期清單過期的探針');
     const tgtBefore = fs.readFileSync(path.join(root, 'scripts/affwtarget.mjs'), 'utf8');
-    const r8 = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--only', 'AFFX探針'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();
+    const r8 = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--only', 'AFFX探針'], { cwd: root, encoding: 'utf8', timeout: SUB_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();
     const led8 = JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8')).entries?.['AFFX探針']?.last;
     ok(r8.code !== 0 && r8.out.includes('預期清單過期：expect「這一句已經不在測試裡」在 scripts/affw.mjs 裡找不到') && !r8.out.includes('紅了，但紅的不是')
       && !r8.out.includes('實際紅了') && led8?.counted === false && fs.readFileSync(path.join(root, 'scripts/affwtarget.mjs'), 'utf8') === tgtBefore,
     `受影響 D18j expect 在測試裡找不到 → 開跑前擋下、訊息是「預期清單過期」、沒有跑（不是紅錯地方）、帳本不算數（回 ${r8.code}；紀錄 ${JSON.stringify(led8 && { counted: led8.counted, kind: led8.kind })}）`);
     // D18m（2026-10-02，照每機器小時驗到的條數逐段跑）：--never-full --test 只留指定測試的。此刻從沒整套跑過的有
     // AFF逾時（affslow）、AFFW探針、AFFX探針（affw）三條；--test affw 要選 2 條、--test 打錯字要停
-    const dry = (args) => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, ...args, '--dry-run'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } };
+    const dry = (args) => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, ...args, '--dry-run'], { cwd: root, encoding: 'utf8', timeout: SUB_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } };
     const m0 = dry(['--never-full']); const m1 = dry(['--never-full', '--test', 'affw']); const m2 = dry(['--never-full', '--test', 'nosuchtest']);
     ok(m0.out.includes('選了 3 條突變') && m1.out.includes('選了 2 條突變') && m1.out.includes('只留測試「affw」') && m2.code !== 0 && m2.out.includes('--test 指定的測試在突變清單裡一條都沒有：nosuchtest'),
       `受影響 D18m --test：不帶時選 3 條（前提）、--test affw 選 2 條、打錯字的測試名停下（回 ${m2.code}）`);
@@ -1416,7 +1420,7 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
       `受影響 D18n 資源紀錄的取樣間隔：不帶是 60、--reslog-interval 5 印 5、給 0 停下（回 ${i2.code}）`);
     // D18o（Dispatch 2026-10-02：可用記憶體掉到下限以下就收手）：下限設成不可能達到的值 → 一條都不改壞、印「停下」、帳本那一條不動；
     // 下限設 1 MB（反向）→ 照常跑完
-    const runArgs = (args) => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } };
+    const runArgs = (args) => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, ...args], { cwd: root, encoding: 'utf8', timeout: SUB_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } };
     const ledBefore = JSON.stringify(JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8')).entries?.['AFFW探針']);
     const tgtW = fs.readFileSync(path.join(root, 'scripts/affwtarget.mjs'), 'utf8');
     const mo1 = runArgs(['--only', 'AFFW探針', '--min-free-mb', '999999999']);
@@ -1520,7 +1524,7 @@ section('預期清單過期要用獨立的訊息、開跑前擋（2026-10-02；g
     // GM5（2026-10-02，StockDiary）：通過時也要留下算過的痕跡——查了幾條、幾處錨點、幾個情境編號，不能只靠「沒看到報錯」
     {
       const env5 = { ...process.env }; delete env5.MM_AUDIT; delete env5.MM_AUDIT_OUT; delete env5.MM_LEDGER;
-      const r5 = spawnSync(process.execPath, ['scripts/gatemutants.mjs', '--check-only'], { cwd: clone, encoding: 'utf8', env: env5 });
+      const r5 = spawnSync(process.execPath, ['scripts/gatemutants.mjs', '--check-only'], { cwd: clone, encoding: 'utf8', timeout: SUB_TIMEOUT_MS, env: env5 });
       const anchors = gm.CASES.filter((c) => c.find !== null).reduce((a, c) => a + 1 + (c.also?.length ?? 0), 0);
       const line = `${r5.stdout}`.split('\n').find((l) => l.startsWith('預期清單過期的前置：')) ?? '';
       ok(r5.status === 0 && line.startsWith(`預期清單過期的前置：查了 ${gm.CASES.length} 條（錨點 ${anchors} 處、`) && line.endsWith('過期 0 處') && !`${r5.stdout}`.includes('【對照：原樣】'),
@@ -1575,7 +1579,7 @@ section('斷言登記表與「預期需要複審」（2026-10-02 Dispatch 選 A�
     const ccAr = verifyCopies(path.join(ROOT, 'scripts'), path.join(clone, 'scripts'));
     if (ccAr.problems.length) console.log(`${NO_SCENARIO_MARK}：AR 的 clone 沒有含工作區這一份 scripts/：${ccAr.problems.slice(0, 3).join('、')}`);
     ok(ccAr.problems.length === 0 && ccAr.checked >= 40, `（前提）AR 的 clone 蓋上工作區的 scripts/、讀回相同（比了 ${ccAr.checked} 支）`);
-    const nodeIn = (args) => spawnSync(process.execPath, args, { cwd: clone, encoding: 'utf8' });
+    const nodeIn = (args) => spawnSync(process.execPath, args, { cwd: clone, encoding: 'utf8', timeout: SUB_TIMEOUT_MS });
     const st = nodeIn(['scripts/assertregistry.mjs', '--stamp', '--all']);
     const cm = () => { const r = nodeIn(['scripts/checkmutations.mjs']); return { code: r.status, out: r.stdout, count: Number((/REVIEWCOUNT (\d+)/.exec(r.stdout) ?? [])[1] ?? -1), lines: r.stdout.split('\n').filter((l) => l.startsWith('REVIEW 預期需要複審：')) }; };
     const c0 = cm();
@@ -1651,7 +1655,7 @@ section('bash 解成完整路徑，解到 WSL 的不用（2026-10-02，JLPT 撞�
   const env = { ...process.env }; delete env.MM_AUDIT; delete env.MM_AUDIT_OUT; delete env.MM_LEDGER;
   for (const k of Object.keys(env)) if (k.toUpperCase() === 'PATH') delete env[k];
   env.PATH = path.dirname(process.execPath);
-  const r = spawnSync(process.execPath, ['scripts/gatemutants.mjs'], { cwd: ROOT, encoding: 'utf8', env });
+  const r = spawnSync(process.execPath, ['scripts/gatemutants.mjs'], { cwd: ROOT, encoding: 'utf8', timeout: SUB_TIMEOUT_MS, env });
   const out = `${r.stdout}${r.stderr}`;
   ok(r.status === 8 && out.split('\n').some((l) => l.startsWith(`${NO_SCENARIO_MARK}：PATH 裡找不到 bash`)) && !out.includes('【對照：原樣】') && !out.includes('假 git 的對照組'),
     `BS7 gatemutants 解不出 bash → 回 ${r.status}（預期 8）、判情境未成立、一條都沒跑`);
@@ -1664,7 +1668,7 @@ section('一場突變的結果統計：收到的／被停掉的／沒輪到的�
   fs.writeFileSync(plan, JSON.stringify({ commit: 'abc1234', date: '2026-10-02', names: ['甲', '乙', '丙'] }));
   fs.writeFileSync(lgA, '— 前置 —\n  · 選了 2 條突變（共 9）；跑法 never-full\n\n— 逐條突變 —\n  ✓ 【t】甲\n  ✓ 【t】乙\n');
   fs.writeFileSync(led, JSON.stringify({ inflight: null, entries: { 甲: { last: { commit: 'abc1234def56', date: '2026-10-02' } }, 乙: { last: { commit: 'abc1234def56', date: '2026-10-02' } } } }));
-  const cli = (...a) => spawnSync(process.execPath, ['scripts/runprogress.mjs', plan, ...a, '--ledger', led], { cwd: ROOT, encoding: 'utf8' });
+  const cli = (...a) => spawnSync(process.execPath, ['scripts/runprogress.mjs', plan, ...a, '--ledger', led], { cwd: ROOT, encoding: 'utf8', timeout: SUB_TIMEOUT_MS });
   const r2 = cli(lgA);
   ok(r2.status === 0 && r2.stdout.includes('計畫 3 條；收到的結果 2 列（從 1 份 log 逐行數，含重複；') && r2.stdout.includes('＋沒輪到 1 ＝ 3') && r2.stdout.includes('帳本那一側記著這一場跑了計畫裡的 2 條、log 那一側收到 2 條'),
     `RP2 從真實入口：收到 2、沒輪到 1、相加 3＝計畫 3，帳本與 log 兩邊各數到 2（回 ${r2.status}）`);
@@ -1673,6 +1677,35 @@ section('一場突變的結果統計：收到的／被停掉的／沒輪到的�
   const r4 = cli(lgA, '--complete');
   ok(r4.status !== 0 && r4.stdout.includes('宣稱跑完，卻還有沒輪到的 1 條'), `RP4 宣稱跑完、還有沒輪到的 → 擋（回 ${r4.status}）`);
   for (const f of [plan, lgA, led]) fs.rmSync(f, { force: true });
+}
+
+section('doctest 開 node 腳本的子程序都帶上限（2026-10-08，第 7 項：npm test 這條路沒有外層上限）');
+{
+  // 掃 doctest 自己：同步開 node 的那幾種寫法（spawnSync／execFileSync 開 process.execPath、通用的 runP）那一行要有 timeout。
+  // 樣式在執行時才拼起來：原樣寫在這裡，這幾行自己就會被掃到。已知限制：只看單行寫法（跨行的呼叫掃不到）；git 的小呼叫不在範圍
+  const FORMS = [['spawn', 'Sync(process.execPath'], ['execFile', 'Sync(process.execPath'], ['execFile', 'Sync(cmd, args,']].map((p) => p.join(''));
+  const noTimeout = (l) => !l.trimStart().startsWith('//') && FORMS.some((f) => l.includes(f)) && !l.includes('timeout');
+  const isSub = (l) => !l.trimStart().startsWith('//') && FORMS.some((f) => l.includes(f));
+  // 正例樣本獨立寫死、不從 FORMS 拼（2026-10-08：原本從 FORMS 拼，突變改掉一種寫法，樣本也跟著變、照樣被抓到——樣本跟規則共用零件）
+  detects(noTimeout, {
+    shouldHit: [
+      `  const r = ${'spawn'}Sync(process.execPath, ['x.mjs'], { encoding: 'utf8' });`,
+      `  const r = ${'execFile'}Sync(process.execPath, ['x.mjs'], { encoding: 'utf8' });`,
+      `  const r = ${'execFile'}Sync(cmd, args, { encoding: 'utf8' });`,
+    ],
+    shouldMiss: [
+      ...FORMS.map((f) => `  const r = ${f} ['x.mjs'], { encoding: 'utf8', timeout: SUB_TIMEOUT_MS });`),
+      `  // 註解裡提到 ${FORMS[0]} 不算`,
+      `  const p = ${['spawn', '(process.execPath'].join('')}, ['x.mjs'], { stdio: 'ignore' });`,
+    ],
+  }, 'TO1 掃描抓得到三種寫法裡沒帶上限的；帶了上限、註解、非同步的 spawn 不算');
+  // 範圍是登記的：doctest（npm test 這條路）與 buildguard-verify（每一格開一次建置腳本）。每一支各自要有母體
+  for (const [file, min] of [['scripts/doctest.mjs', 20], ['scripts/buildguard-verify.mjs', 1]]) {
+    const lines = fs.readFileSync(path.join(ROOT, file), 'utf8').split('\n');
+    const subs = lines.filter(isSub);
+    ok(subs.length >= min, `（母體）TO2 ${file} 裡同步開 node 的地方 ${subs.length} 處（至少 ${min}）`);
+    eq(lines.map((l, i) => (noTimeout(l) ? i + 1 : null)).filter(Boolean), [], `TO2 那 ${subs.length} 處都帶 timeout（${file}；沒帶的行號列在這裡）`);
+  }
 }
 
 section('共用的暫存 clone：每一節開頭都回到基準（情境之間互不污染）；用完刪掉');

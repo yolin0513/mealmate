@@ -19,6 +19,10 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
+// 每一格（跑一次建置腳本）的上限：2026-10-08 在 HEAD 的拋棄式 worktree 實測 build-recipes 270–317 ms、build-foods 的失敗路徑 86 ms；
+// 60 秒＝190 倍以上的餘裕（餘裕一律用最長那次算、至少 3 倍）
+const CELL_TIMEOUT_MS = 60000;
+
 /** 錯誤訊息的位置：stderr 裡第一個以「✗」開頭的那一行起到最後。沒有「✗」→ 空字串（沒有設計好的理由）。 */
 export function reasonOf(stderr) {
   const lines = String(stderr ?? '').split(/\r?\n/);
@@ -169,7 +173,13 @@ function verify(rev, only) {
       const out = path.join(wt, outRel); const tmp = `${out}.tmp`;
       const tmpBefore = fs.existsSync(tmp);
       const before = fileSha(out);
-      const r = spawnSync(process.execPath, ['--max-old-space-size=4096', `scripts/${script}`], { cwd: wt, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+      const r = spawnSync(process.execPath, ['--max-old-space-size=4096', `scripts/${script}`], { cwd: wt, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: CELL_TIMEOUT_MS });
+      // 一格逾時就整支停下（2026-10-08，第 7 項）：上千格，卡住多半是全面性的，每格各等一次會拖好幾個小時。
+      // 丟出去 → finally 收掉 worktree、登記那一步不會跑到（逾時不會被登記成驗過）。這條路沒有常設情境（要造一支會卡住的建置腳本），沒驗過
+      if (r.error?.code === 'ETIMEDOUT') {
+        console.log(`⊘ 情境未成立：${script} 這一格跑超過 ${CELL_TIMEOUT_MS / 1000} 秒（每格實測不到 1 秒）——驗法停下、不算數、不登記`);
+        throw new Error(`buildguard 驗法：${script} 逾時`);
+      }
       const err = r.stderr ?? '';
       const named = token === null || names(err, token);
       const same = fileSha(out) === before;

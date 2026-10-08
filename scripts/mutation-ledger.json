@@ -19968,8 +19968,84 @@
     "seconds": 48
    },
    "lastFull": null
+  },
+  "doctest 子程序上限：BS7 開 gatemutants 不帶上限": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "5179d5a1defc+dirty",
+    "mode": "only",
+    "defHash": "5d40e9c1dd1512f93d25473e98f805840d668763a2efa56efe729d943fe1f14b",
+    "depHash": "070c25c9b0f2f5b7d2d297d2b1a6049a899c590769db766eead546fe7e22a8fb",
+    "runnerHash": "f26a9c8b442eb44ac60f2f0e863b3df522b2048f7a2ffa810b3dbaa873ef6552",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 71
+   },
+   "lastFull": null
+  },
+  "buildguard-verify 每一格不帶上限": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "5179d5a1defc+dirty",
+    "mode": "only",
+    "defHash": "ca91abf5ae66e8c00e615890b97b402e280311c7f308c3ae0d4b48f95f0c6478",
+    "depHash": "070c25c9b0f2f5b7d2d297d2b1a6049a899c590769db766eead546fe7e22a8fb",
+    "runnerHash": "f26a9c8b442eb44ac60f2f0e863b3df522b2048f7a2ffa810b3dbaa873ef6552",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 71
+   },
+   "lastFull": null
+  },
+  "doctest 子程序上限：掃描漏掉 runP 那種寫法": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "5179d5a1defc+dirty",
+    "mode": "only",
+    "defHash": "7246b0e7ff7f9f072b457a747e9e9cca50eda4c019503d0a92973107165c15ee",
+    "depHash": "b612c64f4a29894f836c57a359dba294e752ddfefb3bdcffae1beda49e7c4f04",
+    "runnerHash": "f26a9c8b442eb44ac60f2f0e863b3df522b2048f7a2ffa810b3dbaa873ef6552",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 72
+   },
+   "lastFull": null
+  },
+  "doctest 子程序上限：註解也算": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "5179d5a1defc+dirty",
+    "mode": "only",
+    "defHash": "e9bca2090a75675ea6eb7fa7d6ad1f576013fbfa11bcb2a7f097577ba16481a9",
+    "depHash": "070c25c9b0f2f5b7d2d297d2b1a6049a899c590769db766eead546fe7e22a8fb",
+    "runnerHash": "f26a9c8b442eb44ac60f2f0e863b3df522b2048f7a2ffa810b3dbaa873ef6552",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 71
+   },
+   "lastFull": null
   }
  },
- "runSeq": 29,
+ "runSeq": 31,
  "inflight": null
 }

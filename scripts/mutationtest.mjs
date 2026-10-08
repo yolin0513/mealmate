@@ -4949,6 +4949,43 @@ const MUTATIONS = [
     test: "doctest",
     expect: "受影響 D18p ",
   },
+  // ---- 2026-10-08：doctest 開 node 腳本的子程序都帶上限（doctest TO1、TO2）----
+  {
+    name: "doctest 子程序上限：BS7 開 gatemutants 不帶上限",
+    why: "bash 的判斷一退化，doctest 就在 npm test 裡把整套 gatemutants（約 77 分鐘）跑下去，沒有任何東西會停它。",
+    file: "scripts/doctest.mjs",
+    find: "spawnSync(process.execPath, ['scripts/gatemutants.mjs'], { cwd: ROOT, encoding: 'utf8', timeout: SUB_TIMEOUT_MS, env });",
+    replace: "spawnSync(process.execPath, ['scripts/gatemutants.mjs'], { cwd: ROOT, encoding: 'utf8', env });",
+    test: "doctest",
+    expect: "TO2 那 ",
+  },
+  {
+    name: "buildguard-verify 每一格不帶上限",
+    why: "建置腳本卡住，驗法就卡住；它是推送前要跑的那一套，卡住時沒有任何東西會停它。",
+    file: "scripts/buildguard-verify.mjs",
+    find: "maxBuffer: 64 * 1024 * 1024, timeout: CELL_TIMEOUT_MS });",
+    replace: "maxBuffer: 64 * 1024 * 1024 });",
+    test: "doctest",
+    expect: "TO2 那 ",
+  },
+  {
+    name: "doctest 子程序上限：掃描漏掉 runP 那種寫法",
+    why: "通用的 runP（開探針）行內沒有 process.execPath；掃描少了這一支，它的上限被拿掉也看不出來。",
+    file: "scripts/doctest.mjs",
+    find: "['execFile', 'Sync(cmd, args,']]",
+    replace: "['execFile', 'Sync(沒有這種寫法,']]",
+    test: "doctest",
+    expect: "TO1 掃描抓得到",
+  },
+  {
+    name: "doctest 子程序上限：註解也算",
+    why: "註解裡提到那幾種寫法就被當成呼叫——加一句說明就讓 TO2 紅，久了大家會去改掃描、或乾脆不寫說明。",
+    file: "scripts/doctest.mjs",
+    find: "  const noTimeout = (l) => !l.trimStart().startsWith('//') && FORMS",
+    replace: "  const noTimeout = (l) => FORMS",
+    test: "doctest",
+    expect: "TO1 掃描抓得到",
+  },
   // ---- 2026-10-08：外部記憶體監看（scripts/memwatch.mjs；node scripts/memwatchtest.mjs）——前兩條是舊版（.logs/ 那一版）的兩個缺陷 ----
   {
     name: "監看：瀏覽器按指令列認（舊版的缺陷）",
