@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { sweep as sweepWorktrees, wtPrefix } from './worktreesweep.mjs';
 
 const GATE = 'scripts/pushgate.sh';
 const VERIFY = 'scripts/pushgate-verify.sh';
@@ -231,7 +232,7 @@ export function fakeControls(wt, fakeDir, failWhen) {
 }
 
 function runCase(repo, origHead, c, expectedTotal) {
-  const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gatemut-'));
+  const wt = fs.mkdtempSync(wtPrefix('gatemut'));   // 名字帶建立者（PID＋建立時間）：被殺時，下一次開頭的收拾認得出來
   fs.rmSync(wt, { recursive: true });
   execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', '--detach', wt, 'HEAD']);
   let fakeDir = null;
@@ -298,6 +299,7 @@ function main() {
   const sv = verdictsOf(sample);
   if (sv.total !== 3 || sv.bad.join(',') !== '11,15') { console.log('gatemutants：擷取的對照組不對（檢查器壞了），不往下跑'); return 1; }
   const repo = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  sweepWorktrees(repo);   // 上一次被殺時留下的 worktree（建立者已死的）先收掉
   const origHead = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   // 假 git 對照組本身的對照（兩個方向）：好的假 git（只讓 -p -U0 那一種失敗）要三項都過；
   // 太粗的假 git（整個 log 子指令都失敗）要被「同一個 log 子指令不帶那些旗標要照常」那一項抓到——否則對照組是擺設

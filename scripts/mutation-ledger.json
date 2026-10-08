@@ -20196,8 +20196,160 @@
     "seconds": 79
    },
    "lastFull": null
+  },
+  "worktree 收拾：不看 PID 重用": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "de4ca23054ed+dirty",
+    "mode": "only",
+    "defHash": "67ce1f4742ab4befdb54357a5e30532206a6006465c3a503984b12d27a4eac98",
+    "depHash": "1fa271f6eda813d2d8dec0cfe61f1e57f3f56d51e9cb0343ff09fdbff13a051c",
+    "runnerHash": "f19948c48a1b6cea70f21ddde81c100c7efcf6d9011f9c4579bf741947194d0b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 97
+   },
+   "lastFull": null
+  },
+  "worktree 收拾：建立者已死也當成活著": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "de4ca23054ed+dirty",
+    "mode": "only",
+    "defHash": "d9d4401f2908786222351ba67196450243db525045ce1af54841bfbe778fa6d4",
+    "depHash": "1fa271f6eda813d2d8dec0cfe61f1e57f3f56d51e9cb0343ff09fdbff13a051c",
+    "runnerHash": "f19948c48a1b6cea70f21ddde81c100c7efcf6d9011f9c4579bf741947194d0b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 100
+   },
+   "lastFull": null
+  },
+  "worktree 收拾：看不出建立者就當成已死": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "de4ca23054ed+dirty",
+    "mode": "only",
+    "defHash": "c75bb811c110d1e48c87397b28fe564666ec71b99ef2fb9a638cdc754f343829",
+    "depHash": "1fa271f6eda813d2d8dec0cfe61f1e57f3f56d51e9cb0343ff09fdbff13a051c",
+    "runnerHash": "f19948c48a1b6cea70f21ddde81c100c7efcf6d9011f9c4579bf741947194d0b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 97
+   },
+   "lastFull": null
+  },
+  "worktree 收拾：查不到程序清單就當成全部已死": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "de4ca23054ed+dirty",
+    "mode": "only",
+    "defHash": "b2d89ca7a6770989cb69f482e9bd70b0eb9f658339dd0530cda50610c6f552cf",
+    "depHash": "1fa271f6eda813d2d8dec0cfe61f1e57f3f56d51e9cb0343ff09fdbff13a051c",
+    "runnerHash": "f19948c48a1b6cea70f21ddde81c100c7efcf6d9011f9c4579bf741947194d0b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 97
+   },
+   "lastFull": null
+  },
+  "worktree 收拾：執行器開頭不收拾": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "de4ca23054ed+dirty",
+    "mode": "only",
+    "defHash": "c9ade2288afdd02b04455346ff543c32a2ce994c0648610f2a1c366a2b00767a",
+    "depHash": "1fa271f6eda813d2d8dec0cfe61f1e57f3f56d51e9cb0343ff09fdbff13a051c",
+    "runnerHash": "f19948c48a1b6cea70f21ddde81c100c7efcf6d9011f9c4579bf741947194d0b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 90
+   },
+   "lastFull": null
+  },
+  "worktree 收拾：doctest 開頭不收拾": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "de4ca23054ed+dirty",
+    "mode": "only",
+    "defHash": "315938997bc5611ad0b1f4fc5fe77b6cf33684d85a26551a8101204925fc9a5f",
+    "depHash": "1fa271f6eda813d2d8dec0cfe61f1e57f3f56d51e9cb0343ff09fdbff13a051c",
+    "runnerHash": "f19948c48a1b6cea70f21ddde81c100c7efcf6d9011f9c4579bf741947194d0b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 96
+   },
+   "lastFull": null
+  },
+  "worktree 收拾：gatemutants 開頭不收拾": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "de4ca23054ed+dirty",
+    "mode": "only",
+    "defHash": "17e115c95f8bc7ccfd8437ba25086ff1451c65eb51c8d39172572bc66c7076b9",
+    "depHash": "1fa271f6eda813d2d8dec0cfe61f1e57f3f56d51e9cb0343ff09fdbff13a051c",
+    "runnerHash": "f19948c48a1b6cea70f21ddde81c100c7efcf6d9011f9c4579bf741947194d0b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 97
+   },
+   "lastFull": null
+  },
+  "worktree 收拾：buildguard-verify 開頭不收拾": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "de4ca23054ed+dirty",
+    "mode": "only",
+    "defHash": "79ac5dc7a59fe120d7ef0cfe27f3bd0a9f3d9496784ca5ebc11d0b657430e8b6",
+    "depHash": "1fa271f6eda813d2d8dec0cfe61f1e57f3f56d51e9cb0343ff09fdbff13a051c",
+    "runnerHash": "f19948c48a1b6cea70f21ddde81c100c7efcf6d9011f9c4579bf741947194d0b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 100
+   },
+   "lastFull": null
   }
  },
- "runSeq": 35,
+ "runSeq": 39,
  "inflight": null
 }

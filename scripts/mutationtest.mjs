@@ -17,6 +17,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, note } from './tap.mjs';
 import { runProgram, KIND_LABELS, UNCOUNTED_KINDS, parseJobSum } from './runkind.mjs';
+import { sweep as sweepWorktrees } from './worktreesweep.mjs';
 import { shouldRecordFull, writeLastFull, LASTFULL_FILE, taiwanToday, currentVersion } from './sincefull.mjs';
 import { execFileSync, spawn } from 'node:child_process';
 import { peakOf } from './reslog.mjs';
@@ -4949,6 +4950,80 @@ const MUTATIONS = [
     test: "doctest",
     expect: "受影響 D18p ",
   },
+  // ---- 2026-10-08：被殺的那一層留下的 worktree（scripts/worktreesweep.mjs；doctest WT1–WT4）----
+  {
+    name: "worktree 收拾：不看 PID 重用",
+    why: "建立者早就死了、PID 被別的程序拿去——當成建立者還活著，那個 worktree 永遠不收。",
+    file: "scripts/worktreesweep.mjs",
+    find: "  return procs.get(o.pid) > o.at + 2000 ? 'dead' : 'live';",
+    replace: "  return 'live';",
+    test: "doctest",
+    expect: "WT1 判斷",
+  },
+  {
+    name: "worktree 收拾：建立者已死也當成活著",
+    why: "被殺的那一層留下的 worktree 一個都不收——收拾程式跑了，什麼都沒做。",
+    file: "scripts/worktreesweep.mjs",
+    find: "  if (!procs.has(o.pid)) return 'dead';",
+    replace: "  if (!procs.has(o.pid)) return 'live';",
+    test: "doctest",
+    expect: "WT1 判斷",
+  },
+  {
+    name: "worktree 收拾：看不出建立者就當成已死",
+    why: "舊格式的名字看不出是誰的，猜它死了就收——可能收掉別人還在用的。",
+    file: "scripts/worktreesweep.mjs",
+    find: "  if (!o) return 'unknown';",
+    replace: "  if (!o) return 'dead';",
+    test: "doctest",
+    expect: "WT1 判斷",
+  },
+  {
+    name: "worktree 收拾：查不到程序清單就當成全部已死",
+    why: "「查不到」被當成「都死了」——查詢一壞，就把建立者還活著的 worktree 也收掉。",
+    file: "scripts/worktreesweep.mjs",
+    find: "  try { pm = procs(); } catch (e) { r.error = `查不到程序清單：${e.message}`; log(`· worktree 收拾：${r.error}——一個都不收（暫存 worktree ${list.length} 個）`); return r; }",
+    replace: "  try { pm = procs(); } catch (e) { pm = new Map(); r.error = `查不到程序清單：${e.message}`; }",
+    test: "doctest",
+    expect: "WT3 查不到程序清單",
+  },
+  // WT5：四個入口各拿掉一支呼叫，掃描要紅、而且點名那一支（守形狀、不守行為——見 doctest WT5 的說明）
+  {
+    name: "worktree 收拾：執行器開頭不收拾",
+    why: "被殺的那一層留下的 worktree 沒人收；這一條只證明那行字被拿掉時看得到，不證明收拾真的在開頭跑過。",
+    file: "scripts/mutationtest.mjs",
+    find: "\nif (!DRY) sweepWorktrees(ROOT, { log",
+    replace: "\nif (!DRY) void '不收拾', ({ log",
+    test: "doctest",
+    expect: "WT5 入口 mutationtest",
+  },
+  {
+    name: "worktree 收拾：doctest 開頭不收拾",
+    why: "doctest 被殺時留下的共用 worktree，下一次 doctest 不收。",
+    file: "scripts/doctest.mjs",
+    find: "\nsweepWorktrees(ROOT);\n",
+    replace: "\nvoid '不收拾';\n",
+    test: "doctest",
+    expect: "WT5 入口 doctest",
+  },
+  {
+    name: "worktree 收拾：gatemutants 開頭不收拾",
+    why: "gatemutants 被殺時留下的 worktree，下一次 gatemutants 不收。",
+    file: "scripts/gatemutants.mjs",
+    find: "  sweepWorktrees(repo);   // 上一次被殺時",
+    replace: "  void '不收拾';   // 上一次被殺時",
+    test: "doctest",
+    expect: "WT5 入口 gatemutants",
+  },
+  {
+    name: "worktree 收拾：buildguard-verify 開頭不收拾",
+    why: "buildguard-verify 被殺時留下的 worktree，下一次不收。",
+    file: "scripts/buildguard-verify.mjs",
+    find: "  sweepWorktrees(repo);\n  const wt = fs.mkdtempSync(wtPrefix('bg'));",
+    replace: "  void '不收拾';\n  const wt = fs.mkdtempSync(wtPrefix('bg'));",
+    test: "doctest",
+    expect: "WT5 入口 buildguard-verify",
+  },
   // ---- 2026-10-08：逐一計數與結束核對（jobhelper 的完成埠、jobrun 的結算行、runkind.parseJobSum、執行器的彙總）----
   {
     name: "Job 計數：程序結束不減",
@@ -5908,6 +5983,8 @@ try {
 } catch (e) {
   refuse(`git 取不到（${String(e.message).split('\n')[0].slice(0, 80)}）：「工作區要等於 HEAD」的護欄檢查不了，拒絕執行`);
 }
+// 被殺的那一層（例：doctest 逾時被 Job 收掉）留下的 worktree：建立者已死的先收掉（worktreesweep.mjs）；只列不跑時不動
+if (!DRY) sweepWorktrees(ROOT, { log: (s) => note(s.replace(/^· /, '')) });
 // 護欄一（Dispatch 2026-10-02）：開跑前工作區必須等於 HEAD——上一次被殺掉留下的壞檔，不能被這一次當成原檔備份起來。
 // --only 例外（寫新斷言的流程是「改程式 → --only 證明會紅 → 才 commit」，那時工作區本來就不等於 HEAD），另有下面的目標檔檢查。
 // --dry-run 只列不改檔：照常列出，只註明工作區有改動

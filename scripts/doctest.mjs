@@ -11,8 +11,8 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
 // 開 node 腳本的子程序一律帶上限（2026-10-08，第 7 項：npm test 這條路沒有任何外層上限，子程序卡住 doctest 就永遠不結束）。
-// doctest 整支實測最長 88 秒（2026-10-08，jobrun 結束前要結算之後；之前 71 秒），任何一個子程序都不會超過它；
-// 300 秒＝3.4 倍餘裕（餘裕一律用最長那次算、至少 3 倍；原本 240 秒是照 71 秒訂的）。逾時 → 那一條紅，不會卡住。
+// doctest 整支實測最長 96 秒（2026-10-08，加了 worktree 收拾那一節之後；jobrun 要結算之前 71 秒），任何一個子程序都不會超過它；
+// 300 秒＝3.1 倍餘裕（餘裕一律用最長那次算、至少 3 倍；原本 240 秒是照 71 秒訂的）。逾時 → 那一條紅，不會卡住。**再長就要調**
 // 已知限制：git 的小呼叫沒帶；逾時只殺直接那一支（不經 jobrun——經 jobrun 會讓 D18p 的探針繼承到中間那一層的 MM_JOBRUN）。
 const SUB_TIMEOUT_MS = 300000;
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -21,6 +21,7 @@ import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_M
 import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts, escapeScan } from './gatescan.mjs';
 import { selfcheck, gitEnvProblems } from './selfcheck.mjs';
 import { runProgram, classifyRun, UNCOUNTED_KINDS, NO_SCENARIO_MARK, parseJobSum } from './runkind.mjs';
+import { sweep as sweepWorktrees, wtPrefix, ownerOf, judge, tempWorktrees } from './worktreesweep.mjs';
 import {
   scopeFor, scopeHash, accessOf, maskMutations, runnerHash, rerunReasons, RERUN, recordRun, emptyLedger, neverFullNames,
   fullComplete, ledgerProblems, contentHash, LEDGER_FILE, ledgerOrphans,
@@ -48,6 +49,8 @@ import { NUTRIENT_ORDER } from '../js/foods.js';
 import { parseCheckLines, chainExcludesMutation, reminderLines, mutationNames, neverRunNames, lastFullMatchesStatus, lastFullProblems, shouldRecordFull, writeLastFull, FULL_LIMITS, overLimitLine, auditTargets, orphanTests } from './sincefull.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+// 上一次 doctest 被殺（逾時、Job 收掉）時留下的共用 worktree：建立者已死的先收掉（worktreesweep.mjs）
+sweepWorktrees(ROOT);
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const PLAN = read('docs/PLAN.md');
 const STATUS = read('docs/STATUS.md');
@@ -954,7 +957,7 @@ function sharedClone() {
   if (!SHARED_CLONE) {
     // 用 git worktree（detach 在 HEAD）而不是 clone：實測 clone 約 5 秒、worktree 不到 1 秒（不必複製物件庫）。
     // worktree 跟主 repo 共用物件庫與設定（含 core.hooksPath），所以這裡的 commit 一律 --no-verify；用完一定 worktree remove
-    const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'mm-shared-')), 'w');
+    const dir = path.join(fs.mkdtempSync(wtPrefix('shared')), 'w');   // 名字帶建立者（PID＋建立時間）：doctest 被殺時，下一次開頭的收拾認得出來
     SHARED_CLONE = { dir, base: null };
     execFileSync('git', ['-C', ROOT, 'worktree', 'add', '-q', '--detach', dir, 'HEAD'], { stdio: ['ignore', 'pipe', 'pipe'] });
     // 只蓋程式與戳記檔。帳本（mutation-ledger.json）與還原紀錄（.mutation-pending.json）不蓋：突變執行中，工作區的帳本記著 inflight、
@@ -1693,6 +1696,71 @@ section('一場突變的結果統計：收到的／被停掉的／沒輪到的�
   const r4 = cli(lgA, '--complete');
   ok(r4.status !== 0 && r4.stdout.includes('宣稱跑完，卻還有沒輪到的 1 條'), `RP4 宣稱跑完、還有沒輪到的 → 擋（回 ${r4.status}）`);
   for (const f of [plan, lgA, led]) fs.rmSync(f, { force: true });
+}
+
+section('被殺的那一層留下的 worktree：建立者已死的收掉、活著的不碰、看不出建立者的只列（2026-10-08，第 7 項）');
+{
+  // 兩個獨立來源：worktree 名字裡的 PID 與建立時間是我造的、程序死活是我真的開／等它結束的；收拾程式的判斷是另一個來源
+  const T = Date.now();
+  eq([judge(`x/mm-a-1-${T}-q`, new Map()), judge(`x/mm-a-1-${T}-q`, new Map([[1, T - 5000]])), judge(`x/mm-a-1-${T}-q`, new Map([[1, T + 60000]])), judge('x/mm-old-q', new Map())],
+    ['dead', 'live', 'dead', 'unknown'], 'WT1 判斷：PID 不在→收；在、比 worktree 早開→不碰；在、比 worktree 晚開（PID 被重用）→收；名字看不出建立者→只列');
+  eq([ownerOf(path.join('a', 'b', `mm-shared-12-${T}-xyz`, 'w')), ownerOf('a/mm-old-xyz')], [{ pid: 12, at: T }, null], 'WT1b 從路徑讀出建立者（共用 worktree 是 mm-…/w 那一層）；舊格式讀不出');
+  if (process.platform === 'win32') {
+    const norm = (p) => path.resolve(p).toLowerCase();
+    const dead = spawnSync(process.execPath, ['-e', ''], { timeout: SUB_TIMEOUT_MS }).pid;   // 已經結束的 PID
+    const sleeper = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)'], { stdio: 'ignore' });
+    await new Promise((r) => setTimeout(r, 800));
+    const tag = Math.random().toString(36).slice(2, 8);
+    const mk = (name) => { const d = path.join(os.tmpdir(), name); execFileSync('git', ['-C', ROOT, 'worktree', 'add', '-q', '--detach', d, 'HEAD'], { stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000 }); return d; };
+    const W = {};
+    try {
+      W.dead = mk(`mm-wtdead-${dead}-${Date.now()}-${tag}`);
+      W.mine = mk(`mm-wtmine-${process.pid}-${Date.now()}-${tag}`);
+      W.reused = mk(`mm-wtreuse-${sleeper.pid}-${Date.now() - 600000}-${tag}`);
+      W.old = mk(`mm-wtold-${tag}`);
+      const before = tempWorktrees(ROOT).map(norm);
+      ok(Object.values(W).every((w) => before.includes(norm(w))), `（前提）WT2 造出來的四個 worktree 都在這個 repo 的清單裡（清單 ${before.length} 個）`);
+      // WT3 查不到程序清單（傳一支會失敗的）→ 一個都不收，連建立者已死的也不收（不把「查不到」當成「已經死了」）
+      const r0 = sweepWorktrees(ROOT, { procs: () => { throw new Error('假的：查不到'); }, log: () => {} });
+      const mid = tempWorktrees(ROOT).map(norm);
+      ok(!!r0.error && r0.removed.length === 0 && Object.values(W).every((w) => mid.includes(norm(w))), `WT3 查不到程序清單 → 一個都不收（${r0.error ?? '沒有報錯'}；收了 ${r0.removed.length} 個）`);
+      const r = sweepWorktrees(ROOT, { log: () => {} });
+      const after = tempWorktrees(ROOT).map(norm);
+      ok(!after.includes(norm(W.dead)) && !fs.existsSync(W.dead), 'WT2 建立者已經結束 → 收掉（清單裡沒有、目錄也不在）');
+      ok(!after.includes(norm(W.reused)) && !fs.existsSync(W.reused), 'WT2 PID 還在、但那支程序比 worktree 晚開（PID 被重用）→ 收掉');
+      ok(after.includes(norm(W.mine)) && fs.existsSync(W.mine), 'WT2 建立者還活著（本測試自己）→ 不碰');
+      ok(after.includes(norm(W.old)) && r.unknown.map(norm).includes(norm(W.old)), 'WT2 名字看不出建立者 → 不收、列出來');
+    } finally {
+      sleeper.kill();
+      for (const w of Object.values(W)) { spawnSync('git', ['-C', ROOT, 'worktree', 'remove', '--force', w], { timeout: 60000 }); fs.rmSync(w, { recursive: true, force: true }); }
+      spawnSync('git', ['-C', ROOT, 'worktree', 'prune'], { timeout: 60000 });
+    }
+    const left = tempWorktrees(ROOT).filter((w) => w.includes(tag));
+    ok(left.length === 0, `WT4 收尾：造出來的四個都清掉了（剩 ${left.length} 個）`);
+  }
+  // WT5（Dispatch 2026-10-08 要的便宜的擋）：四個入口都還有「開頭收拾」那一行。**守的是形狀、不是行為**——它只證明那行字還在，
+  // 不證明收拾真的在開頭跑過（被移到不會執行的分支、包在不成立的條件裡，照樣綠）；行為要靠「上一層被殺、留下 worktree、再從入口開跑」
+  // 那個情境，還沒做（待辦）。每一支找的是它入口那一行特定的寫法（doctest 自己的 WT2 也呼叫收拾，只找「有沒有呼叫」會被 WT2 那幾行騙過）；
+  // 字串在執行時才拼，免得這幾行自己被掃到。四支各自要讀得到（掃不到檔＝紅，不是 0 支通過）
+  const SW = ['sweep', 'Worktrees('].join('');
+  const entry = (file, call) => {
+    const p = path.join(ROOT, file);
+    const src = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
+    // 要從行首就是這個呼叫（入口那一行的縮排算在 call 裡）：只找「含有」會數到突變清單裡「拿掉這一行」那條的 find 字串（10-08 第一次就數到 2 行）
+    const hits = src.split('\n').filter((l) => l.startsWith(call)).length;
+    return { read: src.length > 0, hits };
+  };
+  const e1 = entry('scripts/mutationtest.mjs', `if (!DRY) ${SW}ROOT, {`);
+  ok(e1.read && e1.hits === 1, `WT5 入口 mutationtest：開頭收拾那一行還在（讀到檔 ${e1.read}；找到 ${e1.hits} 行）——守形狀、不守行為`);
+  const e2 = entry('scripts/doctest.mjs', `${SW}ROOT);`);
+  ok(e2.read && e2.hits === 1, `WT5 入口 doctest：開頭收拾那一行還在（讀到檔 ${e2.read}；找到 ${e2.hits} 行）——守形狀、不守行為`);
+  const e3 = entry('scripts/gatemutants.mjs', `  ${SW}repo);`);
+  ok(e3.read && e3.hits === 1, `WT5 入口 gatemutants：開頭收拾那一行還在（讀到檔 ${e3.read}；找到 ${e3.hits} 行）——守形狀、不守行為`);
+  const e4 = entry('scripts/buildguard-verify.mjs', `  ${SW}repo);`);
+  ok(e4.read && e4.hits === 1, `WT5 入口 buildguard-verify：開頭收拾那一行還在（讀到檔 ${e4.read}；找到 ${e4.hits} 行）——守形狀、不守行為`);
+  // 對照：掃不到的檔要判成沒讀到（不是靜默通過）
+  const e0 = entry('scripts/沒有這支檔.mjs', SW);
+  ok(!e0.read && e0.hits === 0, `WT5（對照）掃不到的檔 → 讀到檔 ${e0.read}（上面四條因此會紅，不會被當成通過）`);
 }
 
 section('doctest 開 node 腳本的子程序都帶上限（2026-10-08，第 7 項：npm test 這條路沒有外層上限）');

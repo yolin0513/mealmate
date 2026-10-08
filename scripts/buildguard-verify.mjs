@@ -18,6 +18,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { sweep as sweepWorktrees, wtPrefix } from './worktreesweep.mjs';
 
 // 每一格（跑一次建置腳本）的上限：2026-10-08 在 HEAD 的拋棄式 worktree 實測 build-recipes 270–317 ms、build-foods 的失敗路徑 86 ms；
 // 60 秒＝190 倍以上的餘裕（餘裕一律用最長那次算、至少 3 倍）
@@ -153,7 +154,9 @@ function verify(rev, only) {
   // F9 第 1 點：登記前先斷言工作區那三支跟 HEAD 一模一樣。開跑前先講，不要跑完 7 分鐘才發現登記不了（跑完登記前還會再查一次）
   const dirtyNow = () => dirtyGuarded(repo);
   if (revFull === headAtStart && !only && dirtyNow().length) console.log(`登記｜先講｜工作區的 ${dirtyNow().join('、')} 跟 HEAD 不一樣：這一輪會跑，但跑完不會登記（先 commit 再跑）`);
-  const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-bg-'));
+  // 先收掉上一次被殺時留下的 worktree；這一次的名字帶建立者（PID＋建立時間），被殺時下一次的收拾認得出來（worktreesweep.mjs）
+  sweepWorktrees(repo);
+  const wt = fs.mkdtempSync(wtPrefix('bg'));
   fs.rmSync(wt, { recursive: true });
   execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', '--detach', wt, rev]);
   try {
