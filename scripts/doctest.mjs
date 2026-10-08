@@ -11,8 +11,9 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
 // 開 node 腳本的子程序一律帶上限（2026-10-08，第 7 項：npm test 這條路沒有任何外層上限，子程序卡住 doctest 就永遠不結束）。
-// doctest 整支實測最長 123 秒（2026-10-08，加了 WT5b 之後；機器上同時有別的專案在跑；jobrun 要結算之前 71 秒），任何一個子程序都不會超過它；
-// 420 秒＝3.4 倍餘裕（餘裕一律用最長那次算、至少 3 倍；240 → 300 → 360 → 420，每次照當時最長的那次訂）。逾時 → 那一條紅，不會卡住。**再長就要調**
+// doctest 整支實測最長 130 秒（2026-10-09 整批計時，經 Job、機器上沒有別的專案在跑；scripts/test-timings.json），任何一個子程序都不會超過它；
+// 420 秒＝3.2 倍餘裕（餘裕一律用最長那次算、至少 3 倍；240 → 300 → 360 → 420，每次照當時最長的那次訂）。逾時 → 那一條紅，不會卡住。
+// **doctest 超過 140 秒就要調**（420 ÷ 3）——上一次寫的 123 秒是有別的專案在跑時量的，之後 doctest 又加了幾節，機器空時反而量到 130
 // 已知限制：git 的小呼叫沒帶；逾時只殺直接那一支（不經 jobrun——經 jobrun 會讓 D18p 的探針繼承到中間那一層的 MM_JOBRUN）。
 const SUB_TIMEOUT_MS = 420000;
 import { fileURLToPath, pathToFileURL } from 'node:url';

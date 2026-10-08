@@ -2,191 +2,218 @@
  "note": "測試鏈逐支耗時（scripts/chaintime.mjs 寫，不手改）：每支最近一次量到的秒數、結束碼、日期、commit、via（怎麼量的）。執行器的時限照這裡的最長值算 3 倍餘裕。via 不同的不是同一把尺（經 Job 每支多約 1–2 秒）。",
  "tests": {
   "datatest": {
-   "seconds": 1.5,
+   "seconds": 2,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "aliastest": {
    "seconds": 1.3,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "unittest": {
-   "seconds": 1.5,
+   "seconds": 1.4,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "edutest": {
-   "seconds": 1.6,
+   "seconds": 1.7,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "recipetest": {
-   "seconds": 1.8,
+   "seconds": 2.3,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "copytest": {
-   "seconds": 1.6,
+   "seconds": 1.5,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "membertest": {
    "seconds": 1.3,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "nutritiontest": {
    "seconds": 1.3,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "plannertest": {
-   "seconds": 100.9,
+   "seconds": 83.5,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "shoppingtest": {
-   "seconds": 1.9,
-   "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
-  },
-  "timelinetest": {
    "seconds": 1.7,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
+  },
+  "timelinetest": {
+   "seconds": 1.3,
+   "code": 0,
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "shelltest": {
-   "seconds": 11.1,
+   "seconds": 13.2,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "familytest": {
-   "seconds": 22.5,
+   "seconds": 20.5,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "recipeviewtest": {
-   "seconds": 49.2,
+   "seconds": 46.7,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "backuptest": {
-   "seconds": 4.7,
+   "seconds": 3.6,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "weekviewtest": {
-   "seconds": 60.3,
+   "seconds": 56.6,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "shoppingviewtest": {
-   "seconds": 26.4,
+   "seconds": 24.9,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "todaytest": {
-   "seconds": 8.5,
+   "seconds": 7,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "racetest": {
-   "seconds": 33.2,
+   "seconds": 31.3,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "versionmixtest": {
-   "seconds": 31.9,
+   "seconds": 32.2,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "layouttest": {
-   "seconds": 107.2,
+   "seconds": 103.6,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "uikittest": {
-   "seconds": 18.2,
+   "seconds": 17.7,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "pwatest": {
-   "seconds": 7.2,
+   "seconds": 6.1,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "doctest": {
-   "seconds": 115.8,
+   "seconds": 130,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "redlinetest": {
-   "seconds": 14.3,
+   "seconds": 13.5,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   },
   "scenariotest": {
-   "seconds": 21,
+   "seconds": 19.3,
    "code": 0,
-   "date": "2026-10-08",
-   "commit": "f48b84aa2ff1",
-   "via": "經 Job"
+   "date": "2026-10-09",
+   "commit": "09e6a4058d85",
+   "via": "經 Job",
+   "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）"
   }
  },
  "lastRun": {
-  "date": "2026-10-08",
-  "commit": "f48b84aa2ff1",
+  "date": "2026-10-09",
+  "commit": "09e6a4058d85",
+  "machine": "量測時機器上沒有其他專案在跑（2026-10-09，Dispatch 確認其他 Session 都待機）",
   "scope": "整條測試鏈",
   "expected": 26,
   "measured": 26,

@@ -30,6 +30,11 @@ const chain = only ? fullChain.filter((n) => only.includes(n)) : fullChain;
 let commit = '';
 try { commit = execFileSync('git', ['-C', ROOT, 'rev-parse', '--short=12', 'HEAD'], { encoding: 'utf8', timeout: 60000 }).trim(); } catch { commit = '（取不到）'; }
 const date = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+// 量測時機器上有沒有別的專案在跑（2026-10-09，Dispatch）：別的專案在跑時，連不開瀏覽器的測試都變慢——這件事要記在資料裡，不只寫在 STATUS。
+// 只有明講 --machine-quiet（Dispatch 確認其他 Session 都待機）才記成「沒有其他專案在跑」；沒講就記「未確認」，不預設成乾淨
+const MACHINE = process.argv.includes('--machine-quiet')
+  ? `量測時機器上沒有其他專案在跑（${date}，Dispatch 確認其他 Session 都待機）`
+  : '未確認量測時機器上有沒有其他專案在跑';
 
 // 經 Job 跑（2026-10-08，Dispatch 准）：跟執行器同一套 runProgram（inJob＋要求結算行）——逾時被殺時，開瀏覽器的測試留下的瀏覽器
 // 跟著 Job 一起收掉（原本只殺直接那一支，瀏覽器會留下來）。耗時照樣自己量（精確到 0.1 秒；runProgram 的秒數是整數）。
@@ -53,12 +58,15 @@ try { doc = JSON.parse(fs.readFileSync(OUT, 'utf8')); } catch { /* 第一次：�
 doc.note = '測試鏈逐支耗時（scripts/chaintime.mjs 寫，不手改）：每支最近一次量到的秒數、結束碼、日期、commit、via（怎麼量的）。執行器的時限照這裡的最長值算 3 倍餘裕。via 不同的不是同一把尺（經 Job 每支多約 1–2 秒）。';
 // 改經 Job 之前量的（沒有 via）標成「未經 Job」——不跟新量的混在同一張表裡不說明
 for (const t of Object.values(doc.tests ?? {})) if (!t.via) t.via = '未經 Job（2026-10-08 第一輪，chaintime 改經 Job 之前）';
-for (const r of results) if (r.code === 0) doc.tests[r.name] = { seconds: r.seconds, code: r.code, date, commit, via: VIA };
-doc.lastRun = { date, commit, scope: only ? `只量 ${chain.join('、')}` : '整條測試鏈', expected: chain.length, measured: measured.length, notOk: notOk.map((r) => `${r.name}（${r.code}）`), missing };
+// 加 machine 欄之前量的：照實標成可能受污染（2026-10-08 那一輪量的時候 CertQuiz 等別的專案在跑）
+for (const t of Object.values(doc.tests ?? {})) if (!t.machine) t.machine = '可能受污染：加這一欄之前量的（2026-10-08 那一輪，量的時候有別的專案在跑）';
+for (const r of results) if (r.code === 0) doc.tests[r.name] = { seconds: r.seconds, code: r.code, date, commit, via: VIA, machine: MACHINE };
+doc.lastRun = { date, commit, machine: MACHINE, scope: only ? `只量 ${chain.join('、')}` : '整條測試鏈', expected: chain.length, measured: measured.length, notOk: notOk.map((r) => `${r.name}（${r.code}）`), missing };
 fs.writeFileSync(OUT, `${JSON.stringify(doc, null, 1)}\n`);
 
 const total = Math.round(results.reduce((a, r) => a + r.seconds, 0));
 console.log(`\n量到 ${measured.length} 支／應該有 ${chain.length} 支（${only ? `這次指定的；整條鏈 ${fullChain.length} 支` : '測試鏈'}）；合計 ${total} 秒${notOk.length ? `；沒過 ${notOk.length} 支：${notOk.map((r) => `${r.name}（${r.code}）`).join('、')}` : ''}${missing.length ? `；缺 ${missing.length} 支：${missing.join('、')}` : ''}`);
+console.log(`量測時的機器：${MACHINE}`);
 const vias = {}; for (const t of Object.values(doc.tests)) vias[t.via] = (vias[t.via] ?? 0) + 1;
 console.log(`寫進 ${path.relative(ROOT, OUT)}；表裡 ${Object.keys(doc.tests).length} 支，怎麼量的：${Object.entries(vias).map(([v, n]) => `${v} ${n} 支`).join('、')}${Object.keys(vias).length > 1 ? '——兩種尺混在一起，比較時限餘裕時要分開看' : ''}`);
 process.exit(measured.length === chain.length && !missing.length ? 0 : 1);
