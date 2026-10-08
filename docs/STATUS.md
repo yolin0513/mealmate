@@ -7,7 +7,7 @@
 ## 目前進行中／交接（2026-09-25 收尾，寫給下一個 Session）
 
 **2026-10-08 復工（Yolin 指示恢復；10-05 起暫停）——接手先讀這一段**
-- **現況（10-08 最新）**：第 1–6 項做完；第 7 項第一、二段做完（第二段：執行器、閘門驗法、resume-verify 接上 Job），細節見下面待辦第 7 項。37 條入口驗證已在人造帳本上結掉（只結傳遞邏輯，見第 7 項）。外部監看第二版已搬進 `scripts/memwatch.mjs`（第 7 項第三段）；`npm test` 路徑與 buildguard-verify 的逾時做完（第四段）；逐一計數與結束核對做完（第五段）。下一步：第 7 項剩下的（被收掉那一層的 worktree、短逾時對照組重算）。
+- **現況（10-08 最新）**：第 1–6 項做完；第 7 項第一、二段做完（第二段：執行器、閘門驗法、resume-verify 接上 Job），細節見下面待辦第 7 項。37 條入口驗證已在人造帳本上結掉（只結傳遞邏輯，見第 7 項）。外部監看第二版已搬進 `scripts/memwatch.mjs`（第 7 項第三段）；`npm test` 路徑與 buildguard-verify 的逾時做完（第四段）；逐一計數與結束核對做完（第五段）。被殺那一層的 worktree（第六段）、短逾時重算（第七段，含測試鏈逐支計時）也做完——**第 7 項全部做完**。下一步：第 8 項「判定器的結算行」（被外力停掉的測試不能被當成跑完）＋回頭掃帳本。
 - **線上版本 `mealmate-v0.42.0`（A 方案）維持不動**（這一段只動測試工具與文件，沒有 bump）。
 - **第 1 項（推送閘門鎖定 commit＋逾時）做完了**：`d616dc2`（閘門、自查、驗法、gatemutants）＋`7ac686b`（gatemutants 的 `--only` 接受 `|` 分開的多個關鍵字）。
   - 做法：`scripts/pushgate.sh` 一開頭記下 `LOCK_SHA`；自查（`selfcheck.mjs --head`）只掃到它、推送只推它（`LOCK_SHA:refs/heads/main`）、第三關拿遠端跟它比；推送前、推送後各查一次 HEAD 有沒有動，動了回 9（新的回傳值）。取遠端 120 秒、自查 300 秒、推送 120 秒、問遠端 60 秒的逾時，用寫死的 `/usr/bin/timeout`（Windows 有一支同名不同用法的 `timeout.exe`），找不到就停。
@@ -161,11 +161,13 @@
      - **為什麼「查不到程序清單就一個都不收」是整張表最重要的一格（Dispatch 要寫明理由）**：把「查不到」當成「已經死了」，一次查詢失敗就會變成刪掉別人正在用的 worktree，而且刪完看起來像正常收拾。跟 stale 是同一個判斷——**兩種情況在輸出上長得一樣時，選不動手的那一邊。** **後果量過**：突變「查不到程序清單就當成全部已死」實跑時，WT3 記到**收了 4 個——包括建立者還活著、正在用的那一個**。這條突變不只證明斷言會紅，還量出了後果的大小；將來有人想簡化這一格的判斷，看到的應該是「會刪掉別人正在用的 worktree」，不是一條抽象規則。
      - **四個入口有沒有真的呼叫收拾**：補了一道便宜的擋（Dispatch 要的）——doctest WT5 掃四支入口檔，每一支都要剛好有它入口那一行特定的呼叫寫法（doctest 自己的 WT2 也呼叫收拾，只找「有沒有呼叫」會被 WT2 那幾行騙過——又是量測與被量共用來源，所以每支找它入口那一行的寫法），四支各自要讀得到（掃不到檔＝紅，對照組證明）；突變 4 條各拿掉一支的呼叫，各自只紅點名那一支的那一條。**這道擋的強度（Dispatch 要標明）：它守的是「呼叫這行字還在」，不是「收拾真的在開頭跑過」**——呼叫被移到不會執行的分支裡、或被包在不成立的條件下，掃描照樣綠。**形狀的檢查寫成形狀的檢查，不升級成行為的保證。** 守行為要造「上一層被殺、留下 worktree、再從入口開跑」那個情境——**待辦，照原樣掛著**。
      - 附帶：doctest 從 88 秒漲到 96 秒，子程序上限 300 秒＝3.1 倍（說明已改；再長就要調）。寫 WT1b 時用了模板字串裡的雙反斜線，被 doctest 的 S1（雙反斜線掃描）擋下，改用 `path.join`——閘門在做它該做的事。
-     **（2026-10-08 第七段：重算短逾時的對照組——盤點做完，有一項要量）**
+     **（2026-10-08 第七段做完：重算短逾時的對照組；第 7 項全部做完）**
      - Job 的負擔：建 Job 約 0.85 秒＋結束前要結算 0.3 秒以上，每次約 1–2 秒。
      - **經 Job 的短時限只在 jobtest**：第 176 行 8 秒（`runProgram` 逾時情境，本來就要它逾時；被測程式睡 60 秒；要緊的是逾時前 bash 已經開好 sleep——有前提斷言守著，開不起來就紅、不會靜默過）、第 130 行 30 秒、第 199 行 60 秒（工作量都是幾秒）——夠。doctest 的 3 秒／0.7 秒那幾個刻意不經 Job，不受影響。doctest 開 node 子程序的上限 300 秒（第四、六段已照實測重算，3.1 倍）。
      - **執行器給每支測試的時限 vs 帳本裡實測最長的一次（加 2 秒 Job 負擔；`.logs/timeout-margins.mjs`，對照組：時限 600、最長 300 必須判不到 3 倍）**：有秒數、算數的紀錄 416 筆，涵蓋 29 支裡的 9 支，**全部 3 倍以上**——最緊的是 resume-verify（時限 900、最長 263，3.4 倍）、assertaudit（2700／522，5.2 倍）、doctest（600／100，5.9 倍）。recipetest 記到「最長 0 秒」是四捨五入（它不到半秒）。
-     - **另外 20 支在帳本裡沒有秒數**（aliastest、backuptest、copytest、datatest、edutest、familytest、layouttest、membertest、nutritiontest、plannertest、pwatest、racetest、scenariotest、shoppingtest、shoppingviewtest、timelinetest、todaytest、uikittest、unittest、weekviewtest）——帳本 515 條沒記秒數那一批的測試。唯一的來源是 10-02 `npm test` 整支 499 秒，只能推出「每支不超過 499 秒」——對 600 秒時限只有 1.2 倍，**證明不了 3 倍**。要逐支量（跑一次等同 `npm test` 的鏈、逐支計時；含 13 支瀏覽器測試，約 9 分鐘，重負載）——等 Dispatch 許可。
+     - **另外 20 支在帳本裡沒有秒數**（aliastest、backuptest、copytest、datatest、edutest、familytest、layouttest、membertest、nutritiontest、plannertest、pwatest、racetest、scenariotest、shoppingtest、shoppingviewtest、timelinetest、todaytest、uikittest、unittest、weekviewtest）——帳本 515 條沒記秒數那一批的測試。唯一的來源是 10-02 `npm test` 整支 499 秒，只能推出「每支不超過 499 秒」——對 600 秒時限只有 1.2 倍，**證明不了 3 倍**（Dispatch：1.2 倍不是「大概夠」，是「沒有餘裕」；整支的總和當單支上界，幾乎沒有資訊）。
+     - **量了（Dispatch 核准）**：新增 `scripts/chaintime.mjs`——依 package.json 的測試鏈逐支依序跑、計時，寫進 `scripts/test-timings.json`（耗時數字進版控；不混進突變帳本，那份以突變名稱為鍵、有自己的格式與孤兒檢查），**輸出印「量到幾支／應該有幾支」**，缺的、沒過的逐支點名，有缺就回非 0；`--only a,b` 只重量指定的幾支。結果：**量到 26 支／應該有 26 支**，全部通過，合計 574 秒。最長：layouttest 103.1、doctest 95.3、plannertest 85.2（重量值，見下）、weekviewtest 56.9、recipeviewtest 45.7 秒。**全部 29 支（加上帳本裡的 resume-verify、assertaudit 等）都在 3 倍以上**——最緊的是 resume-verify 3.4 倍（帳本 263 秒）、其次 layouttest 600／(103＋2)＝5.7 倍——**不需要調時限**。
+     - **計時途中我誤開了一次突變執行器（違反）**：查「哪些受測程式不用 tap」時用了 `node -e "require('./scripts/mutationtest.mjs')"`——新版 Node 會直接執行它（頂層就是一整場「只跑受影響的」），它開了資源紀錄、經 jobrun 開了一支基準測試；約 2 分鐘後我發現、停掉。查了：沒有被改壞的原始碼、沒有還原紀錄、帳本沒有 inflight、它開的子程序都不在（它還停在跑基準的階段）。後果：它跟計時重疊（資源紀錄 17:17:25–17:19:27，計時 17:16:35 起），用逐支累計秒數推回去，重疊的是 plannertest、shoppingtest、timelinetest、shelltest、familytest、recipeviewtest、backuptest——這 7 支用 `--only` 重量（159 秒，7／7）：plannertest 98.9 → **85.2 秒**（被拉高約 16%），其餘差不到 1 秒；`test-timings.json` 存的是重量值。**教訓：不要 import／require 一支腳本來「查它的內容」——有頂層程式的腳本會真的跑起來**；這也是「比對一律用工具、不經 shell」那一條（又用了 `node -e`）。
   8. 判定器的結算行（**還沒有**：現在只看結束碼與行首 ✗，被外力停掉的會被當成跑完）＋回頭掃帳本（515 條沒記秒數，掃不到的照實寫；改走「接近逾時的測試上的突變」與「結束方式不是斷言卻被算數」）。
   9. 暫存複本盤點（留了幾個、最早哪天、有沒有東西發現、名稱帶不帶建立者程序編號）。
   10. v11.6 工單的 22 條（副本 `docs/SPEC_共用慣例更新_v11.md` 已在 f8261d7 進版控，CONVENTIONS 副本還沒更新）。

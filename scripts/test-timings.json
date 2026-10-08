@@ -1,0 +1,170 @@
+{
+ "note": "測試鏈逐支耗時（scripts/chaintime.mjs 寫，不手改）：每支最近一次量到的秒數、結束碼、日期、commit。執行器的時限照這裡的最長值算 3 倍餘裕。",
+ "tests": {
+  "datatest": {
+   "seconds": 0.1,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "aliastest": {
+   "seconds": 0.1,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "unittest": {
+   "seconds": 0.2,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "edutest": {
+   "seconds": 0.1,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "recipetest": {
+   "seconds": 0.3,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "copytest": {
+   "seconds": 0.2,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "membertest": {
+   "seconds": 0.1,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "nutritiontest": {
+   "seconds": 0.1,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "plannertest": {
+   "seconds": 85.2,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "shoppingtest": {
+   "seconds": 0.5,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "timelinetest": {
+   "seconds": 0.1,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "shelltest": {
+   "seconds": 6,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "familytest": {
+   "seconds": 19.4,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "recipeviewtest": {
+   "seconds": 45.7,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "backuptest": {
+   "seconds": 2.6,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "weekviewtest": {
+   "seconds": 56.9,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "shoppingviewtest": {
+   "seconds": 24,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "todaytest": {
+   "seconds": 6,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "racetest": {
+   "seconds": 30.3,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "versionmixtest": {
+   "seconds": 30,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "layouttest": {
+   "seconds": 103.1,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "uikittest": {
+   "seconds": 16.6,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "pwatest": {
+   "seconds": 5.3,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "doctest": {
+   "seconds": 95.3,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "redlinetest": {
+   "seconds": 12.4,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  },
+  "scenariotest": {
+   "seconds": 18.2,
+   "code": 0,
+   "date": "2026-10-08",
+   "commit": "fe81f37b9673"
+  }
+ },
+ "lastRun": {
+  "date": "2026-10-08",
+  "commit": "fe81f37b9673",
+  "scope": "只量 plannertest、shoppingtest、timelinetest、shelltest、familytest、recipeviewtest、backuptest",
+  "expected": 7,
+  "measured": 7,
+  "notOk": [],
+  "missing": []
+ }
+}
