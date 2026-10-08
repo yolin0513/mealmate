@@ -19778,8 +19778,65 @@
     "seconds": 57
    },
    "lastFull": null
+  },
+  "Job：不放進 Job（照樣印 JOB-OK）": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "97bfac163866+dirty",
+    "mode": "only",
+    "defHash": "a209bed78b5e491343fd040d3d437b2f29baa6738effb59c858ba8bd30ee0b8e",
+    "depHash": "ed315957b4708186a45c615a5632b1d5caba3c7937723b75a0251a6150e13ab3",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 5,
+    "expectHits": 1,
+    "seconds": 42
+   },
+   "lastFull": null
+  },
+  "Job：不等 JOB-OK 就開指令": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "97bfac163866+dirty",
+    "mode": "only",
+    "defHash": "3592e70babd35edc840be051baf98ddbd006cd620c5127944c81f86083b6a912",
+    "depHash": "ed315957b4708186a45c615a5632b1d5caba3c7937723b75a0251a6150e13ab3",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 5,
+    "expectHits": 1,
+    "seconds": 41
+   },
+   "lastFull": null
+  },
+  "Job：准許子孫靜默脫離": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "97bfac163866+dirty",
+    "mode": "only",
+    "defHash": "368af55269f9679117bb1b4ef88bfcbc7bb03e3dfdb58b32a2544cceaa8179a3",
+    "depHash": "ed315957b4708186a45c615a5632b1d5caba3c7937723b75a0251a6150e13ab3",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 5,
+    "expectHits": 1,
+    "seconds": 42
+   },
+   "lastFull": null
   }
  },
- "runSeq": 23,
+ "runSeq": 24,
  "inflight": null
 }

@@ -4901,6 +4901,36 @@ const MUTATIONS = [
     test: "doctest",
     expect: "受影響 D17c ",
   },
+  // ---- 2026-10-08：Job Object（scripts/jobhelper.ps1、jobrun.mjs；node scripts/jobtest.mjs）——抄自 StockDiary，突變照它的三條 ----
+  // 拿掉 0x2000（KILL_ON_JOB_CLOSE）：**推論**是等價突變——包裝層是 node，Node 自己的 Job（父程序結束就連帶殺）會補上；
+  // 這是 StockDiary 實測＋推論的結論，MealMate 沒有自己實測過，所以不列。**將來包裝層不是 node 時要回頭補這一條**（那時它該紅）
+  {
+    name: "Job：不放進 Job（照樣印 JOB-OK）",
+    why: "協助程序說放好了、其實沒放——之後開的子孫都不在 Job 裡，逾時只殺得到直接那一支。",
+    file: "scripts/jobhelper.ps1",
+    find: "    if (!AssignProcessToJobObject(job, p)) return \"AssignProcessToJobObject 失敗 \" + Marshal.GetLastWin32Error();",
+    replace: "    // 沒有放進去",
+    test: "jobtest",
+    expect: "Job・Git Bash：經 jobrun，殺掉最外層",
+  },
+  {
+    name: "Job：不等 JOB-OK 就開指令",
+    why: "順序反過來：指令跟協助程序賽跑，被放進 Job 之前開出來的子孫在 Job 外面——平常看不出來。",
+    file: "scripts/jobrun.mjs",
+    find: "  let started = false;",
+    replace: "  let started = true; runIt();",
+    test: "jobtest",
+    expect: "Job・Git Bash：經 jobrun，殺掉最外層",
+  },
+  {
+    name: "Job：准許子孫靜默脫離",
+    why: "加了 SILENT_BREAKAWAY_OK：detached 開的子孫直接脫離 Job，殺最外層殺不到它。",
+    file: "scripts/jobhelper.ps1",
+    find: "    info.Basic.LimitFlags = 0x2000;",
+    replace: "    info.Basic.LimitFlags = 0x2000 | 0x1000;",
+    test: "jobtest",
+    expect: "Job・detached：經 jobrun，殺掉最外層",
+  },
   // ---- 2026-10-08：共用複本的雜訊——突變進行中造成的 STALE 標成不計入（doctest SP1、SP2）----
   {
     name: "共用複本雜訊：突變進行中照樣算 STALE",

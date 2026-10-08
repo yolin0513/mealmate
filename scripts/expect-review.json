@@ -1426,6 +1426,21 @@
    "n": 68,
    "hash": "06ce5824fe69b38d"
   },
+  "Job：不放進 Job（照樣印 JOB-OK）": {
+   "test": "jobtest",
+   "n": 15,
+   "hash": "1f573b3bdc560319"
+  },
+  "Job：不等 JOB-OK 就開指令": {
+   "test": "jobtest",
+   "n": 15,
+   "hash": "1f573b3bdc560319"
+  },
+  "Job：准許子孫靜默脫離": {
+   "test": "jobtest",
+   "n": 15,
+   "hash": "1f573b3bdc560319"
+  },
   "layouttest 不再自己造「數量比一整行寬」的列": {
    "test": "layouttest",
    "n": 109,
