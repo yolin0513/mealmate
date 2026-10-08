@@ -192,6 +192,23 @@
      **補了一道每次都跑的擋（Dispatch 要的）**：`scripts/convcheck.mjs`＋doctest CV1–CV3——副本（`docs/CONVENTIONS.md`）跟主檔（統籌工作區的 `CONVENTIONS.md`，路徑用相對於 repo 根目錄的 `../../Fable_Planner/CONVENTIONS.md` 登記，不寫本機絕對路徑）比：版本行不同＝紅、版本相同但全文不同＝紅、**讀不到主檔＝紅（講明讀不到，不當成通過）**。先確認副本與主檔是兩個不同的實體檔（不是拿自己比自己）；比對器的對照組用副本的真實內容造（原樣→一致、只改版本行→版本不同、內文改一個字→全文不同、主檔讀不到→讀不到主檔）。突變 3 條（678 條），全部紅在預期那一條（兩批在前景，304＋203 秒）：不看版本行→CV1、讀不到主檔當成一致→CV3、只比版本行不比全文→CV1。**這一道比「抽取正確性」重要：抽得對但抽的是舊版，照樣全錯。** **主檔位置：由 Dispatch 於 2026-10-08 這一輪確認**——統籌工作區的 `CONVENTIONS.md`（本 repo 根目錄往上兩層的 `Fable_Planner/`）就是主檔，這是專案既定的安排（原本是我從內容推斷的，現在是已確認）；搬家了就改 `convcheck.mjs` 的 `MASTER_REL`。已知代價（保留）：換一台沒有統籌工作區的機器，doctest 會紅（讀不到主檔）——靜默跳過的版本比對等於沒有版本比對，紅了至少會有人問為什麼。
      **跨專案的觀察（只讀，不碰、不查原因；Dispatch 會另外處理）**：怎麼看到的——2026-10-08 在本 repo 根目錄讀了這幾支檔**工作區**的第一行（沒有看它們的 git HEAD、沒有讀其他內容）：`../JLPT_App/docs/CONVENTIONS.md`、`../StockDiary/docs/CONVENTIONS.md`、`../TripQuest/docs/CONVENTIONS.md` 三支都是 `<!-- CONVENTIONS v9 2026-09-24 -->`；`../RentCheck/docs/CONVENTIONS.md` 是 v11.6；主檔是 v11.6。各專案自己複查：讀自己那支的第一行，跟主檔第一行比。
      第 2–6 步：照工單「你這一列」逐項對照已寫的程式，缺的補；重負載照例先要許可。
+     **（2026-10-08 第 2–6 步盤點，只讀）** 10-02 已照 v11～v11.3 做過一次（下面「共用慣例副本更新到 v11」那一節：2a–2g 的表、§5.12 對照表、3a–3e、第 4 步機制表、第 5 步三條），這次只補 v11.4–v11.6 新加的要求：
+     - **v11.6　3a 加「殺程序靠什麼」**：
+       | 位置 | 殺法 | 依據 |
+       |---|---|---|
+       | 執行器跑測試逾時（`runProgram` inJob） | 停 jobrun（handle）→ Job 關閉收整棵樹 | jobtest「接到執行器」實測 |
+       | gatemutants 開閘門驗法 | 同上（經 jobrun） | 第 7 項第二段 |
+       | resume-verify 中途殺執行器 | `child.kill('SIGKILL')`（handle）→ 執行器底下的 jobrun 看到父程序不在、Job 關閉 | jobtest「停掉 jobrun 的父程序」實測 |
+       | 外部監看觸發 | `taskkill /PID`（不帶 /T）只停認得的執行器（PID＋名稱＋建立時間）→ 同上 | memwatchtest T1b 實測（假執行器） |
+       | doctest 子程序逾時、buildguard-verify 每格逾時 | 只殺直接那一支（handle） | 刻意（見第四段的取捨）；建置腳本不開子孫 |
+       | **chaintime 每支逾時** | **只殺直接那一支——開瀏覽器的測試逾時時，瀏覽器會留下來**（不經 Job） | 讀程式；**發現，修不修等 Dispatch**（改用 `runProgram` 的 inJob 即可） |
+       | **memwatchtest 收尾** | **`taskkill /T /F`——靠父程序編號往下找** | 收尾後有斷言「暫存資料夾的程序 0 支」守著；它開的只有 node、不經 bash，目前沒漏。**照 v11.6 的驗法實測（`.logs/taskkill-tree-probe.mjs`，秒級）：node 經 Git Bash 開 2 支 sleep，`taskkill /T /F` 停掉 node 之後 2 支照樣活著**——JLPT 的發現在本機重現。寫法本身是不安全的那一種；改不改等 Dispatch |
+       | jobtest 的對照組收尾 | 照指令列＋名稱找（`Stop-Process`） | 只掃它自己帶標記的 sleep／node |
+     - **v11.6　互為備援的配對**（單獨拿掉任一道不會紅）：① D18p 的「env 刪 `MM_JOBRUN`」與「記到的值不等於上一層」（第二段已寫明是等價突變）；② jobhelper 的 `KILL_ON_JOB_CLOSE` 與 Node 自己的 Job（第一段：推論的等價突變）；③ `parseJobSum` 的 `peakok=yes` 與 `stale === 0`（兩欄同一個來源）；④ 外部監看停之前的兩次身分確認（找執行器時、停之前再查一次）。**v11.6 要求的三件——兩段程式旁各寫一行、配一條「兩道一起拿掉」的突變、STATUS 列出——①② 已寫說明、③④ 還沒；四組都還沒有「兩道一起拿掉」的突變。** 等 Dispatch 排（突變是重負載）。
+     - **v11.5（§5.21–§5.23）再查一輪**：統計從紀錄逐行數——runprogress 從 log 逐行數、另跟帳本那一側獨立核對（10-02 那場 158＝158），evidence.mjs 的列數＝執行器「選了 N 條」；**乘出來／減出來：runprogress 的「三類相加＝計畫條數」是恆等式**（沒輪到的是從計畫名單走出來的，相加必然相等——10-02 已記成「不是檢查」，但那一行還在；照 §5.21「擋不住的檢查改掉或移除，不靠註解」，**發現，修不修等 Dispatch**）；預期——過期（A2、執行器開跑前）、歧義（expectambiguity、戳記拒絕有歧義的）有，**事前／事後標記沒有**（發現）；峰值逐一計數（第 7 項第五段）、認子程序看建立時間（reslog R4、memwatch、worktreesweep）、殺程序有清單（memwatch 只停認得的執行器、jobtest 只掃帶標記的）；裸寫的 `bash`：搜 `spawn('bash'`／`spawnSync('bash'`／`execFileSync('bash'`／`['bash'`／`"bash"`，只命中 gatemutants 的 `resolveBash`（找完整路徑、排除 WSL 用的）——**在這些樣式範圍內未見裸寫**。
+     - **v11.4**：暫存複本讀回確認（doctest D18／WS／AR 的 `verifyCopies`、memwatchtest 的前提斷言）、結果類別錨定在行首（`failLine` 只認行首 ✗）、「情境未成立」獨立一類、逾時與崩潰不算數（runkind；今天加了「沒跑完」）——都已有，依據在各自的段落；證據檔逐項、從 `.logs/` 重新產生（evidence.mjs，7-2）。
+     - **第 5 步　v10 三條的現況**：§5.11 每個 commit 單獨是綠的——**做法上照做**（今天每個 commit 前都跑 doctest＋copytest；第 9 項那次還為此改了 commit 順序），**沒有機器檢查**，尚未符合、等交辦；§6.5 用腳本改文件的兩道擋——尚未符合（沒有共用工具），等交辦；§5.12 每條突變寫明預期——678 條裡 348 條帶 `expect`，新寫的全部帶，尚未符合、等交辦。
+     - **待跑清單（U8）**：上面四組互為備援的「兩道一起拿掉」突變（約 4 條、doctest／jobtest 類，各 3–5 分鐘）；chaintime 改 inJob、memwatchtest 收尾改經 Job、runprogress 的恆等式——都等 Dispatch 決定修不修。
 - 規則（Dispatch 2026-10-02）：長跑進行中不得寫那個 repo 的工作區；工單或授權只寫「秒級／輕量」沒附數字的，先回程序數與預估耗時；逾時餘裕一律用最長那次算、不到 3 倍就調；要比對、要寫檔一律用工具，不經 shell（今天我仍違反了兩次）。
 
 **正式那場（2026-10-02 14:52 起，commit d27f148；計畫 180 條）——中途紀錄**
