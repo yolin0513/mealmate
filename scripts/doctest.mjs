@@ -11,10 +11,10 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
 // 開 node 腳本的子程序一律帶上限（2026-10-08，第 7 項：npm test 這條路沒有任何外層上限，子程序卡住 doctest 就永遠不結束）。
-// doctest 整支實測最長 100 秒（2026-10-08，加了結算行 RF、D18k2 之後；jobrun 要結算之前 71 秒），任何一個子程序都不會超過它；
-// 360 秒＝3.6 倍餘裕（餘裕一律用最長那次算、至少 3 倍；240 → 300 → 360，每次照當時最長的那次訂）。逾時 → 那一條紅，不會卡住。**再長就要調**
+// doctest 整支實測最長 123 秒（2026-10-08，加了 WT5b 之後；機器上同時有別的專案在跑；jobrun 要結算之前 71 秒），任何一個子程序都不會超過它；
+// 420 秒＝3.4 倍餘裕（餘裕一律用最長那次算、至少 3 倍；240 → 300 → 360 → 420，每次照當時最長的那次訂）。逾時 → 那一條紅，不會卡住。**再長就要調**
 // 已知限制：git 的小呼叫沒帶；逾時只殺直接那一支（不經 jobrun——經 jobrun 會讓 D18p 的探針繼承到中間那一層的 MM_JOBRUN）。
-const SUB_TIMEOUT_MS = 360000;
+const SUB_TIMEOUT_MS = 420000;
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX, whitespaceOnly } from './checkmutations.mjs';
@@ -1853,6 +1853,41 @@ section('被殺的那一層留下的 worktree：建立者已死的收掉、活�
     const missingAllowed = Object.keys(allowed).filter((f) => !hits[f]);
     ok(files.length >= 50 && bad.length === 0 && missingAllowed.length === 0,
       `BL1 直接開瀏覽器的只有登記的兩處（掃了 ${files.length} 支；不該出現的：${bad.join('、') || '（沒有）'}；登記了卻沒命中的：${missingAllowed.join('、') || '（沒有）'}）`);
+  }
+  // WT5b（2026-10-08，WT5 的行為情境——WT5 只守「那行字還在」）：上一層被殺、留下 worktree、再從真實入口開跑，入口要真的收掉它。
+  // 上一層：一支子程序照正式的命名法（ownername.wtPrefix：名字帶自己的 PID＋建立時間）在這個 repo 建 worktree，然後被 taskkill /F 停掉。
+  // 入口：gatemutants --check-only（開頭先收拾、再只查預期清單，幾秒）。兩個獨立來源：worktree 是那支被殺的子程序建的、死活是真的殺掉的
+  if (process.platform === 'win32') {
+    const flag = path.join(os.tmpdir(), `wt5b-${process.pid}-${Date.now()}.txt`);
+    const ownerUrl = pathToFileURL(path.join(ROOT, 'scripts', 'ownername.mjs')).href;
+    const layer = `import fs from 'node:fs'; import { execFileSync } from 'node:child_process'; import { wtPrefix } from ${JSON.stringify(ownerUrl)};
+const dir = fs.mkdtempSync(wtPrefix('wtprobe')); fs.rmSync(dir, { recursive: true });
+execFileSync('git', ['-C', ${JSON.stringify(ROOT)}, 'worktree', 'add', '-q', '--detach', dir, 'HEAD']);
+fs.writeFileSync(${JSON.stringify(flag)}, dir); setTimeout(() => {}, 120000);`;
+    const child = spawn(process.execPath, ['--input-type=module', '-e', layer], { stdio: 'ignore' });
+    let wt = null;
+    try {
+      for (let i = 0; i < 60 && !fs.existsSync(flag); i += 1) await new Promise((r) => setTimeout(r, 500));
+      wt = fs.existsSync(flag) ? fs.readFileSync(flag, 'utf8').trim() : null;
+      try { execFileSync('taskkill', ['/PID', String(child.pid), '/F'], { stdio: 'ignore', timeout: 60000 }); } catch { /* 下面驗 */ }
+      await new Promise((r) => setTimeout(r, 800));
+      const norm = (p) => path.resolve(p).toLowerCase();
+      const childAlive = (() => { try { process.kill(child.pid, 0); return true; } catch { return false; } })();
+      const before = wt ? tempWorktrees(ROOT).map(norm).includes(norm(wt)) : false;
+      ok(!!wt && before && !childAlive && ownerOf(wt)?.pid === child.pid,
+        `（前提）WT5b 上一層建了 worktree（名字帶它的 PID ${ownerOf(wt ?? '')?.pid ?? '讀不出'}）、被 taskkill /F 停掉了（還活著：${childAlive}）、worktree 留下來了（${before}）`);
+      const r = spawnSync(process.execPath, ['scripts/gatemutants.mjs', '--check-only'], { cwd: ROOT, encoding: 'utf8', timeout: SUB_TIMEOUT_MS });
+      const outText = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+      const sweptLine = outText.split('\n').find((l) => l.includes('worktree 收拾：收掉')) ?? '';
+      const after = wt ? tempWorktrees(ROOT).map(norm).includes(norm(wt)) : true;
+      ok(!!wt && sweptLine.includes(path.basename(wt)) && !after && !fs.existsSync(wt),
+        `WT5b 從真實入口（gatemutants --check-only）開跑 → 上一層被殺時留下的 worktree 被收掉了（入口印：${sweptLine.trim().slice(0, 100) || '（沒有收掉的那一行）'}；清單裡還在：${after}）——守行為、不只守形狀`);
+    } finally {
+      try { child.kill(); } catch { /* 已經不在 */ }
+      if (wt) { spawnSync('git', ['-C', ROOT, 'worktree', 'remove', '--force', wt], { timeout: 60000 }); fs.rmSync(path.dirname(wt).includes('mm-wtprobe-') ? path.dirname(wt) : wt, { recursive: true, force: true }); }
+      spawnSync('git', ['-C', ROOT, 'worktree', 'prune'], { timeout: 60000 });
+      fs.rmSync(flag, { force: true });
+    }
   }
   // 對照：掃不到的檔要判成沒讀到（不是靜默通過）
   const e0 = entry('scripts/沒有這支檔.mjs', SW);

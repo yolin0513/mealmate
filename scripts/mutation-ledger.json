@@ -20728,8 +20728,27 @@
     "seconds": 121
    },
    "lastFull": null
+  },
+  "worktree 收拾：gatemutants 的呼叫還在、但不會執行": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "d5202166c1d1+dirty",
+    "mode": "only",
+    "defHash": "387fed88fe0f164a29c2771c6c22794e5c0c9232a482d194936c4ffeb9f7e640",
+    "depHash": "8ab3e346f3bd592dfdaeac1ed86030948653f88592d98ce21f03863f5245efba",
+    "runnerHash": "193db65627e6b9228e54f01a38af98814006329ed71fa7254ae120a854ccf16d",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 136
+   },
+   "lastFull": null
   }
  },
- "runSeq": 51,
+ "runSeq": 52,
  "inflight": null
 }

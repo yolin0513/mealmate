@@ -5117,6 +5117,15 @@ const MUTATIONS = [
     expect: "WT5 入口 gatemutants",
   },
   {
+    name: "worktree 收拾：gatemutants 的呼叫還在、但不會執行",
+    why: "呼叫那一行一字不差、從行首看起來還在（WT5 的形狀檢查照樣綠），前面卻多了一個不成立的條件——收拾從此不跑。只有行為情境抓得到。",
+    file: "scripts/gatemutants.mjs",
+    find: "  sweepWorktrees(repo);   // 上一次被殺時",
+    replace: "  if (false)\n  sweepWorktrees(repo);   // 上一次被殺時",
+    test: "doctest",
+    expect: "WT5b 從真實入口",
+  },
+  {
     name: "worktree 收拾：buildguard-verify 開頭不收拾",
     why: "buildguard-verify 被殺時留下的 worktree，下一次不收。",
     file: "scripts/buildguard-verify.mjs",
