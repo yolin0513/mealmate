@@ -77,14 +77,19 @@ export const CASES = [
   { label: '擋法表｜14 沒有登記檔 → 拿掉（隱式：被比對接住、理由不對）', find: 'if [ ! -f "$REG" ]; then', replace: 'if false; then', expect: ['14'] },
   { label: '擋法表｜共同的一環：第零關之二的比對（15、19 共用；15 本身就是這一環）→ 拿掉', find: '  if [ "$(cat "$BGREG")" != "$(printf \'%s\' "$bgcur")" ]; then', replace: '  if false; then', expect: ['15', '19'] },
   { label: '擋法表｜16 沒有 F8 的登記檔 → 拿掉（隱式：被比對接住、理由不對）', find: '  if [ ! -f "$BGREG" ]; then', replace: '  if false; then', expect: ['16'] },
-  { label: '擋法表｜共同的一環：自查放行（5、6 要先過自查才走得到推送那一關；7、12、17、18、22 要推得上去）→ 自查一律判不通過', file: 'scripts/selfcheck.mjs', find: '  return ok;', replace: '  return false;', expect: ['5', '6', '7', '12', '17', '18', '22', '25'] },
+  // 28、29 是 2026-10-09 **事後**補的（§5.22）：這條的預期 10-02 寫的時候還沒有 28、29；10-09 完整 40 條實跑多紅了這兩種。
+  // 理由從情境推（不是從結果反推）：28 要在自查之後 commit、等推送前的比對擋；29 要走到推送那一步——都要先過自查，跟 5、6、7 同一類。
+  // 定案依據是重跑時驗法原始輸出裡 28、29 那兩行的理由（docs/STATUS.md 記著）
+  { label: '擋法表｜共同的一環：自查放行（5、6 要先過自查才走得到推送那一關；7、12、17、18、22 要推得上去）→ 自查一律判不通過', file: 'scripts/selfcheck.mjs', find: '  return ok;', replace: '  return false;', expect: ['5', '6', '7', '12', '17', '18', '22', '25', '28', '29'] },
   { label: '擋法表｜共同的一環：閘門驗法的 check 比對理由 → 不比對，再拿掉 14 的守衛：14 會變成「符合」（這一環是 5、11、14、16 等隱式情境能紅的前提）', file: VERIFY,
     find: '  grep -q -- "$must" "$T/out" || outOk=no', replace: '  true', also: [{ file: GATE, find: 'if [ ! -f "$REG" ]; then', replace: 'if false; then' }], expect: [] },
   // ---- 改閘門驗法本身的（以前的 M4、M6）----
   { label: 'M6：fresh 不清 hook（預設順序看得出來）', file: VERIFY,
     // 2026-10-02：fresh 多清一個突變的還原紀錄（第 26 種用）；這一條只拿掉「清 hook」，還原紀錄照清，所以預期不變
     find: 'fresh() { rm -f "$T/remote.git/hooks/pre-receive" "$T/remote.git/hooks/post-receive" scripts/.mutation-pending.json; restore_all; register_work; }',
-    replace: 'fresh() { rm -f scripts/.mutation-pending.json; restore_all; register_work; }', expect: ['6', '7', '12', '17', '18', '22', '25'] },
+    // 29 是 2026-10-09 **事後**補的（§5.22）：前面情境留在假遠端的「推送後把 main 退回去」hook 沒清，29 會走到推送、被它影響；
+    // 28 在推送前就停，不受影響。定案依據同上（重跑時驗法原始輸出裡 29 那一行的理由）
+    replace: 'fresh() { rm -f scripts/.mutation-pending.json; restore_all; register_work; }', expect: ['6', '7', '12', '17', '18', '22', '25', '29'] },
   { label: 'M4：第 11 種前置斷言改回接管線 → gatescan 點名那一行', file: VERIFY, runner: 'gatescan',
     find: `  PP="$(grep -c '^+++ ' "$T/k.diff")"`, replace: `  PP="$(git log -p --no-color --format= -U0 origin/main..HEAD | grep -c '^+++ ')"`,
     category: 'pipe' },
@@ -198,6 +203,14 @@ export function resolveBash({ pathStr = process.env.PATH ?? process.env.Path ?? 
   return { bash: found };
 }
 let BASH = 'bash';   // main() 開頭換成解出來的完整路徑；解不出來就不跑
+// --keep-output <資料夾>（2026-10-09）：每一條驗法（或 gatescan）的原始輸出各存一個檔——摘要行只說「不符合哪幾種」，
+// 要逐行看某一種是在哪一關、為什麼不符合，得有原始輸出（10-09 完整 40 條時沒有，28／29 的理由只能從情境推）
+let KEEP_DIR = null; let keepSeq = 0;
+function keep(c, text) {
+  if (!KEEP_DIR) return;
+  keepSeq += 1;
+  fs.writeFileSync(path.join(KEEP_DIR, `${String(keepSeq).padStart(2, '0')}.txt`), `【${c.label}】\n${text}`);
+}
 
 /** 假 git：args 同時含 failWhen 的每一個就回 128，其他交給真的 git。回假 git 所在的資料夾。 */
 export function makeFakeGit(failWhen) {
@@ -229,6 +242,15 @@ export function fakeControls(wt, fakeDir, failWhen) {
     { ok: head.length === 40 && sameSub === head, label: '同一個 log 子指令、不帶那些旗標照常' },
   ];
   return out;
+}
+
+/**
+ * gatescan 那一種的判定：回 1、剛好命中 1 處、（有指定 category 時）那一處的類別對。
+ * gatescan 的命中行是「命中｜檔:行｜類別｜原文」——類別在第 3 欄（索引 2）。
+ * 2026-10-09：原本比的是索引 1（檔:行），只要指定 category 就永遠比不上；10-02 加上之後 M4 一次都沒跑過，完整 40 條才第一次執行到
+ */
+export function gatescanOk(status, hits, category) {
+  return status === 1 && hits.length === 1 && (!category || hits[0].split('｜')[2] === category);
 }
 
 function runCase(repo, origHead, c, expectedTotal) {
@@ -266,8 +288,9 @@ function runCase(repo, origHead, c, expectedTotal) {
     if ((c.runner ?? 'verify') === 'gatescan') {
       const r = spawnSync(process.execPath, ['scripts/gatescan.mjs'], { cwd: wt, encoding: 'utf8', env, timeout: 120000 });   // gatescan 一次幾秒；120 秒上限（2026-10-08）
       const text = r.stdout + r.stderr;
+      keep(c, text);
       const hits = text.split('\n').filter((l) => l.startsWith('命中｜'));
-      const ok = r.status === 1 && hits.length === 1 && (!c.category || hits[0].split('｜')[1] === c.category);
+      const ok = gatescanOk(r.status, hits, c.category);
       return { ok, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜gatescan 回傳 ${r.status}（預期 1）｜命中 ${hits.length} 處（預期 1）：${hits.map((h) => h.slice(0, 80)).join(' ／ ') || '無'}｜${ok ? '如預期' : '不如預期'}` };
     }
     // 經 jobrun 開、15 分鐘上限（2026-10-08，待辦第 7 項）：以前沒設逾時，閘門驗法卡住就一直卡著；而且它經 Git Bash 開一堆 git、node，
@@ -275,6 +298,7 @@ function runCase(repo, origHead, c, expectedTotal) {
     const r = spawnSync(process.execPath, [JOBRUN, BASH, VERIFY], { cwd: wt, encoding: 'utf8', env, timeout: 900000 });
     if (r.error?.code === 'ETIMEDOUT') return { ok: false, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜閘門驗法逾時（15 分鐘）——不算數，要重跑（不是不如預期）` };
     const text = r.stdout + r.stderr;
+    keep(c, text);
     const v = verdictsOf(text);
     const wantExit = c.exit ?? (c.expect.length ? 1 : 0);
     const reasonOk = reasonsMatch(text, c.reasons);
@@ -298,6 +322,21 @@ function main() {
     + '11 ++ 開頭的新增行｜取不到 diff｜不符合（情境沒造成，中止）\n閘門驗法：…';
   const sv = verdictsOf(sample);
   if (sv.total !== 3 || sv.bad.join(',') !== '11,15') { console.log('gatemutants：擷取的對照組不對（檢查器壞了），不往下跑'); return 1; }
+  // gatescan 判定的對照組（2026-10-09，M4 比錯欄位之後補的）：同一行命中，類別對 → 過；類別錯 → 不過；沒指定類別 → 只看回傳值與處數
+  {
+    const hit = ['命中｜scripts/x.sh:12｜pipe｜a | b'];
+    const cases = [gatescanOk(1, hit, 'pipe'), gatescanOk(1, hit, 'tailone'), gatescanOk(1, hit, undefined), gatescanOk(0, hit, 'pipe'), gatescanOk(1, [...hit, ...hit], 'pipe')];
+    console.log(`gatescan 判定的對照組｜類別對 ${cases[0]}、類別錯 ${cases[1]}、沒指定 ${cases[2]}、回 0 ${cases[3]}、命中 2 處 ${cases[4]}（應為 true、false、true、false、false）`);
+    if (cases.join(',') !== 'true,false,true,false,false') { console.log('gatemutants：gatescan 判定的對照組不對（檢查器壞了），不往下跑'); return 1; }
+  }
+  const ko = process.argv.indexOf('--keep-output');
+  if (ko >= 0) {
+    KEEP_DIR = process.argv[ko + 1] ?? '';
+    if (!KEEP_DIR || KEEP_DIR.startsWith('--')) { console.log('gatemutants：--keep-output 要接一個資料夾'); return 1; }
+    fs.mkdirSync(KEEP_DIR, { recursive: true });
+    if (fs.readdirSync(KEEP_DIR).length) { console.log(`gatemutants：--keep-output 的資料夾 ${KEEP_DIR} 不是空的——舊的輸出會跟這一次的混在一起，不往下跑`); return 1; }
+    KEEP_DIR = path.resolve(KEEP_DIR);
+  }
   const repo = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
   sweepWorktrees(repo);   // 上一次被殺時留下的 worktree（建立者已死的）先收掉
   const origHead = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
