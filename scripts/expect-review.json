@@ -13,78 +13,123 @@
   },
   "一道牛肉主菜被改成配菜（牛肉主菜少於門檻）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "一道雞肉主菜被改成配菜（雞肉主菜少於門檻）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "三杯小卷順手寫進米酒": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
+  },
+  "三態 A1 的樣本少了推不出來的那一樣（情境消失）": {
+   "test": "recipetest",
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
+  },
+  "三態 A2 的樣本少了推不出來的那一樣（情境消失）": {
+   "test": "recipetest",
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
+  },
+  "三態：加工品不看標籤一律推不出來": {
+   "test": "recipetest",
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "三態：改成排除制（只有加工品類算推不出來）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
+  },
+  "三態：沒人確認的單一原料說成已確認不含": {
+   "test": "recipetest",
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "三態：沒標的一律回答推斷不含（回到分不出來的樣子）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
+  },
+  "三態：沒標的加工品當成含": {
+   "test": "recipetest",
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "三態：查不到的食材回答推斷不含": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "三態：素那一邊看錯軌（看了葷那一軌）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "三態：推不出來蓋過含": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
+  },
+  "三態：推斷不含一律說成推不出來": {
+   "test": "recipetest",
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
+  },
+  "三態：單一原料不看確認、一律推斷不含": {
+   "test": "recipetest",
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
+  },
+  "三態：整道只要有推不出來的就說成含": {
+   "test": "recipetest",
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
+  },
+  "三態：整道全是推斷不含也說成推不出來": {
+   "test": "recipetest",
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "三態：整道菜忽略推不出來的那幾樣": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "土司沒有標成奶製品": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "不必真的選過素葷，預設的「素」就算使用者的判斷": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "什麼食材都讓使用者推翻（不限加工品類）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "內建食譜也能被推翻": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "加工品的五辛（蘿蔔糕、蛋餅皮、韓式泡菜）沒標": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "包子那道要蒸 40 分鐘": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "包子那道從早餐池子裡消失": {
    "test": "plannertest",
@@ -108,8 +153,8 @@
   },
   "可分流卻整道沒有肉時一律不擋（R3 放到最寬）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "四季豆的類別回到豆類（排菜）": {
    "test": "plannertest",
@@ -123,8 +168,8 @@
   },
   "奶油沒有標成奶製品": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "本週頁不掛「我的」小標": {
    "test": "weekviewtest",
@@ -138,18 +183,18 @@
   },
   "全素早餐有一道平日做不完": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "全素早餐裡混進雞蛋": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "成分沒寫的油條放進素的菜": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "早餐完全不輪替": {
    "test": "plannertest",
@@ -168,8 +213,8 @@
   },
   "有既有群組的食材也另外加 highprotein": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "自查入口不拒絕 GIT_ 開頭的環境變數": {
    "test": "doctest",
@@ -193,8 +238,8 @@
   },
   "冷凍蛋餅皮沒有標成肉": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "冷凍豬肉包子、小籠包沒有標 meat": {
    "test": "datatest",
@@ -233,13 +278,13 @@
   },
   "沒點清單、直接打的食材名稱不解析（Node 端）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "使用者選過素葷，查不到的食材就順手不標 unresolved": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "依賴範圍：什麼檔都算進去（跳過永遠不會發生）": {
    "test": "doctest",
@@ -343,18 +388,18 @@
   },
   "兩道新配菜的主角撞在一起": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "味噌湯少一道（被換成鹽）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "咖哩塊沒有標成奶製品": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "孤兒測試永遠抓不到": {
    "test": "doctest",
@@ -463,8 +508,8 @@
   },
   "烤的主菜少一道（烹法變化少於門檻）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "真實的 expect 過期了（斷言訊息的錨點被拿掉）": {
    "test": "doctest",
@@ -478,13 +523,13 @@
   },
   "素菜包那一樣沒講要買標示全素的": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "素菜包被放進共用那一欄（素那一欄就空了）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "高蛋白質那條路不排除帶肉、海鮮標籤的食材": {
    "test": "plannertest",
@@ -518,8 +563,8 @@
   },
   "高蛋白質食材沒有輪替群組（R1 拿掉）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "高蛋白質食材那條路整個沒有": {
    "test": "plannertest",
@@ -648,13 +693,13 @@
   },
   "推翻之後，肉的標籤照樣寫進那道菜": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "推翻時把那樣食材的標籤全丟掉（連蛋、奶、五辛一起）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "理由句的食材名稱寫死黃豆芽": {
    "test": "plannertest",
@@ -663,8 +708,8 @@
   },
   "第二道新配菜的主角也用豆干家族": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "測試鏈解析不出任何測試": {
    "test": "doctest",
@@ -733,38 +778,38 @@
   },
   "新早餐的步驟出現禁用詞": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "新早餐超過週末的 40 分鐘": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "新補的全素早餐有一道不是早餐": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "新補的配菜之一主角換成菇（不是蛋白質來源）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "新補的配菜之一混進五辛（青蔥）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "新補的配菜之一被登記成主食": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "新補的湯之一要煮 45 分鐘": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "資源紀錄：把記錄工具自己也算進去": {
    "test": "doctest",
@@ -818,8 +863,8 @@
   },
   "標成「葷」卻沒有肉時一律不擋（R2 放到最寬）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "標籤沒有跟著食材索引走（indexFoods 收下了卻不掛上）": {
    "test": "plannertest",
@@ -853,8 +898,8 @@
   },
   "蔬菜類又走豆製品的名稱規則（黃豆芽算豆製品）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "複審判斷不比雜湊": {
    "test": "doctest",
@@ -863,13 +908,13 @@
   },
   "豬肉酥沒有標成肉": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "輪替群組只看每 100 克、不看每份吃到幾克": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "輪替群組用自己的一份門檻（不引用 isHighProteinFood）": {
    "test": "plannertest",
@@ -878,13 +923,13 @@
   },
   "輪替群組沒有每份門檻（掃全部內建食譜）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "輪替群組的份數一律除以總份數（不分素葷那一欄）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "靠黃豆芽達標時理由句也說是豆製品的菜": {
    "test": "plannertest",
@@ -933,8 +978,8 @@
   },
   "韓式泡菜沒有標成海鮮": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "戳記只看筆數、不看內容": {
    "test": "doctest",
@@ -1043,33 +1088,33 @@
   },
   "蘿蔔糕沒有標成肉": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "蘿蔔糕沒有標成海鮮": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "A 方案：不分素版葷版、整道一起看": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "A 方案：不看 checked（確認過的照樣標未確認）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "A 方案：吃不了這道的家人也標": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "A 方案：同一樣食材列兩次": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "A 方案：食材表不標未確認的那幾樣（真實畫面）": {
    "test": "recipeviewtest",
@@ -1083,18 +1128,18 @@
   },
   "A 方案：家人吃的也標（不看他不吃什麼）": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "A 方案：推斷不含的也標成未確認": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "A 方案：確認過任何一項就當成每一項都確認過": {
    "test": "recipetest",
-   "n": 224,
-   "hash": "850f7a091fb60227"
+   "n": 230,
+   "hash": "a03fe3e72388c7f4"
   },
   "assertaudit 把一支工具當成測試來掃": {
    "test": "assertaudit",

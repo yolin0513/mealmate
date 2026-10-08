@@ -674,6 +674,25 @@ section('蛋奶五辛的三態：推不出來的不得回答「不含」（2026-
     [TAG_STATUS.INFERRED_NO, TAG_STATUS.UNKNOWN], '三態 T6b：葷那一軌的食材不算進素那一邊、算進葷那一邊');
   eq(recipeTagStatus(dish, byId, TAGS, 'egg', 'meat').status, TAG_STATUS.YES, '三態 T7：有一樣含 → 整道「含」（含比推不出來優先）');
 
+  // ---- 三組邊界，每組雙向（2026-10-08，Dispatch：「三態：推不出來蓋過含」那條突變沒紅——T7 那道菜葷的那一邊只有「含」、
+  // 沒有「推不出來」，含跟推不出來同時出現的情境根本不在樣本裡。每一條先確認情境真的存在，再驗結果）
+  // 邊界一：含 ↔ 推不出來
+  const both = { ingredients: [{ food: 'X-EGG', track: 'base' }, { food: 'X-PROC', track: 'base' }] };
+  const bothR = recipeTagStatus(both, byId, TAGS, 'egg', 'veg');
+  ok(bothR.yes.length === 1 && bothR.unknown.length === 1, `（前提）A1 的那一邊同時有一樣「含」、一樣「推不出來」（含 ${bothR.yes.length}、推不出來 ${bothR.unknown.length}）`);
+  eq(bothR.status, TAG_STATUS.YES, '三態 A1：同一邊有一樣確定含、一樣推不出來 → 整道是「含」，不能被說成「推不出來」');
+  const onlyUnknown = { ingredients: [{ food: 'X-PROC', track: 'base' }, { food: 'X-VEG', track: 'base' }] };
+  const ouR = recipeTagStatus(onlyUnknown, byId, TAGS, 'egg', 'veg');
+  ok(ouR.yes.length === 0 && ouR.unknown.length === 1, `（前提）A2 的那一邊沒有任何一樣「含」、有一樣「推不出來」（含 ${ouR.yes.length}、推不出來 ${ouR.unknown.length}）`);
+  eq(ouR.status, TAG_STATUS.UNKNOWN, '三態 A2：同一邊沒有確定含的、只有推不出來的 → 整道是「推不出來」，不能被說成「含」');
+  // 邊界二：已確認不含 ↔ 推斷不含（單一原料的食物，有人確認過＝已確認不含；沒人確認＝推斷不含，兩者不能互換）
+  eq([foodTagStatus(veg, TAGS, 'egg', { 'X-VEG': ['egg'] }), foodTagStatus(veg, TAGS, 'egg', {})], [TAG_STATUS.CONFIRMED_NO, TAG_STATUS.INFERRED_NO],
+    '三態 B1：單一原料的食物確認過不含蛋＝「已確認不含」（不是推斷不含）；沒確認過＝「推斷不含」（不是已確認不含）');
+  // 邊界三：推斷不含 ↔ 推不出來（T1、T2 是單一食材的兩個方向；這裡是整道菜的兩個方向）
+  const allInferred = { ingredients: [{ food: 'X-VEG', track: 'base' }] };
+  eq([recipeTagStatus(allInferred, byId, TAGS, 'egg', 'veg').status, recipeTagStatus(onlyUnknown, byId, TAGS, 'egg', 'veg').status], [TAG_STATUS.INFERRED_NO, TAG_STATUS.UNKNOWN],
+    '三態 C1：整道都是推斷不含的＝「推斷不含」（不能被說成推不出來）；有一樣推不出來＝「推不出來」（不能被說成推斷不含）');
+
   // 真實資料：現在會排給全素家人的內建菜裡，素那一邊用到沒標的加工品的——查詢時一道都不得回答「推斷不含」。
   const vegan = dietFromFlags({ egg: false, dairy: false, allium: true });
   const servedVegan = recipes.filter((r) => versionFor(r, vegan) !== null);

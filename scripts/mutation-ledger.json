@@ -19250,19 +19250,19 @@
   },
   "三態：推不出來蓋過含": {
    "last": {
-    "date": "2026-10-02",
-    "commit": "f8261d7d269c",
-    "mode": "never-full",
-    "defHash": "f68ef3d13cb2b4864d5d7cdb7ac281f113a58a1898691005a9e53f7215ee3ed9",
-    "depHash": "bf8bcb8120c33d2d506c1272da48148544fd01e11f8d0ea96f2d1f85bd1c1b38",
+    "date": "2026-10-08",
+    "commit": "aa97318809db+dirty",
+    "mode": "only",
+    "defHash": "95f64cb82b6cb46898672d102ebd9d978f758c8e6023ca8e3e5c62a6a66489fc",
+    "depHash": "aec1e6c41de8ba89f4b116f013f44f410c59a24c5e1bcf0094aaf77f07714622",
     "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
     "scope": "repo",
-    "kind": "pass",
+    "kind": "assert",
     "counted": true,
-    "red": false,
-    "expectMatched": false,
-    "failed": 0,
-    "expectHits": 0,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
     "seconds": 0
    },
    "lastFull": {
@@ -19519,8 +19519,179 @@
     "expectHits": 1,
     "seconds": 0
    }
+  },
+  "三態：整道只要有推不出來的就說成含": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "aa97318809db+dirty",
+    "mode": "only",
+    "defHash": "aa80d4aeda9ccefa5e23610131674f5950927321ecbab330b11e8821046b4e9a",
+    "depHash": "aec1e6c41de8ba89f4b116f013f44f410c59a24c5e1bcf0094aaf77f07714622",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 5,
+    "expectHits": 1,
+    "seconds": 0
+   },
+   "lastFull": null
+  },
+  "三態：整道全是推斷不含也說成推不出來": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "aa97318809db+dirty",
+    "mode": "only",
+    "defHash": "1cad2974adb4dde8751d51a8156674d56ab6437c34259bae6fab0110e2de498d",
+    "depHash": "aec1e6c41de8ba89f4b116f013f44f410c59a24c5e1bcf0094aaf77f07714622",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 3,
+    "expectHits": 1,
+    "seconds": 0
+   },
+   "lastFull": null
+  },
+  "三態：加工品不看標籤一律推不出來": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "aa97318809db+dirty",
+    "mode": "only",
+    "defHash": "a69f98bcbd53a9df89d606e960df4cc7f2dcf698feef7d2d543ad22b7c8a6b41",
+    "depHash": "aec1e6c41de8ba89f4b116f013f44f410c59a24c5e1bcf0094aaf77f07714622",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 3,
+    "expectHits": 1,
+    "seconds": 0
+   },
+   "lastFull": null
+  },
+  "三態：沒標的加工品當成含": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "aa97318809db+dirty",
+    "mode": "only",
+    "defHash": "39cf912772385ea11eccde18ea2932ce1208c3cedbd3b302c9606f99338afde5",
+    "depHash": "aec1e6c41de8ba89f4b116f013f44f410c59a24c5e1bcf0094aaf77f07714622",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 14,
+    "expectHits": 1,
+    "seconds": 0
+   },
+   "lastFull": null
+  },
+  "三態：單一原料不看確認、一律推斷不含": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "aa97318809db+dirty",
+    "mode": "only",
+    "defHash": "b8b5c8b7904f8c1750608ed646736f9dbedcc6a1ee40aab5a591fc7f0a086d80",
+    "depHash": "aec1e6c41de8ba89f4b116f013f44f410c59a24c5e1bcf0094aaf77f07714622",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 0
+   },
+   "lastFull": null
+  },
+  "三態：沒人確認的單一原料說成已確認不含": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "aa97318809db+dirty",
+    "mode": "only",
+    "defHash": "623af52a41b89f48d578d441a22952aa11ec2e0b72964087171d60ac1023f170",
+    "depHash": "aec1e6c41de8ba89f4b116f013f44f410c59a24c5e1bcf0094aaf77f07714622",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 0
+   },
+   "lastFull": null
+  },
+  "三態：推斷不含一律說成推不出來": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "aa97318809db+dirty",
+    "mode": "only",
+    "defHash": "4d6c64d4f3e414b74c6ee041319ae6290efd2145abc4bc0b222aabd6cc06b0ba",
+    "depHash": "aec1e6c41de8ba89f4b116f013f44f410c59a24c5e1bcf0094aaf77f07714622",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 9,
+    "expectHits": 1,
+    "seconds": 0
+   },
+   "lastFull": null
+  },
+  "三態 A1 的樣本少了推不出來的那一樣（情境消失）": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "aa97318809db+dirty",
+    "mode": "only",
+    "defHash": "8c77801e6d105ead428705f93511dfdbecb3248ed8a52366b4f782c99a7710bd",
+    "depHash": "97577c432061b6c1923408ce819f2233255e7073141228caed2e29ff46664703",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 0
+   },
+   "lastFull": null
+  },
+  "三態 A2 的樣本少了推不出來的那一樣（情境消失）": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "aa97318809db+dirty",
+    "mode": "only",
+    "defHash": "17ad66bb26c2f91f3ffdf03867101c54c9bf6f8f392a08c20c36046d590408fe",
+    "depHash": "97577c432061b6c1923408ce819f2233255e7073141228caed2e29ff46664703",
+    "runnerHash": "00f20879ae218ff6b111418e61daf6ddad4c6d5c3e47a7f2f08fa751abbab325",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 3,
+    "expectHits": 1,
+    "seconds": 0
+   },
+   "lastFull": null
   }
  },
- "runSeq": 17,
+ "runSeq": 19,
  "inflight": null
 }
