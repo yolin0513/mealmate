@@ -38,7 +38,7 @@ function makeRepo(variant) {
   const mark = `${root}.ran.log`;                                       // 帳本外、repo 外：不會進任何依賴範圍
   fs.mkdirSync(path.join(root, 'scripts')); fs.mkdirSync(path.join(root, 'js'));
   for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) {
-    if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(root, 'scripts', f));
+    if (/\.(m?js|ps1)$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(root, 'scripts', f));   // .ps1：執行器經 jobrun 跑測試（2026-10-08）
   }
   fs.copyFileSync(path.join(ROOT, 'js/version.js'), path.join(root, 'js/version.js'));
   // 跟真的 repo 一樣的行尾設定（eol=lf）：沒有它，這台機器的全域 autocrlf 會讓 git checkout 寫出 CRLF
@@ -89,7 +89,8 @@ function makeRepo(variant) {
 
 const env = () => { const e = { ...process.env }; for (const k of ['MM_AUDIT', 'MM_AUDIT_OUT', 'MM_LEDGER', 'MM_LOGDIR']) delete e[k]; return e; };
 function runSync(repo, args) {
-  try { return { code: 0, out: execFileSync(process.execPath, [repo.mtFile, ...args], { cwd: repo.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: env() }) }; }
+  // 10 分鐘上限（2026-10-08，待辦第 7 項：以前沒設逾時）。暫存執行器跑三支探針，一次幾十秒；它自己跑測試是經 jobrun 開的
+  try { return { code: 0, out: execFileSync(process.execPath, [repo.mtFile, ...args], { cwd: repo.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: env(), timeout: 600000 }) }; }
   catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; }
 }
 const readLedger = (repo) => (fs.existsSync(repo.ledger) ? JSON.parse(fs.readFileSync(repo.ledger, 'utf8')) : { entries: {} });

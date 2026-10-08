@@ -162,4 +162,32 @@ section('停掉的是 jobrun 的父程序（例：執行器被外部監看停掉
   ok(j.after.length === 0 && j.gone, 'Job・停父程序：經 jobrun，停掉 jobrun 的父程序之後，停之前那 2 支 sleep 的 PID 一支都不在（查詢同時看得到 jobtest 自己，不是查詢壞了；sleep 不接管道——收掉它們的是 Job）', JSON.stringify(j));
 }
 
+// 2026-10-08：接到執行器上——runkind.runProgram 的 inJob。測試逾時被殺（執行器的時限）時，測試經 Git Bash 開的 sleep 要一起被收掉。
+// runProgram 是同步的，殺之前看不到 sleep：改由 bash 在開完兩支 sleep 之後寫一個記號檔，事後確認它在（＝情境真的成立了）。
+// 對照組：同一個程式不經 Job（inJob: false），逾時之後那 2 支 sleep 還活著
+section('接到執行器：runProgram 逾時殺測試時，測試的子孫一起被收掉');
+{
+  const { runProgram } = await import('./runkind.mjs');
+  const runCase = async (inJob) => {
+    const secs = 6000 + Math.floor(Math.random() * 900) + (inJob ? 5000 : 6000);
+    const mark = path.join(ROOT, '.logs', `jobtest-started-${process.pid}-${inJob ? 'j' : 'n'}.txt`).replace(/\\/g, '/');
+    fs.rmSync(mark, { force: true });
+    const prog = `require('child_process').spawn(${JSON.stringify(BASH)}, ['-c', 'sleep ${secs} & sleep ${secs} & echo started > "${mark}"; wait'], { stdio: 'ignore' }); setTimeout(()=>{}, 60000);`;
+    const r = runProgram(['-e', prog], { timeoutMs: 8000, inJob });
+    await wait(1500);
+    const started = fs.existsSync(mark);
+    fs.rmSync(mark, { force: true });
+    const after = sleepPids(secs);
+    if (after.length) sweepSleep(secs);
+    return { kind: r.kind, started, after };
+  };
+  const c = await runCase(false);
+  note(`runProgram 逾時（對照，不經 Job）：結束方式 ${c.kind}；sleep 開起來了 ${c.started}；逾時之後還活著的 sleep PID ${c.after.join('、') || '（無）'}`);
+  ok(c.kind === 'timeout' && c.started && c.after.length === 2, 'Job・執行器（對照）：不經 Job，測試逾時被殺之後它開的 2 支 sleep 還活著（這個情境真的會漏）', JSON.stringify(c));
+  const j = await runCase(true);
+  note(`runProgram 逾時（inJob）：結束方式 ${j.kind}；sleep 開起來了 ${j.started}；逾時之後還活著的 sleep PID ${j.after.join('、') || '（無）'}（同一次查詢看得到 jobtest 自己）`);
+  ok(j.started, '（前提）Job・執行器：經 Job 那一次，2 支 sleep 真的開起來了（bash 留下記號檔）', JSON.stringify(j));
+  ok(j.kind === 'timeout' && j.after.length === 0, 'Job・執行器：runProgram 的 inJob——測試逾時被殺之後，它經 Git Bash 開的 sleep 一支都不剩', JSON.stringify(j));
+}
+
 done('jobtest');

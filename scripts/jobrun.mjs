@@ -20,7 +20,8 @@ const [cmd, ...args] = process.argv.slice(2);
 if (!cmd) { console.error('用法：node scripts/jobrun.mjs <指令> [參數…]'); process.exit(2); }
 
 function runIt() {
-  const child = spawn(cmd, args, { stdio: 'inherit' });
+  // MM_JOBRUN：讓被包的那一支看得出自己是經 jobrun 開的（2026-10-08；doctest 用它確認執行器真的經 jobrun 跑測試）。只是標記，不改任何行為
+  const child = spawn(cmd, args, { stdio: 'inherit', env: { ...process.env, MM_JOBRUN: String(process.pid) } });
   child.on('error', (e) => { console.error(`jobrun：開不了 ${cmd}：${e.message}`); process.exit(127); });
   child.on('exit', (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
 }
@@ -31,7 +32,8 @@ else {
     { stdio: ['pipe', 'pipe', 'pipe'] });
   let out = '';
   let started = false;
-  const fail = (why) => { if (!started) { console.error(`jobrun：【情境未成立】Job 建不起來（${why}）——不照跑`); process.exit(97); } };
+  // 行首用「⊘ 情境未成立」（runkind 的 NO_SCENARIO_MARK）：執行器把它分到情境未成立、不算數，不會被當成紅
+  const fail = (why) => { if (!started) { console.error(`⊘ 情境未成立：jobrun 的 Job 建不起來（${why}）——不照跑`); process.exit(97); } };
   helper.stdout.on('data', (b) => {
     out += b.toString();
     if (!started && /^JOB-OK \d+/m.test(out)) { started = true; runIt(); }   // 放進 Job 了，才開

@@ -4931,6 +4931,24 @@ const MUTATIONS = [
     test: "jobtest",
     expect: "Job・detached：經 jobrun，殺掉最外層",
   },
+  {
+    name: "Job：runProgram 不理 inJob",
+    why: "執行器說要放進 Job、實際直接開——逾時被殺時測試開出來的子孫照樣活下來（10-02 正式那場的形狀）。",
+    file: "scripts/runkind.mjs",
+    find: "  if (inJob && process.platform === 'win32') { args = [JOBRUN, exe, ...args]; exe = process.execPath; }\n",
+    replace: "\n",
+    test: "jobtest",
+    expect: "Job・執行器：runProgram 的 inJob",
+  },
+  {
+    name: "Job：執行器跑測試不經 jobrun",
+    why: "runProgram 有 inJob，執行器卻沒打開——跟沒做一樣。",
+    file: "scripts/mutationtest.mjs",
+    find: "（10-02 正式那場的教訓）\n  return runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, inJob: true });",
+    replace: "（10-02 正式那場的教訓）\n  return runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000 });",
+    test: "doctest",
+    expect: "受影響 D18p ",
+  },
   // ---- 2026-10-08：共用複本的雜訊——突變進行中造成的 STALE 標成不計入（doctest SP1、SP2）----
   {
     name: "共用複本雜訊：突變進行中照樣算 STALE",
@@ -5642,7 +5660,8 @@ const TEST_TIMEOUT_MIN = { assertaudit: 45, 'resume-verify': 15 };
 // 怎麼結束的要分清楚（scripts/runkind.mjs）：逾時、沒跑起來、被殺不算數；只有斷言失敗才是「紅在斷言」
 function runTest(name) {
   const file = path.join(ROOT, 'scripts', `${name}.mjs`);
-  return runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000 });
+  // inJob（2026-10-08）：經 jobrun 開——逾時被殺時，測試經 Git Bash 或 detached 開出來的子孫一起被收掉（10-02 正式那場的教訓）
+  return runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, inJob: true });
 }
 const tally = { assert: 0, crash: 0, uncounted: [] };
 

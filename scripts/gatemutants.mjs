@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 const GATE = 'scripts/pushgate.sh';
 const VERIFY = 'scripts/pushgate-verify.sh';
+const JOBRUN = 'scripts/jobrun.mjs';   // 相對於 worktree：用的是那份 commit 裡的 jobrun（與它的 jobhelper.ps1）
 /** 假 git：args 同時含 failWhen 裡每一個時失敗，其他照常 */
 const FAKE_DIFF = ['-p', '--no-color', '-U0'];
 
@@ -262,13 +263,16 @@ function runCase(repo, origHead, c, expectedTotal) {
     const env = envWithPath(fakeDir);
     if (c.order) env.PUSHGATE_VERIFY_ORDER = c.order;
     if ((c.runner ?? 'verify') === 'gatescan') {
-      const r = spawnSync(process.execPath, ['scripts/gatescan.mjs'], { cwd: wt, encoding: 'utf8', env });
+      const r = spawnSync(process.execPath, ['scripts/gatescan.mjs'], { cwd: wt, encoding: 'utf8', env, timeout: 120000 });   // gatescan 一次幾秒；120 秒上限（2026-10-08）
       const text = r.stdout + r.stderr;
       const hits = text.split('\n').filter((l) => l.startsWith('命中｜'));
       const ok = r.status === 1 && hits.length === 1 && (!c.category || hits[0].split('｜')[1] === c.category);
       return { ok, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜gatescan 回傳 ${r.status}（預期 1）｜命中 ${hits.length} 處（預期 1）：${hits.map((h) => h.slice(0, 80)).join(' ／ ') || '無'}｜${ok ? '如預期' : '不如預期'}` };
     }
-    const r = spawnSync(BASH, [VERIFY], { cwd: wt, encoding: 'utf8', env });
+    // 經 jobrun 開、15 分鐘上限（2026-10-08，待辦第 7 項）：以前沒設逾時，閘門驗法卡住就一直卡著；而且它經 Git Bash 開一堆 git、node，
+    // 只殺直接那一支殺不乾淨。驗法一次約 110 秒，15 分鐘是 8 倍餘裕。逾時＝這一條不算數（不是如預期、也不是不如預期）
+    const r = spawnSync(process.execPath, [JOBRUN, BASH, VERIFY], { cwd: wt, encoding: 'utf8', env, timeout: 900000 });
+    if (r.error?.code === 'ETIMEDOUT') return { ok: false, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜閘門驗法逾時（15 分鐘）——不算數，要重跑（不是不如預期）` };
     const text = r.stdout + r.stderr;
     const v = verdictsOf(text);
     const wantExit = c.exit ?? (c.expect.length ? 1 : 0);

@@ -627,7 +627,7 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
   const mtRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-f1mt-'));
   fs.mkdirSync(path.join(mtRoot, 'scripts'));
   for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) {
-    if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(mtRoot, 'scripts', f));
+    if (/\.(m?js|ps1)$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(mtRoot, 'scripts', f));   // .ps1：執行器經 jobrun 跑測試，jobrun 要 jobhelper.ps1（2026-10-08）
   }
   ok(!fs.existsSync(path.join(mtRoot, 'scripts/.mutation-pending.json')), '（前提）暫存複本裡沒有 pending 檔（碰不到 repo 裡那一份）');
   // 2026-10-02 起執行器不是 git repo 就拒絕（「工作區要等於 HEAD」的護欄檢查不了）：暫存複本也要 git init
@@ -642,7 +642,7 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
   const toRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-f1to-'));
   fs.mkdirSync(path.join(toRoot, 'scripts'));
   for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) {
-    if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(toRoot, 'scripts', f));
+    if (/\.(m?js|ps1)$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(toRoot, 'scripts', f));
   }
   // 寫「整套完整跑完」的基準清單時要讀 js/version.js——複本裡沒有的話，那一步會先出錯，
   // 「不算數的也算成跑到」這種錯就看不出來（2026-10-01 寫這條時，突變照樣綠才發現）
@@ -1292,7 +1292,7 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
   try {
     fs.mkdirSync(path.join(root, 'scripts')); fs.mkdirSync(path.join(root, 'js')); fs.mkdirSync(path.join(root, 'docs'));
     for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) {
-      if (/\.m?js$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(root, 'scripts', f));
+      if (/\.(m?js|ps1)$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(root, 'scripts', f));
     }
     fs.copyFileSync(path.join(ROOT, 'js/version.js'), path.join(root, 'js/version.js'));
     // 讀回確認（v11.4 §5.20）：在改任何東西之前，比對暫存 repo 的 scripts/ 跟工作區逐位元組相同；不同就宣告情境未成立
@@ -1301,7 +1301,10 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     ok(cc18.problems.length === 0 && cc18.checked >= 40, `（前提）D18 的暫存 repo 含工作區這一份 scripts/（讀回比了 ${cc18.checked} 支）`);
     fs.writeFileSync(path.join(root, 'js/affdep.js'), 'export const V = 1;\n');
     fs.writeFileSync(path.join(root, 'scripts/afftarget.mjs'), "export const BROKEN = false;\nexport { V } from '../js/affdep.js';\n");
-    fs.writeFileSync(path.join(root, 'scripts/affprobe.mjs'), "import { ok, done } from './tap.mjs';\nimport { BROKEN } from './afftarget.mjs';\nok(!BROKEN, 'AFF 探針');\ndone('affprobe');\n");
+    // 探針順便記下自己是不是經 jobrun 開的（MM_JOBRUN；D18p）——寫到 repo 外面，免得留下未追蹤的檔讓下一次被「工作區不等於 HEAD」擋下
+    const jobMarker = path.join(os.tmpdir(), `mm-d18p-${process.pid}.txt`);
+    fs.rmSync(jobMarker, { force: true });
+    fs.writeFileSync(path.join(root, 'scripts/affprobe.mjs'), `import fs from 'node:fs';\nimport { ok, done } from './tap.mjs';\nimport { BROKEN } from './afftarget.mjs';\nfs.appendFileSync(${JSON.stringify(jobMarker)}, \`\${process.env.MM_JOBRUN ?? '（沒有）'}\\n\`);\nok(!BROKEN, 'AFF 探針');\ndone('affprobe');\n`);
     fs.writeFileSync(path.join(root, 'docs/note.md'), 'note\n');
     const mtFile = path.join(root, 'scripts/mutationtest.mjs');
     const src = fs.readFileSync(mtFile, 'utf8');
@@ -1312,12 +1315,21 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     const g = (...a) => execFileSync('git', ['-C', root, '-c', 'user.name=probe', '-c', 'user.email=probe@users.noreply.github.com', ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     g('init', '-q'); g('add', '-A'); g('commit', '-q', '-m', 'probe');
     ok(setUp && !fs.existsSync(path.join(root, LEDGER_FILE)), '（前提）暫存 git repo 造好了：突變清單換成那一條、還沒有帳本');
-    const env = { ...process.env }; delete env.MM_AUDIT; delete env.MM_AUDIT_OUT; delete env.MM_LEDGER;
+    // MM_JOBRUN 也清掉（D18p）：外層的突變執行器經 jobrun 開 doctest 時，環境裡本來就有它——不清，暫存執行器不經 jobrun，探針照樣繼承到外層的值
+    const env = { ...process.env }; delete env.MM_AUDIT; delete env.MM_AUDIT_OUT; delete env.MM_LEDGER; delete env.MM_JOBRUN;
     const run = () => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--affected'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } };
     const r1 = run();
     const led1 = fs.existsSync(path.join(root, LEDGER_FILE)) ? JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8')) : null;
     ok(r1.code === 0 && r1.out.includes('選了 1 條突變') && led1?.entries?.['AFF探針']?.last?.red === true,
       `受影響 D18a 第一次（從沒跑過）→ 跑了那一條、紅了、帳本記下來（回 ${r1.code}）`);
+    // D18p（2026-10-08）：執行器跑測試是經 jobrun 開的（Windows）——基準那一次與改壞那一次，探針各記一行它的 MM_JOBRUN
+    if (process.platform === 'win32') {
+      const marks = fs.existsSync(jobMarker) ? fs.readFileSync(jobMarker, 'utf8').split('\n').filter(Boolean) : [];
+      // 第二道：記到的值不能等於 doctest 自己環境裡的那個（上一層給的）——受測那一層沒給、跟上一層給了同一個值，在探針輸出上長得一樣
+      const outer = process.env.MM_JOBRUN ?? '';
+      ok(marks.length >= 2 && marks.every((m) => /^\d+$/.test(m) && m !== outer), `受影響 D18p 執行器跑測試經 jobrun 開（探針記到的 MM_JOBRUN：${marks.join('、') || '（探針沒留下紀錄）'}；doctest 自己環境裡的：${outer || '（沒有）'}）——逾時被殺時，測試開出來的子孫才會一起被收掉`);
+    }
+    fs.rmSync(jobMarker, { force: true });
     // D18i（2026-10-02，StockDiary 挖出來的）：判對時也要印實際紅了哪幾條，而且用說明行——不然「expect 對到好幾條」無法稽核
     const seen1 = r1.out.split('\n').find((l) => l.startsWith('  · 實際紅了 ')) ?? '';
     ok(seen1.startsWith('  · 實際紅了 1 條；含「AFF 探針」的 1 條：✗ AFF 探針') && !r1.out.split('\n').some((l) => l.trimStart().startsWith('✗'))

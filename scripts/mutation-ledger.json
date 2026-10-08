@@ -19835,8 +19835,46 @@
     "seconds": 42
    },
    "lastFull": null
+  },
+  "Job：runProgram 不理 inJob": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "151874debc71+dirty",
+    "mode": "only",
+    "defHash": "12553d6d940b9498638285408cd00ae7bad3f3e054c7d4b1818990bf5d416ae7",
+    "depHash": "afec0871af7b9a296fd7f361a0eec858f5a53c109d639c534100f830f371286d",
+    "runnerHash": "659dffd756e1ab770cf42bac1b3c812015f9ffb05e497d80c6a708db69b3589b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 61
+   },
+   "lastFull": null
+  },
+  "Job：執行器跑測試不經 jobrun": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "151874debc71+dirty",
+    "mode": "only",
+    "defHash": "aff6024296f70d6a3f71938f3e836cf12a884a0a72ede90b0960e6160269c2a6",
+    "depHash": "5299a27b9a2814a0e0b66bdc2a98a5b1d2fced7b456c478876d9760e909447c9",
+    "runnerHash": "659dffd756e1ab770cf42bac1b3c812015f9ffb05e497d80c6a708db69b3589b",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 58
+   },
+   "lastFull": null
   }
  },
- "runSeq": 24,
+ "runSeq": 27,
  "inflight": null
 }

@@ -12,6 +12,8 @@
 //   spawn    程式根本沒跑起來（例如找不到執行檔、開不了子行程）
 // 判斷順序照上面由下往上：先看有沒有跑起來、是不是逾時、是不是被殺，最後才看輸出。
 import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const KIND_LABELS = {
   pass: '通過',
@@ -49,8 +51,12 @@ export function classifyRun(e) {
 }
 
 /** 跑一支程式：回 { passed, kind, out, seconds }。exe 預設是目前的 node（測試可以傳別的，造「沒跑起來」）。 */
-export function runProgram(args, { cwd, timeoutMs, exe = process.execPath } = {}) {
+// inJob（2026-10-08，v11.6 §5.19）：Windows 上經 scripts/jobrun.mjs 開——逾時殺的是 jobrun，Job 關閉時它底下整棵樹（含 Git Bash 開的、
+// detached 開的）一起被收掉。只有執行器跑測試時打開；doctest 裡幾秒時限的小探針不打開（Job 每次多約 0.85 秒，會吃掉很短的時限）
+const JOBRUN = path.join(path.dirname(fileURLToPath(import.meta.url)), 'jobrun.mjs');
+export function runProgram(args, { cwd, timeoutMs, exe = process.execPath, inJob = false } = {}) {
   const t0 = Date.now();
+  if (inJob && process.platform === 'win32') { args = [JOBRUN, exe, ...args]; exe = process.execPath; }
   try {
     const out = execFileSync(exe, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: timeoutMs, encoding: 'utf8' });
     // 回傳 0 但宣告了情境未成立：也不算通過（「這次什麼都沒量到」不能被記成綠）
