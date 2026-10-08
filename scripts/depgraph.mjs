@@ -235,6 +235,17 @@ export function rerunReasons(entry, cur) {
   return r;
 }
 
+/**
+ * 已知量不到、刻意保留的突變（突變清單裡帶 unmeasurable：寫原因）——2026-10-09 Dispatch：
+ * 一條永遠不算數的突變，每次都因「上次不算數」被挑進來、空跑一場，混在真正需要重跑的清單裡，看的人會習慣忽略它，而習慣會蔓延到別條。
+ * 例行挑選時，**只有**「上次不算數」這一個理由才保留（不跑、另外列）；有任何別的理由（突變本身、依賴範圍、執行器改了……）照挑——
+ * 那些改動可能讓它變得量得到。沒標、或原因是空的，一律照常。
+ */
+export function isUnmeasurable(m) { return typeof m?.unmeasurable === 'string' && m.unmeasurable.trim() !== ''; }
+export function parkedAsUnmeasurable(m, reasons) {
+  return isUnmeasurable(m) && reasons.length > 0 && reasons.every((r) => r === RERUN.UNCOUNTED);
+}
+
 // ---- 帳本 ----
 // 形狀：{ note, entries: { [突變名稱]: { last: 紀錄, lastFull: 紀錄|null } } }
 // 紀錄：{ date, commit, mode, kind, counted, red, seconds, defHash, depHash, runnerHash, scope }

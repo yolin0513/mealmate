@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { LEDGER_FILE, ledgerProblems, ledgerOrphans } from './depgraph.mjs';
+import { LEDGER_FILE, ledgerProblems, ledgerOrphans, isUnmeasurable } from './depgraph.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -87,6 +87,21 @@ export function mutationNames(src) {
 export function neverRunNames(currentNames, baselineNames) {
   const base = new Set(baselineNames);
   return currentNames.filter((n) => !base.has(n));
+}
+
+// 已知量不到、刻意保留的突變名稱（突變清單裡帶 unmeasurable 的；判斷照 depgraph.isUnmeasurable）——2026-10-09 Dispatch：
+// 它永遠不會有 lastFull，算進「從未整套跑過」會讓那個數字永遠多一條雜訊。讀法跟 checkmutations.loadMutations 一樣（執行清單的字面）；
+// 不 import checkmutations：它會把 assertregistry 帶進每一支 import sincefull 的程式的依賴範圍。讀不到清單 → 丟錯，不當成 0 條
+export function unmeasurableNames(src) {
+  const s = String(src); const a = s.indexOf('const MUTATIONS = ['); const b = s.indexOf('\n];', a);
+  if (a < 0 || b < 0) throw new Error('mutationtest.mjs 裡找不到突變清單（const MUTATIONS = [ … ];）');
+  // eslint-disable-next-line no-new-func
+  return new Function(`return ${s.slice(a + 'const MUTATIONS = '.length, b + 2)};`)().filter(isUnmeasurable).map((m) => m.name);
+}
+/** 從未整套跑過的，分成真的要補跑的、跟刻意保留的 */
+export function splitParked(missing, parkedNames) {
+  const p = new Set(parkedNames);
+  return { real: missing.filter((n) => !p.has(n)), parked: missing.filter((n) => p.has(n)) };
 }
 
 // 基準清單本身的問題（空的、有重複）；沒有問題回 []
@@ -198,7 +213,8 @@ function versionsSince(version) {
 }
 
 function main() {
-  const current = mutationNames(fs.readFileSync(path.join(ROOT, 'scripts/mutationtest.mjs'), 'utf8'));
+  const mtSrc = fs.readFileSync(path.join(ROOT, 'scripts/mutationtest.mjs'), 'utf8');
+  const current = mutationNames(mtSrc);
   // 分段補跑完整套之後，由人確認再寫基準：npm run sincefull -- --record-full（寫的是現在全部的突變名稱、今天、現在的版本）
   if (process.argv.includes('--record-full')) {
     const rec = { date: taiwanToday(), version: currentVersion(), names: current };
@@ -214,7 +230,7 @@ function main() {
   const withFull = namesWithFull(ledger);
   const notInLedger = lastFullNotInLedger(readLastFull().names, ledger);
   if (notInLedger.length) throw new Error(`${LASTFULL_FILE} 上有 ${notInLedger.length} 條在帳本裡沒有 lastFull（例如「${notInLedger[0]}」）——兩份對不上`);
-  const missing = neverRunNames(current, withFull);
+  const { real: missing, parked } = splitParked(neverRunNames(current, withFull), unmeasurableNames(mtSrc));
   const never = missing.length;
   const versMut = versionsSince(parsed.mut.version);
   const lines = reminderLines(parsed, {
@@ -224,6 +240,7 @@ function main() {
   const over = overLimitLine({ versMut, never, daysMut: daysSince(parsed.mut.date, today) });
   if (over) console.log(over);
   for (const l of lines) console.log(l);
+  if (parked.length) console.log(`（另有刻意保留、已知量不到的 ${parked.length} 條，不算進「從未整套跑過」：${parked.join('、')}）`);
   if (process.argv.includes('--list')) {
     const orph = ledgerOrphans(current, ledger);
     console.log(`\n帳本的孤兒：清單有、帳本沒有任何紀錄的 ${orph.notInLedger.length} 條；帳本有、清單已經沒有的 ${orph.notInList.length} 條`);

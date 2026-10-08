@@ -19132,20 +19132,20 @@
   },
   "mutationtest --affected 不管理由一律全跑": {
    "last": {
-    "date": "2026-10-02",
-    "commit": "d27f14861762",
-    "mode": "never-full",
-    "defHash": "0df46eab4fbec98f22bc43230c7d2c4b2752557d9f1e9e3d71c79ebb2f73c4a4",
-    "depHash": "8cd9002053d35c22cb20ba7dac9112e9c0e741e2042dac8d001f7e6d42f16f96",
-    "runnerHash": "f4d2ba139e34411fe2e7c5b98090f130e8c5eacad40906b239503f9d495130bc",
+    "date": "2026-10-09",
+    "commit": "90b64b56754b+dirty",
+    "mode": "only",
+    "defHash": "6e143f577fb3d71cc515a4c125b2df857a4405936548c391069bb683b81ca710",
+    "depHash": "f09121db450424579cd9b04ad8d2bfd431f054f85447c380d08ad49c2c7dc556",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
     "red": true,
     "expectMatched": true,
-    "failed": 7,
+    "failed": 2,
     "expectHits": 1,
-    "seconds": 54
+    "seconds": 140
    },
    "lastFull": {
     "date": "2026-10-02",
@@ -20897,8 +20897,198 @@
     "seconds": 40
    },
    "lastFull": null
+  },
+  "刻意保留：還有別的理由也不跑": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "90b64b56754b+dirty",
+    "mode": "only",
+    "defHash": "064c65c35d837e1c9b0d239d9b985fe56730fa4bd4dc9d4bfc87eca34e0f0fde",
+    "depHash": "f09121db450424579cd9b04ad8d2bfd431f054f85447c380d08ad49c2c7dc556",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 132
+   },
+   "lastFull": null
+  },
+  "刻意保留：原因是空白也算標了": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "90b64b56754b+dirty",
+    "mode": "only",
+    "defHash": "fa1b2090c86f93f13a34964b4ca3ffdcb3689b5134e6b5c316f18a74c74cd6b8",
+    "depHash": "f09121db450424579cd9b04ad8d2bfd431f054f85447c380d08ad49c2c7dc556",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 133
+   },
+   "lastFull": null
+  },
+  "刻意保留：一律不保留": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "90b64b56754b+dirty",
+    "mode": "only",
+    "defHash": "ab14c74457c837c5e956286d8a347f6baa146fcae2554e962b86d7949943f5d4",
+    "depHash": "f09121db450424579cd9b04ad8d2bfd431f054f85447c380d08ad49c2c7dc556",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 135
+   },
+   "lastFull": null
+  },
+  "mutationtest --affected 不看刻意保留": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "90b64b56754b+dirty",
+    "mode": "only",
+    "defHash": "4651c667d94afabf69b39a8c5aedaf0ccbbc905e2e1de3d67c057c8249098559",
+    "depHash": "f09121db450424579cd9b04ad8d2bfd431f054f85447c380d08ad49c2c7dc556",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 135
+   },
+   "lastFull": null
+  },
+  "mutationtest 沿用的條數把刻意保留的也算進去": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "90b64b56754b+dirty",
+    "mode": "only",
+    "defHash": "7f1cb7fdf61edfdedb7a325a2df87b0b33335aedb4392eb777880fa77df88e77",
+    "depHash": "f09121db450424579cd9b04ad8d2bfd431f054f85447c380d08ad49c2c7dc556",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 133
+   },
+   "lastFull": null
+  },
+  "mutationtest --never-full 不看刻意保留": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "90b64b56754b+dirty",
+    "mode": "only",
+    "defHash": "487284144646b470cdb625f0a4ebcdb7c210c12457ba620ca1268b205fb71615",
+    "depHash": "f09121db450424579cd9b04ad8d2bfd431f054f85447c380d08ad49c2c7dc556",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 133
+   },
+   "lastFull": null
+  },
+  "mutationtest 只列不跑時把刻意保留寫成跳過": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "90b64b56754b+dirty",
+    "mode": "only",
+    "defHash": "0244e61eb8ff7fa44d0bad91948f4ff0ae92b7ab3dfcc559eddebec5e17adfd4",
+    "depHash": "f09121db450424579cd9b04ad8d2bfd431f054f85447c380d08ad49c2c7dc556",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 133
+   },
+   "lastFull": null
+  },
+  "sincefull 不分開刻意保留": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "90b64b56754b+dirty",
+    "mode": "only",
+    "defHash": "a5283dd201f9c78b96cc9fec6eccfb90a96d0f6d53f1447fc0452f508c5ce075",
+    "depHash": "f09121db450424579cd9b04ad8d2bfd431f054f85447c380d08ad49c2c7dc556",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 133
+   },
+   "lastFull": null
+  },
+  "sincefull 分開時沒把保留的扣掉": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "90b64b56754b+dirty",
+    "mode": "only",
+    "defHash": "57d534bfe0f6d74638831cc4a088b8d6ea21e2ab5e71112d60393567205752fc",
+    "depHash": "f09121db450424579cd9b04ad8d2bfd431f054f85447c380d08ad49c2c7dc556",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 133
+   },
+   "lastFull": null
+  },
+  "sincefull 讀不到突變清單就當成沒有保留的": {
+   "last": {
+    "date": "2026-10-09",
+    "commit": "90b64b56754b+dirty",
+    "mode": "only",
+    "defHash": "ffcb3af0f296611daaac58f6c448ef8c53e298f7f06cce39adf6b23721c4846b",
+    "depHash": "f09121db450424579cd9b04ad8d2bfd431f054f85447c380d08ad49c2c7dc556",
+    "runnerHash": "2fbf26348fce7b0e5428e4e3d0d8e6301adee1b7016a3fb28cb209d4897f7518",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 133
+   },
+   "lastFull": null
   }
  },
- "runSeq": 57,
+ "runSeq": 58,
  "inflight": null
 }

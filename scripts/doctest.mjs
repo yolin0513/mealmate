@@ -26,7 +26,7 @@ import { sweep as sweepWorktrees, sweepOwnedTemp, wtPrefix, ownerOf, judge, temp
 import { convCheck, compareConv, MASTER_REL as CONV_MASTER_REL, COPY_REL as CONV_COPY_REL } from './convcheck.mjs';
 import {
   scopeFor, scopeHash, accessOf, maskMutations, runnerHash, rerunReasons, RERUN, recordRun, emptyLedger, neverFullNames,
-  fullComplete, ledgerProblems, contentHash, LEDGER_FILE, ledgerOrphans,
+  fullComplete, ledgerProblems, contentHash, LEDGER_FILE, ledgerOrphans, parkedAsUnmeasurable,
 } from './depgraph.mjs';
 import { listen as serveListen } from './serve.mjs';
 import { summarize as summarizeProcs, peakOf } from './reslog.mjs';
@@ -35,7 +35,7 @@ import { CASES as GM_CASES, staleProblems as gmStaleProblems, resolveBash as gmR
 import { controls as arControls, stampOf as arStampOf } from './assertregistry.mjs';
 import { controls as rpControls } from './runprogress.mjs';
 import { cleanControls as evCleanControls } from './evidence.mjs';
-import { lastFullNotInLedger } from './sincefull.mjs';
+import { lastFullNotInLedger, splitParked, unmeasurableNames } from './sincefull.mjs';
 import { parseDecisionTable, decisionProblems, DECISION_FILE } from './procdecisions.mjs';
 import { STATIC_RULES } from './auditrules.mjs';
 import { outputProblems, writeAtomically } from './build-recipes.mjs';
@@ -285,7 +285,9 @@ section('STATUS：上次全面檢測／上次突變整套的兩行紀錄（npm r
   ok(Number.isFinite(cliVers) && Number.isFinite(cliNever) && Number.isFinite(cliDays) && cliOut.some((l) => l.startsWith('距上次全面檢測（')),
     `（前提）sincefull 印得出那兩行，而且讀得到版數與條數（${cliVers} 版／${cliNever} 條）`);
   const overNow = cliVers > Number(limitTxt?.[1]) || cliNever >= Number(limitTxt?.[2]) || cliDays > Number(limitTxt?.[3]);
-  ok(cliOut.length === (overNow ? 3 : 2) && (overNow ? cliOut[0].startsWith('已超過上限（') : cliOut[0].startsWith('距上次全面檢測（')),
+  // 2026-10-09：有刻意保留、已知量不到的突變時，最後多一行「（另有刻意保留…）」——只准這一行、最多一行，其他多出來的照樣紅（D15f 驗它的內容）
+  const cliParked = cliOut.filter((l) => l.startsWith('（另有刻意保留、已知量不到的 ')).length;
+  ok(cliParked <= 1 && cliOut.length === (overNow ? 3 : 2) + cliParked && (overNow ? cliOut[0].startsWith('已超過上限（') : cliOut[0].startsWith('距上次全面檢測（')),
     `D6（真實入口）現在 ${cliVers} 版／${cliNever} 條，${overNow ? '超過' : '沒超過'} STATUS 寫的上限 → sincefull ${overNow ? '在最前面多印一行提醒' : '只印那兩行'}：${JSON.stringify(cliOut)}`);
   // D4 npm test 的鏈裡沒有 mutationtest（它會暫時改寫原始碼、跑三十分鐘以上），但它的 npm script 還在
   ok(chainExcludesMutation(pkg), 'D4 package.json 的 test 鏈裡沒有 mutationtest');
@@ -1260,6 +1262,14 @@ section('只跑受影響的突變：依賴範圍與「要不要重跑」的分�
   eq(rerunReasons(last({ counted: false, red: false }), cur), [RERUN.UNCOUNTED], '受影響 D13e 上次不算數 → 跑');
   eq(rerunReasons(last({ red: false }), cur), [RERUN.NOT_RED], '受影響 D13f 上次沒紅 → 跑');
   eq(rerunReasons(last({ defHash: null, depHash: null, runnerHash: null }), cur), [RERUN.NO_HASH], '受影響 D13g 上次沒記雜湊（從舊名單轉進來的）→ 跑');
+  // 已知量不到、刻意保留（2026-10-09 Dispatch）：標了 unmeasurable、而且理由只有「上次不算數」才保留；其餘照挑
+  const um = { name: 'u', unmeasurable: '量不到的原因' };
+  eq([parkedAsUnmeasurable(um, [RERUN.UNCOUNTED]), parkedAsUnmeasurable(um, [])], [true, false],
+    '受影響 D13h 標了量不到、理由只有「上次不算數」→ 保留（不跑）；沒有任何理由 → 不是保留（本來就沿用）');
+  eq([parkedAsUnmeasurable(um, [RERUN.DEP, RERUN.UNCOUNTED]), parkedAsUnmeasurable(um, [RERUN.RUNNER, RERUN.UNCOUNTED])], [false, false],
+    '受影響 D13i 標了量不到、但還有別的理由（依賴範圍、執行器改了）→ 照挑（那些改動可能讓它量得到）');
+  eq([parkedAsUnmeasurable({ name: 'v' }, [RERUN.UNCOUNTED]), parkedAsUnmeasurable({ name: 'w', unmeasurable: '  ' }, [RERUN.UNCOUNTED])], [false, false],
+    '受影響 D13j 沒標、或原因是空白 → 上次不算數照挑（不能靠一個空欄位就把它藏起來）');
 
   // 整套收齊、從沒全跑過
   const curOfN = () => cur;
@@ -1280,6 +1290,23 @@ section('只跑受影響的突變：依賴範圍與「要不要重跑」的分�
     '受影響 D15c 上次整套名單上的，帳本都要有 lastFull：對得上 → 空；少了 → 點名（sincefull 遇到就停）');
   eq(ledgerOrphans(['x', 'y', 'new'], led), { notInLedger: ['new'], notInList: ['z'] },
     '受影響 D15d 帳本的孤兒兩種都報：清單有帳本沒有（new）、帳本有清單沒有（z，突變被刪或改名）');
+  // sincefull 的「從未整套跑過」不算刻意保留的（2026-10-09）：它永遠不會有 lastFull
+  {
+    const synSrc = 'const MUTATIONS = [\n  { name: "甲", file: "a", find: "x", replace: "y", test: "t" },\n  { name: "乙", file: "a", find: "x", replace: "z", test: "t", unmeasurable: "原因" },\n  { name: "丙", file: "a", find: "x", replace: "w", test: "t", unmeasurable: "" },\n];\n';
+    let umThrew = false; try { unmeasurableNames('沒有清單'); } catch { umThrew = true; }
+    eq([unmeasurableNames(synSrc), splitParked(['甲', '乙', '丁'], ['乙']), umThrew], [['乙'], { real: ['甲', '丁'], parked: ['乙'] }, true],
+      '受影響 D15e sincefull：只認原因非空的標記（甲沒標、丙是空的都不算）；從未整套跑過分成要補跑的與刻意保留的；讀不到清單 → 丟錯（不當成 0 條）');
+    const realUm = unmeasurableNames(fs.readFileSync(path.join(ROOT, 'scripts/mutationtest.mjs'), 'utf8'));
+    const sf = spawnSync(process.execPath, [path.join(ROOT, 'scripts/sincefull.mjs')], { cwd: ROOT, encoding: 'utf8', timeout: SUB_TIMEOUT_MS });
+    const nLine = (/其中 (\d+) 條從未整套跑過/.exec(sf.stdout) ?? [])[1];
+    const pLine = sf.stdout.split('\n').find((l) => l.startsWith('（另有刻意保留、已知量不到的 ')) ?? '';
+    const allNever = neverRunNames(mutationNames(fs.readFileSync(path.join(ROOT, 'scripts/mutationtest.mjs'), 'utf8')),
+      Object.entries(JSON.parse(fs.readFileSync(path.join(ROOT, LEDGER_FILE), 'utf8')).entries).filter(([, e]) => e.lastFull).map(([k]) => k));
+    const parkedNever = allNever.filter((n) => realUm.includes(n));
+    ok(sf.status === 0 && realUm.length >= 1 && parkedNever.length >= 1 && Number(nLine) === allNever.length - parkedNever.length
+      && parkedNever.every((n) => pLine.includes(n)) && pLine.includes(`的 ${parkedNever.length} 條`),
+    `受影響 D15f 從真實入口（sincefull）：刻意保留 ${realUm.length} 條、其中沒有 lastFull 的 ${parkedNever.length} 條另列一行，「從未整套跑過」${nLine} 條＝全部沒有 lastFull 的 ${allNever.length} 條扣掉它們（回 ${sf.status}）`);
+  }
   let rhThrew = '';
   try { rh({ ...SYN, 'scripts/mutationtest.mjs': `import { x } from './nope.mjs';\n${SYN['scripts/mutationtest.mjs']}` }); } catch (e) { rhThrew = String(e.message); }
   ok(rhThrew.includes('執行器的雜湊算不出來'), `受影響 D12c 執行器 import 了不存在的檔 → 停、講明算不出來（不默默少算一支）：${rhThrew || '（沒有停）'}`);
@@ -1401,6 +1428,32 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
       fs.writeFileSync(ledFile, `${JSON.stringify(JSON.parse(before), null, 1)}\n`);
       ok(readBack.counted === false && readBack.kind === 'timeout' && rg.code === 0 && rg.out.includes('選了 1 條突變') && rg.out.includes(`${RERUN.UNCOUNTED} 1 條`),
         `受影響 D18g 帳本把一條改成「逾時被殺、不算數」→ 下一次選擇真的把它挑進來，理由是「${RERUN.UNCOUNTED}」（回 ${rg.code}）`);
+    }
+    // D18u、D18v（2026-10-09 Dispatch：已知量不到、刻意保留的，不要和真正需要重跑的混在一起）：同樣把那一條改成不算數（D18g 是對照：
+    // 沒標 → 挑進來），這次在突變清單上標 unmeasurable 並 commit——例行的 --affected 不跑、另外列；--never-full 也一樣
+    {
+      const ledFile = path.join(root, LEDGER_FILE);
+      const led = JSON.parse(fs.readFileSync(ledFile, 'utf8'));
+      const before = JSON.stringify(led);
+      const mtBefore = fs.readFileSync(mtFile, 'utf8');
+      led.entries['AFF探針'].last = { ...led.entries['AFF探針'].last, counted: false, red: false, kind: 'noscenario' };
+      fs.writeFileSync(ledFile, `${JSON.stringify(led, null, 1)}\n`);
+      const tag = 'expect: "AFF 探針" }';
+      fs.writeFileSync(mtFile, mtBefore.replace(tag, () => 'expect: "AFF 探針", unmeasurable: "探針：已知量不到" }'));
+      g('commit', '-qam', '標成量不到');
+      const marked = fs.readFileSync(mtFile, 'utf8').includes('unmeasurable: "探針：已知量不到"') && mtBefore.split(tag).length === 2;   // 讀回確認
+      const runWith = (args) => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, ...args], { cwd: root, encoding: 'utf8', timeout: SUB_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } };
+      const ru = runWith(['--affected']);
+      const rv = runWith(['--never-full', '--dry-run']);
+      fs.writeFileSync(mtFile, mtBefore); g('commit', '-qam', '拿掉標記');
+      fs.writeFileSync(ledFile, `${JSON.stringify(JSON.parse(before), null, 1)}\n`);
+      const parkedLine = (o) => o.split('\n').some((l) => l.startsWith('  · 刻意保留、已知量不到：【affprobe】AFF探針——探針：已知量不到（'));
+      const countLine = (o) => o.split('\n').some((l) => l.startsWith('  · 刻意保留、已知量不到（這次不跑，不算進會跑也不算進沿用）：1 條'));
+      ok(marked && ru.code === 0 && ru.out.includes('選了 0 條突變') && parkedLine(ru.out) && countLine(ru.out) && ru.out.includes('沿用上次結果 0 條'),
+        `受影響 D18u 標了量不到、帳本記不算數 → --affected 不跑（選了 0 條）、另外列一行、不算進沿用（回 ${ru.code}）`);
+      ok(marked && rv.code === 0 && rv.out.includes('選了 0 條突變') && parkedLine(rv.out) && countLine(rv.out)
+        && rv.out.split('\n').some((l) => l.startsWith('  · 不跑：【affprobe】AFF探針——刻意保留、已知量不到：探針：已知量不到')),
+      `受影響 D18v 同一條（從沒在整套裡跑過）→ --never-full 也不跑、另外列；只列不跑時逐條的理由寫「刻意保留」、不寫成跳過（回 ${rv.code}）`);
     }
     fs.writeFileSync(path.join(root, 'js/affdep.js'), 'export const V = 2;\n');
     g('commit', '-qam', '改 affdep'); // 執行器要求工作區等於 HEAD（2026-10-02）

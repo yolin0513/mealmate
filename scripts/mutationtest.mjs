@@ -26,6 +26,7 @@ import { reviewNeeded, loadStamps, readTestFrom } from './assertregistry.mjs';
 import {
   LEDGER_FILE, contentHash, scopeFor, scopeHash, mutationDefHash, runnerHash, rerunReasons,
   emptyLedger, ledgerProblems, recordRun, neverFullNames, fullComplete, doneAt, ledgerOrphans,
+  isUnmeasurable, parkedAsUnmeasurable,
 } from './depgraph.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -4766,6 +4767,9 @@ const MUTATIONS = [
     replace: "\n",
     test: "doctest",
     expect: "SC1 ",
+    // 2026-10-09 Dispatch 定案 C（docs/STATUS.md 常設規則補遺「這條突變的狀態」）：缺陷真的發生時 doctest 會紅、回 1（實測），
+    // 量不到只是因為 GM、AR 的讀回確認先宣告情境未成立、執行器照 R8 判不算數。例行挑選不跑它、另外列；要量得到見 STATUS 的 A／B
+    unmeasurable: "缺陷發生時 GM、AR 的讀回確認先宣告情境未成立，執行器判不算數（doctest 本身會紅、回 1——2026-10-08 實測擋得住）",
   },
   {
     name: "doctest 共用 clone：帳本與還原紀錄也蓋過去",
@@ -6026,6 +6030,97 @@ const MUTATIONS = [
     test: "doctest",
     expect: "受影響 D13g",
   },
+  // 已知量不到、刻意保留（2026-10-09 Dispatch：不要和真正需要重跑的混在一起）
+  {
+    name: "刻意保留：還有別的理由也不跑",
+    why: "依賴範圍、執行器改了，可能讓它變得量得到；只要帶著「上次不算數」就藏起來，那些改動永遠驗不到它。",
+    file: "scripts/depgraph.mjs",
+    find: "  return isUnmeasurable(m) && reasons.length > 0 && reasons.every((r) => r === RERUN.UNCOUNTED);",
+    replace: "  return isUnmeasurable(m) && reasons.length > 0 && reasons.includes(RERUN.UNCOUNTED);",
+    test: "doctest",
+    expect: "受影響 D13i",
+  },
+  {
+    name: "刻意保留：原因是空白也算標了",
+    why: "一個空欄位就能把一條不算數的突變藏起來，誰都看不出為什麼。",
+    file: "scripts/depgraph.mjs",
+    find: "export function isUnmeasurable(m) { return typeof m?.unmeasurable === 'string' && m.unmeasurable.trim() !== ''; }",
+    replace: "export function isUnmeasurable(m) { return typeof m?.unmeasurable === 'string'; }",
+    test: "doctest",
+    expect: "受影響 D13j",
+  },
+  {
+    name: "刻意保留：一律不保留",
+    why: "標了也沒用，那條永遠不算數的照樣每次被挑進來、混在要重跑的清單裡。",
+    file: "scripts/depgraph.mjs",
+    find: "  return isUnmeasurable(m) && reasons.length > 0 && reasons.every((r) => r === RERUN.UNCOUNTED);",
+    replace: "  void m; void reasons; return false;",
+    test: "doctest",
+    expect: "受影響 D13h",
+  },
+  {
+    name: "mutationtest --affected 不看刻意保留",
+    why: "真實入口：判斷函式對了，執行器沒有叫它，等於沒有。",
+    file: "scripts/mutationtest.mjs",
+    find: "    if (parkedAsUnmeasurable(m, r)) { PARKED.set(m.name, r.join('、')); return false; }\n",
+    replace: "    void parkedAsUnmeasurable;\n",
+    test: "doctest",
+    expect: "受影響 D18u",
+  },
+  {
+    name: "mutationtest 沿用的條數把刻意保留的也算進去",
+    why: "保留的不是沿用：它從來沒有算數的結果可沿用，算進沿用就又混在一起了。",
+    file: "scripts/mutationtest.mjs",
+    find: "MUTATIONS.length - CANDIDATES - PARKED.size} 條`);\n}",
+    replace: "MUTATIONS.length - CANDIDATES} 條`);\n}",
+    test: "doctest",
+    expect: "受影響 D18u",
+  },
+  {
+    name: "mutationtest --never-full 不看刻意保留",
+    why: "補跑從沒整套跑過的那一批時，它每次都會被挑進來、每次都不算數。",
+    file: "scripts/mutationtest.mjs",
+    find: "ledger));\n  SELECTED = MUTATIONS.filter((m) => { if (!never.has(m.name)) return false; if (isUnmeasurable(m)) { PARKED.set(m.name, '從沒算數地在整套裡跑過'); return false; } return true; });",
+    replace: "ledger));\n  SELECTED = MUTATIONS.filter((m) => { if (!never.has(m.name)) return false; void isUnmeasurable; return true; });",
+    test: "doctest",
+    expect: "受影響 D18v",
+  },
+  {
+    name: "mutationtest 只列不跑時把刻意保留寫成跳過",
+    why: "逐條理由（v11 §5.18 第 2 點）寫錯，看的人分不出它是刻意保留還是普通的沒挑到。",
+    file: "scripts/mutationtest.mjs",
+    find: "    const why = PARKED.has(m.name) ? `刻意保留、已知量不到：${m.unmeasurable}`\n      : CANDIDATE_SET",
+    replace: "    const why = CANDIDATE_SET",
+    test: "doctest",
+    expect: "受影響 D18v",
+  },
+  {
+    name: "sincefull 不分開刻意保留",
+    why: "「從未整套跑過」永遠多一條雜訊，每次部署印的那幾行都帶著它。",
+    file: "scripts/sincefull.mjs",
+    find: "splitParked(neverRunNames(current, withFull), unmeasurableNames(mtSrc))",
+    replace: "splitParked(neverRunNames(current, withFull), [])",
+    test: "doctest",
+    expect: "受影響 D15f",
+  },
+  {
+    name: "sincefull 分開時沒把保留的扣掉",
+    why: "分了兩份，「要補跑的」那一份照樣含著保留的。",
+    file: "scripts/sincefull.mjs",
+    find: "  return { real: missing.filter((n) => !p.has(n)), parked:",
+    replace: "  return { real: missing, parked:",
+    test: "doctest",
+    expect: "受影響 D15e",
+  },
+  {
+    name: "sincefull 讀不到突變清單就當成沒有保留的",
+    why: "讀不到不是 0 條（§5.13）：清單格式一改，保留的就默默跑回「從未整套跑過」，沒有任何徵兆。",
+    file: "scripts/sincefull.mjs",
+    find: "  if (a < 0 || b < 0) throw new Error('mutationtest.mjs 裡找不到突變清單（const MUTATIONS = [ … ];）');",
+    replace: "  if (a < 0 || b < 0) return [];",
+    test: "doctest",
+    expect: "受影響 D15e",
+  },
   {
     name: "整套收齊：不看是不是同一個 commit",
     why: "分段跑的等價條件之一是同一個 commit；不看的話，不同版本跑的段會被湊成「整套跑完」。",
@@ -6066,8 +6161,8 @@ const MUTATIONS = [
     name: "mutationtest --affected 不管理由一律全跑",
     why: "真實入口：沒改任何東西時要沿用；一律全跑的話，機制形同虛設。",
     file: "scripts/mutationtest.mjs",
-    find: "} else if (MODE === 'affected') {\n  SELECTED = MUTATIONS.filter((m) => { const r = rerunReasons(ledger.entries[m.name], curOf(m)); if (r.length) whyRun.set(m.name, r); return r.length > 0; });",
-    replace: "} else if (MODE === 'affected') {\n  SELECTED = MUTATIONS.filter((m) => { const r = rerunReasons(ledger.entries[m.name], curOf(m)); if (r.length) whyRun.set(m.name, r); return true; });",
+    find: "    if (r.length) whyRun.set(m.name, r); return r.length > 0;\n  });",
+    replace: "    if (r.length) whyRun.set(m.name, r); return true;\n  });",
     test: "doctest",
     expect: "受影響 D18b",
   },
@@ -6261,13 +6356,19 @@ function saveLedger() {
 if (inflightCleared) saveLedger();
 
 const whyRun = new Map();
+// 已知量不到、刻意保留（depgraph.parkedAsUnmeasurable）：例行的 --affected／--never-full 不跑、另外列；--only、--full 照跑
+const PARKED = new Map();
 let SELECTED;
 if (MODE === 'only') SELECTED = MUTATIONS.filter((m) => [m.name, m.file, m.test].some((s) => onlyKeys.some((k) => s.includes(k))));
 else if (MODE === 'never-full') {
   const never = new Set(neverFullNames(MUTATIONS.map((m) => m.name), ledger));
-  SELECTED = MUTATIONS.filter((m) => never.has(m.name));
+  SELECTED = MUTATIONS.filter((m) => { if (!never.has(m.name)) return false; if (isUnmeasurable(m)) { PARKED.set(m.name, '從沒算數地在整套裡跑過'); return false; } return true; });
 } else if (MODE === 'affected') {
-  SELECTED = MUTATIONS.filter((m) => { const r = rerunReasons(ledger.entries[m.name], curOf(m)); if (r.length) whyRun.set(m.name, r); return r.length > 0; });
+  SELECTED = MUTATIONS.filter((m) => {
+    const r = rerunReasons(ledger.entries[m.name], curOf(m));
+    if (parkedAsUnmeasurable(m, r)) { PARKED.set(m.name, r.join('、')); return false; }
+    if (r.length) whyRun.set(m.name, r); return r.length > 0;
+  });
 } else {
   // 整套：這個 commit 上已經算數地跑過、雜湊也沒變的跳過（續跑）
   SELECTED = MUTATIONS.filter((m) => !doneAt(ledger.entries[m.name], COMMIT, curOf(m)));
@@ -6317,7 +6418,12 @@ else note(pickedLine);
 if (MODE === 'affected') {
   const tally0 = {};
   for (const r of whyRun.values()) for (const x of r) tally0[x] = (tally0[x] ?? 0) + 1;
-  note(`受影響的理由統計：${Object.entries(tally0).map(([k, v]) => `${k} ${v} 條`).join('、') || '（沒有）'}；沿用上次結果 ${MUTATIONS.length - CANDIDATES} 條`);
+  note(`受影響的理由統計：${Object.entries(tally0).map(([k, v]) => `${k} ${v} 條`).join('、') || '（沒有）'}；沿用上次結果 ${MUTATIONS.length - CANDIDATES - PARKED.size} 條`);
+}
+// 刻意保留的另外列，跟「會跑」「沿用」都分開（不算進任何一邊）；沒有也印一行
+if (MODE === 'affected' || MODE === 'never-full') {
+  note(`刻意保留、已知量不到（這次不跑，不算進會跑也不算進沿用）：${PARKED.size} 條`);
+  for (const m of MUTATIONS) if (PARKED.has(m.name)) note(`刻意保留、已知量不到：【${m.test}】${m.name}——${m.unmeasurable}（這次被挑到的理由只有「${PARKED.get(m.name)}」；--only 照樣跑得到）`);
 }
 // 「為什麼要全跑」：選到的裡面，依賴範圍是整個 repo 的（判斷不出範圍），理由依檔案彙總
 const repoWhy = new Map();
@@ -6333,7 +6439,8 @@ if (DRY) {
   for (const m of MUTATIONS) {
     if (picked.has(m.name)) continue;
     const l = ledger.entries[m.name]?.last;
-    const why = CANDIDATE_SET.has(m.name) ? '跳過：超過 --limit，留給下一段'
+    const why = PARKED.has(m.name) ? `刻意保留、已知量不到：${m.unmeasurable}`
+      : CANDIDATE_SET.has(m.name) ? '跳過：超過 --limit，留給下一段'
       : MODE === 'affected' ? `沿用：上次 ${l?.date}、${l?.commit}、${l?.red ? '紅' : '沒紅'}，突變本身、依賴範圍、執行器都沒變`
       : MODE === 'never-full' ? `跳過：已經在整套或補跑裡跑過（${ledger.entries[m.name]?.lastFull?.date}、${ledger.entries[m.name]?.lastFull?.commit}）`
         : MODE === 'full' ? '跳過：這個 commit 已經算數地跑過、雜湊沒變（續跑）'
