@@ -11,16 +11,16 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
 // 開 node 腳本的子程序一律帶上限（2026-10-08，第 7 項：npm test 這條路沒有任何外層上限，子程序卡住 doctest 就永遠不結束）。
-// doctest 整支實測最長 96 秒（2026-10-08，加了 worktree 收拾那一節之後；jobrun 要結算之前 71 秒），任何一個子程序都不會超過它；
-// 300 秒＝3.1 倍餘裕（餘裕一律用最長那次算、至少 3 倍；原本 240 秒是照 71 秒訂的）。逾時 → 那一條紅，不會卡住。**再長就要調**
+// doctest 整支實測最長 100 秒（2026-10-08，加了結算行 RF、D18k2 之後；jobrun 要結算之前 71 秒），任何一個子程序都不會超過它；
+// 360 秒＝3.6 倍餘裕（餘裕一律用最長那次算、至少 3 倍；240 → 300 → 360，每次照當時最長的那次訂）。逾時 → 那一條紅，不會卡住。**再長就要調**
 // 已知限制：git 的小呼叫沒帶；逾時只殺直接那一支（不經 jobrun——經 jobrun 會讓 D18p 的探針繼承到中間那一層的 MM_JOBRUN）。
-const SUB_TIMEOUT_MS = 300000;
+const SUB_TIMEOUT_MS = 360000;
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ok, eq, section, done, everyOf, noneOf, detects } from './tap.mjs';
 import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_MAX, whitespaceOnly } from './checkmutations.mjs';
 import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts, escapeScan } from './gatescan.mjs';
 import { selfcheck, gitEnvProblems } from './selfcheck.mjs';
-import { runProgram, classifyRun, UNCOUNTED_KINDS, NO_SCENARIO_MARK, parseJobSum } from './runkind.mjs';
+import { runProgram, classifyRun, UNCOUNTED_KINDS, NO_SCENARIO_MARK, parseJobSum, hasFinalLine } from './runkind.mjs';
 import { sweep as sweepWorktrees, wtPrefix, ownerOf, judge, tempWorktrees } from './worktreesweep.mjs';
 import {
   scopeFor, scopeHash, accessOf, maskMutations, runnerHash, rerunReasons, RERUN, recordRun, emptyLedger, neverFullNames,
@@ -696,6 +696,23 @@ section('測試怎麼結束的（runkind；2026-10-01：逾時、沒跑起來、
   eq(slow.kind, 'timeout', `R4 超過時限被殺 → 逾時（不是斷言失敗、也不是崩潰）（${slow.seconds} 秒）`);
   eq(runProgram([], { timeoutMs: 3000, exe: path.join(os.tmpdir(), 'mm-no-such-program.exe') }).kind, 'spawn', 'R5 程式根本沒跑起來 → 沒跑起來');
   eq(classifyRun({ signal: 'SIGKILL', status: null }), 'signal', 'R6 被外部訊號殺掉（不是逾時）→ 被殺');
+  // RF1–RF4（2026-10-08，第 8 項「判定器的結算行」）：被外力停掉的測試不能被當成跑完。兩個獨立來源：探針實際怎麼結束是我造的
+  // （印了 ✗ 之後被 taskkill /F 停掉、或完整跑完印出結算行），判定器的分類是另一個來源
+  if (process.platform === 'win32') {
+    // 印一行 ✗（同步寫，確定在被停掉之前已經送出去），然後用 taskkill /F 把自己停掉——跟外部監看、父程序被殺的形狀一樣：回 1、沒有訊號資訊
+    const killedMidway = "require('fs').writeSync(1, '  ✗ 半途那一條' + String.fromCharCode(10)); require('child_process').execSync('taskkill /F /PID ' + process.pid); setTimeout(() => {}, 60000);";
+    const ctl = node(killedMidway, { timeoutMs: 15000 });
+    const cut = node(killedMidway, { timeoutMs: 15000, finalOf: 'probe' });
+    ok(ctl.kind === 'assert' && ctl.out.includes('✗ 半途那一條'), `（前提）RF1 被 taskkill /F 停掉、停之前印過 ✗：不看結算行時，判定器把它判成「${ctl.kind}」——跟斷言失敗分不開（這個情境真的會被誤判）`);
+    eq(cut.kind, 'cut', 'RF1 同一個情境、要求結算行 → 沒跑完（不算數），不是斷言失敗');
+  }
+  eq(node("console.log('  ✗ 某條斷言'); console.log(''); console.log('probe：0 項通過，1 項失敗'); process.exit(1)", { finalOf: 'probe' }).kind, 'assert',
+    'RF2 印了 ✗、也印了結算行、回 1 → 斷言失敗（跑完了、某條紅了——這才算抓到）');
+  eq([node("console.log('  ✓ 前半'); process.exit(0)", { finalOf: 'probe' }).kind, node("console.log('probe：1 項通過')", { finalOf: 'probe' }).kind], ['cut', 'pass'],
+    'RF3 回 0 但沒有結算行（半途 exit(0)）→ 沒跑完；有結算行 → 通過');
+  eq(['probe：準備中（進度說明）', 'other：3 項通過', 'probe：3 項通過（另有 1 行說明，不算斷言）', 'probe：一條斷言都沒有跑到——判失敗'].map((l) => hasFinalLine(`x\n${l}\n`, 'probe'))
+    .concat([hasFinalLine('resume-verify：全部符合', 'resume-verify'), hasFinalLine('resume-verify 跑到一半', 'resume-verify')]),
+  [false, false, true, true, true, false], 'RF4 結算行要長成結算行：名字開頭的進度說明、別支的結算行都不算；resume-verify 照登記的寫法');
   // Job 結算行（2026-10-08，逐一計數與結束核對）：合成的結算行 vs 解析器——差值照印、不截成 0；拿不到的不當成 0
   {
     const neg = parseJobSum('x\nJOB-SUM started=2 ended=3 active=0 alive=0 stale=0 peak=1 peakok=yes peakmix=nodex1 left=- stalemix=-\n');
@@ -708,7 +725,7 @@ section('測試怎麼結束的（runkind；2026-10-01：逾時、沒跑起來、
     const bad = ['', 'JOB-SUM unavailable reason=3 秒內沒回結算', 'JOB-SUM started=x ended=1 active=1 alive=1 stale=0 peak=1 peakok=yes', 'JOB-SUM started=6 ended=5 active=1 peak=5 peakmix=nodex1 left=nodex1'].map(parseJobSum);
     ok(bad.every((b) => b.ok === false && b.started === undefined), `JS3 沒有結算行、unavailable、讀不懂、少了核對欄位的舊格式 → 不算有結算、不給任何數字（不當成 0）：${bad.map((b) => b.why).join('｜')}`);
   }
-  eq([...UNCOUNTED_KINDS].sort(), ['crash', 'noscenario', 'signal', 'spawn', 'timeout'], 'R7 不算數的是：逾時、被殺、沒跑起來、宣告情境未成立、崩潰——只有斷言失敗（完整跑完、某條斷言印出失敗）算抓到');
+  eq([...UNCOUNTED_KINDS].sort(), ['crash', 'cut', 'noscenario', 'signal', 'spawn', 'timeout'], 'R7 不算數的是：逾時、被殺、沒跑起來、宣告情境未成立、崩潰、沒跑完（沒有結算行）——只有斷言失敗（完整跑完、某條斷言印出失敗）算抓到');
   ok(UNCOUNTED_KINDS.has('crash') && !UNCOUNTED_KINDS.has('assert'),
     'R3c 崩潰不算抓到（被改壞的程式崩潰，不是那道檢查發現了它；v11.4 §5.20）；斷言失敗才算');
   // 情境未成立（2026-10-02 Dispatch）：測試宣告「要測的狀況這一次沒有發生」→ 不算紅、不算通過；就算也有 ✗、就算回 0
@@ -1449,6 +1466,21 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
       && fs.readFileSync(path.join(root, 'scripts/affwtarget.mjs'), 'utf8') === tgtW && !fs.existsSync(path.join(root, 'scripts/.mutation-pending.json'))
       && mo2.out.includes('實際紅了') && !mo2.out.includes('停下：系統可用記憶體'),
     `受影響 D18o 可用記憶體低於下限 → 收手、一條都沒改壞、帳本不動、沒有還原紀錄（回 ${mo1.code}）；下限 1 MB → 照常跑（反向）`);
+    // D18k2（2026-10-08，第 8 項）：從真實入口——改壞後探針先印出含 expect 的 ✗、再用 taskkill /F 把自己停掉（外部監看、父程序被殺的形狀）。
+    // 不看結算行的話，這會被記成「紅在預期那一條、抓到了」；要判成沒跑完、不算數，帳本記不算數、沒紅
+    if (process.platform === 'win32') {
+      fs.writeFileSync(path.join(root, 'scripts/affktarget.mjs'), 'export const BROKEN = false;\n');
+      fs.writeFileSync(path.join(root, 'scripts/affkill.mjs'), "import fs from 'node:fs';\nimport { execSync } from 'node:child_process';\nimport { ok, done } from './tap.mjs';\nimport { BROKEN } from './affktarget.mjs';\nok(true, 'AFFK 前一條');\nif (BROKEN) { fs.writeSync(1, '  ✗ AFFK 探針（被停掉之前印的）' + String.fromCharCode(10)); execSync('taskkill /F /PID ' + process.pid); }\nok(!BROKEN, 'AFFK 探針');\ndone('affkill');\n");
+      const srcK = fs.readFileSync(mtFile, 'utf8');
+      const pK = srcK.indexOf('const MUTATIONS = [\n') + 'const MUTATIONS = ['.length;
+      fs.writeFileSync(mtFile, `${srcK.slice(0, pK)}\n  { name: "AFFK探針", why: "x", file: "scripts/affktarget.mjs", find: "export const BROKEN = false;", replace: "export const BROKEN = true;", test: "affkill", expect: "AFFK 探針" },${srcK.slice(pK)}`);
+      g('add', '-A'); g('commit', '-qm', '加中途被停掉的探針');
+      const rK = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--only', 'AFFK探針'], { cwd: root, encoding: 'utf8', timeout: SUB_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();
+      const ledK = JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8')).entries?.['AFFK探針']?.last;
+      ok(rK.out.includes('基準 affkill 通過'), `（前提）D18k2 探針沒改壞時完整跑完、基準通過（回 ${rK.code}）`);
+      ok(rK.out.includes('不算數：affkill 沒跑完') && ledK?.counted === false && ledK?.red === false,
+        `受影響 D18k2 改壞後探針印了含 expect 的 ✗、然後被 taskkill /F 停掉 → 判成沒跑完、不算數（不是「紅在預期那一條」）；帳本 ${JSON.stringify(ledK ? { kind: ledK.kind, counted: ledK.counted, red: ledK.red } : null)}`);
+    }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

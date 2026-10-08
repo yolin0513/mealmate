@@ -19858,19 +19858,19 @@
   "Job：執行器跑測試不經 jobrun": {
    "last": {
     "date": "2026-10-08",
-    "commit": "151874debc71+dirty",
+    "commit": "c569930c6e1a+dirty",
     "mode": "only",
-    "defHash": "aff6024296f70d6a3f71938f3e836cf12a884a0a72ede90b0960e6160269c2a6",
-    "depHash": "5299a27b9a2814a0e0b66bdc2a98a5b1d2fced7b456c478876d9760e909447c9",
-    "runnerHash": "659dffd756e1ab770cf42bac1b3c812015f9ffb05e497d80c6a708db69b3589b",
+    "defHash": "0fd53cd8fd3bef1330ecfab513c7fc1653671c2831b73c4b1173334232d517b8",
+    "depHash": "90a982be034e1eae8254b35e0cd97eda88a168e06d0f4bddbce1d5a3ea0511b7",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
     "red": true,
     "expectMatched": true,
-    "failed": 1,
+    "failed": 2,
     "expectHits": 1,
-    "seconds": 58
+    "seconds": 80
    },
    "lastFull": null
   },
@@ -20348,8 +20348,103 @@
     "seconds": 100
    },
    "lastFull": null
+  },
+  "結算行：沒跑完不列在不算數裡": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "c569930c6e1a+dirty",
+    "mode": "only",
+    "defHash": "2df557c241a9fbc0a109dd38ca9dbb1670e9dcd033a37ff68ead42d95e3450c0",
+    "depHash": "90a982be034e1eae8254b35e0cd97eda88a168e06d0f4bddbce1d5a3ea0511b7",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 102
+   },
+   "lastFull": null
+  },
+  "結算行：執行器不要求結算行": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "c569930c6e1a+dirty",
+    "mode": "only",
+    "defHash": "7117166a97c8d1d65749768d3b26b94fe64dcd5e6196da9deecfc07e3c7e6d5d",
+    "depHash": "90a982be034e1eae8254b35e0cd97eda88a168e06d0f4bddbce1d5a3ea0511b7",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 102
+   },
+   "lastFull": null
+  },
+  "結算行：回非 0 時不看結算行": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "c569930c6e1a+dirty",
+    "mode": "only",
+    "defHash": "b2b5ac52dfc38dcf02f404388754511d0db2c9624939a91d1dddab61b69186d4",
+    "depHash": "90a982be034e1eae8254b35e0cd97eda88a168e06d0f4bddbce1d5a3ea0511b7",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 103
+   },
+   "lastFull": null
+  },
+  "結算行：回 0 時不看結算行": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "c569930c6e1a+dirty",
+    "mode": "only",
+    "defHash": "eb5b2a5969c37c128aeb633febab63a8cd7d09e3831c26bdb90eea7cc90c375f",
+    "depHash": "90a982be034e1eae8254b35e0cd97eda88a168e06d0f4bddbce1d5a3ea0511b7",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 101
+   },
+   "lastFull": null
+  },
+  "結算行：有沒有結算行只看名字開頭": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "c569930c6e1a+dirty",
+    "mode": "only",
+    "defHash": "aa0dc71c8b8c4034e613bb68d4624a5d65368e31a058f8b60b4241aea6f2dfce",
+    "depHash": "90a982be034e1eae8254b35e0cd97eda88a168e06d0f4bddbce1d5a3ea0511b7",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 102
+   },
+   "lastFull": null
   }
  },
- "runSeq": 39,
+ "runSeq": 42,
  "inflight": null
 }

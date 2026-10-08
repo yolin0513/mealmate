@@ -4945,10 +4945,56 @@ const MUTATIONS = [
     name: "Job：執行器跑測試不經 jobrun",
     why: "runProgram 有 inJob，執行器卻沒打開——跟沒做一樣。",
     file: "scripts/mutationtest.mjs",
-    find: "（10-02 正式那場的教訓）\n  const r = runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, inJob: true });",
-    replace: "（10-02 正式那場的教訓）\n  const r = runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000 });",
+    find: "不算數\n  const r = runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, inJob: true, finalOf: name });",
+    replace: "不算數\n  const r = runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, finalOf: name });",
     test: "doctest",
     expect: "受影響 D18p ",
+  },
+  // ---- 2026-10-08：判定器的結算行（第 8 項；runkind.hasFinalLine、runProgram 的 finalOf；doctest RF1–RF4、D18k2）----
+  {
+    name: "結算行：沒跑完不列在不算數裡",
+    why: "判成沒跑完了，卻照樣算數——被停掉的那一次照樣被當成一次測量。",
+    file: "scripts/runkind.mjs",
+    find: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario', 'crash', 'cut']);",
+    replace: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario', 'crash']);",
+    test: "doctest",
+    expect: "R7 ",
+  },
+  {
+    name: "結算行：執行器不要求結算行",
+    why: "被外力停掉的測試（印過 ✗、回 1）又被記成「紅在斷言」——一條沒被驗完的突變被記成抓到了。",
+    file: "scripts/mutationtest.mjs",
+    find: "不算數\n  const r = runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, inJob: true, finalOf: name });",
+    replace: "不算數\n  const r = runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, inJob: true });",
+    test: "doctest",
+    expect: "受影響 D18k2 ",
+  },
+  {
+    name: "結算行：回非 0 時不看結算行",
+    why: "最常見的那一種（停之前印過 ✗、回 1）照樣被判成斷言失敗——結算行只擋住了回 0 的那一半。",
+    file: "scripts/runkind.mjs",
+    find: "    if (finalOf && (kind === 'assert' || kind === 'crash') && !hasFinalLine(out, finalOf)) return",
+    replace: "    if (finalOf && kind === '不看' && !hasFinalLine(out, finalOf)) return",
+    test: "doctest",
+    expect: "RF1 同一個情境",
+  },
+  {
+    name: "結算行：回 0 時不看結算行",
+    why: "半途 exit(0) 的測試被記成綠——沒跑完的當成全過。",
+    file: "scripts/runkind.mjs",
+    find: "    if (finalOf && !hasFinalLine(out, finalOf)) return { passed: false, kind: 'cut', out, seconds: secs() };",
+    replace: "    if (finalOf && false) return { passed: false, kind: 'cut', out, seconds: secs() };",
+    test: "doctest",
+    expect: "RF3 回 0",
+  },
+  {
+    name: "結算行：有沒有結算行只看名字開頭",
+    why: "被停掉之前印過「名字：…」開頭的別的行（例：進度說明），就被當成跑完——結算行要長成結算行的樣子。",
+    file: "scripts/runkind.mjs",
+    find: "  return lines.some((l) => l.startsWith(`${name}：`) && (/^\\S+：\\d+ 項通過/.test(l) || l.startsWith(`${name}：一條斷言都沒有跑到`)));",
+    replace: "  return lines.some((l) => l.startsWith(`${name}：`));",
+    test: "doctest",
+    expect: "RF4 結算行要長成",
   },
   // ---- 2026-10-08：被殺的那一層留下的 worktree（scripts/worktreesweep.mjs；doctest WT1–WT4）----
   {
@@ -5327,8 +5373,8 @@ const MUTATIONS = [
     name: "情境未成立：不列在不算數裡",
     why: "沒列進不算數，帳本會把那一次記成算數；下一次的範圍化選擇就以為它跑過了、跳過它。",
     file: "scripts/runkind.mjs",
-    find: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario', 'crash']);",
-    replace: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'crash']);",
+    find: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario', 'crash', 'cut']);",
+    replace: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'crash', 'cut']);",
     test: "doctest",
     expect: "R7 ",
   },
@@ -5336,8 +5382,8 @@ const MUTATIONS = [
     name: "崩潰又算成抓到（不列在不算數裡）",
     why: "被改壞的程式崩潰，證明的是「它崩潰了」，不是「那道檢查發現了它」；算成抓到，就是被別的東西碰巧擋下也算擋（v11.4 §5.20）。",
     file: "scripts/runkind.mjs",
-    find: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario', 'crash']);",
-    replace: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario']);",
+    find: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario', 'crash', 'cut']);",
+    replace: "export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario', 'cut']);",
     test: "doctest",
     expect: "R3c ",
   },
@@ -5887,7 +5933,8 @@ const JOB_SUMS = [];
 function runTest(name) {
   const file = path.join(ROOT, 'scripts', `${name}.mjs`);
   // inJob（2026-10-08）：經 jobrun 開——逾時被殺時，測試經 Git Bash 或 detached 開出來的子孫一起被收掉（10-02 正式那場的教訓）
-  const r = runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, inJob: true });
+  // finalOf（2026-10-08，第 8 項）：輸出裡要有這支的結算行——被外力停掉的（印過 ✗、回 1，卻沒跑完）判成沒跑完、不算數
+  const r = runProgram([file], { cwd: ROOT, timeoutMs: (TEST_TIMEOUT_MIN[name] ?? 10) * 60 * 1000, inJob: true, finalOf: name });
   JOB_SUMS.push({ name, ...parseJobSum(r.out) });
   return r;
 }

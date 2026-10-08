@@ -23,7 +23,22 @@ export const KIND_LABELS = {
   signal: '被外部訊號殺掉',
   spawn: '沒跑起來',
   noscenario: '情境未成立（要測的狀況這一次沒有發生）',
+  cut: '沒跑完（輸出裡沒有結算行——被外力停掉、或半途結束；印過的 ✗ 不代表跑完）',
 };
+
+/**
+ * 結算行（2026-10-08，第 8 項）：受測程式完整跑完時一定會印的最後那一行。被外力停掉（taskkill /F、外部監看、父程序被殺）的，
+ * Windows 上結束碼是 1、沒有訊號資訊——停之前印過 ✗ 的話，跟「斷言失敗、回 1」在結束碼與 ✗ 上長得一模一樣。
+ * 只有結算行分得開：有它＝跑完了；沒有＝沒跑完（cut，不算數）。登記制：tap 的 done() 印「<名稱>：N 項通過…」或
+ * 「<名稱>：一條斷言都沒有跑到…」；不用 tap 的逐支登記在 FINAL_LINE_OVERRIDES。
+ */
+export const FINAL_LINE_OVERRIDES = { 'resume-verify': 'resume-verify：' };
+export function hasFinalLine(out, name) {
+  const lines = String(out ?? '').split('\n').map((l) => l.trim());
+  const o = FINAL_LINE_OVERRIDES[name];
+  if (o) return lines.some((l) => l.startsWith(o));
+  return lines.some((l) => l.startsWith(`${name}：`) && (/^\S+：\d+ 項通過/.test(l) || l.startsWith(`${name}：一條斷言都沒有跑到`)));
+}
 /**
  * 這幾種代表「測試沒有完整跑完」或「什麼都沒量到」：不能拿來判斷突變有沒有被抓到——不算紅、不算通過、不算數，下一次要重跑。
  * noscenario（2026-10-02 Dispatch）：測試自己宣告「要測的那個狀況這一次沒有發生」（例如殺程序錯過了時間窗）。
@@ -31,7 +46,7 @@ export const KIND_LABELS = {
  */
 // crash（2026-10-02 Dispatch、共用慣例 v11.4 §5.20）：被改壞的程式崩潰，證明的是「它崩潰了」，不是「那道檢查發現了它」——
 // 被別的東西碰巧擋下的一律算沒擋。抓到只有一種：被改壞的程式完整跑完、某條斷言印出失敗（assert）。
-export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario', 'crash']);
+export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario', 'crash', 'cut']);
 /** 測試宣告情境未成立的那一行要以這個開頭（單獨一行；不用 ✗，免得被當成斷言失敗） */
 export const NO_SCENARIO_MARK = '⊘ 情境未成立';
 export function hasNoScenario(out) {
@@ -75,15 +90,24 @@ export function parseJobSum(out) {
   return { ok: true, started, ended, diff: started - ended, active, alive, stale, leftOthers: alive - 1, peak, peakOk: kv.peakok === 'yes' && stale === 0, peakmix: kv.peakmix ?? '', left: kv.left ?? '', stalemix: kv.stalemix ?? '' };
 }
 
-export function runProgram(args, { cwd, timeoutMs, exe = process.execPath, inJob = false } = {}) {
+// finalOf（2026-10-08，第 8 項）：給了受測程式的名字，就要求輸出裡有它的結算行（hasFinalLine）——沒有的，不管回 0 還是回 1、
+// 印過幾個 ✗，一律判 cut（沒跑完、不算數）。情境未成立、逾時、被訊號殺、沒跑起來的判斷在它前面（那幾種本來就不算數、原因更具體）
+export function runProgram(args, { cwd, timeoutMs, exe = process.execPath, inJob = false, finalOf = null } = {}) {
   const t0 = Date.now();
+  const secs = () => Math.round((Date.now() - t0) / 1000);
   if (inJob && process.platform === 'win32') { args = [JOBRUN, exe, ...args]; exe = process.execPath; }
   try {
     const out = execFileSync(exe, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: timeoutMs, encoding: 'utf8' });
     // 回傳 0 但宣告了情境未成立：也不算通過（「這次什麼都沒量到」不能被記成綠）
-    if (hasNoScenario(out)) return { passed: false, kind: 'noscenario', out, seconds: Math.round((Date.now() - t0) / 1000) };
-    return { passed: true, kind: 'pass', out, seconds: Math.round((Date.now() - t0) / 1000) };
+    if (hasNoScenario(out)) return { passed: false, kind: 'noscenario', out, seconds: secs() };
+    // 回 0 卻沒有結算行：半途 exit(0) 之類——沒跑完，不能記成綠
+    if (finalOf && !hasFinalLine(out, finalOf)) return { passed: false, kind: 'cut', out, seconds: secs() };
+    return { passed: true, kind: 'pass', out, seconds: secs() };
   } catch (e) {
-    return { passed: false, kind: classifyRun(e), out: `${e.stdout ?? ''}\n${e.stderr ?? ''}`, seconds: Math.round((Date.now() - t0) / 1000) };
+    const out = `${e.stdout ?? ''}\n${e.stderr ?? ''}`;
+    const kind = classifyRun(e);
+    // 回非 0、印過 ✗（或沒有）、卻沒有結算行：被外力停掉或半途結束——那幾個 ✗ 不代表那支測試跑完、判定過
+    if (finalOf && (kind === 'assert' || kind === 'crash') && !hasFinalLine(out, finalOf)) return { passed: false, kind: 'cut', out, seconds: secs() };
+    return { passed: false, kind, out, seconds: secs() };
   }
 }
