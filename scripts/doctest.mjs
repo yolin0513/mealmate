@@ -1326,6 +1326,10 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
   // 暫存 git repo：scripts/ 的複本＋一支探針測試＋一條指向它的突變。第一次要跑（從沒跑過）、第二次沿用、
   // 改了探針測試 import 的檔之後第三次要跑、只改 docs/ 的第四次沿用。
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-aff-'));
+  // D18p 的標記檔：放在 try 外面、finally 裡刪（2026-10-08 第 9 項盤點抓到：D18p 讀完會刪，但後面幾個情境又用暫存執行器跑同一支探針、
+  // 把它重新寫出來——每跑一次 doctest 就在暫存目錄漏一個，當天漏了 80 個）
+  const jobMarker = path.join(os.tmpdir(), `mm-d18p-${process.pid}.txt`);
+  let markerWasThere = false;
   try {
     fs.mkdirSync(path.join(root, 'scripts')); fs.mkdirSync(path.join(root, 'js')); fs.mkdirSync(path.join(root, 'docs'));
     for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) {
@@ -1339,7 +1343,6 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     fs.writeFileSync(path.join(root, 'js/affdep.js'), 'export const V = 1;\n');
     fs.writeFileSync(path.join(root, 'scripts/afftarget.mjs'), "export const BROKEN = false;\nexport { V } from '../js/affdep.js';\n");
     // 探針順便記下自己是不是經 jobrun 開的（MM_JOBRUN；D18p）——寫到 repo 外面，免得留下未追蹤的檔讓下一次被「工作區不等於 HEAD」擋下
-    const jobMarker = path.join(os.tmpdir(), `mm-d18p-${process.pid}.txt`);
     fs.rmSync(jobMarker, { force: true });
     fs.writeFileSync(path.join(root, 'scripts/affprobe.mjs'), `import fs from 'node:fs';\nimport { ok, done } from './tap.mjs';\nimport { BROKEN } from './afftarget.mjs';\nfs.appendFileSync(${JSON.stringify(jobMarker)}, \`\${process.env.MM_JOBRUN ?? '（沒有）'}\\n\`);\nok(!BROKEN, 'AFF 探針');\ndone('affprobe');\n`);
     fs.writeFileSync(path.join(root, 'docs/note.md'), 'note\n');
@@ -1483,8 +1486,12 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+    markerWasThere = fs.existsSync(jobMarker);
+    fs.rmSync(jobMarker, { force: true });
   }
   ok(!fs.existsSync(root), '受影響 D18（清理）暫存 git repo 用完刪掉了');
+  // 先確認它原本在（後面幾個情境會把它重新寫出來），再斷言它不見了
+  ok(markerWasThere && !fs.existsSync(jobMarker), `受影響 D18（清理）D18p 的標記檔也刪了（刪之前在：${markerWasThere}；刪之後還在：${fs.existsSync(jobMarker)}）`);
 }
 
 section('pre-commit hook：突變的還原紀錄還在就不給 commit（Dispatch 2026-10-02 指示 8-1；推送閘門回 7 那一關照留）');

@@ -20443,8 +20443,27 @@
     "seconds": 102
    },
    "lastFull": null
+  },
+  "D18 不刪 D18p 的標記檔": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "48f323261e4f+dirty",
+    "mode": "only",
+    "defHash": "fe71b1e2e1f18a4a924495860478d8a7267e1769fa8ea7f23bc5dbfa4479ba07",
+    "depHash": "85d9d9d521626d7781a8fb6f563163643ea2e290ce1b81355b5517cf9d77a0a2",
+    "runnerHash": "dd8f2a51871d0e894e45bc16a6e36d8ca12d17815911abfc62b928ef4cf7fbbc",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 102
+   },
+   "lastFull": null
   }
  },
- "runSeq": 42,
+ "runSeq": 43,
  "inflight": null
 }

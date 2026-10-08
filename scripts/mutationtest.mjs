@@ -4950,6 +4950,15 @@ const MUTATIONS = [
     test: "doctest",
     expect: "受影響 D18p ",
   },
+  {
+    name: "D18 不刪 D18p 的標記檔",
+    why: "每跑一次 doctest 就在暫存目錄漏一個 mm-d18p-*.txt（第 9 項盤點時當天已經漏了 80 個）。",
+    file: "scripts/doctest.mjs",
+    find: "    markerWasThere = fs.existsSync(jobMarker);\n    fs.rmSync(jobMarker, { force: true });\n",
+    replace: "    markerWasThere = fs.existsSync(jobMarker);\n    void '不刪標記檔';\n",
+    test: "doctest",
+    expect: "受影響 D18（清理）D18p 的標記檔",
+  },
   // ---- 2026-10-08：判定器的結算行（第 8 項；runkind.hasFinalLine、runProgram 的 finalOf；doctest RF1–RF4、D18k2）----
   {
     name: "結算行：沒跑完不列在不算數裡",
