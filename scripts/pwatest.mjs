@@ -12,7 +12,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import puppeteer from 'puppeteer';
+import { launchBrowser } from './browserlib.mjs';
+import { ownerOf } from './ownername.mjs';
 import { ok, eq, section, done, everyOf, noneOf, note } from './tap.mjs';
 import { listen } from './serve.mjs';
 
@@ -84,7 +85,15 @@ ok(sw.includes("'./icons/icon-maskable-512.png'"), 'SHELL 預快取包含 maskab
 const { srv, port } = await listen(0);
 // 用 --app 開：那是**真的**獨立視窗（display-mode: standalone），不是模擬。
 // puppeteer 的 emulateMediaFeatures 不收 display-mode，CDP 的 setEmulatedMedia 在 Chrome 131 也吃不到。
-const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', `--app=http://localhost:${port}/`] });
+const browser = await launchBrowser({ args: [`--app=http://localhost:${port}/`] });
+// 設定檔目錄帶建立者（2026-10-08；browserlib.launchBrowser）：名字裡讀得出本測試的 PID，而且 Chrome 真的收到它
+// （看的是 Chrome 的啟動參數，不是「我們建了那個目錄」——兩個不同的來源）；額外的參數（--app）照樣傳得進去。關掉之後目錄要不見（finally 之後）
+const profileDir = browser.userDataDir;
+const owner = profileDir ? ownerOf(profileDir) : null;
+const spawnargs = browser.process()?.spawnargs ?? [];
+const chromeGotIt = spawnargs.some((a) => a.startsWith('--user-data-dir=') && a.includes(profileDir ?? '（沒有）'));
+ok(!!profileDir && fs.existsSync(profileDir) && owner?.pid === process.pid && chromeGotIt && spawnargs.some((a) => a.startsWith('--app=')),
+  `瀏覽器設定檔：名字帶建立者（PID ${owner?.pid ?? '讀不出'}，本測試 ${process.pid}）、Chrome 的啟動參數真的用它（${chromeGotIt}）、--app 也傳進去了`);
 try {
   const page = (await browser.pages())[0];
   page.setDefaultTimeout(60000);
@@ -160,6 +169,8 @@ try {
   await browser.close();
   srv.close();
 }
+// 關掉之後設定檔目錄不見（上面已確認它原本在）——不然每跑一次留一個，又變成別的專案要猜「這是誰的」
+ok(!!profileDir && !fs.existsSync(profileDir), `瀏覽器設定檔：關掉瀏覽器之後目錄刪掉了（${profileDir ? (fs.existsSync(profileDir) ? '還在' : '不在') : '沒有目錄'}）`);
 
 note('真機還沒測的：實際「加到主畫面」的安裝流程、獨立視窗的狀態列顏色、瀏海機的安全區留白、iOS 清除 Safari 資料時主畫面 App 的資料會不會一起消失。這四件事要在 iPhone 上做一次。');
 done('pwatest');

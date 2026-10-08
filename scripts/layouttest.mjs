@@ -13,8 +13,7 @@
 // 因為空畫面不會爆版：掃一個沒有資料的 App 等於什麼都沒掃。
 // 樣本裡放最長的名字與最多的標籤 —— 短名字照不出使用者真正會看到的那一版。
 
-import puppeteer from 'puppeteer';
-import { pinToday } from './browserlib.mjs';
+import { pinToday, launchBrowser } from './browserlib.mjs';
 import { ok, eq, section, done, noneOf, everyOf, note } from './tap.mjs';
 import { listen } from './serve.mjs';
 
@@ -23,7 +22,7 @@ const WIDTHS = [320, 390, 430]; // 320：iPhone SE；390：主流；430：Pro Ma
 const LONG_RECIPE = 'r-mapo-tofu-split'; // 名字最長的內建食譜：家常麻婆豆腐（可分素葷）
 
 const { srv, port } = await listen(0);
-const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
+const browser = await launchBrowser();
 
 try {
   const page = await browser.newPage();

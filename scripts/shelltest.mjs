@@ -9,7 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import puppeteer from 'puppeteer';
+import { launchBrowser } from './browserlib.mjs';
 import { ok, eq, section, done, noneOf, everyOf, detects } from './tap.mjs';
 import { listen } from './serve.mjs';
 import { stripComments } from './srcscan.mjs';
@@ -363,7 +363,7 @@ ok(/cache: 'reload'/.test(swSource), 'install 時用 cache:reload 預快取，�
 
 // ---------- B. 瀏覽器 ----------
 const { srv, port } = await listen(0);
-const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
+const browser = await launchBrowser();
 try {
   const page = await browser.newPage();
   page.setDefaultTimeout(60000);

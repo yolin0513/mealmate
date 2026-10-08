@@ -21,7 +21,7 @@ import { loadMutations, expectProblems, missingExpectOverLimit, EXPECT_MISSING_M
 import { main, scanText, controlSamples, TARGETS, ORPHAN_EXEMPT, ESCAPE_EXEMPT, walkScripts, escapeScan } from './gatescan.mjs';
 import { selfcheck, gitEnvProblems } from './selfcheck.mjs';
 import { runProgram, classifyRun, UNCOUNTED_KINDS, NO_SCENARIO_MARK, parseJobSum, hasFinalLine } from './runkind.mjs';
-import { sweep as sweepWorktrees, wtPrefix, ownerOf, judge, tempWorktrees } from './worktreesweep.mjs';
+import { sweep as sweepWorktrees, sweepOwnedTemp, wtPrefix, ownerOf, judge, tempWorktrees } from './worktreesweep.mjs';
 import { convCheck, compareConv, MASTER_REL as CONV_MASTER_REL, COPY_REL as CONV_COPY_REL } from './convcheck.mjs';
 import {
   scopeFor, scopeHash, accessOf, maskMutations, runnerHash, rerunReasons, RERUN, recordRun, emptyLedger, neverFullNames,
@@ -1329,7 +1329,8 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-aff-'));
   // D18p 的標記檔：放在 try 外面、finally 裡刪（2026-10-08 第 9 項盤點抓到：D18p 讀完會刪，但後面幾個情境又用暫存執行器跑同一支探針、
   // 把它重新寫出來——每跑一次 doctest 就在暫存目錄漏一個，當天漏了 80 個）
-  const jobMarker = path.join(os.tmpdir(), `mm-d18p-${process.pid}.txt`);
+  // 名字帶建立者（PID＋建立時間；2026-10-08 第 9 項的徹底做法）：doctest 被殺、沒跑到 finally 時，下一次入口的收拾認得出它、照建立者死活收掉
+  const jobMarker = path.join(os.tmpdir(), `mm-jobmark-${process.pid}-${Date.now()}-d18p.txt`);
   let markerWasThere = false;
   try {
     fs.mkdirSync(path.join(root, 'scripts')); fs.mkdirSync(path.join(root, 'js')); fs.mkdirSync(path.join(root, 'docs'));
@@ -1777,6 +1778,44 @@ section('被殺的那一層留下的 worktree：建立者已死的收掉、活�
     }
     const left = tempWorktrees(ROOT).filter((w) => w.includes(tag));
     ok(left.length === 0, `WT4 收尾：造出來的四個都清掉了（剩 ${left.length} 個）`);
+
+    // WT6（2026-10-08，Dispatch：共用機器上的暫存目錄只能清自己建立、名字帶得出建立者的）：暫存目錄裡本專案自己命名的東西。
+    // 全部在一個沙盒資料夾裡造（不碰真的暫存目錄裡別人的東西）；程序死活是真的開／等它結束的，名字是我造的——兩個獨立來源
+    const box = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-wtbox-'));
+    const holder = { kill: () => {} };
+    try {
+      const deadPid = spawnSync(process.execPath, ['-e', ''], { timeout: SUB_TIMEOUT_MS }).pid;
+      const now = Date.now();
+      const mkd = (n) => { fs.mkdirSync(path.join(box, n)); return n; };
+      const I = {
+        dead: mkd(`mm-chrome-${deadPid}-${now}-a`),
+        mine: mkd(`mm-chrome-${process.pid}-${now}-b`),
+        reused: mkd(`mm-chrome-${process.pid}-${now - 600000}-c`),
+        other: mkd(`mm-other-${deadPid}-${now}-d`),
+        puppet: mkd('puppeteer_dev_chrome_profile-e'),
+      };
+      I.inuse = `mm-jobmark-${deadPid}-${now}-f.txt`;
+      fs.writeFileSync(path.join(box, I.inuse), 'x\n');
+      // 「還有程序在用」：開一支只睡覺的 node，指令列帶著那個檔的完整路徑（像還開著的 Chrome 帶著 --user-data-dir）
+      const h = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)', path.join(box, I.inuse)], { stdio: 'ignore' });
+      holder.kill = () => h.kill();
+      await new Promise((r) => setTimeout(r, 800));
+      ok(Object.values(I).every((n) => fs.existsSync(path.join(box, n))), '（前提）WT6 沙盒裡六項都造好了');
+      // WT6b 查不到指令列（傳一支會失敗的）→ 一個都不收
+      const t0 = sweepOwnedTemp({ dir: box, cmdlines: () => { throw new Error('假的：查不到'); } });
+      ok(!!t0.error && t0.removed.length === 0 && Object.values(I).every((n) => fs.existsSync(path.join(box, n))), `WT6b 查不到指令列 → 一個都不收（${t0.error ?? '沒有報錯'}；收了 ${t0.removed.length} 項）`);
+      // 從入口那一層：sweep 帶著沙盒資料夾跑（證明 sweep 真的有呼叫暫存收拾，不只是函式本身會收）
+      const r6 = sweepWorktrees(ROOT, { tempDir: box, log: () => {} });
+      const gone = (n) => !fs.existsSync(path.join(box, n));
+      ok(gone(I.dead) && r6.temp?.removed.includes(I.dead), `WT6 建立者已死的瀏覽器設定檔 → 收掉（從 sweep 進去；收了：${r6.temp?.removed.join('、') || '（沒有）'}）`);
+      ok(gone(I.reused), 'WT6 PID 還在、但那支程序比它晚開（PID 被重用）→ 收掉');
+      ok(!gone(I.mine), 'WT6 建立者還活著（本測試自己）→ 不碰');
+      ok(!gone(I.inuse) && r6.temp?.inUse.includes(I.inuse), `WT6 建立者已死、但還有程序的指令列引用它 → 不收（還有程序在用：${r6.temp?.inUse.join('、') || '（沒有）'}）`);
+      ok(!gone(I.other) && !gone(I.puppet), 'WT6 不是登記的種類（mm-other-…）、別人的（puppeteer_dev_…）→ 一律不碰');
+    } finally {
+      holder.kill();
+      fs.rmSync(box, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    }
   }
   // WT5（Dispatch 2026-10-08 要的便宜的擋）：四個入口都還有「開頭收拾」那一行。**守的是形狀、不是行為**——它只證明那行字還在，
   // 不證明收拾真的在開頭跑過（被移到不會執行的分支、包在不成立的條件裡，照樣綠）；行為要靠「上一層被殺、留下 worktree、再從入口開跑」
@@ -1798,6 +1837,23 @@ section('被殺的那一層留下的 worktree：建立者已死的收掉、活�
   ok(e3.read && e3.hits === 1, `WT5 入口 gatemutants：開頭收拾那一行還在（讀到檔 ${e3.read}；找到 ${e3.hits} 行）——守形狀、不守行為`);
   const e4 = entry('scripts/buildguard-verify.mjs', `  ${SW}repo);`);
   ok(e4.read && e4.hits === 1, `WT5 入口 buildguard-verify：開頭收拾那一行還在（讀到檔 ${e4.read}；找到 ${e4.hits} 行）——守形狀、不守行為`);
+  // BL1（2026-10-08）：開瀏覽器一律經 browserlib.launchBrowser（設定檔目錄帶建立者）——別處不准直接開。
+  // 登記的例外：browserlib 本身（唯一該出現的地方）、memwatchtest 的假測試（那個情境的前提是瀏覽器指令列不含 mm-，設定檔帶名字會破壞前提）。
+  // 每個例外要剛好命中 1 次；母體是 scripts/*.mjs 全部（要讀到 ≥ 50 支）；樣式在執行時才拼（這一段自己不會被掃到）
+  {
+    const LAUNCH = ['puppeteer', '.launch('].join('');
+    const allowed = { 'browserlib.mjs': 1, 'memwatchtest.mjs': 1 };
+    const files = fs.readdirSync(path.join(ROOT, 'scripts')).filter((f) => f.endsWith('.mjs'));
+    const hits = {};
+    for (const f of files) {
+      const n = fs.readFileSync(path.join(ROOT, 'scripts', f), 'utf8').split(LAUNCH).length - 1;
+      if (n) hits[f] = n;
+    }
+    const bad = Object.entries(hits).filter(([f, n]) => allowed[f] !== n).map(([f, n]) => `${f}（${n} 處）`);
+    const missingAllowed = Object.keys(allowed).filter((f) => !hits[f]);
+    ok(files.length >= 50 && bad.length === 0 && missingAllowed.length === 0,
+      `BL1 直接開瀏覽器的只有登記的兩處（掃了 ${files.length} 支；不該出現的：${bad.join('、') || '（沒有）'}；登記了卻沒命中的：${missingAllowed.join('、') || '（沒有）'}）`);
+  }
   // 對照：掃不到的檔要判成沒讀到（不是靜默通過）
   const e0 = entry('scripts/沒有這支檔.mjs', SW);
   ok(!e0.read && e0.hits === 0, `WT5（對照）掃不到的檔 → 讀到檔 ${e0.read}（上面四條因此會紅，不會被當成通過）`);

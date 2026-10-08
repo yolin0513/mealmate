@@ -195,6 +195,14 @@
      - 名字帶不帶建立者：82 項都**不帶**（D18p 標記檔只帶 PID、沒有時間；另兩個是第六段之前的舊格式）——**這就是為什麼這次只能靠人工逐一打開看，不能像 worktree 那樣自動判斷建立者死活**。
      - **漏洞的形狀（Dispatch 要寫下）**：D18p 自己會刪標記檔——在它自己的情境裡清理是對的；漏的是後面幾個情境又用暫存執行器跑同一支探針、重新寫出標記檔，而那幾個情境不知道自己要清。**清理寫在產生者那一側，但產生的動作被別人重複觸發了。** 每跑一次 doctest 漏一個——成長速度剛好慢到不會有人注意，又快到一個月就幾千個。**通則：清理要綁在「誰建立的」，不是綁在「誰知道該清」。** 第六段的 worktree 收拾是前者（名字帶建立者、由後來的入口判斷死活）；這裡的標記檔是後者，所以漏了。
      - **這次的修法仍然是「誰知道該清」那一型**（改成 D18 收尾時跟暫存 repo 一起刪）：將來又有別的情境跑這支探針，同樣會漏。**徹底的做法（待辦，這次不做）**：標記檔名帶建立者（PID＋建立時間），由入口收拾，跟 worktree 同一套（`worktreesweep.mjs` 的判斷可以共用）。
+     **（2026-10-08 做完，Dispatch 准、跟瀏覽器設定檔一起做——同一條線、同一個原則）**：
+     - **D18p 標記檔**改名 `mm-jobmark-<PID>-<建立時間>-d18p.txt`（D18 收尾照樣刪；被殺沒跑到收尾的，下一次入口照建立者收）。
+     - **瀏覽器設定檔帶建立者**：`browserlib.launchBrowser`——設定檔目錄自己建 `mm-chrome-<PID>-<建立時間>-…`、交給 Chrome、關掉時一併刪；`openApp` 與直接開瀏覽器的 6 支（layouttest、pwatest、racetest、shelltest、uikittest、versionmixtest）都改用它。**更重要的不是「避免被別人誤刪」，是「讓別人分得出那是本 App 的」**（Dispatch）——CertQuiz 刪掉 6 個目錄時沒辦法判斷誰是誰，因為名字裡沒有任何建立者資訊。**例外**：memwatchtest 的假測試照用 puppeteer 預設的設定檔（那個情境的前提是瀏覽器指令列不含 `mm-`，設定檔帶名字會破壞前提）。
+     - **入口收拾擴大**：`worktreesweep.sweepOwnedTemp`——只看登記的種類（`mm-chrome-`、`mm-jobmark-`），建立者已死（PID 不在或被重用）才收；**還有活著的程序在指令列裡引用那個路徑（還開著的 Chrome 的 `--user-data-dir`）→ 不收**（CertQuiz 那次的形狀）；查不到程序清單或指令列 → 一個都不收。四個入口的 `sweep` 都會先跑它。**真實入口上觀察到一次**：「關掉不刪目錄」那條突變刻意留下的 `mm-chrome-…`（建立者已結束），下一批突變開跑時執行器開頭印「暫存收拾：收掉 1 項建立者已死的」。
+     - 新斷言：doctest WT6（沙盒資料夾裡造六種：建立者已死→收、PID 重用→收、自己→不碰、建立者已死但還有程序在用→不收、別的種類與 `puppeteer_dev_*`→不碰；**從 `sweep` 進去**，證明入口真的有呼叫）、WT6b（查不到指令列→一個都不收）、BL1（`scripts/*.mjs` 掃了 64 支，直接開瀏覽器的只准登記的兩處、各剛好 1 次；樣式在執行時才拼）；pwatest（設定檔名字讀得出本測試的 PID、**Chrome 的啟動參數真的用它**——看的是 Chrome 實際收到的參數，不是「我們建了目錄」——`--app` 也傳進去了；關掉之後目錄不見，先確認原本在）。突變 7 條（689 條）全部紅在預期那一條：沒交給 Chrome、關掉不刪（pwatest）；有一支測試又直接開瀏覽器（BL1；那條突變的替換字串拆開相接寫——原樣寫，BL1 掃 scripts/ 時會在 mutationtest.mjs 數到它，第五種共用來源）；不看還有沒有程序在用、不限登記的種類、入口不呼叫、查不到指令列當成沒人在用（WT6／WT6b；最後一條記到「收了 3 項」——連還有程序在用的也收了，又量到一次後果的大小）。
+     - **途中撞到的（今天第七種形狀：改 import 關係就改到了挑選器的判斷）**：browserlib 一開始為了命名去 import `worktreesweep.mjs`——收拾程式裡讀檔、刪檔的路徑不是寫死的，挑選器判斷不出範圍、退回「整個 repo」，**瀏覽器測試那一類 131 條突變整個被算成整個 repo**（方向安全、但精確度掉光；406 條被這一支拉進 repo）。擋下它的是 doctest 既有的前提斷言「真實 repo 裡三種範圍都有」（browser 那一種不見了）。修法：命名的兩個純函式（`wtPrefix`、`ownerOf`）拆到 `scripts/ownername.mjs`（不碰檔案、不開程序），browserlib、pwatest 從那裡 import；worktreesweep 從那裡 import 再轉出。修好後：repo 396、browser 131、node 162。
+     - **uikittest 蓋不了戳記**（既有的：它有 2 條斷言的 regex 帶引號，戳記程式解析不了——HEAD 就是這樣，它既有的突變也都沒寫 expect）——所以新的設定檔斷言放在 pwatest（解析得了、跑一次約 7 秒）。uikittest 的解析問題沒修，照實記著。
+     - 驗證：doctest 467 全過；13 支瀏覽器測試各跑一次全過（**只看行為、不量耗時**——機器上有別的專案在跑）；暫存目錄裡 puppeteer 預設的設定檔目錄跑前 78、跑後 78（**一個都沒新增＝13 支都改用自己命名的了**），`mm-chrome-` 跑完留下 0。那 78 個預設目錄名字裡看不出建立者，不是我能判斷歸屬的，不碰。
      原本的範圍：暫存複本盤點（留了幾個、最早哪天、有沒有東西發現、名稱帶不帶建立者程序編號）。
   10. v11.6 工單的 22 條（副本 `docs/SPEC_共用慣例更新_v11.md` 已在 f8261d7 進版控）。
      **（2026-10-08 第 1 步做完：CONVENTIONS 副本更新到 v11.6）** 用程式從工單附錄的 ```` 圍欄之間抽出全文覆寫 `docs/CONVENTIONS.md`（`.logs/conventions-v116.mjs`；不手抄、不經 shell 寫檔）。U2：第一行逐字等於 `<!-- CONVENTIONS v11.6 2026-10-02 -->`、無 BOM、無 CR；U3：讀回與附錄全文逐位元組相同（227 行）；比對方法的對照組兩個方向：原樣複本判成相同、改一個字判成不同。**往後回執寫 `已讀共用慣例 v11.6（2026-10-02）`。**
@@ -286,7 +294,7 @@
     - 畫面：食譜頁家人那一段（`data-unconfirmed-note`）寫「「醬油」未確認是否含蛋、奶；…買的時候看包裝標示」；食材表那幾樣旁邊標「未確認是否含蛋、奶」（`data-unconfirmed`）。本週頁、今天頁**沒做**（只在食譜頁）。
     - 資料驅動：Yolin 填 `docs/待確認_加工品葷素.md` 的「你的決定」→ 開發 Session 轉進 foodtags.json（素→checked 三項；含蛋／含奶／含五辛→tags；葷→tags.meat 或 seafood）→ 標示自動消失。表上加了「編號」欄；`scripts/procdecisions.mjs` 核對兩邊，doctest「待確認 P1–P8」：填了沒轉 → 紅。
     - 測試：recipetest「A 方案 U0–U7」（U7：兩條查詢路徑在真實資料上一致）；recipeviewtest「A 方案 V1–V5」（瀏覽器，**還沒跑**）；突變 15 條（recipetest 7、recipeviewtest 2、doctest 6）。
-  - **驗證時要做的**：`node --check`、`checkmutations`（682 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
+  - **驗證時要做的**：`node --check`、`checkmutations`（689 條、0 過期）、`--dry-run`、`sincefull --list`、資源紀錄的兩向實測已跑（輕量）。重負載的待跑清單（doctest、recipetest、recipeviewtest、`npm test`、新寫的 63 條突變、挑選器正反兩向、`--never-full` 113 條）見「共用慣例副本更新到 v11」一節最後；跑完再整理本機 WIP commit、更新各測試的斷言數、推送。
   （之前那一批——檢查器修補 P0／P1、F8–F10、擋法表、環境變數、補充說明十一——2026-09-25 已收尾。）
 - **App 最後一版仍是 `mealmate-v0.41.0`（2026-09-23）**。09-24、09-25 全是 scripts／docs，沒有 bump、沒有部署。
 - **檢查器修補的全部證據**：`docs/EVIDENCE_檢查器修補.md`，涵蓋 P0、P1、F8、F9、F10、擋法表、環境變數兩類、補充說明十一。STATUS 各節只留摘要。
@@ -488,7 +496,7 @@
 Node 端：datatest 76、aliastest 30、unittest 72、edutest 13、copytest 7、recipetest 224、membertest 127、nutritiontest 151、plannertest 513、shoppingtest 150、timelinetest 71、doctest 277；
 瀏覽器端（puppeteer）：shelltest 162、familytest 90、recipeviewtest 150、backuptest 30、weekviewtest 199、shoppingviewtest 143、todaytest 41、racetest 16、versionmixtest 66、layouttest 116（117 組版面掃描 ＋ 桌機七欄 ＋ 菜色選項卡 9 組）、uikittest 37、pwatest 43、redlinetest 28、scenariotest 44。（2026-09-24 F8 那一輪 `npm test` 數的）
 健檢工具：`assertaudit`（假斷言全掃）、`checkmutations`（突變是否過期）。
-`mutationtest` 共 **682 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
+`mutationtest` 共 **689 條**（`data/recipes/` 那一類 21 條全部帶 `expect`），是獨立指令、不在 `npm test` 裡。**最近一次整套在 2026-09-24 對 `mealmate-v0.41.0` 跑（442 條全部紅、0 條沒紅，見「全面檢測（2026-09-24）」一節）**；再前兩次是 2026-09-21 對 `mealmate-v0.40.0`（428 條：425 紅、3 條沒紅）、2026-09-19 對 `mealmate-v0.36.0`（366 條：359 紅、7 條沒紅）。之後新加或改名的突變，數字以 `npm run sincefull` 為準。每一版只跑新增／更新的那幾條（`--only`）＋`checkmutations`（0 過期）。
 **整套實際要跑約 3.8 小時**（2026-09-19 實測：309 條 10,800 秒＋57 條 2,723 秒）—— 以前寫的「30–40 分鐘」是舊估計；每條突變都要把對應的測試整支跑一次，光 plannertest 就 79 條 × 約 76 秒。
 **「整套」在本 App 指什麼、實測多久（共用慣例 v4 §5.7）**：
 · **突變整套**＝`npm run mutationtest -- --full` 跑完全部（2026-10-02 起要明講 `--full`；以前是「不帶 `--only`」）。下面的耗時是 09-24 的 442 條（每條都把對應的那一支測試整支跑一次）。**實測約 17,119 秒（約 4.8 小時）**，2026-09-24 對 v0.41.0 量的（09-21 的 428 條約 16,600 秒、09-19 的 366 條約 13,500 秒）。

@@ -16,7 +16,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import puppeteer from 'puppeteer';
+import { launchBrowser } from './browserlib.mjs';
 import { ok, eq, section, done, note } from './tap.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -88,7 +88,7 @@ async function openApp(browser, port) {
   return { ctx, page };
 }
 
-const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
+const browser = await launchBrowser();
 try {
   section('前提：每一頁各自認得出來');
   {

@@ -1,8 +1,27 @@
 // 瀏覽器測試共用：開伺服器與 puppeteer、按過首次說明、等標題、等一下。
 
+import fs from 'node:fs';
 import puppeteer from 'puppeteer';
 import { listen } from './serve.mjs';
 import { mondayOf, isoDate } from '../js/planner.js';
+import { wtPrefix } from './ownername.mjs';   // 不從 worktreesweep import：那支有動態路徑，會讓每支瀏覽器測試的範圍退回整個 repo
+
+/**
+ * 開瀏覽器一律經這裡（2026-10-08，Dispatch：CertQuiz 用「執行期間暫存目錄裡多出來的 puppeteer_dev_*」判斷殘留，
+ * 刪了 6 個分不出是誰的、還對一個本 App 正在用的設定檔目錄執行了刪除——那些目錄的名字裡沒有任何建立者資訊）。
+ * 設定檔目錄自己建、名字帶建立者：mm-chrome-<PID>-<建立時間毫秒>-…（別的專案分得出那是本 App 的、建立者死活也判得出來）。
+ * 關閉時一併刪掉；被殺而沒關到的，下一次入口的收拾（worktreesweep.mjs）照建立者死活收掉。
+ */
+export async function launchBrowser({ args = [] } = {}) {
+  const userDataDir = fs.mkdtempSync(wtPrefix('chrome'));
+  const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', ...args], userDataDir });
+  const realClose = browser.close.bind(browser);
+  browser.userDataDir = userDataDir;
+  browser.close = async () => {
+    try { await realClose(); } finally { fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); }
+  };
+  return browser;
+}
 
 /**
  * 把這個分頁的「今天」固定住（慣例 19：測試不依賴跑的那天是星期幾）。
@@ -24,7 +43,7 @@ export async function pinToday(page, iso = TEST_MONDAY, time = '10:00:00') {
 
 export async function openApp({ width = 390, height = 844, today = TEST_MONDAY } = {}) {
   const { srv, port } = await listen(0);
-  const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
+  const browser = await launchBrowser();
   const page = await browser.newPage();
   page.setDefaultTimeout(60000);
   page.setDefaultNavigationTimeout(60000);

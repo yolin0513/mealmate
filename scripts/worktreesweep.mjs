@@ -12,18 +12,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-
-/** 新 worktree 的目錄名（放在 os.tmpdir() 底下由呼叫端 mkdtemp）：mm-<kind>-<pid>-<毫秒>- */
-export const wtPrefix = (kind) => path.join(os.tmpdir(), `mm-${kind}-${process.pid}-${Date.now()}-`);
-
-/** 從路徑讀出建立者：{ pid, at } 或 null（舊格式） */
-export function ownerOf(p) {
-  for (const seg of String(p).split(/[\\/]/).reverse()) {
-    const m = /^mm-[a-z]+-(\d+)-(\d{13})-/.exec(seg);
-    if (m) return { pid: Number(m[1]), at: Number(m[2]) };
-  }
-  return null;
-}
+// 命名的兩個純函式拆到 ownername.mjs（2026-10-08）：只要命名的（browserlib、瀏覽器測試）從那裡 import，不會把這支的動態路徑帶進它們的範圍
+import { wtPrefix, ownerOf } from './ownername.mjs';
+export { wtPrefix, ownerOf };
 
 /**
  * 判斷要不要收：procs＝Map(pid → 建立時間毫秒)。回 'live'（不碰）／'dead'（收）／'unknown'（舊格式，只列）。
@@ -57,13 +48,53 @@ export function tempWorktrees(repo) {
     .filter((p) => path.resolve(p).toLowerCase().startsWith(tmp) && /[\\/]mm-[a-z]+-/.test(p));
 }
 
+/** 這台機器每一支程序的指令列（判斷「還有沒有程序在用那個路徑」）。查不到、或查不到自己 → 丟例外（呼叫端一個都不收） */
+export function liveCmdlines() {
+  const raw = execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+    'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId)`t$($_.CommandLine)" }'], { encoding: 'utf8', maxBuffer: 1 << 26, timeout: 60000 });
+  const rows = raw.split(/\r?\n/).filter(Boolean).map((l) => { const i = l.indexOf('\t'); return { pid: Number(l.slice(0, i)), cmd: l.slice(i + 1) }; });
+  if (!rows.some((x) => x.pid === process.pid)) throw new Error('指令列清單裡查不到自己——查詢壞了');
+  return rows.map((x) => x.cmd);
+}
+
 /**
- * 收掉建立者已死的。回 { removed: [], failed: [{ path, why }], kept: [], unknown: [], error }，並印一行（有事才印）。
+ * 暫存目錄裡本專案自己命名的東西（2026-10-08，Dispatch：共用機器上的暫存目錄，清理一律只能清自己建立、名字帶得出建立者的）：
+ * 只看登記的種類（mm-chrome-：瀏覽器設定檔、mm-jobmark-：D18p 的標記檔），名字一定帶 PID＋建立時間。
+ * 建立者已死（PID 不在、或被重用）才收；**還有活著的程序在指令列裡引用那個路徑（例：還開著的 Chrome 的 --user-data-dir）→ 不收**——
+ * CertQuiz 那次就是對一個正在使用中的設定檔目錄執行了刪除。查不到程序清單或指令列 → 一個都不收。
+ */
+export const OWNED_TEMP_KINDS = ['chrome', 'jobmark'];
+export function sweepOwnedTemp({ procs = liveProcs, cmdlines = liveCmdlines, dir = os.tmpdir(), log = () => {} } = {}) {
+  const t = { removed: [], kept: [], inUse: [], failed: [], error: null };
+  let names;
+  try { names = fs.readdirSync(dir).filter((n) => OWNED_TEMP_KINDS.some((k) => n.startsWith(`mm-${k}-`))); } catch (e) { t.error = `讀不到暫存目錄：${e.message}`; log(`· 暫存收拾：${t.error}——一個都不收`); return t; }
+  if (!names.length) return t;
+  let pm; let cl;
+  try { pm = procs(); cl = cmdlines().map((c) => String(c ?? '').toLowerCase()); } catch (e) { t.error = `查不到程序清單：${e.message}`; log(`· 暫存收拾：${t.error}——一個都不收（${names.length} 項）`); return t; }
+  for (const n of names) {
+    const p = path.join(dir, n);
+    if (judge(p, pm) !== 'dead') { t.kept.push(n); continue; }
+    if (cl.some((c) => c.includes(p.toLowerCase()))) { t.inUse.push(n); continue; }
+    try { fs.rmSync(p, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 }); } catch { /* 下面用 existsSync 驗 */ }
+    if (fs.existsSync(p)) t.failed.push(n); else t.removed.push(n);
+  }
+  const parts = [];
+  if (t.removed.length) parts.push(`收掉 ${t.removed.length} 項建立者已死的（${t.removed.join('、')}）`);
+  if (t.inUse.length) parts.push(`建立者已死、但還有程序在用、不收 ${t.inUse.length} 項（${t.inUse.join('、')}）`);
+  if (t.failed.length) parts.push(`⚠ 收不掉 ${t.failed.length} 項（${t.failed.join('、')}）`);
+  if (parts.length) log(`· 暫存收拾：${parts.join('；')}`);
+  return t;
+}
+
+/**
+ * 收掉建立者已死的。回 { removed: [], failed: [{ path, why }], kept: [], unknown: [], error, temp }，並印一行（有事才印）。
+ * 先收暫存目錄裡本專案自己命名的（sweepOwnedTemp；結果在 temp），再收 worktree。
  * procs：程序清單從哪裡來（函式，回 Map(pid → 建立時間毫秒)；查不到就丟例外）。正式入口都不傳、用這台機器的 liveProcs；
  * doctest 傳一支會失敗的，驗「查不到就一個都不收」這條失敗路徑（把依賴當參數傳入，不是讀環境變數的後門）。
  */
-export function sweep(repo, { procs = liveProcs, log = (s) => console.log(s) } = {}) {
-  const r = { removed: [], failed: [], kept: [], unknown: [], error: null };
+export function sweep(repo, { procs = liveProcs, cmdlines = liveCmdlines, tempDir = os.tmpdir(), log = (s) => console.log(s) } = {}) {
+  const r = { removed: [], failed: [], kept: [], unknown: [], error: null, temp: null };
+  r.temp = sweepOwnedTemp({ procs, cmdlines, dir: tempDir, log });
   let list;
   try { list = tempWorktrees(repo); } catch (e) { r.error = `讀不到 worktree 清單：${e.message}`; log(`· worktree 收拾：${r.error}——一個都不收`); return r; }
   if (!list.length) return r;

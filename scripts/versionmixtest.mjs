@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import puppeteer from 'puppeteer';
+import { launchBrowser } from './browserlib.mjs';
 import { ok, eq, section, done, everyOf } from './tap.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -76,7 +76,7 @@ const BASE = `http://localhost:${PORT}/`;
 let srvClosed = false;
 const closeServer = () => { if (!srvClosed) { srvClosed = true; srv.close(); } };
 
-const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
+const browser = await launchBrowser();
 
 async function freshPage() {
   const ctx = await browser.createBrowserContext();

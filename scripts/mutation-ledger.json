@@ -20595,8 +20595,141 @@
     "seconds": 50
    },
    "lastFull": null
+  },
+  "瀏覽器設定檔：沒交給 Chrome": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "fff960c3b34f+dirty",
+    "mode": "only",
+    "defHash": "55a0ae5e62d86906b76e24f7661f5369e0afcdb4f9cdc4dde05c274ffa8d734b",
+    "depHash": "a233e3c94a3666cb4f7bb213db2ba36293eaf250dcf83a54f7b66f7461402019",
+    "runnerHash": "193db65627e6b9228e54f01a38af98814006329ed71fa7254ae120a854ccf16d",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 8
+   },
+   "lastFull": null
+  },
+  "瀏覽器設定檔：關掉瀏覽器不刪目錄": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "fff960c3b34f+dirty",
+    "mode": "only",
+    "defHash": "47ab77d929d65c4e0bf5fb72e24ab0411640e061f07d4e63367777a1838481dc",
+    "depHash": "a233e3c94a3666cb4f7bb213db2ba36293eaf250dcf83a54f7b66f7461402019",
+    "runnerHash": "193db65627e6b9228e54f01a38af98814006329ed71fa7254ae120a854ccf16d",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 8
+   },
+   "lastFull": null
+  },
+  "瀏覽器設定檔：有一支測試又直接開瀏覽器": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "fff960c3b34f+dirty",
+    "mode": "only",
+    "defHash": "328e9de9f9be32abcbc8144d276d26c84d6351a9373efe7aca091faa809b1943",
+    "depHash": "a233e3c94a3666cb4f7bb213db2ba36293eaf250dcf83a54f7b66f7461402019",
+    "runnerHash": "193db65627e6b9228e54f01a38af98814006329ed71fa7254ae120a854ccf16d",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 121
+   },
+   "lastFull": null
+  },
+  "暫存收拾：不看還有沒有程序在用": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "fff960c3b34f+dirty",
+    "mode": "only",
+    "defHash": "a2bee56675303e60d5ee912daead7b6d66afdf824f1419e8b8f5130082e0f459",
+    "depHash": "a233e3c94a3666cb4f7bb213db2ba36293eaf250dcf83a54f7b66f7461402019",
+    "runnerHash": "193db65627e6b9228e54f01a38af98814006329ed71fa7254ae120a854ccf16d",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 152
+   },
+   "lastFull": null
+  },
+  "暫存收拾：不限登記的種類": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "fff960c3b34f+dirty",
+    "mode": "only",
+    "defHash": "ce53610741d271137e3b5b41df8146171a798ba4c8fa6ac0756fffbdada23e00",
+    "depHash": "a233e3c94a3666cb4f7bb213db2ba36293eaf250dcf83a54f7b66f7461402019",
+    "runnerHash": "193db65627e6b9228e54f01a38af98814006329ed71fa7254ae120a854ccf16d",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 139
+   },
+   "lastFull": null
+  },
+  "暫存收拾：入口不呼叫": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "fff960c3b34f+dirty",
+    "mode": "only",
+    "defHash": "02beb135d4e0ace88f05288b0f62951583fb1a331aad92a6a4bbadb5d1704572",
+    "depHash": "a233e3c94a3666cb4f7bb213db2ba36293eaf250dcf83a54f7b66f7461402019",
+    "runnerHash": "193db65627e6b9228e54f01a38af98814006329ed71fa7254ae120a854ccf16d",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 3,
+    "expectHits": 1,
+    "seconds": 104
+   },
+   "lastFull": null
+  },
+  "暫存收拾：查不到指令列當成沒人在用": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "fff960c3b34f+dirty",
+    "mode": "only",
+    "defHash": "3c85f580ea4f922d83e752f0093a93fdcc2e20d46119ba7693cee8226002d3a0",
+    "depHash": "a233e3c94a3666cb4f7bb213db2ba36293eaf250dcf83a54f7b66f7461402019",
+    "runnerHash": "193db65627e6b9228e54f01a38af98814006329ed71fa7254ae120a854ccf16d",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 3,
+    "expectHits": 1,
+    "seconds": 121
+   },
+   "lastFull": null
   }
  },
- "runSeq": 47,
+ "runSeq": 51,
  "inflight": null
 }
