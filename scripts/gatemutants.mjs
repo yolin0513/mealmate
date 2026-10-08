@@ -29,14 +29,17 @@ export const CASES = [
   { label: '拿掉「帳本記著沒收尾的突變就擋」', find: `if grep -q '"inflight": {' scripts/mutation-ledger.json 2>/dev/null; then`, replace: 'if false; then', expect: ['27'] },
   // ---- 閘門第零關之二（F8 驗法登記，F9）----
   { label: '拿掉第零關之二（F8 驗法登記）整段', find: 'BLOCK_0B', replace: '', expect: ['15', '16', '17', '18', '19', '20'] },
-  { label: '取不到檔名清單時不停（失敗照樣往下走）', find: 'if ! git log --format= --name-only "$REMOTE/main..HEAD" > "$LOG" 2>&1; then cat "$LOG"; echo "【擋下：F8 驗法登記】取不到這次要推的檔名清單，不知道有沒有動到被守的檔，不推送"; exit 5; fi',
-    replace: 'git log --format= --name-only "$REMOTE/main..HEAD" > "$LOG" 2>&1', expect: ['20'] },
+  { label: '取不到檔名清單時不停（失敗照樣往下走）', find: 'if ! git log --format= --name-only "$REMOTE/main..$LOCK_SHA" > "$LOG" 2>&1; then cat "$LOG"; echo "【擋下：F8 驗法登記】取不到這次要推的檔名清單，不知道有沒有動到被守的檔，不推送"; exit 5; fi',
+    replace: 'git log --format= --name-only "$REMOTE/main..$LOCK_SHA" > "$LOG" 2>&1', expect: ['20'] },
   { label: '不管有沒有動到都看登記（新 clone 一律要先跑）', find: 'if [ -z "$bgtouched" ]; then', replace: 'if false; then', expect: ['17'] },
-  { label: '比工作區、不比已 commit 版本', find: 'h="$(git rev-parse "HEAD:$f" 2>/dev/null)"', replace: 'h="$(git hash-object "$f" 2>/dev/null)"', expect: ['18'] },
-  { label: '只看最後一個 commit 的檔名', find: 'git log --format= --name-only "$REMOTE/main..HEAD"', replace: 'git log -1 --format= --name-only HEAD', expect: ['19'] },
+  { label: '比工作區、不比已 commit 版本', find: 'h="$(git rev-parse "$LOCK_SHA:$f" 2>/dev/null)"', replace: 'h="$(git hash-object "$f" 2>/dev/null)"', expect: ['18'] },
+  { label: '只看最後一個 commit 的檔名', find: 'git log --format= --name-only "$REMOTE/main..$LOCK_SHA"', replace: 'git log -1 --format= --name-only HEAD', expect: ['19'] },
+  // ---- 鎖定 commit（2026-10-03）：自查之後才多一個 commit（第 28 種）、推送期間才多一個 commit（第 29 種）----
+  { label: '鎖定｜28 自查之後 HEAD 動了也照推 → 拿掉推送前的比對', find: 'if [ "$NOW_SHA" != "$LOCK_SHA" ]; then\n  echo "【擋下：鎖定 commit】', replace: 'if false; then\n  echo "【擋下：鎖定 commit】', expect: ['28'] },
+  { label: '鎖定｜29 推「推送那一刻的 main」，不推鎖定的 commit', find: 'push -q "$REMOTE" "$LOCK_SHA:refs/heads/main"', replace: 'push -q "$REMOTE" main', expect: ['29'] },
   // ---- 閘門第一關：讀不到遠端（F10：第 21 種用假 git 讓 fetch 失敗）----
-  { label: '讀不到遠端時不停（fetch 失敗照樣往下走）', find: 'if ! git fetch -q "$REMOTE" main > "$LOG" 2>&1; then cat "$LOG"; echo "【擋下：自查】讀不到遠端，自查的範圍不確定，不推送"; exit 1; fi',
-    replace: 'git fetch -q "$REMOTE" main > "$LOG" 2>&1', expect: ['21'] },
+  { label: '讀不到遠端時不停（fetch 失敗照樣往下走）', find: 'if [ "$rc" -ne 0 ]; then cat "$LOG"; if [ "$rc" -eq 124 ]; then echo "【擋下：自查】取遠端逾時',
+    replace: 'if false; then cat "$LOG"; if [ "$rc" -eq 124 ]; then echo "【擋下：自查】取遠端逾時', expect: ['21'] },
   // ---- 閘門驗法第 11 種的失敗路徑（F10：假 git 讓取 diff 那一個子指令失敗）----
   { label: '失敗路徑：第 11 種取不到 diff → 明講、判不符合', find: null, fakeGit: FAKE_DIFF,
     // 取 diff 失敗之後檔案是空的，後面的前置斷言（+++ 要 3 行）也會不成立——兩個理由碼都在才是實情；
@@ -56,10 +59,10 @@ export const CASES = [
     find: "{ test: () => { throw new Error('取不到使用者名稱'); } }", replace: '{ test: () => false }', expect: ['3'] },
   { label: '擋法表｜4 範圍裡沒有 commit 就停 → 拿掉', file: 'scripts/selfcheck.mjs', find: '  if (commits.length === 0) {', replace: '  if (false) {', expect: ['4'] },
   { label: '擋法表｜5 推送失敗就停 → 拿掉（隱式：被第三關接住、回傳值不對）', find: 'if [ "$rc" -ne 0 ]; then echo "【擋下：推送失敗】', replace: 'if false; then echo "【擋下：推送失敗】', expect: ['5'] },
-  { label: '擋法表｜6 遠端與本機不一樣 → 改成只在讀不到時才擋', find: 'if [ "$REMOTE_SHA" != "$HEAD_SHA" ]; then', replace: 'if [ -z "$REMOTE_SHA" ]; then', expect: ['6'] },
-  { label: '擋法表｜22 讀不到遠端的 main（隱式：空值≠本機）→ 改成讀不到就當成一樣', find: 'if [ "$REMOTE_SHA" != "$HEAD_SHA" ]; then', replace: 'if [ -n "$REMOTE_SHA" ] && [ "$REMOTE_SHA" != "$HEAD_SHA" ]; then', expect: ['22'] },
-  { label: '擋法表｜共同的一環：第三關的比對（6、22 共用）→ 整段拿掉', find: 'if [ "$REMOTE_SHA" != "$HEAD_SHA" ]; then', replace: 'if false; then', expect: ['6', '22'] },
-  { label: '擋法表｜8 範圍照遠端的實際狀態算（fetch 更新追蹤分支）→ 改成 --dry-run（照樣連得到遠端、但不更新）', find: 'if ! git fetch -q "$REMOTE" main > "$LOG" 2>&1; then', replace: 'if ! git fetch -q --dry-run "$REMOTE" main > "$LOG" 2>&1; then', expect: ['8'] },
+  { label: '擋法表｜6 遠端與本機不一樣 → 改成只在讀不到時才擋', find: 'if [ "$REMOTE_SHA" != "$LOCK_SHA" ]; then', replace: 'if [ -z "$REMOTE_SHA" ]; then', expect: ['6'] },
+  { label: '擋法表｜22 讀不到遠端的 main（隱式：空值≠本機）→ 改成讀不到就當成一樣', find: 'if [ "$REMOTE_SHA" != "$LOCK_SHA" ]; then', replace: 'if [ -n "$REMOTE_SHA" ] && [ "$REMOTE_SHA" != "$LOCK_SHA" ]; then', expect: ['22'] },
+  { label: '擋法表｜共同的一環：第三關的比對（6、22 共用）→ 整段拿掉', find: 'if [ "$REMOTE_SHA" != "$LOCK_SHA" ]; then', replace: 'if false; then', expect: ['6', '22'] },
+  { label: '擋法表｜8 範圍照遠端的實際狀態算（fetch 更新追蹤分支）→ 改成 --dry-run（照樣連得到遠端、但不更新）', find: '"$TO" 120 git fetch -q "$REMOTE" main > "$LOG" 2>&1', replace: '"$TO" 120 git fetch -q --dry-run "$REMOTE" main > "$LOG" 2>&1', expect: ['8'] },
   { label: '擋法表｜9 commit 訊息要取 → 不取 %B', file: 'scripts/selfcheck.mjs', find: "'--format=%B%n%an <%ae>%n%cn <%ce>'", replace: "'--format=%an <%ae>%n%cn <%ce>'", expect: ['9'] },
   { label: '擋法表｜10 作者信箱要取 → 不取 %ae（保留提交者）', file: 'scripts/selfcheck.mjs', find: "'--format=%B%n%an <%ae>%n%cn <%ce>'", replace: "'--format=%B%n%an%n%cn <%ce>'", expect: ['10'] },
   { label: '擋法表｜24 提交者信箱要取 → 不取 %ce（保留作者）', file: 'scripts/selfcheck.mjs', find: "'--format=%B%n%an <%ae>%n%cn <%ce>'", replace: "'--format=%B%n%an <%ae>%n%cn'", expect: ['24'] },
@@ -85,7 +88,7 @@ export const CASES = [
     category: 'pipe' },
 ];
 const B0_START = '# 第零關之二：F8 驗法登記';
-const B0_END = 'node scripts/selfcheck.mjs "$REMOTE" > "$LOG" 2>&1';
+const B0_END = '"$TO" 300 node scripts/selfcheck.mjs "$REMOTE" --head "$LOCK_SHA" > "$LOG" 2>&1';
 
 /**
  * 從閘門驗法的輸出抽出每一種的結論：{ total: 出現過的情境數, bad: 有任何一行判不符合的情境編號 }。

@@ -101,6 +101,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   if (bad.length) { console.log(`【擋下：執行環境】${bad.join('、')} 有設定：git 自己認得 GIT_ 開頭的變數，自查會對著別的 repo 或設定跑；先 unset 再跑`); process.exit(1); }
   const argv = process.argv.slice(2);
   const ri = argv.indexOf('--range');
-  const range = ri >= 0 ? argv[ri + 1] : `${argv[0] || 'origin'}/main..HEAD`;
+  // --head <commit>（2026-10-03，推送閘門鎖定 commit）：範圍的尾端用閘門一開頭記下的那一個，不用「當下的 HEAD」——
+  // 自查跑到一半有人 commit，前後幾道 git 指令看到的範圍才不會不一致。給了 --head 卻沒給值＝停，不退回 HEAD
+  const hi = argv.indexOf('--head');
+  if (hi >= 0 && !argv[hi + 1]) { console.log('【擋下：自查】--head 沒有給 commit'); process.exit(1); }
+  const head = hi >= 0 ? argv[hi + 1] : 'HEAD';
+  const range = ri >= 0 ? argv[ri + 1] : `${argv[0] && !argv[0].startsWith('--') ? argv[0] : 'origin'}/main..${head}`;
+  console.log(`範圍：${range}`);
   if (!selfcheck(range)) process.exitCode = 1;
 }

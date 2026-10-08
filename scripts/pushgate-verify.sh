@@ -52,6 +52,8 @@ check() {
   local remoteOk=no
   if [ "$wantRemote" = same ] && [ "$after" = "$BEFORE" ]; then remoteOk=yes; fi
   if [ "$wantRemote" = local ] && [ "$after" = "$(git rev-parse HEAD)" ]; then remoteOk=yes; fi
+  # lock：遠端要等於閘門鎖定的那一個（第 29 種：推送期間本機多了一個 commit，鎖定的是它的前一個）
+  if [ "$wantRemote" = lock ] && [ "$after" = "$(git rev-parse HEAD~1)" ] && [ "$after" != "$BEFORE" ]; then remoteOk=yes; fi
   local outOk=yes
   grep -q -- "$must" "$T/out" || outOk=no
   if [ -n "$mustNot" ] && grep -q -- "$mustNot" "$T/out"; then outOk=no; fi
@@ -278,16 +280,50 @@ s27() { fresh
     run_gate; check "27 帳本記著沒收尾的突變" 7 same "inflight" "已推送"
   fi; }
 
+# 28、29 鎖定 commit（2026-10-03）：閘門一開頭記下要推的 commit，之後多出來的 commit 不經自查就不能被推。
+# 造法不碰正式程式：PATH 最前面放一支假的 node（第 28 種）或假的 git（第 29 種），在指定的那一步之後才 commit 一個帶命中的檔。
+REAL_NODE="$(command -v node)"
+REAL_GIT="$(command -v git)"
+# 28 自查跑完之後才多一個帶命中的 commit → 不推（回 9）、假遠端不動、講明是鎖定之後多出來的
+s28() { fresh
+  probe_commit zb "乾淨的一行"
+  mkdir -p "$T/fake-node28"
+  cat > "$T/fake-node28/node" <<EOF
+#!/usr/bin/env bash
+"$REAL_NODE" "\$@"; rc=\$?
+case " \$* " in *selfcheck.mjs*) ( cd "$T/work" && printf '%s\n' "contact: \$(printf '%s@%s' tester example-mail.test)" > docs/late.md && "$REAL_GIT" add docs/late.md && "$REAL_GIT" commit -q -m "probe late：自查之後" ) ;; esac
+exit \$rc
+EOF
+  chmod +x "$T/fake-node28/node"
+  BEFORE="$(remote_main)"; PATH="$T/fake-node28:$PATH" bash scripts/pushgate.sh > "$T/out" 2>&1; RC=$?
+  if precondition "28 自查之後才多一個 commit" '[ "$(git log -1 --format=%s)" = "probe late：自查之後" ]' "假的 node 要在自查之後真的 commit 了那一個（讀回確認）"; then
+    check "28 自查之後才多一個 commit" 9 same "擋下：鎖定 commit" "已推送"
+  fi; }
+# 29 推送那一刻才多一個帶命中的 commit（自查和推送前的比對都已經過了）→ 只推鎖定的那一個、多出來的不推（回 9）
+s29() { fresh
+  probe_commit zc "乾淨的一行"
+  mkdir -p "$T/fake-git29"
+  cat > "$T/fake-git29/git" <<EOF
+#!/usr/bin/env bash
+case " \$* " in *" push "*) ( cd "$T/work" && printf '%s\n' "contact: \$(printf '%s@%s' tester example-mail.test)" > docs/late.md && "$REAL_GIT" add docs/late.md && "$REAL_GIT" commit -q -m "probe late：推送期間" ) ;; esac
+exec "$REAL_GIT" "\$@"
+EOF
+  chmod +x "$T/fake-git29/git"
+  BEFORE="$(remote_main)"; PATH="$T/fake-git29:$PATH" bash scripts/pushgate.sh > "$T/out" 2>&1; RC=$?
+  if precondition "29 推送期間才多一個 commit" '[ "$(git log -1 --format=%s)" = "probe late：推送期間" ]' "假的 git 要在推送那一步真的 commit 了那一個（讀回確認）"; then
+    check "29 推送期間才多一個 commit" 9 lock "推送期間本機多了 commit" "【已推送】遠端 main＝鎖定的 commit＝本機 HEAD"
+  fi; }
+
 # 7 全部正常 → 推上去、假遠端＝本機
 s7() { fresh
   probe_commit g "乾淨的一行"
   run_gate; check "7 全部正常" 0 local "已推送" "擋下"; }
 
-ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27"
-ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 7}"
-# 順序清單要恰好是 27 種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
+ALL="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29"
+ORDER="${PUSHGATE_VERIFY_ORDER:-1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 7}"
+# 順序清單要恰好是 ALL 那幾種、每種一次：少了幾種還說「全部符合」，就是另一種假驗證
 if [ "$(printf '%s\n' $ORDER | sort -n | tr '\n' ' ')" != "$(printf '%s\n' $ALL | sort -n | tr '\n' ' ')" ]; then
-  echo "閘門驗法：順序清單不是恰好 27 種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
+  echo "閘門驗法：順序清單不是恰好 ALL 那幾種各一次（$ORDER）"; rm -f "$SRC/.logs/pushgate-verified.txt"; exit 1
 fi
 echo "順序：$ORDER"
 for n in $ORDER; do "s$n"; done
