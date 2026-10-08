@@ -15726,11 +15726,11 @@
   "mutationtest 不再列為例外": {
    "last": {
     "date": "2026-10-08",
-    "commit": "77465e0e83db+dirty",
+    "commit": "a9013e593303+dirty",
     "mode": "only",
-    "defHash": "c724902ad29c8182075f860a71b759a373b887303c78af8e999846b115b845c0",
-    "depHash": "97ebb44c4896345f809df7b983f867ba656a5f31ed2a2a3364b437dde146af63",
-    "runnerHash": "f26a9c8b442eb44ac60f2f0e863b3df522b2048f7a2ffa810b3dbaa873ef6552",
+    "defHash": "4c3e24031cd667d591f165cc205d8b9187f24cc3339485cee2c4965fb5b4c6a1",
+    "depHash": "807e1771c82bbc6a0cb59ef45be85fe6ca2418ffc2a120ba0e3c6dfa45afb241",
+    "runnerHash": "c39f9d3789b8ecd1a6f9febc6c36badf07bb7aeffc34b64ae28455646c2b7368",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
@@ -15738,7 +15738,7 @@
     "expectMatched": true,
     "failed": 2,
     "expectHits": 1,
-    "seconds": 71
+    "seconds": 134
    },
    "lastFull": {
     "date": "2026-10-02",
@@ -20747,8 +20747,84 @@
     "seconds": 136
    },
    "lastFull": null
+  },
+  "worktree 收拾：執行器的呼叫還在、但不會執行": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "a9013e593303+dirty",
+    "mode": "only",
+    "defHash": "79ab35c5052f93036c3aa0ab73161ccd884bb9b8b694746964222ec6df55644b",
+    "depHash": "807e1771c82bbc6a0cb59ef45be85fe6ca2418ffc2a120ba0e3c6dfa45afb241",
+    "runnerHash": "c39f9d3789b8ecd1a6f9febc6c36badf07bb7aeffc34b64ae28455646c2b7368",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 37
+   },
+   "lastFull": null
+  },
+  "worktree 收拾：doctest 的呼叫還在、但不會執行": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "a9013e593303+dirty",
+    "mode": "only",
+    "defHash": "338b5a8e30ab72f7edd34004641c45a14ecb9a87be12c4ea929456447957a75a",
+    "depHash": "807e1771c82bbc6a0cb59ef45be85fe6ca2418ffc2a120ba0e3c6dfa45afb241",
+    "runnerHash": "c39f9d3789b8ecd1a6f9febc6c36badf07bb7aeffc34b64ae28455646c2b7368",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 40
+   },
+   "lastFull": null
+  },
+  "worktree 收拾：buildguard-verify 的呼叫還在、但不會執行": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "a9013e593303+dirty",
+    "mode": "only",
+    "defHash": "6c1739caac404b723d06e8446064f5a831818e589500c237f0076bd6a9df427e",
+    "depHash": "807e1771c82bbc6a0cb59ef45be85fe6ca2418ffc2a120ba0e3c6dfa45afb241",
+    "runnerHash": "c39f9d3789b8ecd1a6f9febc6c36badf07bb7aeffc34b64ae28455646c2b7368",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 42
+   },
+   "lastFull": null
+  },
+  "入口情境：逾時當成入口沒收拾": {
+   "last": {
+    "date": "2026-10-08",
+    "commit": "a9013e593303+dirty",
+    "mode": "only",
+    "defHash": "6b532f6b15ffa2c004396872359011c409ef92d5dbfc0d47d93a6b91d9700a92",
+    "depHash": "807e1771c82bbc6a0cb59ef45be85fe6ca2418ffc2a120ba0e3c6dfa45afb241",
+    "runnerHash": "c39f9d3789b8ecd1a6f9febc6c36badf07bb7aeffc34b64ae28455646c2b7368",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 40
+   },
+   "lastFull": null
   }
  },
- "runSeq": 52,
+ "runSeq": 54,
  "inflight": null
 }

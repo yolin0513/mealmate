@@ -21,6 +21,11 @@
    "n": 230,
    "hash": "a03fe3e72388c7f4"
   },
+  "入口情境：逾時當成入口沒收拾": {
+   "test": "entrysweeptest",
+   "n": 6,
+   "hash": "8190b5ce078de888"
+  },
   "三杯小卷順手寫進米酒": {
    "test": "recipetest",
    "n": 230,
@@ -1766,15 +1771,30 @@
    "n": 436,
    "hash": "622f35280fe725c4"
   },
+  "worktree 收拾：執行器的呼叫還在、但不會執行": {
+   "test": "entrysweeptest",
+   "n": 6,
+   "hash": "8190b5ce078de888"
+  },
   "worktree 收拾：執行器開頭不收拾": {
    "test": "doctest",
    "n": 436,
    "hash": "622f35280fe725c4"
   },
+  "worktree 收拾：buildguard-verify 的呼叫還在、但不會執行": {
+   "test": "entrysweeptest",
+   "n": 6,
+   "hash": "8190b5ce078de888"
+  },
   "worktree 收拾：buildguard-verify 開頭不收拾": {
    "test": "doctest",
    "n": 436,
    "hash": "622f35280fe725c4"
+  },
+  "worktree 收拾：doctest 的呼叫還在、但不會執行": {
+   "test": "entrysweeptest",
+   "n": 6,
+   "hash": "8190b5ce078de888"
   },
   "worktree 收拾：doctest 開頭不收拾": {
    "test": "doctest",

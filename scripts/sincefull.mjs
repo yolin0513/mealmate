@@ -177,7 +177,8 @@ export function auditTargets(pkg, scriptFiles) {
 // 刻意不在鏈裡：mutationtest 會改寫原始碼、要跑幾小時（doctest D4）；jobtest（2026-10-08）會開好幾支程序（Git Bash、sleep、
 // PowerShell 協助程序）去驗 Job Object 殺不殺得乾淨，約 75 秒（2026-10-08 加了逐一計數那一節之後）、只在 Windows 有意義，單獨跑 node scripts/jobtest.mjs；
 // memwatchtest（2026-10-08）開假執行器、外部監看與一個瀏覽器，約 1 分鐘、只在 Windows 有意義，單獨跑 node scripts/memwatchtest.mjs
-export const CHAIN_EXEMPT = new Set(['mutationtest', 'jobtest', 'memwatchtest']);
+// entrysweeptest（2026-10-08）：三個入口的收拾行為情境——開暫存 clone、殺子程序、開入口，約 1–2 分鐘，只在 Windows 有意義，單獨跑 node scripts/entrysweeptest.mjs
+export const CHAIN_EXEMPT = new Set(['mutationtest', 'jobtest', 'memwatchtest', 'entrysweeptest']);
 export function orphanTests(pkg, scriptFiles) {
   const chain = new Set(testsInChain(pkg));
   return scriptFiles.filter((f) => /test\.mjs$/.test(f)).map((f) => f.replace(/\.mjs$/, ''))
