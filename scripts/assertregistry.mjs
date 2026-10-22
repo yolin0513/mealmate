@@ -152,9 +152,15 @@ export function reviewNeeded(mutations, stamps, readTest) {
     else if (now === 'unparsed') out.push({ name: m.name, test: m.test, why: '登記表數不清楚（有斷言的括號收不齊），判斷不了母體有沒有變' });
     else if (!old) out.push({ name: m.name, test: m.test, why: '沒有戳記（還沒複審過）' });
     else if (old.test !== m.test || old.hash !== now.hash) out.push({ name: m.name, test: m.test, why: `斷言母體從 ${old.n} 筆變成 ${now.n} 筆${old.n === now.n ? '（筆數一樣、內容變了）' : ''}` });
+    // 2026-10-23（候選 A）：戳記也記預期的文字——改了預期卻沒重戳，以前不會被報（10-22 查到：前綴撞名只在 --stamp 那一刻被擋）。
+    // 10-23 以前戳的沒有這一欄：不報成要複審（補上「當時的文字＝現在的」等於沒複審就假裝複審過），另外數出來（stampsWithoutExpect）
+    else if (old.expect !== undefined && old.expect !== m.expect) out.push({ name: m.name, test: m.test, why: `預期的文字改了（戳記時「${old.expect}」、現在「${m.expect}」）` });
   }
   return out;
 }
+
+/** 戳記沒記預期文字的條數（10-23 以前戳的；改了預期不會被報，重戳時補上） */
+export const stampsWithoutExpect = (stamps) => Object.values(stamps ?? {}).filter((s) => s.expect === undefined).length;
 
 export const readTestFrom = (root) => (t) => { const p = path.join(root, 'scripts', `${t}.mjs`); return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null; };
 export function loadStamps(root = ROOT) {
@@ -185,6 +191,12 @@ export function controls() {
   if (rv1.map((x) => x.name).join(',') !== 'X,Y') bad.push(`母體長大 → 帶 expect 的兩條都要複審、沒帶的不列，實際 ${rv1.map((x) => x.name).join(',')}`);
   const rv2 = reviewNeeded(muts, { X: { test: 't', ...s0 } }, read(base));
   if (rv2.map((x) => x.name).join(',') !== 'Y') bad.push('沒有戳記的要列出來');
+  // 預期的文字（2026-10-23）：一樣 → 不報；改了 → 報、理由寫「預期的文字改了」；舊戳記沒這一欄 → 不報、但數得出來
+  const rv3 = reviewNeeded(muts, { X: { test: 't', ...s0, expect: 'A' }, Y: { test: 't', ...s0, expect: 'C' } }, read(base));
+  if (rv3.length !== 0) bad.push(`預期文字跟戳記一樣 → 不必複審，實際 ${rv3.length} 條`);
+  const rv4 = reviewNeeded([{ name: 'X', test: 't', expect: 'A 改' }, muts[1]], { X: { test: 't', ...s0, expect: 'A' }, Y: { test: 't', ...s0, expect: 'C' } }, read(base));
+  if (rv4.length !== 1 || rv4[0].name !== 'X' || !rv4[0].why.includes('預期的文字改了')) bad.push('預期的文字改了、沒重戳 → 要列出那一條、理由是預期的文字改了');
+  if (stampsWithoutExpect({ X: { test: 't', ...s0 }, Y: { test: 't', ...s0, expect: 'C' } }) !== 1) bad.push('沒記預期文字的舊戳記要數得出來');
   return bad;
 }
 
@@ -210,7 +222,7 @@ function main() {
       if (key !== '--all' && !m.name.includes(key) && m.test !== key) continue;
       const src = read(m.test); const st = src == null ? null : stampOf(src);
       if (!st) { console.log(`  沒戳：${m.name}（${src == null ? '測試檔讀不到' : '登記表數不清楚'}）`); continue; }
-      doc.stamps[m.name] = { test: m.test, ...st }; n += 1;
+      doc.stamps[m.name] = { test: m.test, ...st, expect: m.expect }; n += 1;
     }
     for (const k of Object.keys(doc.stamps)) if (!muts.some((m) => m.name === k && m.expect != null)) delete doc.stamps[k];
     doc.stamps = Object.fromEntries(Object.entries(doc.stamps).sort(([a], [b]) => a.localeCompare(b)));

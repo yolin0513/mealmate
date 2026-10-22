@@ -4705,6 +4705,25 @@ const MUTATIONS = [
     test: "doctest",
     expect: "AR3 ",
   },
+  // ---- 2026-10-23（候選 A）：戳記也記預期的文字 ----
+  {
+    name: "戳記：預期的文字改了也不報",
+    why: "改了預期卻沒重戳，以前不會被報（10-22 查到：前綴撞名只在 --stamp 那一刻被擋）——正是要補的那個靜默。",
+    file: "scripts/assertregistry.mjs",
+    find: "    else if (old.expect !== undefined && old.expect !== m.expect) out.push(",
+    replace: "    else if (false) out.push(",
+    test: "doctest",
+    expect: "AR6 ",
+  },
+  {
+    name: "戳記：不記預期的文字",
+    why: "比對的那一邊是空的：每一條都是「舊戳記、沒記預期文字」，改了預期照樣不報。",
+    file: "scripts/assertregistry.mjs",
+    find: "      doc.stamps[m.name] = { test: m.test, ...st, expect: m.expect }; n += 1;",
+    replace: "      doc.stamps[m.name] = { test: m.test, ...st }; n += 1;",
+    test: "doctest",
+    expect: "AR6 ",
+  },
   {
     name: "複審判斷不比雜湊",
     why: "母體換了、戳記還是舊的，也不報——正是要擋的那種靜默。",

@@ -688,8 +688,12 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
   const wroteLastFull = fs.existsSync(path.join(toRoot, 'scripts/mutation-lastfull.json'));
   const hangRestored = fs.readFileSync(path.join(toRoot, 'scripts/probetarget.mjs'), 'utf8') === 'export const HANG = false;\n';
   fs.rmSync(toRoot, { recursive: true, force: true });
-  ok(to.code !== 0 && to.out.includes('不算數：probeslow 逾時被殺') && to.out.includes('情境未成立、不算數 1 條') && !wroteLastFull && hangRestored,
-    `F1-13 mutationtest 遇到逾時 → 那條突變標成「不算數」、不算紅（回 ${to.code}），不寫成「整套完整跑完」（寫了基準清單：${wroteLastFull}），改壞的檔有還原（${hangRestored}）`);
+  // 失敗時要看得出是哪個條件沒成立（2026-10-22：機器被別的程式佔滿時這一項紅了，訊息只有結論，分不出是逾時沒發生、還是標錯）
+  const toKilled = to.out.includes('不算數：probeslow 逾時被殺'); const toUncounted = to.out.includes('情境未成立、不算數 1 條');
+  const toBaseOk = /基準 probeslow 通過/.test(to.out);
+  ok(to.code !== 0 && toKilled && toUncounted && !wroteLastFull && hangRestored,
+    `F1-13 mutationtest 遇到逾時 → 那條突變標成「不算數」、不算紅（回 ${to.code}），不寫成「整套完整跑完」（寫了基準清單：${wroteLastFull}），改壞的檔有還原（${hangRestored}）`
+    + `；逐條：印了逾時被殺 ${toKilled}、不算數 1 條 ${toUncounted}、基準 probeslow 通過 ${toBaseOk}`);
 }
 
 section('測試怎麼結束的（runkind；2026-10-01：逾時、沒跑起來、崩潰、斷言失敗要分得出來）');
@@ -1753,6 +1757,8 @@ section('斷言登記表與「預期需要複審」（2026-10-02 Dispatch 選 A�
     const c3 = cm();
     ok(rsrc.split(anchor).length === 2 && c3.count === recN && c3.lines.length > 0 && c3.lines.every((l) => l.includes('recipetest｜') && l.includes('筆數一樣、內容變了')),
       `AR3 recipetest 斷言條數不變、改了一條的內容 → 那 ${recN} 條報「筆數一樣、內容變了」（報了 ${c3.count} 條）`);
+    fs.writeFileSync(rf, rsrc);   // 馬上還原：2026-10-23 以前沒還原，後面 AR6 看複審清單時被這一處污染、報了 67 條
+
     // AR4：有歧義的不准戳（戳記＝複審過了）。在 aliastest 加一條訊息含既有 expect 的斷言，--stamp aliastest 要拒絕、點名那一條、戳記檔不動
     const aliasM = muts.find((m) => m.test === 'aliastest' && m.expect != null);
     const stampFile = path.join(clone, 'scripts/expect-review.json');
@@ -1773,6 +1779,19 @@ section('斷言登記表與「預期需要複審」（2026-10-02 Dispatch 選 A�
       `AR5 戳記少一條（${dropped}）→ checkmutations 回 ${c5.code}、兩個數字都印（${nE} 與 ${nE - 1}）、判對不上`);
     fs.writeFileSync(stampFile, before4);
     fs.writeFileSync(af, asrc);
+    // AR6（2026-10-23，候選 A）：改了一條突變的預期文字、沒重戳 → checkmutations 要點名那一條、理由是「預期的文字改了」，別條不報。
+    // 戳記是本節開頭在 clone 裡 --stamp --all 戳的（帶預期文字）。以前戳記不記預期文字，這種改動不會被報（10-22 查到）
+    const mtf = path.join(clone, 'scripts/mutationtest.mjs');
+    const mtsrc = fs.readFileSync(mtf, 'utf8');
+    const ni = aliasM ? Math.max(mtsrc.indexOf(`name: ${JSON.stringify(aliasM.name)}`), mtsrc.indexOf(`name: '${aliasM.name}'`)) : -1;
+    const ei = ni >= 0 ? mtsrc.indexOf('expect:', ni) : -1;
+    const eline = ei >= 0 ? mtsrc.slice(ei, mtsrc.indexOf('\n', ei)) : '';
+    const changed = eline ? mtsrc.slice(0, ei) + `expect: ${JSON.stringify(aliasM.expect.slice(0, -1))},` + mtsrc.slice(ei + eline.length) : mtsrc;
+    fs.writeFileSync(mtf, changed);
+    const c6 = cm();
+    ok(!!aliasM && eline.includes(JSON.stringify(aliasM.expect).slice(1, -1)) && changed !== mtsrc && c6.count === 1 && c6.lines.length === 1 && c6.lines[0].includes(`aliastest｜${aliasM.name}｜預期的文字改了`),
+      `AR6 改了一條預期的文字、沒重戳 → checkmutations 只報那一條、理由是預期的文字改了（報了 ${c6.count} 條：${c6.lines[0] ?? '（沒有）'}）`);
+    fs.writeFileSync(mtf, mtsrc);
   }
 }
 
