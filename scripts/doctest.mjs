@@ -13,7 +13,8 @@ import { execFileSync, spawnSync, spawn } from 'node:child_process';
 // 開 node 腳本的子程序一律帶上限（2026-10-08，第 7 項：npm test 這條路沒有任何外層上限，子程序卡住 doctest 就永遠不結束）。
 // doctest 整支實測最長 130 秒（2026-10-09 整批計時，經 Job、機器上沒有別的專案在跑；scripts/test-timings.json），任何一個子程序都不會超過它；
 // 420 秒＝3.2 倍餘裕（餘裕一律用最長那次算、至少 3 倍；240 → 300 → 360 → 420，每次照當時最長的那次訂）。逾時 → 那一條紅，不會卡住。
-// **doctest 超過 140 秒就要調**（420 ÷ 3）——上一次寫的 123 秒是有別的專案在跑時量的，之後 doctest 又加了幾節，機器空時反而量到 130
+// **doctest 超過 140 秒就要調**（420 ÷ 3）——上一次寫的 123 秒是有別的專案在跑時量的，之後 doctest 又加了幾節，機器空時反而量到 130。
+// 2026-10-22 起有機器檢查（「子程序上限餘裕」那一節：讀 test-timings.json 的 doctest 秒數，上限不到 3 倍就紅）——不再只靠這行註解
 // 已知限制：git 的小呼叫沒帶；逾時只殺直接那一支（不經 jobrun——經 jobrun 會讓 D18p 的探針繼承到中間那一層的 MM_JOBRUN）。
 const SUB_TIMEOUT_MS = 420000;
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -29,7 +30,7 @@ import {
   fullComplete, ledgerProblems, contentHash, LEDGER_FILE, ledgerOrphans, parkedAsUnmeasurable,
 } from './depgraph.mjs';
 import { listen as serveListen } from './serve.mjs';
-import { summarize as summarizeProcs, peakOf } from './reslog.mjs';
+import { summarize as summarizeProcs, peakOf, lineOf as lineOfReslog } from './reslog.mjs';
 import { verifyCopies } from './copycheck.mjs';
 import { CASES as GM_CASES, staleProblems as gmStaleProblems, resolveBash as gmResolveBash, reasonCodes as gmReasonCodes, reasonsMatch as gmReasonsMatch,
   staleReasons as gmStaleReasons, STALE as GM_STALE, runnerHashOf as gmRunnerHashOf, depFiles as gmDepFiles, caseDepHash as gmCaseDepHash, caseDefHash as gmCaseDefHash,
@@ -1123,6 +1124,25 @@ section('重負載的資源紀錄（共用慣例 v11 §5.19、§5.20：紀錄要
   const ru = summarizeProcs(reuseRows, 100);
   eq([ru.workers, ru.descendants, Math.round(ru.bytes / MB), ru.reused], [1, 1, 100, 1],
     '資源紀錄 R4 PID 重用：比 root 還早建立、父程序 PID 卻剛好等於 root 的舊程序（與它的子孫）不算——工作程序、全部程序、記憶體都不被灌水');
+  // R5（2026-10-22，Dispatch：10-09 取樣到 5 個、紀錄只記個數，是哪幾支永遠查不清）：每一行記「組成」——名稱＋腳本檔名、
+  // 同一個標籤合併計數、只取檔名不取路徑（帶使用者目錄的路徑在執行時才拼，原樣寫在這裡會被推送前的自查當成本機路徑）
+  const home = ['C:', 'Users', '合成的某人'].join('\\');
+  const compRows = [
+    { pid: 100, ppid: 1, name: 'node.exe', bytes: MB, cmd: 'node mutationtest.mjs' },
+    { pid: 101, ppid: 100, name: 'node.exe', bytes: MB, cmd: `"${path.win32.join(home, 'node.exe')}" ${path.win32.join(home, 'MealMate', 'scripts', 'jobrun.mjs')} a b` },
+    { pid: 102, ppid: 101, name: 'node.exe', bytes: MB, cmd: 'node scripts/doctest.mjs' },
+    { pid: 103, ppid: 102, name: 'chrome.exe', bytes: MB, cmd: 'chrome --headless=new' },
+    { pid: 104, ppid: 103, name: 'chrome.exe', bytes: MB, cmd: 'chrome --type=renderer' },
+    { pid: 105, ppid: 102, name: 'node.exe', bytes: MB, cmd: 'node -e "setTimeout(() => {}, 1)"' },
+    { pid: 106, ppid: 102, name: 'node.exe', bytes: MB, cmd: null },
+  ];
+  const comp = summarizeProcs(compRows, 100);
+  const compLine = lineOfReslog(new Date(0), comp, 4096 * MB);
+  const compPart = /\t組成：(.*)$/.exec(compLine)?.[1] ?? '';
+  const compTotal = [...compPart.matchAll(/×(\d+)/g)].reduce((s, m) => s + Number(m[1]), 0);
+  ok(compPart === 'chrome×1、node:-e×1、node:?×1、node:doctest.mjs×1、node:jobrun.mjs×1' && compTotal === comp.workers && comp.workers === 5
+      && !compLine.includes('合成的某人') && !compLine.includes('\\'),
+    `資源紀錄 R5 組成：記下是哪幾支（名稱＋腳本檔名、讀不到指令列寫 ?）、加總＝工作程序數（${compTotal}／${comp.workers}）、不帶路徑（${compPart || '（沒有組成那一欄）'}）`);
   const pk = peakOf('# 標頭\n2026-10-02 01:00:00\t工作程序 3\t合計記憶體 900 MB\t系統可用 6000 MB\t（子孫 5 個）\n2026-10-02 01:01:00\t工作程序 1\t合計記憶體 300 MB\t系統可用 7000 MB\t（子孫 2 個）\n2026-10-02 01:02:00\t取不到程序表\t系統可用 7000 MB\n');
   eq([pk.lines, pk.peakWorkers, pk.peakMB, pk.minFreeMB, pk.unreadable], [2, 3, 900, 6000, 1], '資源紀錄 R3 峰值取最大的那一行、可用記憶體取最低；取不到的行另外算，不當成 0');
   // 真的記得到（§5.20）：在一個已知有程序在跑的時刻記一行，工作程序數必須非 0；收掉之後必須是 0（兩個方向）
@@ -1135,6 +1155,21 @@ section('重負載的資源紀錄（共用慣例 v11 §5.19、§5.20：紀錄要
   const idle = once();
   const nOf = (l) => Number(/工作程序 (\d+)/.exec(l)?.[1] ?? NaN);
   ok(nOf(busy) >= 1 && nOf(idle) === 0, `資源紀錄 R2 真的記得到：有一個假工作在跑時記到 ${nOf(busy)} 個、收掉之後記到 ${nOf(idle)} 個（${busy.trim()}）`);
+  // R2b：組成從真實入口（--once、真的程序表、真的指令列）也記得到——那個假工作是用 -e 開的，要被認成 node:-e；加總等於工作程序數；收掉之後是（無）
+  const partOf = (l) => /\t組成：(.*)$/.exec(l.trim())?.[1] ?? '';
+  const totalOf = (p) => [...p.matchAll(/×(\d+)/g)].reduce((s, m) => s + Number(m[1]), 0);
+  ok(partOf(busy).includes('node:-e×') && totalOf(partOf(busy)) === nOf(busy) && partOf(idle) === '（無）',
+    `資源紀錄 R2b 組成從真實入口記得到：假工作在跑時「${partOf(busy) || '（沒有組成那一欄）'}」（加總 ${totalOf(partOf(busy))}／工作程序 ${nOf(busy)}）、收掉之後「${partOf(idle) || '（沒有組成那一欄）'}」`);
+}
+
+section('子程序上限的餘裕（2026-10-22；Dispatch 10-09：等有別的理由動 doctest 時順手做）');
+{
+  // 子程序上限要 ≥ 3 × doctest 整支的實測秒數（餘裕至少 3 倍）。以前只靠 SUB_TIMEOUT_MS 旁邊那行註解「超過 140 秒就要調」——註解不是斷言。
+  // 已知限制：test-timings.json 每支只留最近一次，不是歷來最長的那次；chaintime 重量之後這裡才跟著變
+  const tt = JSON.parse(read('scripts/test-timings.json'));
+  const sec = tt.tests?.doctest?.seconds;
+  ok(Number.isFinite(sec) && sec > 0 && SUB_TIMEOUT_MS >= 3 * sec * 1000,
+    `子程序上限餘裕：上限 ${SUB_TIMEOUT_MS / 1000} 秒、計時表裡 doctest 最近一次 ${sec ?? '（讀不到）'} 秒（${tt.tests?.doctest?.date ?? '？'}）→ ${Number.isFinite(sec) && sec > 0 ? (SUB_TIMEOUT_MS / 1000 / sec).toFixed(1) : '？'} 倍（至少 3 倍）`);
 }
 
 section('只跑受影響的突變：依賴範圍與「要不要重跑」的分類對照組（2026-10-01，Yolin 新規則；scripts/depgraph.mjs）');

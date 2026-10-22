@@ -1,5 +1,6 @@
 // 重負載的資源紀錄（共用慣例 v11 §5.19，2026-10-02）：超過 10 分鐘的工作，每 60 秒左右記一行
-// 「時間、工作程序數、它們合計的記憶體、系統可用記憶體」到 .logs/。
+// 「時間、工作程序數、它們合計的記憶體、系統可用記憶體」到 .logs/。2026-10-22 起行尾多一欄「組成：」——是哪幾支（名稱＋腳本檔名，
+// 只取檔名不取路徑）。理由：10-09 取樣到 5 個工作程序、超過上限 4，紀錄只記個數，是哪幾支、該不該算，永遠查不清。
 //
 // 數的是某一支主程式（--root，例如 mutationtest）底下的子孫程序：
 //   · node、python 各算一個工作程序；瀏覽器實例算一個（瀏覽器自己再開的子程序不另算個數，但記憶體算進去）
@@ -23,10 +24,10 @@ export function processTable() {
   if (process.platform === 'win32') {
     // 建立時間（毫秒）一起取：認子程序要用它擋 PID 重用（見 summarize）
     const out = execFileSync('powershell', ['-NoProfile', '-Command',
-      'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,WorkingSetSize,@{n="Created";e={ if ($_.CreationDate) { [DateTimeOffset]::new($_.CreationDate).ToUnixTimeMilliseconds() } else { $null } }} | ConvertTo-Json -Compress'],
+      'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,WorkingSetSize,CommandLine,@{n="Created";e={ if ($_.CreationDate) { [DateTimeOffset]::new($_.CreationDate).ToUnixTimeMilliseconds() } else { $null } }} | ConvertTo-Json -Compress'],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 });
     const rows = JSON.parse(out);
-    return (Array.isArray(rows) ? rows : [rows]).map((r) => ({ pid: r.ProcessId, ppid: r.ParentProcessId, name: String(r.Name ?? ''), bytes: Number(r.WorkingSetSize ?? 0), created: Number.isFinite(Number(r.Created)) && r.Created !== null ? Number(r.Created) : null }));
+    return (Array.isArray(rows) ? rows : [rows]).map((r) => ({ pid: r.ProcessId, ppid: r.ParentProcessId, name: String(r.Name ?? ''), bytes: Number(r.WorkingSetSize ?? 0), created: Number.isFinite(Number(r.Created)) && r.Created !== null ? Number(r.Created) : null, cmd: r.CommandLine ?? null }));
   }
   const now = Date.now();
   const out = execFileSync('ps', ['-eo', 'pid=,ppid=,rss=,etimes=,comm='], { encoding: 'utf8' });
@@ -60,19 +61,43 @@ export function summarize(rows, rootPid, selfPid = null) {
     out.push(r);
     stack.push(...(kids.get(r.pid) ?? []));
   }
-  const names = [];
+  const names = []; const labels = [];
   for (const r of out) {
     const parent = byPid.get(r.ppid);
-    if (WORKER_RX.test(r.name)) names.push(r.name);
-    else if (BROWSER_RX.test(r.name) && !(parent && BROWSER_RX.test(parent.name))) names.push(r.name);
+    if (WORKER_RX.test(r.name)) { names.push(r.name); labels.push(labelOf(r)); }
+    else if (BROWSER_RX.test(r.name) && !(parent && BROWSER_RX.test(parent.name))) { names.push(r.name); labels.push(labelOf(r)); }
   }
-  return { workers: names.length, bytes: out.reduce((s, r) => s + (Number.isFinite(r.bytes) ? r.bytes : 0), 0), descendants: out.length, names, reused, unknownAge };
+  return { workers: names.length, bytes: out.reduce((s, r) => s + (Number.isFinite(r.bytes) ? r.bytes : 0), 0), descendants: out.length, names, labels, reused, unknownAge };
+}
+
+/**
+ * 工作程序是哪一支（2026-10-22，Dispatch：10-09 取樣到 5 個、紀錄只記個數，是哪幾支永遠查不清）：
+ * 名稱＋腳本的檔名，例「node:jobrun.mjs」「node:-e」「chrome」。**只取檔名、不取路徑**——指令列可能帶本機使用者名稱（§2.4）。
+ * 讀不到指令列寫「?」，不猜。
+ */
+export function labelOf(r) {
+  const base = String(r.name ?? '').replace(/\.exe$/i, '');
+  if (BROWSER_RX.test(r.name)) return base;
+  const cmd = r.cmd;
+  if (cmd === null || cmd === undefined) return `${base}:?`;
+  const script = /([^\s"'\\/]+\.(?:mjs|cjs|js|py))(?=["'\s]|$)/i.exec(String(cmd));
+  if (script) return `${base}:${script[1]}`;
+  if (/\s-e\s|\s-c\s|\s-p\s/.test(` ${cmd} `)) return `${base}:-e`;
+  return `${base}:?`;
+}
+
+/** 組成：同一個標籤合併計數，排序固定（例「chrome×1、node:doctest.mjs×1、node:jobrun.mjs×2」）；沒有就寫「（無）」 */
+export function composeOf(labels) {
+  if (!labels?.length) return '（無）';
+  const c = new Map();
+  for (const l of labels) c.set(l, (c.get(l) ?? 0) + 1);
+  return [...c].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([l, n]) => `${l}×${n}`).join('、');
 }
 
 const mb = (b) => Math.round(b / 1048576);
 export function lineOf(now, s, freeBytes) {
   const t = new Date(now.getTime() + 8 * 3600000).toISOString().replace('T', ' ').slice(0, 19);
-  return s ? `${t}\t工作程序 ${s.workers}\t合計記憶體 ${mb(s.bytes)} MB\t系統可用 ${mb(freeBytes)} MB\t（全部程序 ${s.descendants} 個；PID 重用排除 ${s.reused ?? 0}、建立時間不明 ${s.unknownAge ?? 0}）`
+  return s ? `${t}\t工作程序 ${s.workers}\t合計記憶體 ${mb(s.bytes)} MB\t系統可用 ${mb(freeBytes)} MB\t（全部程序 ${s.descendants} 個；PID 重用排除 ${s.reused ?? 0}、建立時間不明 ${s.unknownAge ?? 0}）\t組成：${composeOf(s.labels)}`
     : `${t}\t取不到程序表\t系統可用 ${mb(freeBytes)} MB`;
 }
 

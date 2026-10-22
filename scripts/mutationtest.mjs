@@ -5453,6 +5453,43 @@ const MUTATIONS = [
     test: "memwatchtest",
     expect: "監看・總結（",
   },
+  // ---- 2026-10-22：資源紀錄記「組成」（Dispatch：10-09 取樣到 5 個工作程序、紀錄只記個數，是哪幾支永遠查不清）；doctest 子程序上限的餘裕 ----
+  {
+    name: "資源紀錄：組成不記（回到只記個數）",
+    why: "取樣到超過上限時，查不出是哪幾支——10-09 那次就是這樣，推論永遠驗不了。",
+    file: "scripts/reslog.mjs",
+    find: "）\\t組成：${composeOf(s.labels)}`",
+    replace: "）`",
+    test: "doctest",
+    expect: "資源紀錄 R5 組成",
+  },
+  {
+    name: "資源紀錄：組成帶整個指令列",
+    why: "指令列可能帶本機使用者名稱與絕對路徑——紀錄雖然不進版控，證據檔、回報會從它抄（§2.4）。",
+    file: "scripts/reslog.mjs",
+    find: "  if (script) return `${base}:${script[1]}`;",
+    replace: "  if (script) return `${base}:${cmd}`;",
+    test: "doctest",
+    expect: "資源紀錄 R5 組成",
+  },
+  {
+    name: "資源紀錄：程序表不取指令列",
+    why: "純函式拿合成樣本驗得過，真的程序表卻沒有指令列——每一支都記成「?」，組成那一欄形同沒有。",
+    file: "scripts/reslog.mjs",
+    find: ", cmd: r.CommandLine ?? null }));",
+    replace: " }));",
+    test: "doctest",
+    expect: "資源紀錄 R2b 組成從真實入口",
+  },
+  {
+    name: "doctest 子程序上限只剩不到 3 倍",
+    why: "doctest 變長、上限沒跟著調，某天子程序在正常情況下就被逾時砍掉——紅在一個跟改動無關的地方。",
+    file: "scripts/doctest.mjs",
+    find: "const SUB_TIMEOUT_MS = 420000;",
+    replace: "const SUB_TIMEOUT_MS = 300000;",
+    test: "doctest",
+    expect: "子程序上限餘裕：",
+  },
   // ---- 2026-10-08：共用複本的雜訊——突變進行中造成的 STALE 標成不計入（doctest SP1、SP2）----
   {
     name: "共用複本雜訊：突變進行中照樣算 STALE",
@@ -5758,14 +5795,16 @@ const MUTATIONS = [
     find: "  return { workers: names.length,",
     replace: "  return { workers: 0,",
     test: "doctest",
-    expect: "資源紀錄 R2",
+    // 2026-10-22：原本是「資源紀錄 R2」，加了 R2b 之後會同時對到兩條（歧義）——收窄成 R2 那一條的開頭，指的還是同一條斷言
+    expect: "資源紀錄 R2 真的記得到",
   },
   {
     name: "資源紀錄：瀏覽器的子程序也各算一個",
     why: "一個無頭 Chrome 會開好幾個子程序；各算一個的話，峰值被灌大、跟共用上限（瀏覽器實例算一個）對不起來。",
     file: "scripts/reslog.mjs",
-    find: "    else if (BROWSER_RX.test(r.name) && !(parent && BROWSER_RX.test(parent.name))) names.push(r.name);",
-    replace: "    else if (BROWSER_RX.test(r.name)) names.push(r.name);",
+    // 2026-10-22：那一行多記了組成（labels），錨點跟著改；突變的意思不變
+    find: "    else if (BROWSER_RX.test(r.name) && !(parent && BROWSER_RX.test(parent.name))) { names.push(r.name); labels.push(labelOf(r)); }",
+    replace: "    else if (BROWSER_RX.test(r.name)) { names.push(r.name); labels.push(labelOf(r)); }",
     test: "doctest",
     expect: "資源紀錄 R1",
   },
