@@ -8457,12 +8457,12 @@
   },
   "加到主畫面之後還是開在瀏覽器分頁裡": {
    "last": {
-    "date": "2026-10-22",
-    "commit": "dbbd9303484c",
+    "date": "2026-10-23",
+    "commit": "7f49be8d87a3",
     "mode": "only",
     "defHash": "ea61f2ff3a9d331bb0ac0af00257b498d9a8ba8c699316e36afe96db4309ecbc",
-    "depHash": "e0054ebd1910a5718e0fe5c5687383bbb05f2455abeecf95c8e746ef0d53411a",
-    "runnerHash": "bfbb068e40262c7e6d0178695ccf020c723faa4fa922dd59d7633e4f0559e0ed",
+    "depHash": "31b2d64f85ed5b4d179333bc5df0d62a85eca49cc2205d5c0dd749ef75411380",
+    "runnerHash": "173f3f9e7aeb8cc8b7140b3eca5af5988cb88ff3a45cc416b81fcd6536c465ec",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
@@ -21282,18 +21282,18 @@
   },
   "監看：每一輪記固定值": {
    "last": {
-    "date": "2026-10-22",
-    "commit": "dbbd9303484c",
+    "date": "2026-10-23",
+    "commit": "7f49be8d87a3",
     "mode": "only",
     "defHash": "6ab6a98c527dfeb30bdef3f9f54d4503e79fe7d198090d899f1ab867c60cb080",
-    "depHash": "e0054ebd1910a5718e0fe5c5687383bbb05f2455abeecf95c8e746ef0d53411a",
-    "runnerHash": "bfbb068e40262c7e6d0178695ccf020c723faa4fa922dd59d7633e4f0559e0ed",
+    "depHash": "31b2d64f85ed5b4d179333bc5df0d62a85eca49cc2205d5c0dd749ef75411380",
+    "runnerHash": "173f3f9e7aeb8cc8b7140b3eca5af5988cb88ff3a45cc416b81fcd6536c465ec",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
     "red": true,
     "expectMatched": true,
-    "failed": 4,
+    "failed": 3,
     "expectHits": 1,
     "seconds": 98
    },
@@ -21339,12 +21339,12 @@
   },
   "資源紀錄：組成不記（回到只記個數）": {
    "last": {
-    "date": "2026-10-22",
-    "commit": "dbbd9303484c",
+    "date": "2026-10-23",
+    "commit": "7f49be8d87a3",
     "mode": "only",
     "defHash": "89e9b177e1892ffde098b8f9086a722b0622bb45ad690176edf77663f1e23ea6",
-    "depHash": "e0054ebd1910a5718e0fe5c5687383bbb05f2455abeecf95c8e746ef0d53411a",
-    "runnerHash": "bfbb068e40262c7e6d0178695ccf020c723faa4fa922dd59d7633e4f0559e0ed",
+    "depHash": "31b2d64f85ed5b4d179333bc5df0d62a85eca49cc2205d5c0dd749ef75411380",
+    "runnerHash": "173f3f9e7aeb8cc8b7140b3eca5af5988cb88ff3a45cc416b81fcd6536c465ec",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
@@ -21352,18 +21352,18 @@
     "expectMatched": true,
     "failed": 2,
     "expectHits": 1,
-    "seconds": 186
+    "seconds": 201
    },
    "lastFull": null
   },
   "資源紀錄：組成帶整個指令列": {
    "last": {
-    "date": "2026-10-22",
-    "commit": "dbbd9303484c",
+    "date": "2026-10-23",
+    "commit": "7f49be8d87a3",
     "mode": "only",
     "defHash": "832afef4c8525d861e343892fc4a43f8a7d958ba92b57c81d0064a82305d7792",
-    "depHash": "e0054ebd1910a5718e0fe5c5687383bbb05f2455abeecf95c8e746ef0d53411a",
-    "runnerHash": "bfbb068e40262c7e6d0178695ccf020c723faa4fa922dd59d7633e4f0559e0ed",
+    "depHash": "31b2d64f85ed5b4d179333bc5df0d62a85eca49cc2205d5c0dd749ef75411380",
+    "runnerHash": "173f3f9e7aeb8cc8b7140b3eca5af5988cb88ff3a45cc416b81fcd6536c465ec",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
@@ -21371,11 +21371,144 @@
     "expectMatched": true,
     "failed": 1,
     "expectHits": 1,
-    "seconds": 177
+    "seconds": 216
+   },
+   "lastFull": null
+  },
+  "監看測試：情境沒成立只試一次": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "a35bda115a8e",
+    "mode": "only",
+    "defHash": "eebcacc8ad0fb131c84ed0f9811ac026567f5bcfc53a900734d1fe82bb680af5",
+    "depHash": "d3af7dc52a7a8f72b5187f84af6bef0583310ae882cfbe879445ce773ad90881",
+    "runnerHash": "173f3f9e7aeb8cc8b7140b3eca5af5988cb88ff3a45cc416b81fcd6536c465ec",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 95
+   },
+   "lastFull": null
+  },
+  "監看測試：情境成立了也繼續重做": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "a35bda115a8e",
+    "mode": "only",
+    "defHash": "ed1aad8c16dc0fc065265b52ab9a589ab458c470c689628a461264e3ab634f94",
+    "depHash": "d3af7dc52a7a8f72b5187f84af6bef0583310ae882cfbe879445ce773ad90881",
+    "runnerHash": "173f3f9e7aeb8cc8b7140b3eca5af5988cb88ff3a45cc416b81fcd6536c465ec",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 155
+   },
+   "lastFull": null
+  },
+  "監看測試：試到上限也當成情境成立": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "a35bda115a8e",
+    "mode": "only",
+    "defHash": "4b8af7ad5a74a61a5be68a3b4a63163f461b3ea6e97534b421aca0a9884164f9",
+    "depHash": "d3af7dc52a7a8f72b5187f84af6bef0583310ae882cfbe879445ce773ad90881",
+    "runnerHash": "173f3f9e7aeb8cc8b7140b3eca5af5988cb88ff3a45cc416b81fcd6536c465ec",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 96
+   },
+   "lastFull": null
+  },
+  "戳記：預期的文字改了也不報": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "7f49be8d87a3+dirty",
+    "mode": "only",
+    "defHash": "bc24a727076944b95e8afbc4aed9e09fcc698af34926949954d059db61bec191",
+    "depHash": "9dd574e2294cdd9d23ca00cca8893345df719804d9e6264149d9d0b2cca1decb",
+    "runnerHash": "173f3f9e7aeb8cc8b7140b3eca5af5988cb88ff3a45cc416b81fcd6536c465ec",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 6,
+    "expectHits": 1,
+    "seconds": 180
+   },
+   "lastFull": null
+  },
+  "戳記：不記預期的文字": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "7f49be8d87a3+dirty",
+    "mode": "only",
+    "defHash": "67e226ba6173ce0f7332d0780df3ecca2564766cab2ebbee3a5b4e4dc4042aef",
+    "depHash": "9dd574e2294cdd9d23ca00cca8893345df719804d9e6264149d9d0b2cca1decb",
+    "runnerHash": "173f3f9e7aeb8cc8b7140b3eca5af5988cb88ff3a45cc416b81fcd6536c465ec",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 186
+   },
+   "lastFull": null
+  },
+  "資源紀錄：程序表不取指令列": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "7f49be8d87a3+dirty",
+    "mode": "only",
+    "defHash": "0e0ab5bc60c2162545212a19f4d56debd36ff33d61e0f832e19cdbda974bce0a",
+    "depHash": "9dd574e2294cdd9d23ca00cca8893345df719804d9e6264149d9d0b2cca1decb",
+    "runnerHash": "173f3f9e7aeb8cc8b7140b3eca5af5988cb88ff3a45cc416b81fcd6536c465ec",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 186
+   },
+   "lastFull": null
+  },
+  "doctest 子程序上限只剩不到 3 倍": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "7f49be8d87a3+dirty",
+    "mode": "only",
+    "defHash": "a94c74c29c11a342dc2e9506b7fd89ad455c44c2b5bcd6885bec9e3299d37769",
+    "depHash": "9dd574e2294cdd9d23ca00cca8893345df719804d9e6264149d9d0b2cca1decb",
+    "runnerHash": "173f3f9e7aeb8cc8b7140b3eca5af5988cb88ff3a45cc416b81fcd6536c465ec",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 189
    },
    "lastFull": null
   }
  },
- "runSeq": 62,
+ "runSeq": 65,
  "inflight": null
 }
