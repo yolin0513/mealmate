@@ -1,4 +1,365 @@
 {
  "note": "gatemutants 每條上次在現在這版程式下跑過沒有（scripts/gatemutants.mjs 每跑完一條就寫，不手改）。三個雜湊：定義、被驗的檔、gatemutants 本身。逾時不算數、不記。**剛建好時是空的，--list-stale 會印 40 條「從沒跑過」——不要從舊 log 回填：舊 log 沒有記雜湊，回填等於假裝它們是在現在這版跑的；那個好看是假的，而且假得完全看不出來（Dispatch 2026-10-09）。**",
- "entries": {}
+ "entries": {
+  "對照：原樣": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "714f53c914a70e21",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "拿掉「還原紀錄還在就擋」": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "dc351638b17098e8",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "拿掉「帳本記著沒收尾的突變就擋」": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "3f20f7942d6bdbc9",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "拿掉第零關之二（F8 驗法登記）整段": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "1862496f0c93738d",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "取不到檔名清單時不停（失敗照樣往下走）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "407b38bec181d4c3",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "不管有沒有動到都看登記（新 clone 一律要先跑）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "332f5122bec3a45e",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "比工作區、不比已 commit 版本": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "f58ad90f5c4008e8",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "只看最後一個 commit 的檔名": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "b975b44a1919109a",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "鎖定｜28 自查之後 HEAD 動了也照推 → 拿掉推送前的比對": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "2232da966e863130",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "鎖定｜29 推「推送那一刻的 main」，不推鎖定的 commit": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "ac314d3bbbc57f36",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "讀不到遠端時不停（fetch 失敗照樣往下走）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "eae5a3f556077226",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "失敗路徑：第 11 種取不到 diff → 明講、判不符合": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "0c39159af2bc5822",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "突變：拿掉「取不到 diff 就明講」→ 被後面的前置斷言接住、理由不對（算紅）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "17f0f22c983c5c68",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜23 執行環境有 GIT_ 開頭的變數 → 入口不拒絕": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "d44395b5205c3755",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜23 名稱不分大小寫 → 不轉大寫（小寫的 git_dir 漏掉）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "fb960e1e93783644",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜25 不該攔的不攔 → 放行清單拿掉（GIT_EDITOR 也被攔）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "d60ce5b51d7c70e3",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜25 不該攔的不攔 → 前綴太寬（GIT* 誤攔 GITHUB_ACTIONS）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "c6860b7faaf4e6d5",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜2 自查的對照組沒命中就停 → 拿掉": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "61245ec5957c21ed",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜3 取不到使用者名稱就丟例外 → 改成回 false（隱式：被對照組接住、理由不對）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "16d2d1d21ff080dc",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜4 範圍裡沒有 commit 就停 → 拿掉": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "2b78f8a280774773",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜5 推送失敗就停 → 拿掉（隱式：被第三關接住、回傳值不對）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "d063a0b83e0f2e61",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜6 遠端與本機不一樣 → 改成只在讀不到時才擋": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "19369483340c8a72",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜22 讀不到遠端的 main（隱式：空值≠本機）→ 改成讀不到就當成一樣": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "9b1288f1406a46b2",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜共同的一環：第三關的比對（6、22 共用）→ 整段拿掉": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "d8416ad770b894df",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜8 範圍照遠端的實際狀態算（fetch 更新追蹤分支）→ 改成 --dry-run（照樣連得到遠端、但不更新）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "5919b61cd5bbe7e3",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜9 commit 訊息要取 → 不取 %B": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "b1c5ba2dc7a4afad",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜10 作者信箱要取 → 不取 %ae（保留提交者）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "40ad61315c68f92d",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜24 提交者信箱要取 → 不取 %ce（保留作者）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "e74e23f9416f051c",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜共同的一環：訊息與作者欄命中就停（9、10、24 共用）→ 拿掉": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "de3c3a19a88fb6fb",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜11 照 diff 結構抽新增行 → 改回「以 +++ 開頭就跳過」（隱式：被 numstat 核對接住、理由不對）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "4f713ef2afd77c77",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜共同的一環：新增行命中就停（1、8、11 共用；1 本身就是這一環）→ 拿掉": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "a9fe6052142fa744",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜12 只刪不增要放行 → 新增行 0 當成故障": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "4ff7b18f9cde894a",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜13 閘門改過沒重跑驗法 → 不比登記": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "c848f27c815265b1",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜14 沒有登記檔 → 拿掉（隱式：被比對接住、理由不對）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "6bb0510044da1b1d",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜共同的一環：第零關之二的比對（15、19 共用；15 本身就是這一環）→ 拿掉": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "8c0a547261ab16e1",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜16 沒有 F8 的登記檔 → 拿掉（隱式：被比對接住、理由不對）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "e2aecc7194c198a5",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜共同的一環：自查放行（5、6 要先過自查才走得到推送那一關；7、12、17、18、22 要推得上去）→ 自查一律判不通過": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "f8852127db3a3cbd",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "擋法表｜共同的一環：閘門驗法的 check 比對理由 → 不比對，再拿掉 14 的守衛：14 會變成「符合」（這一環是 5、11、14、16 等隱式情境能紅的前提）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "c35698201deff258",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "M6：fresh 不清 hook（預設順序看得出來）": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "77f1bd8a7352b363",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "f94fb31e6a3c901b"
+  },
+  "M4：第 11 種前置斷言改回接管線 → gatescan 點名那一行": {
+   "date": "2026-10-23",
+   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
+   "mode": "full",
+   "result": "如預期",
+   "defHash": "db8f9dc218ff5021",
+   "depHash": "5ed0a4ba6b9dc137",
+   "runnerHash": "f94fb31e6a3c901b"
+  }
+ }
 }
