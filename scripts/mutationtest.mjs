@@ -5453,6 +5453,36 @@ const MUTATIONS = [
     test: "memwatchtest",
     expect: "監看・總結（",
   },
+  // ---- 2026-10-22：「跟著變」的情境沒成立就重做、有上限，到上限宣告情境未成立（§5.20；10-22 量測時那次基準就是因為它被算成紅）----
+  // 「成立與否只看獨立來源」沒有另配突變：改成看監看的數字時，上面「監看：每一輪記固定值」會變成情境未成立、不算數——執行器會報出來。
+  // 宣告那一行（印 ⊘）正常情況走不到、沒有常設情境：10-22 用暫存複本把配置量改成 0 實跑過一次（見 STATUS），已知盲區。
+  {
+    name: "監看測試：情境沒成立只試一次",
+    why: "機器上別的程序剛好在那 30 秒釋放記憶體，一次就宣告情境未成立——本來再試一次就量得到。",
+    file: "scripts/memwatchtest.mjs",
+    find: "  for (let k = 1; k <= tries; k++) {",
+    replace: "  for (let k = 1; k <= 1; k++) {",
+    test: "memwatchtest",
+    expect: "重試・上限：",
+  },
+  {
+    name: "監看測試：情境成立了也繼續重做",
+    why: "成立之後還一直重做，拿到的是最後一次（可能沒成立）的結果，而且每次多花 30 秒。",
+    file: "scripts/memwatchtest.mjs",
+    find: "    if (r.established) return { ...r, tries: k };",
+    replace: "    if (r.established && k >= tries) return { ...r, tries: k };",
+    test: "memwatchtest",
+    expect: "重試・成立就停：",
+  },
+  {
+    name: "監看測試：試到上限也當成情境成立",
+    why: "沒量到的一次被當成量到了——斷言拿著沒成立的情境去判，紅或綠都不代表監看的對錯。",
+    file: "scripts/memwatchtest.mjs",
+    find: "  return { established: false, tries, why };",
+    replace: "  return { established: true, tries, why };",
+    test: "memwatchtest",
+    expect: "重試・上限：",
+  },
   // ---- 2026-10-22：資源紀錄記「組成」（Dispatch：10-09 取樣到 5 個工作程序、紀錄只記個數，是哪幾支永遠查不清）；doctest 子程序上限的餘裕 ----
   {
     name: "資源紀錄：組成不記（回到只記個數）",

@@ -973,63 +973,78 @@
   },
   "監看：不從執行器往下走": {
    "test": "memwatchtest",
-   "n": 14,
-   "hash": "5f8e63e42ab77bc3"
+   "n": 15,
+   "hash": "a88767056aadd30b"
   },
   "監看：找不到執行器也不結束": {
    "test": "memwatchtest",
-   "n": 14,
-   "hash": "5f8e63e42ab77bc3"
+   "n": 15,
+   "hash": "a88767056aadd30b"
   },
   "監看：每一輪不記可用記憶體（回到只在低於門檻時寫）": {
    "test": "memwatchtest",
-   "n": 14,
-   "hash": "5f8e63e42ab77bc3"
+   "n": 15,
+   "hash": "a88767056aadd30b"
   },
   "監看：每一輪記固定值": {
    "test": "memwatchtest",
-   "n": 14,
-   "hash": "5f8e63e42ab77bc3"
+   "n": 15,
+   "hash": "a88767056aadd30b"
   },
   "監看：每一輪記的數字跟系統不符（差 1000 MB）": {
    "test": "memwatchtest",
-   "n": 14,
-   "hash": "5f8e63e42ab77bc3"
+   "n": 15,
+   "hash": "a88767056aadd30b"
   },
   "監看：綁外殼（舊版的缺陷）": {
    "test": "memwatchtest",
-   "n": 14,
-   "hash": "5f8e63e42ab77bc3"
+   "n": 15,
+   "hash": "a88767056aadd30b"
   },
   "監看：整場最低值不更新（停在第一輪）": {
    "test": "memwatchtest",
-   "n": 14,
-   "hash": "5f8e63e42ab77bc3"
+   "n": 15,
+   "hash": "a88767056aadd30b"
   },
   "監看：總結只在查滿時印": {
    "test": "memwatchtest",
-   "n": 14,
-   "hash": "5f8e63e42ab77bc3"
+   "n": 15,
+   "hash": "a88767056aadd30b"
   },
   "監看：瀏覽器按指令列認（舊版的缺陷）": {
    "test": "memwatchtest",
-   "n": 14,
-   "hash": "5f8e63e42ab77bc3"
+   "n": 15,
+   "hash": "a88767056aadd30b"
   },
   "監看：觸發時停錯對象": {
    "test": "memwatchtest",
-   "n": 14,
-   "hash": "5f8e63e42ab77bc3"
+   "n": 15,
+   "hash": "a88767056aadd30b"
   },
   "監看測試：不記這次開的程序": {
    "test": "memwatchtest",
-   "n": 14,
-   "hash": "5f8e63e42ab77bc3"
+   "n": 15,
+   "hash": "a88767056aadd30b"
   },
   "監看測試：收尾不逐一停": {
    "test": "memwatchtest",
-   "n": 14,
-   "hash": "5f8e63e42ab77bc3"
+   "n": 15,
+   "hash": "a88767056aadd30b"
+  },
+  "監看測試：情境成立了也繼續重做": {
+   "test": "memwatchtest",
+   "n": 15,
+   "hash": "a88767056aadd30b"
+  },
+  "監看測試：情境沒成立只試一次": {
+   "test": "memwatchtest",
+   "n": 15,
+   "hash": "a88767056aadd30b"
+  },
+  "監看測試：試到上限也當成情境成立": {
+   "test": "memwatchtest",
+   "n": 15,
+   "hash": "a88767056aadd30b"
   },
   "暫存收拾：入口不呼叫": {
    "test": "doctest",

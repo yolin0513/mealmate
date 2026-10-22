@@ -4,6 +4,7 @@
 //   觸發：門檻設成極高 → 回 3、停掉的是當下的執行器，停完它不在
 //   結束時機：執行器自己結束 → 連續 grace 輪找不到就結束（不是查滿次數才結束）
 //   每一輪（2026-10-22）：每輪一筆可用記憶體、跟 os.freemem() 對得上、子程序配置 600 MB 時跟著降、總結的整場最低＝逐輪最小（找不到執行器而結束也有總結）
+//     「跟著變」的情境（獨立來源有沒有降）沒成立就整段重做，最多 3 次；都沒成立印「⊘ 情境未成立」、不算紅（2026-10-22）。重試本身另有一節用假的嘗試驗
 //   瀏覽器：假執行器 → 假測試 → 瀏覽器，全用相對路徑開（三支指令列都不含 MealMate 也不含 mm-）→ 監看數到瀏覽器 1。
 //     只看指令列一支都認不到，靠的是「從執行器往下走」（舊版按指令列認——改成突變；不往下走——也是一條突變）。
 //     第一版這一節讓本測試自己開瀏覽器，基準就紅了：本測試用相對路徑開、指令列沒有 MealMate，它開的瀏覽器被漏掉——這是監看真的缺陷，不是測試寫錯
@@ -18,6 +19,7 @@ import path from 'node:path';
 import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ok, section, done, note } from './tap.mjs';
+import { NO_SCENARIO_MARK } from './runkind.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const WATCH = path.join(ROOT, 'scripts', 'memwatch.mjs');
@@ -32,6 +34,17 @@ const procs = () => {
 const alive = (pid) => procs().some((x) => x.ProcessId === pid);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const waitFor = async (fn, ms, label) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { const v = fn(); if (v) return v; await sleep(500); } throw new Error(`等不到：${label}`); };
+// 情境沒成立就重做，有上限（§5.20）：attempt(第幾次) 回 { established, why, ... }；成立就回那一次的結果，到上限回 { established: false, why: [每次的原因] }
+const SCENARIO_TRIES = 3;
+const withScenarioRetries = async (tries, attempt, onRetry) => {
+  const why = [];
+  for (let k = 1; k <= tries; k++) {
+    const r = await attempt(k);
+    if (r.established) return { ...r, tries: k };
+    why.push(r.why); if (onRetry) onRetry(k, r.why);
+  }
+  return { established: false, tries, why };
+};
 const kill = (pid) => { try { execFileSync('taskkill', ['/PID', String(pid), '/F'], { stdio: 'ignore' }); } catch { /* 已經不在：要緊的地方用 alive() 驗，不靠這裡 */ } };
 
 if (process.platform !== 'win32') {
@@ -104,15 +117,21 @@ try {
     //   二、中途讓可用記憶體真的變少：開一支子程序配置 600 MB 並寫滿（寫滿才會真的佔實體記憶體），監看記到的必須跟著降 300 MB 以上；
     //       前提：獨立來源也看到降了 300 MB 以上（沒降＝情境沒成立，不是監看的錯）。固定值、只記第一輪的值，都過不了這一條。
     //   三、總結的整場最低＝每一輪數字裡最小的那一個、輪次也對；配置期間的數字比第一輪低，所以「最低值不更新」會被看出來。
+    //   情境（2026-10-22 改）：配置期間獨立來源沒降 300 MB 以上＝情境沒成立（機器上別的程序同時釋放或吃掉記憶體——10-22 量測時撞到：
+    //   配置 600 MB 期間可用記憶體反而升了約 800 MB）。以前把這個前提寫成一條 ok，沒成立就印 ✗、整支測試算紅，執行器把它當成基準沒過；
+    //   照 §5.20，情境未成立是獨立的一類、不算紅。現在：沒成立就整段重做（新的假執行器、新的監看），最多 SCENARIO_TRIES 次；
+    //   到上限仍沒成立，印「⊘ 情境未成立」那一行、不跑這一節的斷言（執行器判成不算數）。**成立與否只看獨立來源，不看監看記到的數字**——
+    //   否則把監看改壞的突變會被判成「情境未成立」而藏起來。
     const ALLOC_MB = 600; const DROP_MB = 300; const TOL_MB = 300;
+    const attempt = async (n) => {
     const { sh, runner } = await startShell(90);
     kill(sh.pid);
-    const logPath = path.join(tmp, 'rounds.log');
-    const watching = runWatch(['--threshold', '0', '--count', '2', '--max-checks', '9'], 'rounds.log');
+    const logPath = path.join(tmp, `rounds-${n}.log`);
+    const watching = runWatch(['--threshold', '0', '--count', '2', '--max-checks', '9'], `rounds-${n}.log`);
     const roundsOf = (s) => [...s.matchAll(/可用 (\d+) MB（第 (\d+) 輪）/g)].map((m) => ({ mb: Number(m[1]), k: Number(m[2]) }));
     const osMB = () => Math.round(os.freemem() / 1048576);
     const seenAt = new Map(); // 輪次 → { os：看到那一行時的 os.freemem、phase：before／during／after／transition }
-    const ready = path.join(tmp, 'alloc.ready');
+    const ready = path.join(tmp, `alloc-${n}.ready`);
     let phase = 'before'; let hog = null;
     const t0 = Date.now();
     while (Date.now() - t0 < 45000) {
@@ -134,20 +153,44 @@ try {
     const rs = roundsOf(r.log);
     const med = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : NaN; };
     const pick = (ph, f) => rs.filter((x) => seenAt.get(x.k)?.phase === ph).map(f);
+    const osB = med(pick('before', (x) => seenAt.get(x.k).os)); const osD = med(pick('during', (x) => seenAt.get(x.k).os));
+    const why = `子程序配置 ${ALLOC_MB} MB 期間，獨立來源的中位數 ${osB} → ${osD} MB（要降 ${DROP_MB} 以上）`;
+    return { established: osB - osD >= DROP_MB, why, r, rs, seenAt, pick, med };
+    };
+    const got = await withScenarioRetries(SCENARIO_TRIES, attempt, (k, why) => note(`監看・跟著變：第 ${k} 次情境沒成立（${why}），重做`));
+    if (!got.established) {
+      console.log(`${NO_SCENARIO_MARK}：監看・跟著變——試了 ${got.tries} 次都沒成立（${got.why.join('；')}）；這一節的斷言不跑，不算紅也不算過`);
+    } else {
+    const { r, rs, seenAt, pick, med } = got;
+    note(`監看・跟著變的情境成立（第 ${got.tries} 次）：${got.why}`);
     ok(rs.length === 9 && rs.every((x, i) => x.k === i + 1) && r.log.includes('查了 9 次'),
       `監看・每一輪：查了 9 輪、記了 ${rs.length} 筆，輪次 ${rs.map((x) => x.k).join(',')}`);
     const cmp = rs.filter((x) => seenAt.has(x.k) && seenAt.get(x.k).phase !== 'transition').map((x) => ({ k: x.k, d: x.mb - seenAt.get(x.k).os }));
     const worst = cmp.reduce((a, b) => (Math.abs(b.d) > Math.abs(a?.d ?? 0) ? b : a), null);
     ok(cmp.length >= 6 && cmp.every((x) => Math.abs(x.d) <= TOL_MB),
       `監看・跟系統對得上：${cmp.length} 輪跟 os.freemem() 比，差最多的是第 ${worst?.k ?? '？'} 輪 ${worst?.d ?? '？'} MB（容差 ${TOL_MB}）`);
-    const osB = med(pick('before', (x) => seenAt.get(x.k).os)); const osD = med(pick('during', (x) => seenAt.get(x.k).os));
     const mB = med(pick('before', (x) => x.mb)); const mD = med(pick('during', (x) => x.mb));
-    ok(osB - osD >= DROP_MB, `（前提）監看・跟著變：子程序配置 ${ALLOC_MB} MB 期間，獨立來源的中位數 ${osB} → ${osD} MB（要降 ${DROP_MB} 以上；沒降＝情境沒成立）`);
     ok(mB - mD >= DROP_MB, `監看・跟著變：配置期間監看記到的中位數 ${mB} → ${mD} MB（要降 ${DROP_MB} 以上）`);
     const sum = /總結：查了 (\d+) 輪；可用記憶體整場最低 (\d+) MB（第 (\d+) 輪/.exec(r.log);
     const lo = rs.reduce((a, b) => (b.mb < a.mb ? b : a), rs[0] ?? { mb: NaN, k: NaN });
     ok(!!sum && Number(sum[1]) === 9 && Number(sum[2]) === lo.mb && Number(sum[3]) === lo.k && lo.k !== 1,
       `監看・整場最低：總結寫 ${sum ? `${sum[2]} MB（第 ${sum[3]} 輪）` : '（沒有總結那一行）'}，逐輪最小是 ${lo.mb} MB（第 ${lo.k} 輪；不能是第 1 輪——配置期間一定更低）`);
+    }
+  }
+
+  section('情境沒成立就重做（重試的上限與「成立就停」；用假的嘗試，秒級）');
+  {
+    // 上面那一節的重試正常情況永遠走不到（情境幾乎都成立），壞了沒人知道（§5.13「失敗分支要有常設情境」）——
+    // 這裡用假的嘗試直接驗 withScenarioRetries：一直不成立 → 剛好試 SCENARIO_TRIES 次、回報沒成立、每次的原因都留著；
+    // 第一次不成立、第二次成立 → 試 2 次就停、回報成立。宣告那一行本身（印 ⊘）不在這裡驗：在這裡印，整支測試就會被判成情境未成立。
+    let calls = 0; const retried = [];
+    const never = await withScenarioRetries(SCENARIO_TRIES, async (k) => { calls++; return { established: false, why: `假的第 ${k} 次` }; }, (k) => retried.push(k));
+    ok(calls === SCENARIO_TRIES && never.established === false && never.tries === SCENARIO_TRIES && never.why.length === SCENARIO_TRIES && retried.length === SCENARIO_TRIES,
+      `重試・上限：一直不成立 → 試了 ${calls} 次（要 ${SCENARIO_TRIES}）、回報${never.established ? '成立' : '沒成立'}、留下 ${never.why.length} 個原因`);
+    calls = 0;
+    const second = await withScenarioRetries(SCENARIO_TRIES, async (k) => { calls++; return { established: k >= 2, why: `假的第 ${k} 次` }; });
+    ok(calls === 2 && second.established === true && second.tries === 2,
+      `重試・成立就停：第 2 次成立 → 試了 ${calls} 次（要 2）、回報${second.established ? '成立' : '沒成立'}`);
   }
 
   section('認得瀏覽器（從執行器往下走：執行器 → 測試 → 瀏覽器，全用相對路徑開）');
