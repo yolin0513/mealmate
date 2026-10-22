@@ -11,6 +11,11 @@
 //   二、認得瀏覽器：puppeteer 開的 chrome.exe 指令列裡沒有 MealMate、也沒有 mm-（2026-10-08 實測；memwatchtest 的「瀏覽器」那一節有前提斷言守著），
 //       舊版按指令列認一定認不到。改成：沒有 --type= 的 chrome.exe，父程序是已認定屬於本 repo 的 node，就算一個工作程序。
 //
+// 2026-10-22（Dispatch 10-09 的待辦）：每一輪都記一筆「可用 N MB（第 k 輪）；到目前最低 …」，結束時（不論哪一條路結束、包括中途出錯）記一行
+// 「總結：…整場最低 …」。以前只在低於門檻時才寫——**沒有觸發，跟「一路都很寬裕」在紀錄上長得一樣**；現在兩者分得開，整場最低值也有了。
+// 讀不到可用記憶體（取到的不是正整數）就停（回 4、記下原因）——不當成記憶體寬裕：NaN < 門檻 是 false，以前會被默默算成「沒有低於門檻」。
+//   這一道沒有情境守（監看從 PowerShell 讀，要造出讀不到得換掉 powershell，不為測試在正式程式留開關）——盲區，照實列在 STATUS。
+//
 // 用法：node scripts/memwatch.mjs --threshold 2048 --count 3 --interval 5 [--runner scripts/mutationtest.mjs] [--grace 3]
 //        [--count-workers] [--max-checks N] --log 檔
 import fs from 'node:fs';
@@ -27,7 +32,11 @@ for (const [k, v] of Object.entries({ TH, COUNT, IV, GRACE })) if (!Number.isFin
 const now = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(11, 19);
 const log = (s) => fs.appendFileSync(LOG, `${now()} ${s}\n`);
 const ps = (cmd) => execFileSync('powershell', ['-NoProfile', '-Command', cmd], { encoding: 'utf8', maxBuffer: 1 << 26 });
-const freeMB = () => Math.round(Number(ps('(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory')) / 1024);
+const freeMB = () => {
+  const raw = ps('(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory').trim();
+  if (!/^\d+$/.test(raw) || Number(raw) <= 0) throw new Error(`讀不到可用記憶體（取到「${raw.slice(0, 40)}」）`);
+  return Math.round(Number(raw) / 1024);
+};
 // 一次取全部程序：PID、父 PID、名稱、記憶體、建立時間、指令列。取不到或解析不了就丟例外——監看停在這裡，不當成「沒有程序」
 const procs = () => [].concat(JSON.parse(ps('Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,WorkingSetSize,CommandLine,@{n="Created";e={$_.CreationDate.ToString("HH:mm:ss")}},@{n="Born";e={$_.CreationDate.ToString("yyyyMMddHHmmss.fff")}} | ConvertTo-Json -Compress')));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -61,6 +70,8 @@ function workersOf(all, runners) {
 
 log(`開始（第二版）：門檻 ${TH} MB、連續 ${COUNT} 次、每 ${IV} 秒；綁「node 相對路徑 ${RUNNER}」的執行器（每一輪重找），連續 ${GRACE} 輪找不到就結束`);
 let below = 0; let checks = 0; let peakWorkers = 0; let missing = 0; const seen = new Map();
+let minFree = null; let minAt = '';
+try {
 for (;;) {
   const all = procs();
   const runners = all.filter((x) => x.Name === 'node.exe' && runnerRe.test(x.CommandLine ?? ''));
@@ -74,6 +85,8 @@ for (;;) {
     if (missing >= GRACE) { log(`連續 ${GRACE} 輪找不到執行器，監看結束（看過的執行器 ${seen.size} 支）`); break; }
   } else missing = 0;
   const f = freeMB(); checks += 1;
+  if (minFree === null || f < minFree) { minFree = f; minAt = `第 ${checks} 輪、${now()}`; }
+  log(`可用 ${f} MB（第 ${checks} 輪）；到目前最低 ${minFree} MB（${minAt}）`);
   below = f < TH ? below + 1 : 0;
   if (below) log(`可用 ${f} MB，低於 ${TH}（連續第 ${below} 次）`);
   if (COUNT_WORKERS) {
@@ -98,4 +111,10 @@ for (;;) {
   }
   if (checks >= MAX) { log(`查了 ${checks} 次、都沒有連續 ${COUNT} 次低於門檻，結束`); break; }
   await sleep(IV * 1000);
+}
+} catch (e) {
+  log(`監看中途出錯、結束（不是記憶體不夠）：${e.message}`); process.exitCode = 4;
+} finally {
+  // 每一條結束的路都會走到這裡（找不到執行器、查滿、觸發、出錯）；一輪都沒量到就照實說，不寫成 0
+  log(minFree === null ? `總結：查了 ${checks} 輪，沒有量到可用記憶體（不是 0）` : `總結：查了 ${checks} 輪；可用記憶體整場最低 ${minFree} MB（${minAt}）`);
 }

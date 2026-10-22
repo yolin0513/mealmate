@@ -87,6 +87,8 @@ export function parseJobSum(out) {
   const n = (k) => (/^-?\d+$/.test(kv[k] ?? '') ? Number(kv[k]) : NaN);
   const [started, ended, active, alive, stale, peak] = ['started', 'ended', 'active', 'alive', 'stale', 'peak'].map(n);
   if ([started, ended, active, alive, stale, peak].some((x) => Number.isNaN(x)) || !['yes', 'no'].includes(kv.peakok)) return { ok: false, why: `結算行讀不懂：${l.slice(0, 120)}` };
+  // 互為備援（共用慣例 v11.6 §5.19）：peakOk 的「peakok=yes」與「stale === 0」守同一件事（peakok 是 jobhelper.ps1 Summary() 照 stale 算的），
+  // 單獨移除任一道不會讓任何測試紅；移除前要確認另一道仍在。「兩道一起拿掉」的突變是「有 stale 也當峰值可信」（紅在 JS4）。
   return { ok: true, started, ended, diff: started - ended, active, alive, stale, leftOthers: alive - 1, peak, peakOk: kv.peakok === 'yes' && stale === 0, peakmix: kv.peakmix ?? '', left: kv.left ?? '', stalemix: kv.stalemix ?? '' };
 }
 

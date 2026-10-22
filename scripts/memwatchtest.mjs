@@ -3,6 +3,7 @@
 //   綁執行器：假外殼開出假執行器、停掉外殼之後，監看照樣接上執行器、看到查滿次數（舊版綁外殼，外殼一停就收手——這個缺陷改成突變）
 //   觸發：門檻設成極高 → 回 3、停掉的是當下的執行器，停完它不在
 //   結束時機：執行器自己結束 → 連續 grace 輪找不到就結束（不是查滿次數才結束）
+//   每一輪（2026-10-22）：每輪一筆可用記憶體、跟 os.freemem() 對得上、子程序配置 600 MB 時跟著降、總結的整場最低＝逐輪最小（找不到執行器而結束也有總結）
 //   瀏覽器：假執行器 → 假測試 → 瀏覽器，全用相對路徑開（三支指令列都不含 MealMate 也不含 mm-）→ 監看數到瀏覽器 1。
 //     只看指令列一支都認不到，靠的是「從執行器往下走」（舊版按指令列認——改成突變；不往下走——也是一條突變）。
 //     第一版這一節讓本測試自己開瀏覽器，基準就紅了：本測試用相對路徑開、指令列沒有 MealMate，它開的瀏覽器被漏掉——這是監看真的缺陷，不是測試寫錯
@@ -91,6 +92,62 @@ try {
     const r = await runWatch(['--threshold', '0', '--count', '2', '--max-checks', '15', '--grace', '3'], 'grace.log');
     ok(r.code === 0 && r.log.includes(`接上執行器 node.exe(${runner.ProcessId}`) && r.log.includes('連續 3 輪找不到執行器，監看結束') && !r.log.includes('查了 15 次'),
       `監看・結束時機：執行器結束後連續 3 輪找不到 → 結束（回 ${r.code}）`);
+    // 總結寫在 finally：不只查滿那一條路，找不到執行器而結束也要有（整場最低值是長跑最需要的數字，那時多半是這條路結束）
+    ok(/總結：查了 \d+ 輪；可用記憶體整場最低 \d+ MB/.test(r.log), `監看・總結（找不到執行器而結束的那條路）：${/總結：[^\n]*/.exec(r.log)?.[0] ?? '（沒有總結那一行）'}`);
+  }
+
+  section('每一輪記可用記憶體、整場最低值（跟獨立來源核對、跟著變）');
+  {
+    // 怎麼證明記到的是真的、不是固定值：
+    //   一、每一輪的數字跟另一個來源比——監看讀 WMI 的 FreePhysicalMemory，這裡讀 os.freemem()（GlobalMemoryStatusEx，不同的 API、不同的寫入者）；
+    //       2026-10-22 實測兩者相差約 15–40 MB，容差 300 MB。
+    //   二、中途讓可用記憶體真的變少：開一支子程序配置 600 MB 並寫滿（寫滿才會真的佔實體記憶體），監看記到的必須跟著降 300 MB 以上；
+    //       前提：獨立來源也看到降了 300 MB 以上（沒降＝情境沒成立，不是監看的錯）。固定值、只記第一輪的值，都過不了這一條。
+    //   三、總結的整場最低＝每一輪數字裡最小的那一個、輪次也對；配置期間的數字比第一輪低，所以「最低值不更新」會被看出來。
+    const ALLOC_MB = 600; const DROP_MB = 300; const TOL_MB = 300;
+    const { sh, runner } = await startShell(90);
+    kill(sh.pid);
+    const logPath = path.join(tmp, 'rounds.log');
+    const watching = runWatch(['--threshold', '0', '--count', '2', '--max-checks', '9'], 'rounds.log');
+    const roundsOf = (s) => [...s.matchAll(/可用 (\d+) MB（第 (\d+) 輪）/g)].map((m) => ({ mb: Number(m[1]), k: Number(m[2]) }));
+    const osMB = () => Math.round(os.freemem() / 1048576);
+    const seenAt = new Map(); // 輪次 → { os：看到那一行時的 os.freemem、phase：before／during／after／transition }
+    const ready = path.join(tmp, 'alloc.ready');
+    let phase = 'before'; let hog = null;
+    const t0 = Date.now();
+    while (Date.now() - t0 < 45000) {
+      const rs = roundsOf(fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : '');
+      for (const x of rs) if (!seenAt.has(x.k)) seenAt.set(x.k, { os: osMB(), phase });
+      if (phase === 'transition' && fs.existsSync(ready)) phase = 'during';
+      if (phase === 'before' && rs.length >= 3) {
+        if (osMB() < 2500) break; // 可用記憶體不夠寬，不配置（下面的前提會報情境沒成立）
+        hog = spawn(process.execPath, ['-e', `const b = Buffer.alloc(${ALLOC_MB} * 1048576, 1); require('fs').writeFileSync(${JSON.stringify(ready)}, String(b.length)); setInterval(() => {}, 1000);`], { stdio: 'ignore' });
+        track(hog.pid); phase = 'transition';
+      }
+      if (phase === 'during' && rs.filter((x) => seenAt.get(x.k)?.phase === 'during').length >= 4) { kill(hog.pid); phase = 'after'; }
+      if (rs.some((x) => x.k === 9)) break;
+      await sleep(150);
+    }
+    if (hog) kill(hog.pid);
+    const r = await watching;
+    kill(runner.ProcessId);
+    const rs = roundsOf(r.log);
+    const med = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : NaN; };
+    const pick = (ph, f) => rs.filter((x) => seenAt.get(x.k)?.phase === ph).map(f);
+    ok(rs.length === 9 && rs.every((x, i) => x.k === i + 1) && r.log.includes('查了 9 次'),
+      `監看・每一輪：查了 9 輪、記了 ${rs.length} 筆，輪次 ${rs.map((x) => x.k).join(',')}`);
+    const cmp = rs.filter((x) => seenAt.has(x.k) && seenAt.get(x.k).phase !== 'transition').map((x) => ({ k: x.k, d: x.mb - seenAt.get(x.k).os }));
+    const worst = cmp.reduce((a, b) => (Math.abs(b.d) > Math.abs(a?.d ?? 0) ? b : a), null);
+    ok(cmp.length >= 6 && cmp.every((x) => Math.abs(x.d) <= TOL_MB),
+      `監看・跟系統對得上：${cmp.length} 輪跟 os.freemem() 比，差最多的是第 ${worst?.k ?? '？'} 輪 ${worst?.d ?? '？'} MB（容差 ${TOL_MB}）`);
+    const osB = med(pick('before', (x) => seenAt.get(x.k).os)); const osD = med(pick('during', (x) => seenAt.get(x.k).os));
+    const mB = med(pick('before', (x) => x.mb)); const mD = med(pick('during', (x) => x.mb));
+    ok(osB - osD >= DROP_MB, `（前提）監看・跟著變：子程序配置 ${ALLOC_MB} MB 期間，獨立來源的中位數 ${osB} → ${osD} MB（要降 ${DROP_MB} 以上；沒降＝情境沒成立）`);
+    ok(mB - mD >= DROP_MB, `監看・跟著變：配置期間監看記到的中位數 ${mB} → ${mD} MB（要降 ${DROP_MB} 以上）`);
+    const sum = /總結：查了 (\d+) 輪；可用記憶體整場最低 (\d+) MB（第 (\d+) 輪/.exec(r.log);
+    const lo = rs.reduce((a, b) => (b.mb < a.mb ? b : a), rs[0] ?? { mb: NaN, k: NaN });
+    ok(!!sum && Number(sum[1]) === 9 && Number(sum[2]) === lo.mb && Number(sum[3]) === lo.k && lo.k !== 1,
+      `監看・整場最低：總結寫 ${sum ? `${sum[2]} MB（第 ${sum[3]} 輪）` : '（沒有總結那一行）'}，逐輪最小是 ${lo.mb} MB（第 ${lo.k} 輪；不能是第 1 輪——配置期間一定更低）`);
   }
 
   section('認得瀏覽器（從執行器往下走：執行器 → 測試 → 瀏覽器，全用相對路徑開）');

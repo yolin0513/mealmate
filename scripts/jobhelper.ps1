@@ -82,6 +82,8 @@ public static class MmJob {
       foreach (var p in stale) sc[Active[p]] = (sc.ContainsKey(Active[p]) ? sc[Active[p]] : 0) + 1;
       var am = new System.Collections.Generic.List<string>(); foreach (var kv in ac) am.Add(kv.Key + "x" + kv.Value);
       var sm = new System.Collections.Generic.List<string>(); foreach (var kv in sc) sm.Add(kv.Key + "x" + kv.Value);
+      // 互為備援（共用慣例 v11.6 §5.19）：這裡的 peakok 與 runkind.mjs parseJobSum 的「stale === 0」守同一件事，單獨移除任一道不會讓任何測試紅；
+      // 移除前要確認另一道仍在。「兩道一起拿掉」的突變是「有 stale 也當峰值可信」（紅在 JS4）。
       return "JOB-SUM started=" + Started + " ended=" + Ended + " active=" + Active.Count + " alive=" + alive.Count + " stale=" + stale.Count
         + " peak=" + Peak + " peakok=" + (stale.Count == 0 ? "yes" : "no") + " peakmix=" + PeakMix
         + " left=" + (am.Count == 0 ? "-" : string.Join(",", am.ToArray())) + " stalemix=" + (sm.Count == 0 ? "-" : string.Join(",", sm.ToArray()));

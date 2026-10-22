@@ -21239,8 +21239,103 @@
     "seconds": 200
    },
    "lastFull": null
+  },
+  "監看：每一輪不記可用記憶體（回到只在低於門檻時寫）": {
+   "last": {
+    "date": "2026-10-22",
+    "commit": "4946bb7d877c+dirty",
+    "mode": "only",
+    "defHash": "7d9b87741a1bd7553abb027da6b0c346c20961347360399e7b4ebb6937f96776",
+    "depHash": "55e08ea75ede485d4a84eebd1fe7d9360044658238c45044d2d968f805d03913",
+    "runnerHash": "c58077ebd8d2396c31b98cee18b24be7a75bff79619d8eba5af6675c59a7b22c",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 5,
+    "expectHits": 1,
+    "seconds": 104
+   },
+   "lastFull": null
+  },
+  "監看：每一輪記的數字跟系統不符（差 1000 MB）": {
+   "last": {
+    "date": "2026-10-22",
+    "commit": "4946bb7d877c+dirty",
+    "mode": "only",
+    "defHash": "238084c1e707f7bbed8463a87c8340933d86c9e6ea2afbb4618bedc3a586cb6b",
+    "depHash": "55e08ea75ede485d4a84eebd1fe7d9360044658238c45044d2d968f805d03913",
+    "runnerHash": "c58077ebd8d2396c31b98cee18b24be7a75bff79619d8eba5af6675c59a7b22c",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 90
+   },
+   "lastFull": null
+  },
+  "監看：每一輪記固定值": {
+   "last": {
+    "date": "2026-10-22",
+    "commit": "4946bb7d877c+dirty",
+    "mode": "only",
+    "defHash": "6ab6a98c527dfeb30bdef3f9f54d4503e79fe7d198090d899f1ab867c60cb080",
+    "depHash": "55e08ea75ede485d4a84eebd1fe7d9360044658238c45044d2d968f805d03913",
+    "runnerHash": "c58077ebd8d2396c31b98cee18b24be7a75bff79619d8eba5af6675c59a7b22c",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 3,
+    "expectHits": 1,
+    "seconds": 88
+   },
+   "lastFull": null
+  },
+  "監看：整場最低值不更新（停在第一輪）": {
+   "last": {
+    "date": "2026-10-22",
+    "commit": "4946bb7d877c+dirty",
+    "mode": "only",
+    "defHash": "0bc6e91f8b7905ad0dd4a2f0cb28ee7f134843cf3d943093ca0049255f6e18e8",
+    "depHash": "55e08ea75ede485d4a84eebd1fe7d9360044658238c45044d2d968f805d03913",
+    "runnerHash": "c58077ebd8d2396c31b98cee18b24be7a75bff79619d8eba5af6675c59a7b22c",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 83
+   },
+   "lastFull": null
+  },
+  "監看：總結只在查滿時印": {
+   "last": {
+    "date": "2026-10-22",
+    "commit": "4946bb7d877c+dirty",
+    "mode": "only",
+    "defHash": "eb420460f6efdb5f71e5ef1420f16e61fb9f2810913c6d85806a3a134a7860a9",
+    "depHash": "55e08ea75ede485d4a84eebd1fe7d9360044658238c45044d2d968f805d03913",
+    "runnerHash": "c58077ebd8d2396c31b98cee18b24be7a75bff79619d8eba5af6675c59a7b22c",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 83
+   },
+   "lastFull": null
   }
  },
- "runSeq": 59,
+ "runSeq": 61,
  "inflight": null
 }
