@@ -8457,18 +8457,20 @@
   },
   "加到主畫面之後還是開在瀏覽器分頁裡": {
    "last": {
-    "date": "2026-09-24",
-    "commit": "2841ac1",
-    "mode": "full",
-    "kind": null,
+    "date": "2026-10-22",
+    "commit": "dbbd9303484c",
+    "mode": "only",
+    "defHash": "ea61f2ff3a9d331bb0ac0af00257b498d9a8ba8c699316e36afe96db4309ecbc",
+    "depHash": "e0054ebd1910a5718e0fe5c5687383bbb05f2455abeecf95c8e746ef0d53411a",
+    "runnerHash": "bfbb068e40262c7e6d0178695ccf020c723faa4fa922dd59d7633e4f0559e0ed",
+    "scope": "repo",
+    "kind": "assert",
     "counted": true,
     "red": true,
-    "seconds": null,
-    "defHash": null,
-    "depHash": null,
-    "runnerHash": null,
-    "scope": null,
-    "migrated": "從 mutation-lastfull.json 轉入（2026-09-24 整套 442 條全紅，STATUS「上次突變整套」；那次沒有記雜湊）"
+    "expectMatched": null,
+    "failed": 1,
+    "expectHits": null,
+    "seconds": 7
    },
    "lastFull": {
     "date": "2026-09-24",
@@ -21281,19 +21283,19 @@
   "監看：每一輪記固定值": {
    "last": {
     "date": "2026-10-22",
-    "commit": "4946bb7d877c+dirty",
+    "commit": "dbbd9303484c",
     "mode": "only",
     "defHash": "6ab6a98c527dfeb30bdef3f9f54d4503e79fe7d198090d899f1ab867c60cb080",
-    "depHash": "55e08ea75ede485d4a84eebd1fe7d9360044658238c45044d2d968f805d03913",
-    "runnerHash": "c58077ebd8d2396c31b98cee18b24be7a75bff79619d8eba5af6675c59a7b22c",
+    "depHash": "e0054ebd1910a5718e0fe5c5687383bbb05f2455abeecf95c8e746ef0d53411a",
+    "runnerHash": "bfbb068e40262c7e6d0178695ccf020c723faa4fa922dd59d7633e4f0559e0ed",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
     "red": true,
     "expectMatched": true,
-    "failed": 3,
+    "failed": 4,
     "expectHits": 1,
-    "seconds": 88
+    "seconds": 98
    },
    "lastFull": null
   },
@@ -21334,8 +21336,46 @@
     "seconds": 83
    },
    "lastFull": null
+  },
+  "資源紀錄：組成不記（回到只記個數）": {
+   "last": {
+    "date": "2026-10-22",
+    "commit": "dbbd9303484c",
+    "mode": "only",
+    "defHash": "89e9b177e1892ffde098b8f9086a722b0622bb45ad690176edf77663f1e23ea6",
+    "depHash": "e0054ebd1910a5718e0fe5c5687383bbb05f2455abeecf95c8e746ef0d53411a",
+    "runnerHash": "bfbb068e40262c7e6d0178695ccf020c723faa4fa922dd59d7633e4f0559e0ed",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 186
+   },
+   "lastFull": null
+  },
+  "資源紀錄：組成帶整個指令列": {
+   "last": {
+    "date": "2026-10-22",
+    "commit": "dbbd9303484c",
+    "mode": "only",
+    "defHash": "832afef4c8525d861e343892fc4a43f8a7d958ba92b57c81d0064a82305d7792",
+    "depHash": "e0054ebd1910a5718e0fe5c5687383bbb05f2455abeecf95c8e746ef0d53411a",
+    "runnerHash": "bfbb068e40262c7e6d0178695ccf020c723faa4fa922dd59d7633e4f0559e0ed",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 177
+   },
+   "lastFull": null
   }
  },
- "runSeq": 61,
+ "runSeq": 62,
  "inflight": null
 }
