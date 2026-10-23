@@ -27,6 +27,9 @@ const FAKE_DIFF = ['-p', '--no-color', '-U0'];
  */
 export const CASES = [
   { label: '對照：原樣', find: null, expect: [] },
+  // 對照（2026-10-23，洞二）：驗法一開頭就結束（崩潰的樣子：一種都沒跑）——要判成「沒跑完、不算數」，不能判成「不如預期」。
+  // 從真實入口、真的驗法檔造的；每次跑 gatemutants 都會走到「沒跑完」那一支（幾秒）。拿掉那一支，這一條就變成不如預期
+  { label: '對照：驗法中途崩潰 → 判不算數', file: 'scripts/pushgate-verify.sh', find: 'set -u\n# 驗法自己也用 git', replace: 'set -u\nexit 5\n# 驗法自己也用 git', expect: [], expectIncomplete: true },
   // ---- 閘門第零關之零（突變的還原紀錄，2026-10-02）：兩處紀錄各一條，各自只紅自己那一種 ----
   { label: '拿掉「還原紀錄還在就擋」', find: 'if [ -e "$PENDINGF" ]; then', replace: 'if false; then', expect: ['26'] },
   { label: '拿掉「帳本記著沒收尾的突變就擋」', find: `if grep -q '"inflight": {' scripts/mutation-ledger.json 2>/dev/null; then`, replace: 'if false; then', expect: ['27'] },
@@ -351,6 +354,17 @@ function runCase(repo, origHead, c, expectedTotal) {
     const text = r.stdout + r.stderr;
     keep(c, text);
     const v = verdictsOf(text);
+    // 驗法沒跑完（2026-10-23，洞二：以前數不到 29 種就判「不如預期」而且記帳——「閘門真的擋不住」和「驗法自己崩潰」分不出來）：
+    // 數到的種數跟原樣不一樣（或是 0）＝驗法沒有把每一種都跑完，這一條沒量到 → 不算數、不記帳。
+    // 現在的清單裡沒有任何一條會合法地改變種數（以前種數不同一律判不如預期，現在只是換一類）
+    const incomplete = v.total === 0 || (expectedTotal !== null && v.total !== expectedTotal);
+    const whyInc = `驗法沒跑完：數到 ${v.total} 種（原樣 ${expectedTotal ?? '還不知道'} 種），回傳 ${r.status}`;
+    if (c.expectIncomplete) {
+      return incomplete
+        ? { ok: true, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜${whyInc}→ 判成不算數（這一條要的正是這樣）｜如預期` }
+        : { ok: false, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜驗法照樣跑完了 ${v.total} 種（回傳 ${r.status}）——崩潰沒造成，判不出「沒跑完」那一支有沒有作用｜不如預期` };
+    }
+    if (incomplete) return { ok: false, uncounted: true, line: `【${c.label}】HEAD ${head.slice(0, 7)}｜${whyInc}——不算數，要重跑（不是不如預期）` };
     const wantExit = c.exit ?? (c.expect.length ? 1 : 0);
     const reasonOk = reasonsMatch(text, c.reasons);
     const totalOk = v.total > 0 && (expectedTotal === null || v.total === expectedTotal);
@@ -470,17 +484,35 @@ function main() {
   const rh = runnerHashOf(fs.readFileSync(fileURLToPath(import.meta.url), 'utf8'));
   const meta = { date: new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), commit: origHead, mode: onlyKey ? 'only' : 'full' };
   let recorded = 0;
+  // 三類各自在自己那一支加（2026-10-23，洞二：以前逾時、驗法沒跑完也併進「N 條不如預期」、同樣回 1）；結尾相加要等於這一次選的條數
+  const t = { ok: 0, uncounted: 0 }; let stoppedAt = null;
   for (const c of picked) {
     const cur = curOf(c, readHead, rh);
     const res = runCase(repo, origHead, c, expectedTotal);
-    if (c.find === null && !c.fakeGit && !c.order && (c.runner ?? 'verify') === 'verify') expectedTotal = res.total ?? null;
-    if (!res.ok) bad += 1;
+    const isControl = c.find === null && !c.fakeGit && !c.order && (c.runner ?? 'verify') === 'verify';
+    if (isControl) expectedTotal = res.total ?? null;
+    if (res.uncounted) t.uncounted += 1; else if (res.ok) t.ok += 1; else bad += 1;
     if (recordCase(ledger, c.label, res, cur, meta)) { saveLedger(repo, ledger); recorded += 1; }
     console.log(res.line);
+    // 原樣對照沒過：後面每一條的判定都以它數到的種數為基準，基準壞了，後面判出來的都不能信——停下、不往下跑
+    if (isControl && !res.ok) { stoppedAt = picked.indexOf(c) + 1; console.log('gatemutants：原樣對照沒過，後面每一條都以它為基準——不往下跑，這一輪不採計'); break; }
   }
+  const notRun = stoppedAt === null ? 0 : picked.length - stoppedAt;
+  const sum = t.ok + bad + t.uncounted + notRun;
   console.log(`帳本：記了 ${recorded} 條（不算數的不記）到 ${LEDGER_REL}`);
-  console.log(bad ? `gatemutants：${bad} 條不如預期` : `gatemutants：${picked.length} 條全部如預期${onlyKey ? `（只跑了 ${picked.length}／${CASES.length} 條）` : ''}（對照 ${expectedTotal} 種全部符合；每一條只紅在預期的地方）`);
-  return bad ? 1 : 0;
+  console.log(`逐條結果：選了 ${picked.length} 條；如預期 ${t.ok}、不如預期 ${bad}、不算數 ${t.uncounted}、沒跑 ${notRun}；相加 ${sum}`);
+  if (sum !== picked.length) { console.log(`gatemutants：逐條結果相加 ${sum} ≠ 選了 ${picked.length}——有一條走的那一支沒有記到，這一輪不採計（檢查器壞了）`); return 1; }
+  if (bad || stoppedAt !== null) { console.log(`gatemutants：${bad} 條不如預期${t.uncounted ? `、另有 ${t.uncounted} 條不算數` : ''}${stoppedAt !== null ? '、原樣對照沒過' : ''}`); return 1; }
+  if (t.uncounted) { console.log(`NOT-COMPLETE ${t.uncounted} 條不算數（逾時或驗法沒跑完）——不是不如預期，是沒量到；要重跑（回 3）`); return 3; }
+  console.log(`gatemutants：${picked.length} 條全部如預期${onlyKey ? `（只跑了 ${picked.length}／${CASES.length} 條）` : ''}（對照 ${expectedTotal} 種全部符合；每一條只紅在預期的地方）`);
+  return 0;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) process.exitCode = main();
+// 回傳值：0 全部如預期｜1 有不如預期（或原樣對照沒過、相加對不上、前置不過）｜3 只是有幾條不算數（NOT-COMPLETE）｜6 預期清單過期｜8 情境未成立｜70 gatemutants 自己崩潰（CRASH）。
+// 崩潰（2026-10-23）：以前未處理的例外回 1，跟「有不如預期」同一個回傳值。worktree 由 runCase 的 finally 收；收不乾淨的下一次開頭的收拾會收
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try { process.exitCode = main(); } catch (e) {
+    console.log(`CRASH gatemutants 崩潰：${String(e?.stack ?? e).split('\n').slice(0, 3).join(' ⏎ ').slice(0, 400)}——這一輪不採計（不是不如預期）`);
+    process.exitCode = 70;
+  }
+}

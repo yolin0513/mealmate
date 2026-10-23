@@ -129,7 +129,8 @@ export function section(title) {
   console.log(`\n— ${title} —`);
 }
 
-export function done(name) {
+// failCode（2026-10-23）：有失敗時用哪個回傳值結束，預設 1。mutationtest 用它把「沒測到（不算數）」跟「不如預期」分開（3 對 1）
+export function done(name, failCode = 1) {
   if (AUDIT) {
     const out = process.env.MM_AUDIT_OUT || 'assert-audit.jsonl';
     fs.appendFileSync(out, `${audit.map((a) => JSON.stringify({ test: name, ...a })).join('\n')}\n`, 'utf8');
@@ -142,5 +143,5 @@ export function done(name) {
   console.log(`\n${name}：${pass} 項通過`
     + (notes ? `（另有 ${notes} 行說明，不算斷言）` : '')
     + (fail ? `，${fail} 項失敗` : ''));
-  if (fail) process.exit(1);
+  if (fail) process.exit(failCode);
 }

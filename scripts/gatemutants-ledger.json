@@ -3,12 +3,12 @@
  "entries": {
   "對照：原樣": {
    "date": "2026-10-23",
-   "commit": "37da526e5263e85a6c2e7a1a870432945262ac09",
-   "mode": "full",
+   "commit": "6453190f3020d5dbe5c9790d65c26a6846d71567",
+   "mode": "only",
    "result": "如預期",
    "defHash": "714f53c914a70e21",
    "depHash": "39623e20e672f674",
-   "runnerHash": "f94fb31e6a3c901b"
+   "runnerHash": "94abe4b423253ae8"
   },
   "拿掉「還原紀錄還在就擋」": {
    "date": "2026-10-23",
@@ -360,6 +360,15 @@
    "defHash": "db8f9dc218ff5021",
    "depHash": "5ed0a4ba6b9dc137",
    "runnerHash": "f94fb31e6a3c901b"
+  },
+  "對照：驗法中途崩潰 → 判不算數": {
+   "date": "2026-10-23",
+   "commit": "6453190f3020d5dbe5c9790d65c26a6846d71567",
+   "mode": "only",
+   "result": "如預期",
+   "defHash": "b339ece90889d41c",
+   "depHash": "39623e20e672f674",
+   "runnerHash": "94abe4b423253ae8"
   }
  }
 }

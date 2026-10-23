@@ -4724,6 +4724,81 @@ const MUTATIONS = [
     test: "doctest",
     expect: "AR6 ",
   },
+  // ---- 2026-10-23：測試名冊只從標記中間讀（Dispatch：散文被當成名冊是假紅燈，假紅燈會訓練人忽略真紅燈） ----
+  {
+    name: "測試名冊掃整份 STATUS",
+    why: "退回舊寫法：散文裡的「memwatchtest 15 條」被當成名冊，而 memwatchtest 不在 npm test 的鏈裡——假紅燈。",
+    file: "scripts/doctest.mjs",
+    find: "const statusTests = [...rosterText.matchAll(",
+    replace: "const statusTests = [...STATUS.matchAll(",
+    test: "doctest",
+    expect: "而且都在 npm test 的鏈裡",
+  },
+  {
+    name: "測試名冊漏寫一支（鏈裡有、名冊沒有）",
+    why: "反方向：以前只查「名冊裡的都在鏈裡」，名冊少寫一支不會紅。",
+    file: "docs/STATUS.md",
+    find: "、aliastest 30、unittest 72",
+    replace: "、unittest 72",
+    test: "doctest",
+    expect: "名冊（反方向）",
+  },
+  {
+    name: "名冊散文對照組永遠不成立",
+    why: "常設對照組的前提要會紅：散文那幾處被改掉時，「散文不算名冊」就沒人在驗了。",
+    file: "scripts/doctest.mjs",
+    find: ".matchAll(/([a-z]+test) \\d+/g)].map((m) => m[1]).filter((t) => !chainTests.includes(t));",
+    replace: ".matchAll(/([a-z]+test) \\d+/g)].map((m) => m[1]).filter(() => false);",
+    test: "doctest",
+    expect: "（對照）名冊以外的散文",
+  },
+  // ---- 2026-10-23：執行器的四種結束分得開（「全部都紅」與「中途崩潰」；論文研究踩坑第 84 條） ----
+  {
+    name: "執行器崩潰沒有接住",
+    why: "未處理的例外照 Node 預設回 1，跟「有突變不如預期」同一個回傳值，也沒有 CRASH 字樣——照回傳值讀，崩潰會被當成某幾條沒紅。",
+    file: "scripts/mutationtest.mjs",
+    find: "};\nprocess.on('uncaughtException', onCrash('未處理的例外'));",
+    replace: "};\n// （拿掉未處理例外的處理器）",
+    test: "doctest",
+    expect: "F1-16 mutationtest 執行器自己崩潰",
+  },
+  {
+    name: "執行器崩潰時不還原改壞的檔",
+    why: "崩潰在改壞檔之後：不還原，工作區就停在改壞的狀態（下次啟動才還原；這一刻推送閘門前的人看到的是壞檔）。",
+    file: "scripts/mutationtest.mjs",
+    find: "  let r;\n  try { r = recoverPending(); } catch (re) {",
+    replace: "  let r;\n  try { r = null; } catch (re) {",
+    test: "doctest",
+    expect: "F1-16 mutationtest 執行器自己崩潰",
+  },
+  {
+    name: "只是沒量到也回 1",
+    why: "沒量到（逾時、預期清單過期）跟「量到了、不對」又回到同一個回傳值。",
+    file: "scripts/mutationtest.mjs",
+    find: "=== SELECTED.length;\ndone('mutationtest', onlyNotComplete ? 3 : 1);",
+    replace: "=== SELECTED.length;\ndone('mutationtest', 1);",
+    test: "doctest",
+    expect: "F1-13 mutationtest 遇到逾時",
+  },
+  {
+    name: "有不如預期也回 3",
+    why: "同時有不如預期與沒量到時回 3：讀的人會以為只是沒測完，漏掉真的沒紅的那幾條。",
+    file: "scripts/mutationtest.mjs",
+    // find 帶到「(tally」：只寫到「&& 」的話，替換字串是原文的前綴，--only 的殘留檢查（替換字串已在檔裡、HEAD 沒有）永遠擋下它（10-23 實跑才發現）
+    find: "當成沒紅\nconst onlyNotComplete = baselineOk && tally.unexpected === 0 && (tally",
+    replace: "當成沒紅\nconst onlyNotComplete = baselineOk && (tally",
+    test: "doctest",
+    expect: "F1-15 ",
+  },
+  {
+    name: "如預期的那幾條沒記進逐條結果",
+    why: "有一類沒加：相加就少了那幾條——母體比對要抓到「有一條路沒記」。",
+    file: "scripts/mutationtest.mjs",
+    find: "seconds: result.seconds });\n    if (!result.passed && expectHit && restored) tally.expected += 1; else tally.unexpected += 1;",
+    replace: "seconds: result.seconds });\n    if (!result.passed && expectHit && restored) { /* 沒記 */ } else tally.unexpected += 1;",
+    test: "doctest",
+    expect: "F1-14 ",
+  },
   {
     name: "複審判斷不比雜湊",
     why: "母體換了、戳記還是舊的，也不報——正是要擋的那種靜默。",
@@ -6424,7 +6499,9 @@ function runTest(name) {
   JOB_SUMS.push({ name, ...parseJobSum(r.out) });
   return r;
 }
-const tally = { assert: 0, crash: 0, uncounted: [] };
+// 逐條結果的四類（2026-10-23）：每一條在它走的那一支各加一次，結尾相加要等於選了的條數（少加一類＝有一條路沒記到）
+//   expected 如預期｜unexpected 不如預期（量到了、結果不對：沒紅、紅錯地方、沒還原、錨點過期）｜uncounted 不算數（沒量到）｜stopped 收手沒跑
+const tally = { assert: 0, crash: 0, uncounted: [], expected: 0, unexpected: 0, stopped: 0 };
 
 // 突變跑到一半被殺掉時，原始碼會停在改壞的狀態；下一次啟動先還原。
 const PENDING = path.join(ROOT, 'scripts/.mutation-pending.json');
@@ -6466,6 +6543,17 @@ function recoverPending() {
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.on(sig, () => { try { const r = recoverPending(); if (r) console.log(`  · 收到 ${sig}：已還原 ${r}`); } finally { process.exit(130); } });
 }
+// 執行器自己崩潰（2026-10-23，Dispatch 要掃的形狀「全部都紅」與「中途崩潰」分不分得出來；論文研究踩坑第 84 條）：
+// 以前未處理的例外回 1，跟「有突變不如預期」同一個回傳值，結尾的統計與「整套收齊沒」也不會印——看回傳值分不出來。
+// 改成：先照還原紀錄還原，印一行以「CRASH」開頭的字樣，以 70 結束。這一輪不採計；帳本裡已經寫好的那幾條各自有效，續跑會補上其餘的。
+const onCrash = (kind) => (e) => {
+  let r;
+  try { r = recoverPending(); } catch (re) { r = `還原失敗：${String(re?.message ?? re).slice(0, 120)}`; }
+  console.log(`CRASH 執行器崩潰（${kind}）：${String(e?.stack ?? e).split('\n').slice(0, 3).join(' ⏎ ').slice(0, 400)}${r ? `；${r}` : ''}——這一輪不採計（不是突變的結果）`);
+  process.exit(70);
+};
+process.on('uncaughtException', onCrash('未處理的例外'));
+process.on('unhandledRejection', onCrash('未處理的 Promise 拒絕'));
 const refuse = (msg) => { ok(false, msg); done('mutationtest'); process.exit(1); };
 // 「是不是改壞前的內容」只比內容、不比行尾：人工用 git 還原時，行尾可能被 git 的設定換成 CRLF（2026-10-02 resume-verify 撞到），
 // 逐位元組比會把已經還原好的檔判成「不是原樣」、永遠拒絕。突變不會只改行尾，所以這樣不會放過改壞的檔。
@@ -6704,6 +6792,7 @@ if (baselineOk) {
       if (freeMB < MIN_FREE_MB) {
         const left = SELECTED.length - SELECTED.indexOf(m);
         ok(false, `停下：系統可用記憶體 ${freeMB} MB，低於下限 ${MIN_FREE_MB} MB`, `「${m.name}」與之後共 ${left} 條沒跑（收手，不是那幾條失敗；用 scripts/runprogress.mjs 看三類）`);
+        tally.stopped += left;
         break;
       }
     }
@@ -6717,6 +6806,7 @@ if (baselineOk) {
     };
     if (count !== 1) {
       record({ kind: 'stale', counted: true, red: false, seconds: 0 });
+      tally.unexpected += 1;
       ok(false, `【${m.test}】${m.name}`, `要改的程式碼在 ${m.file} 出現 ${count} 次（要剛好 1 次）—— 這條突變過期了`);
       continue;
     }
@@ -6725,6 +6815,7 @@ if (baselineOk) {
     const exP = expectProblems(m, (rel) => (fs.existsSync(path.join(ROOT, rel)) ? fs.readFileSync(path.join(ROOT, rel), 'utf8') : null));
     if (exP.length) {
       record({ kind: 'stale', counted: false, red: false, seconds: 0 });
+      tally.uncounted.push(m.name);
       ok(false, `【${m.test}】${m.name}`, `預期清單過期：${exP.join('；')}（沒有跑，先更新這一條的 expect）`);
       continue;
     }
@@ -6767,6 +6858,7 @@ if (baselineOk) {
     // failed／expectHits 記條數（2026-10-02，StockDiary 挖出來的：只在判錯時印實際紅了哪幾條，判對時就無法稽核
     // 「expect 對到好幾條、隨便哪一條紅都算過」）
     record({ kind: result.kind, counted: true, red: !result.passed && expectHit && restored, expectMatched: m.expect ? (!result.passed && expectHit) : null, failed: failed.length, expectHits: m.expect ? expectHits.length : null, seconds: result.seconds });
+    if (!result.passed && expectHit && restored) tally.expected += 1; else tally.unexpected += 1;
     ok(!result.passed && expectHit && restored, `【${m.test}】${m.name}`,
       !restored ? `${m.file} 沒有還原成功！`
         : result.passed ? `改壞之後 ${m.test} 居然還是綠的 —— 對應的斷言沒有在檢查東西。${m.why}`
@@ -6777,7 +6869,12 @@ if (baselineOk) {
       note(`實際紅了 ${failed.length} 條${m.expect ? `；含「${m.expect}」的 ${expectHits.length} 條${expectHits.length > 1 ? '（expect 對到不只一條斷言，看是不是有歧義）' : ''}` : '；沒寫 expect，判不出紅在哪一種'}：${show(m.expect && expectHits.length ? expectHits : failed)}`);
     }
   }
-  note(`結束方式統計：情境成立 ${tally.assert} 條（紅在斷言＝完整跑完、某條斷言印出失敗）；情境未成立、不算數 ${tally.uncounted.length} 條（逾時／被殺／沒跑起來／崩潰／宣告情境未成立）${tally.uncounted.length ? `：${tally.uncounted.join('、')}` : ''}`);
+  note(`結束方式統計：情境成立 ${tally.assert} 條（紅在斷言＝完整跑完、某條斷言印出失敗）；情境未成立、不算數 ${tally.uncounted.length} 條（逾時／被殺／沒跑起來／崩潰／宣告情境未成立／預期清單過期）${tally.uncounted.length ? `：${tally.uncounted.join('、')}` : ''}`);
+  // 母體（2026-10-23）：四類是在各自那一支加的，相加的和與選了的條數兩個一起印，對不上＝有一條路沒記到（§5.21：數出來的，不是從清單走出來的）
+  const sum = tally.expected + tally.unexpected + tally.uncounted.length + tally.stopped;
+  note(`逐條結果：選了 ${SELECTED.length} 條；如預期 ${tally.expected}、不如預期 ${tally.unexpected}、不算數 ${tally.uncounted.length}、收手沒跑 ${tally.stopped}；相加 ${sum}`);
+  ok(sum === SELECTED.length, `逐條結果相加＝選了的條數（${sum}／${SELECTED.length}）`, '有一條突變走的那一支沒有記進四類——結果不採計，先查執行器');
+  if (tally.uncounted.length || tally.stopped) console.log(`NOT-COMPLETE 有 ${tally.uncounted.length + tally.stopped} 條沒量到（不算數 ${tally.uncounted.length}、收手 ${tally.stopped}）——這幾條不是「沒紅」，是沒測；要重跑${tally.unexpected ? '' : '（回 3）'}`);
 } else {
   note('基準沒過，不跑突變（先把測試修綠）');
 }
@@ -6821,4 +6918,8 @@ if (JOB_SUMS.length) {
     + `；開 ${S}、收 ${E}、差 ${S - E}（照印，不截成 0：Windows 的這些通知不保證送達，開收不一致是正常現象；截成 0，真正的洩漏就跟正常的誤差長得一樣）；測試結束時還留在 Job 裡的（不含 jobrun 自己）合計 ${L} 支${leftovers.length ? `，在 ${leftovers.slice(0, 5).map((s) => `${s.name}（${s.leftOthers}；${s.left}）`).join('、')}——Job 關閉時被收掉` : ''}`);
 }
 
-done('mutationtest');
+// 回傳值（2026-10-23）：0 全部如預期｜1 有不如預期（或基準沒過、前置不過、相加對不上）｜3 只是有幾條沒量到（NOT-COMPLETE：沒有不如預期的）｜70 執行器自己崩潰（CRASH，見 onCrash）。
+// 以前 1 同時代表「量到了、不對」和「沒量到」——照回傳值讀，會把沒測當成沒紅
+const onlyNotComplete = baselineOk && tally.unexpected === 0 && (tally.uncounted.length + tally.stopped) > 0
+  && tally.expected + tally.unexpected + tally.uncounted.length + tally.stopped === SELECTED.length;
+done('mutationtest', onlyNotComplete ? 3 : 1);

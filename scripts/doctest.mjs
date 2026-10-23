@@ -193,11 +193,23 @@ const statusMut = /`mutationtest` 共 \*\*(\d+) 條\*\*/.exec(STATUS)?.[1];
 ok(statusMut, `（文件）STATUS 宣稱突變 ${statusMut} 條`);
 const mutCount = (read('scripts/mutationtest.mjs').match(/^ {4}name: /gm) ?? []).length;
 eq(Number(statusMut), mutCount, 'STATUS 宣稱的突變條數＝mutationtest.mjs 實際條數');
-const statusTests = [...STATUS.matchAll(/([a-z]+test) \d+/g)].map((m) => m[1]);
-ok(statusTests.length >= 15, `（母體）STATUS 點名了 ${new Set(statusTests).size} 支測試`);
+// 測試名冊（2026-10-23 改，Dispatch：以前掃整份 STATUS 的「某 test 數字」，散文「memwatchtest 15 條」被當成名冊、紅了——假紅燈會訓練人忽略真紅燈）：
+// 名冊只從兩個固定標記中間讀；標記不是剛好各一個就判壞（不退回掃整份）。名冊要跟 npm test 的鏈兩個方向都一支不差（以前只查名冊⊆鏈，鏈裡多一支、名冊漏寫看不出來）
+const ROSTER_BEGIN = '<!-- 測試名冊開始'; const ROSTER_END = '<!-- 測試名冊結束 -->';
+const rb = STATUS.split(ROSTER_BEGIN).length - 1; const re = STATUS.split(ROSTER_END).length - 1;
+const rosterText = rb === 1 && re === 1 && STATUS.indexOf(ROSTER_BEGIN) < STATUS.indexOf(ROSTER_END) ? STATUS.slice(STATUS.indexOf(ROSTER_BEGIN), STATUS.indexOf(ROSTER_END)) : '';
+ok(rosterText !== '', `（前提）STATUS 的測試名冊標記剛好各一個、順序對（開始 ${rb} 個、結束 ${re} 個）`);
+const statusTests = [...rosterText.matchAll(/([a-z]+test) \d+/g)].map((m) => m[1]);
+const chainTests = [...pkg.scripts.test.matchAll(/scripts\/([a-z-]+)\.mjs/g)].map((m) => m[1]);
+ok(statusTests.length >= 15 && chainTests.length >= 15, `（母體）名冊列了 ${new Set(statusTests).size} 支、npm test 的鏈有 ${new Set(chainTests).size} 支`);
 everyOf([...new Set(statusTests)], (t) => fs.existsSync(path.join(ROOT, 'scripts', `${t}.mjs`)), 'STATUS 點名的每一支測試都真的存在');
 everyOf([...new Set(statusTests)], (t) => typeof pkg.scripts[t] === 'string', 'STATUS 點名的每一支測試都有 npm script');
-everyOf([...new Set(statusTests)], (t) => pkg.scripts.test.includes(`scripts/${t}.mjs`), '而且都在 npm test 的鏈裡（不會有人跑不到）');
+everyOf([...new Set(statusTests)], (t) => chainTests.includes(t), '而且都在 npm test 的鏈裡（不會有人跑不到）');
+everyOf([...new Set(chainTests)], (t) => statusTests.includes(t), '名冊（反方向）：npm test 鏈裡的每一支都列在名冊裡');
+// 常設對照組（走真實的檔、真實的入口）：名冊以外的散文裡至少有一處「某 test N」、而且那一支不在鏈裡——
+// 掃整份的舊寫法遇到它就會紅；這條確認對照組還在（被誰改掉了，「散文不算名冊」就沒人在驗）
+const prose = [...STATUS.replace(rosterText, '').matchAll(/([a-z]+test) \d+/g)].map((m) => m[1]).filter((t) => !chainTests.includes(t));
+ok(prose.length >= 1, `（對照）名冊以外的散文裡有「某 test N」、那一支不在鏈裡的 ${prose.length} 處（${[...new Set(prose)].slice(0, 4).join('、')}）——它們沒有被當成名冊`);
 const storeLine = /IndexedDB `mealmate`（([^）]+)）/.exec(STATUS)?.[1] ?? '';
 ok(storeLine.length > 10, `（文件）STATUS 列了 store：${storeLine}`);
 everyOf(STORE_NAMES, (s) => storeLine.includes(s), 'db.js 的每一個 store 都列在 STATUS 的部署表裡');
@@ -691,9 +703,65 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
   // 失敗時要看得出是哪個條件沒成立（2026-10-22：機器被別的程式佔滿時這一項紅了，訊息只有結論，分不出是逾時沒發生、還是標錯）
   const toKilled = to.out.includes('不算數：probeslow 逾時被殺'); const toUncounted = to.out.includes('情境未成立、不算數 1 條');
   const toBaseOk = /基準 probeslow 通過/.test(to.out);
-  ok(to.code !== 0 && toKilled && toUncounted && !wroteLastFull && hangRestored,
-    `F1-13 mutationtest 遇到逾時 → 那條突變標成「不算數」、不算紅（回 ${to.code}），不寫成「整套完整跑完」（寫了基準清單：${wroteLastFull}），改壞的檔有還原（${hangRestored}）`
+  // 2026-10-23：只有沒量到（沒有不如預期）時回 3、印行首 NOT-COMPLETE——以前回 1，跟「不如預期」分不出來
+  const toNC = to.out.split('\n').some((l) => l.startsWith('NOT-COMPLETE '));
+  ok(to.code === 3 && toNC && toKilled && toUncounted && !wroteLastFull && hangRestored,
+    `F1-13 mutationtest 遇到逾時 → 那條突變標成「不算數」、不算紅（回 ${to.code}，要 3），印 NOT-COMPLETE ${toNC}，不寫成「整套完整跑完」（寫了基準清單：${wroteLastFull}），改壞的檔有還原（${hangRestored}）`
     + `；逐條：印了逾時被殺 ${toKilled}、不算數 1 條 ${toUncounted}、基準 probeslow 通過 ${toBaseOk}`);
+
+  // F1-14～F1-16（2026-10-23，Dispatch 要掃的形狀「全部都紅」與「中途崩潰」分不分得出來；論文研究踩坑第 84 條）：
+  // 執行器的四種結束各造一次實跑——0 全部如預期、1 有不如預期、3 只是沒量到（F1-13）、70 執行器自己崩潰。都從真實入口（mutationtest.mjs --full）跑。
+  // 暫存複本：scripts/ 的 .mjs／.ps1、js/version.js、兩支探針測試；突變清單換成指定的幾條
+  const probeRoot = (prefix, mutations, patch = null) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+    fs.mkdirSync(path.join(root, 'scripts')); fs.mkdirSync(path.join(root, 'js'));
+    for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) if (/\.(m?js|ps1)$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(root, 'scripts', f));
+    fs.copyFileSync(path.join(ROOT, 'js/version.js'), path.join(root, 'js/version.js'));
+    fs.writeFileSync(path.join(root, 'scripts/probebad.mjs'), 'export const BAD = false;\n// 註解\n');
+    fs.writeFileSync(path.join(root, 'scripts/probered.mjs'), "import { ok, done } from './tap.mjs';\nimport { BAD } from './probebad.mjs';\nok(!BAD, 'probe-red：BAD 要是 false');\ndone('probered');\n");
+    const mf = path.join(root, 'scripts/mutationtest.mjs');
+    let src = fs.readFileSync(mf, 'utf8');
+    const b0 = src.indexOf('const MUTATIONS = [\n'); const b1 = src.indexOf('\n];\n', b0);
+    let set = b0 >= 0 && b1 > b0;
+    if (set) src = `${src.slice(0, b0)}const MUTATIONS = [\n${mutations.map((m) => `  ${JSON.stringify({ why: 'x', file: 'scripts/probebad.mjs', test: 'probered', ...m })},`).join('\n')}${src.slice(b1)}`;
+    if (set && patch) { set = src.split(patch[0]).length === 2; src = src.replace(patch[0], () => patch[1]); }
+    fs.writeFileSync(mf, src);
+    execFileSync('git', ['-C', root, 'init', '-q']); execFileSync('git', ['-C', root, 'add', '-A']); execFileSync('git', ['-C', root, '-c', 'user.name=probe', '-c', 'user.email=probe@users.noreply.github.com', 'commit', '-q', '-m', 'probe']);
+    return { root, set, mf };
+  };
+  const RED = { name: 'F1探針：會被抓到', find: 'export const BAD = false;', replace: 'export const BAD = true;' };
+  const SAME = { name: 'F1探針：抓不到（只改註解）', find: '// 註解', replace: '// 改過的註解' };
+  const bad0 = 'export const BAD = false;\n// 註解\n';
+  {
+    const p = probeRoot('mm-f1ok-', [RED]);
+    const r = runP(process.execPath, [p.mf, '--full'], { cwd: p.root });
+    const restored = fs.readFileSync(path.join(p.root, 'scripts/probebad.mjs'), 'utf8') === bad0;
+    fs.rmSync(p.root, { recursive: true, force: true });
+    ok(p.set && r.code === 0 && /逐條結果：選了 1 條；如預期 1、不如預期 0、不算數 0、收手沒跑 0；相加 1/.test(r.out) && restored,
+      `F1-14 mutationtest 全部如預期 → 回 ${r.code}（要 0）、逐條結果「選了 1、如預期 1、相加 1」${/逐條結果：[^\n]*/.exec(r.out)?.[0] ?? '（沒有逐條結果那一行）'}、改壞的檔有還原 ${restored}`);
+  }
+  {
+    // 一條抓不到＋一條預期清單過期（沒量到、不改任何檔）：有不如預期時回 1——不能因為也有沒量到的就回 3（「量到了、不對」優先）
+    const STALE_E = { name: 'F1探針：預期清單過期', find: 'export const BAD = false;', replace: 'export const BAD = true;', expect: '測試原始碼裡沒有這段字' };
+    const p = probeRoot('mm-f1ue-', [SAME, STALE_E]);
+    const r = runP(process.execPath, [p.mf, '--full'], { cwd: p.root });
+    fs.rmSync(p.root, { recursive: true, force: true });
+    const nc = r.out.split('\n').some((l) => l.startsWith('NOT-COMPLETE ') && !l.includes('（回 3）'));
+    ok(p.set && r.code === 1 && nc && /逐條結果：選了 2 條；如預期 0、不如預期 1、不算數 1、收手沒跑 0；相加 2/.test(r.out),
+      `F1-15 mutationtest 一條不如預期＋一條沒量到 → 回 ${r.code}（要 1，不是 3）、NOT-COMPLETE 照印但不寫「回 3」（${nc}）、${/逐條結果：[^\n]*/.exec(r.out)?.[0] ?? '（沒有逐條結果那一行）'}`);
+  }
+  {
+    // 執行器自己崩潰：改壞檔之後、跑測試之前丟例外（探針改動只在暫存複本）。要回 70、行首 CRASH、改壞的檔被還原、沒有「逐條結果」那一行
+    const at = "    fs.writeFileSync(full, mutated, 'utf8');\n";
+    const p = probeRoot('mm-f1cr-', [RED], [at, `${at}    if (m.name === 'F1探針：會被抓到') throw new Error('F1-16 探針：執行器崩潰');\n`]);
+    const r = runP(process.execPath, [p.mf, '--full'], { cwd: p.root });
+    const restored = fs.readFileSync(path.join(p.root, 'scripts/probebad.mjs'), 'utf8') === bad0;
+    const pendingGone = !fs.existsSync(path.join(p.root, 'scripts/.mutation-pending.json'));
+    fs.rmSync(p.root, { recursive: true, force: true });
+    const crash = r.out.split('\n').some((l) => l.startsWith('CRASH ') && l.includes('F1-16 探針'));
+    ok(p.set && r.code === 70 && crash && restored && pendingGone && !/逐條結果：/.test(r.out),
+      `F1-16 mutationtest 執行器自己崩潰 → 回 ${r.code}（要 70）、行首 CRASH 且點名探針 ${crash}、改壞的檔被還原 ${restored}、還原紀錄清掉 ${pendingGone}、沒印逐條結果（不冒充跑完）`);
+  }
 }
 
 section('測試怎麼結束的（runkind；2026-10-01：逾時、沒跑起來、崩潰、斷言失敗要分得出來）');
@@ -1702,6 +1770,24 @@ section('預期清單過期要用獨立的訊息、開跑前擋（2026-10-02；g
     ok(broke && r.status === 6 && out.includes('gatemutants：預期清單過期（1 處），一條都沒跑') && out.includes('【M6：fresh 不清 hook（預設順序看得出來）】scripts/pushgate-verify.sh 的錨點不是剛好一次')
       && !out.includes('【對照：原樣】') && !out.includes('不如預期'),
     `GM1 gatemutants 的錨點過期 → 開跑前停（回 ${r.status}，預期 6${r.error ? `；${r.error.code}` : ''}）、訊息是「預期清單過期」、點名 M6、一條都沒跑（不是「不如預期」）`);  }
+  {
+    // GM-CRASH（2026-10-23，洞二）：gatemutants 自己崩潰要回 70、行首 CRASH——以前未處理的例外回 1，跟「有不如預期」分不出來。
+    // scripts/ 的暫存複本裡讓 main() 一開頭就丟例外，從真實入口跑（不碰 git、幾秒）
+    const gr = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-gmcr-'));
+    fs.mkdirSync(path.join(gr, 'scripts'));
+    for (const f of fs.readdirSync(path.join(ROOT, 'scripts'))) if (/\.(m?js|sh|ps1)$/.test(f)) fs.copyFileSync(path.join(ROOT, 'scripts', f), path.join(gr, 'scripts', f));
+    const gf = path.join(gr, 'scripts/gatemutants.mjs');
+    const gsrc = fs.readFileSync(gf, 'utf8');
+    const gAt = '\nfunction main() {\n';
+    const gSet = gsrc.split(gAt).length === 2;
+    fs.writeFileSync(gf, gsrc.replace(gAt, `${gAt}  throw new Error('GM-CRASH 探針');\n`));
+    const gReadBack = fs.readFileSync(gf, 'utf8').includes("throw new Error('GM-CRASH 探針')");
+    const r = spawnSync(process.execPath, ['scripts/gatemutants.mjs'], { cwd: gr, encoding: 'utf8', timeout: 60000 });
+    fs.rmSync(gr, { recursive: true, force: true });
+    const crash = `${r.stdout}`.split('\n').some((l) => l.startsWith('CRASH ') && l.includes('GM-CRASH 探針'));
+    ok(gSet && gReadBack && r.status === 70 && crash && !/全部如預期|條不如預期/.test(r.stdout),
+      `GM-CRASH gatemutants 自己崩潰 → 回 ${r.status}（要 70）、行首 CRASH 且點名探針 ${crash}、沒印「如預期／不如預期」（探針改動讀回在 ${gReadBack}）`);
+  }
 }
 
 section('gatemutants 的理由改成理由碼、集合完全相同（2026-10-02 Dispatch 選 A：不再用「輸出裡某處含這段字」）');
