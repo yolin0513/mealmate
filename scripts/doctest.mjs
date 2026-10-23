@@ -739,6 +739,12 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
     fs.rmSync(p.root, { recursive: true, force: true });
     ok(p.set && r.code === 0 && /逐條結果：選了 1 條；如預期 1、不如預期 0、不算數 0、收手沒跑 0；相加 1/.test(r.out) && restored,
       `F1-14 mutationtest 全部如預期 → 回 ${r.code}（要 0）、逐條結果「選了 1、如預期 1、相加 1」${/逐條結果：[^\n]*/.exec(r.out)?.[0] ?? '（沒有逐條結果那一行）'}、改壞的檔有還原 ${restored}`);
+    // 結束行的格式是 memwatch 分「正常結束／中途失去」的單點依賴（2026-10-23，Dispatch）：執行器改了輸出格式，監看會在每一次正常結束都報 6，
+    // 而那種假紅燈會被當成噪音忽略。所以守兩件：執行器真的印出那一行；STATUS 整套指令給監看的 --end-mark 正是這段字
+    const endMark = /--end-mark "([^"]+)"/.exec(STATUS)?.[1] ?? null;
+    const endLine = r.out.split('\n').find((l) => endMark && l.startsWith(endMark)) ?? null;
+    ok(endMark === 'mutationtest：' && endLine !== null,
+      `執行器結束行格式：STATUS 整套指令的 --end-mark 是「${endMark ?? '（找不到）'}」（要「mutationtest：」），執行器真的印出以它開頭的一行：${endLine ? endLine.slice(0, 60) : '沒有'}`);
   }
   {
     // 一條抓不到＋一條預期清單過期（沒量到、不改任何檔）：有不如預期時回 1——不能因為也有沒量到的就回 3（「量到了、不對」優先）
@@ -761,6 +767,35 @@ section('F1 必敗對照組：斷言函式、執行器、稽核器（2026-09-24�
     const crash = r.out.split('\n').some((l) => l.startsWith('CRASH ') && l.includes('F1-16 探針'));
     ok(p.set && r.code === 70 && crash && restored && pendingGone && !/逐條結果：/.test(r.out),
       `F1-16 mutationtest 執行器自己崩潰 → 回 ${r.code}（要 70）、行首 CRASH 且點名探針 ${crash}、改壞的檔被還原 ${restored}、還原紀錄清掉 ${pendingGone}、沒印逐條結果（不冒充跑完）`);
+  }
+  // 殘留檢查（--only，2026-10-23）：替換字串跟原文有包含關係的兩型各造「原樣」與「殘留」——原樣不能擋（假紅燈）、殘留要擋（假綠燈）。
+  // 工作區的改動不 commit（probeRoot 只 commit 了標準的 probebad）：舊判法的誤擋只在「原文還沒 commit」時出現，要造的就是這個狀態
+  {
+    const leftoverRun = (prefix, mut, workCopy) => {
+      const p = probeRoot(prefix, [mut]);
+      fs.writeFileSync(path.join(p.root, 'scripts/probebad.mjs'), workCopy);
+      const wrote = fs.readFileSync(path.join(p.root, 'scripts/probebad.mjs'), 'utf8') === workCopy;   // 讀回：情境真的造出來了
+      const r = runP(process.execPath, [p.mf, '--only', mut.name], { cwd: p.root });
+      fs.rmSync(p.root, { recursive: true, force: true });
+      const refusedLine = r.out.split('\n').find((l) => l.includes('看起來已經是改壞後的樣子，拒絕執行')) || '';
+      return { set: p.set && wrote, r, refused: refusedLine.includes(mut.name), refusedLine };
+    };
+    // 部分型：替換字串「export const BAD = true」是原文「export const BAD = true && false;」的前綴
+    const PART = { name: 'F1探針：部分型', find: 'export const BAD = true && false;', replace: 'export const BAD = true' };
+    const a = leftoverRun('mm-lo1-', PART, 'export const BAD = true && false;\n// 註解\n');
+    ok(a.set && !a.refused && a.r.code === 0 && /逐條結果：選了 1 條；如預期 1/.test(a.r.out),
+      `殘留檢查 K1 部分型、原樣（原文還沒 commit）→ 不擋、照跑（回 ${a.r.code}；${/逐條結果：[^\n]*/.exec(a.r.out)?.[0] ?? '沒有逐條結果'}；拒絕那一行：${a.refusedLine.slice(0, 80) || '（無）'}）`);
+    const b = leftoverRun('mm-lo2-', PART, 'export const BAD = true\n// 註解\n');
+    ok(b.set && b.refused && b.r.code !== 0 && b.refusedLine.includes('部分型的殘留'),
+      `殘留檢查 K2 部分型、殘留（替換字串在、原文不在）→ 擋下並點名（回 ${b.r.code}；${b.refusedLine.slice(0, 120) || '沒有拒絕那一行'}）`);
+    // 插入型：替換字串含完整的原文，後面多插一行（會讓 probered 紅）
+    const INS = { name: 'F1探針：插入型', find: 'export const BAD = false;', replace: 'export const BAD = false;\nexport const INSERTED = 1;' };
+    const c = leftoverRun('mm-lo3-', INS, 'export const BAD = false;\nexport const INSERTED = 1;\n// 註解\n');
+    ok(c.set && c.refused && c.r.code !== 0 && c.refusedLine.includes('插入型的殘留'),
+      `殘留檢查 K3 插入型、殘留（原文還在、插入的那一行也在）→ 擋下並點名（回 ${c.r.code}；${c.refusedLine.slice(0, 120) || '沒有拒絕那一行'}）`);
+    const d = leftoverRun('mm-lo4-', INS, bad0);
+    ok(d.set && !d.refused && !/拒絕執行/.test(d.r.out) && /逐條結果：選了 1 條/.test(d.r.out),
+      `殘留檢查 K4 插入型、原樣 → 不擋、照跑（回 ${d.r.code}；${/逐條結果：[^\n]*/.exec(d.r.out)?.[0] ?? '沒有逐條結果'}；拒絕那一行：${d.refusedLine.slice(0, 80) || '（無）'}）`);
   }
 }
 

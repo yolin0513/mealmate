@@ -92,6 +92,14 @@ function main() {
   const notChecked = MUTATIONS.map((m) => m.name).filter((n, i, a) => !wsChecked.has(n) || a.indexOf(n) !== i);
   if (wsChecked.size !== MUTATIONS.length) { console.log(`STALE 只差空白的檢查只查了 ${wsChecked.size} 條（清單 ${MUTATIONS.length} 條）：${notChecked.slice(0, 5).join('、')}`); stale += 1; }
   console.log(`WSCHECKED ${wsChecked.size}`);
+  // 替換字串跟原文的包含關係（2026-10-23）：只分類、不擋——刪除型（部分型）與插入型本來就必然有包含關係，那是它們的本質。
+  // 印出來是為了讓影響範圍看得見：--only 的殘留檢查照這三型分開判，哪一型的判法出問題，就知道牽涉幾條。
+  {
+    const k = { part: 0, insert: 0, other: 0, empty: 0 };
+    for (const m of MUTATIONS) k[!m.replace || !m.replace.trim() ? 'empty' : m.find.includes(m.replace) ? 'part' : m.replace.includes(m.find) ? 'insert' : 'other'] += 1;
+    // 不另做「相加＝總數」的檢查：每一條一定落進某一類，相加永遠等於總數，是恆等式、擋不住任何東西（§5.21）
+    console.log(`KINDS 部分型 ${k.part}、插入型 ${k.insert}、其他 ${k.other}、替換為空 ${k.empty}（清單 ${MUTATIONS.length} 條）——只分類、不擋`);
+  }
   console.log(`TOTAL ${MUTATIONS.length}`);
   console.log(`EXPECTCOUNT ${MUTATIONS.filter((m) => m.expect != null).length}`);
   // 母體的兩個數字都從資料數、都印，不相等就擋（TripQuest 2026-10-02：兩份空清單互比得到「差異 0」）：

@@ -17,7 +17,9 @@
 //   這一道沒有情境守（監看從 PowerShell 讀，要造出讀不到得換掉 powershell，不為測試在正式程式留開關）——盲區，照實列在 STATUS。
 //
 // 用法：node scripts/memwatch.mjs --threshold 2048 --count 3 --interval 5 [--runner scripts/mutationtest.mjs] [--grace 3]
-//        [--count-workers] [--max-checks N] --log 檔
+//        [--count-workers] [--max-checks N] [--end-log 執行器的 log --end-mark 結束行的開頭] --log 檔
+// 回傳值：0＝執行器正常結束（log 有結束行），或查滿次數；2＝參數錯；3＝觸發、停了執行器；4＝監看中途出錯；
+//        5＝從沒接上執行器；6＝接上過、執行器不見了、log 沒有結束行（中途失去或崩潰）；7＝接上過、執行器不見了、沒給 --end-log（分不出）
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 const args = process.argv.slice(2);
@@ -28,6 +30,9 @@ const GRACE = Number(opt('--grace', '3'));
 const RUNNER = opt('--runner', 'scripts/mutationtest.mjs');
 const LOG = opt('--log', '.logs/memwatch.log');
 const COUNT_WORKERS = args.includes('--count-workers');
+// 執行器的 log 與結束行的開頭（2026-10-23）：執行器不見了的時候，靠它分「正常結束」與「中途失去」——程序表上兩者長得一樣
+const END_LOG = opt('--end-log', null); const END_MARK = opt('--end-mark', null);
+if ((END_LOG === null) !== (END_MARK === null)) { console.error('✗ --end-log 與 --end-mark 要一起給'); process.exit(2); }
 for (const [k, v] of Object.entries({ TH, COUNT, IV, GRACE })) if (!Number.isFinite(v)) { console.error(`✗ 參數 ${k} 不是數字`); process.exit(2); }
 const now = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(11, 19);
 const log = (s) => fs.appendFileSync(LOG, `${now()} ${s}\n`);
@@ -82,7 +87,16 @@ for (;;) {
   if (!runners.length) {
     missing += 1;
     log(`這一輪找不到執行器（連續第 ${missing} 輪）`);
-    if (missing >= GRACE) { log(`連續 ${GRACE} 輪找不到執行器，監看結束（看過的執行器 ${seen.size} 支）`); break; }
+    if (missing >= GRACE) {
+      log(`連續 ${GRACE} 輪找不到執行器，監看結束（看過的執行器 ${seen.size} 支）`);
+      // 2026-10-23（受控負載實驗撞出、Dispatch 決定要做）：以前這裡一律回 0——「從頭到尾沒看到任何東西」「看到了、它中途不見了」
+      // 「看到了、它正常結束」三種在回傳值上一樣，監看什麼都沒看到也像「正常結束、沒觸發」。分開：
+      if (seen.size === 0) { log('從沒接上執行器：監看從頭到尾沒看到任何一支，什麼都沒量到（不是執行器結束）'); process.exitCode = 5; break; }
+      const endText = END_LOG && fs.existsSync(END_LOG) ? fs.readFileSync(END_LOG, 'utf8') : null;
+      if (!END_LOG) { log('接上過、執行器不見了；沒給 --end-log，分不出是正常結束還是中途消失（不當成正常結束）'); process.exitCode = 7; break; }
+      if (endText !== null && endText.split(/\r?\n/).some((l) => l.startsWith(END_MARK))) { log(`執行器正常結束：${END_LOG} 有以「${END_MARK}」開頭的結束行`); break; }
+      log(`接上過、執行器不見了，${END_LOG} 卻${endText === null ? '讀不到' : `沒有以「${END_MARK}」開頭的結束行`}：中途失去或崩潰（不是正常結束）`); process.exitCode = 6; break;
+    }
   } else missing = 0;
   const f = freeMB(); checks += 1;
   if (minFree === null || f < minFree) { minFree = f; minAt = `第 ${checks} 輪、${now()}`; }

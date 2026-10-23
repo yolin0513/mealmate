@@ -4790,6 +4790,43 @@ const MUTATIONS = [
     test: "doctest",
     expect: "F1-15 ",
   },
+  // --only 的殘留檢查分三種判（2026-10-23）：每一支各一條，各自只紅 doctest 的 K1～K4 其中一條
+  {
+    name: "殘留檢查：部分型照舊判法（只比 HEAD）",
+    why: "部分型的原樣（原文還沒 commit）會被誤判成殘留，剛寫好的刪除型突變 --only 永遠跑不起來——帳面上跟「還沒跑到」一樣。",
+    file: "scripts/mutationtest.mjs",
+    find: "    if (kind === 'part') {\n      if (!nowText.includes(m.find))",
+    replace: "    if (kind === 'never') {\n      if (!nowText.includes(m.find))",
+    test: "doctest",
+    expect: "殘留檢查 K1 部分型",
+  },
+  {
+    name: "殘留檢查：部分型的殘留不擋",
+    why: "部分型突變中斷後留下的壞檔會被當成原檔備份，「還原」就把壞檔還原回去。",
+    file: "scripts/mutationtest.mjs",
+    find: "    if (kind === 'part') {\n      if (!nowText.includes(m.find)) leftovers",
+    replace: "    if (kind === 'part') {\n      if (!nowText.includes(m.replace)) leftovers",
+    test: "doctest",
+    expect: "殘留檢查 K2 部分型",
+  },
+  {
+    name: "殘留檢查：插入型用原文還在不在判",
+    why: "插入型改壞後原文仍在，照「原文不在才算殘留」判會漏抓——殘留留在檔裡，檢查卻說一切正常（假綠燈）。",
+    file: "scripts/mutationtest.mjs",
+    find: "    if (kind === 'insert') {\n      leftovers.push(",
+    replace: "    if (kind === 'insert') {\n      if (!nowText.includes(m.find)) leftovers.push(",
+    test: "doctest",
+    expect: "殘留檢查 K3 插入型",
+  },
+  {
+    name: "殘留檢查：檔裡沒有替換字串也照判",
+    why: "插入型一律算殘留：原樣的檔也被擋，插入型突變 --only 永遠跑不起來。",
+    file: "scripts/mutationtest.mjs",
+    find: "    if (!nowText.includes(m.replace)) continue;\n    const kind = leftoverKind(m);",
+    replace: "    const kind = leftoverKind(m);",
+    test: "doctest",
+    expect: "殘留檢查 K4 插入型",
+  },
   {
     name: "如預期的那幾條沒記進逐條結果",
     why: "有一類沒加：相加就少了那幾條——母體比對要抓到「有一條路沒記」。",
@@ -5546,6 +5583,43 @@ const MUTATIONS = [
     replace: "  if (checks >= MAX) log(minFree === null ? `總結：",
     test: "memwatchtest",
     expect: "監看・總結（",
+  },
+  {
+    name: "執行器結束行改了格式",
+    why: "監看靠這一行分「正常結束」與「中途失去」：格式一改，每一次正常結束都報 6（中途失去），假紅燈很快被當成噪音忽略。",
+    file: "scripts/mutationtest.mjs",
+    find: "=== SELECTED.length;\ndone('mutationtest', onlyNotComplete",
+    replace: "=== SELECTED.length;\ndone('突變執行器', onlyNotComplete",
+    test: "doctest",
+    expect: "執行器結束行格式：",
+  },
+  // ---- 2026-10-23：找不到執行器的三種結束（受控負載實驗撞出：監看沒接上任何執行器也回 0，跟正常結束分不出）----
+  {
+    name: "監看：從沒接上也當成正常結束",
+    why: "監看比執行器早起來、或執行器起得慢時，監看什麼都沒看到就回 0——看起來像「正常結束、沒觸發」。",
+    file: "scripts/memwatch.mjs",
+    find: "      if (seen.size === 0) {",
+    replace: "      if (seen.size < 0) {",
+    test: "memwatchtest",
+    expect: "監看・從沒接上：",
+  },
+  {
+    name: "監看：沒有結束行也當成正常結束",
+    why: "執行器中途崩潰或被停，監看照樣回 0——中途失去偽裝成跑完。",
+    file: "scripts/memwatch.mjs",
+    find: "中途失去或崩潰（不是正常結束）`); process.exitCode = 6;",
+    replace: "中途失去或崩潰（不是正常結束）`);",
+    test: "memwatchtest",
+    expect: "監看・中途失去：",
+  },
+  {
+    name: "監看：沒給 --end-log 也當成正常結束",
+    why: "沒有結束行可以對時，分不出正常結束還是中途消失，卻回 0。",
+    file: "scripts/memwatch.mjs",
+    find: "分不出是正常結束還是中途消失（不當成正常結束）'); process.exitCode = 7;",
+    replace: "分不出是正常結束還是中途消失（不當成正常結束）');",
+    test: "memwatchtest",
+    expect: "監看・分不出：",
   },
   // ---- 2026-10-22：「跟著變」的情境沒成立就重做、有上限，到上限宣告情境未成立（§5.20；10-22 量測時那次基準就是因為它被算成紅）----
   // 「成立與否只看獨立來源」沒有另配突變：改成看監看的數字時，上面「監看：每一輪記固定值」會變成情境未成立、不算數——執行器會報出來。
@@ -6687,6 +6761,13 @@ const CANDIDATE_SET = new Set(SELECTED.map((m) => m.name));
 }
 // 護欄一的 --only 版（Dispatch 2026-10-02）：工作區可以有改動，但這次要改的目標檔不能已經是「改壞後」的樣子——
 // 目標檔含這條突變的替換字串、HEAD 的那一版卻沒有，多半是上一次中斷留下的壞檔；拿它當原檔備份，「還原」就會把壞檔還原回去。
+// 2026-10-23 分三種判（Dispatch 同意）：替換字串跟原文有包含關係，是刪除型與插入型突變的本質、不是缺陷，不能禁止，要判對——
+//   部分型（替換字串是原文的一部分，例：刪掉一段條件）：原樣的檔本來就含替換字串，舊判法在原文還沒 commit 時一定誤擋（假紅燈）。
+//     改成：檔裡有替換字串、卻沒有原文，才算殘留。
+//   插入型（原文是替換字串的一部分，例：在一行後面插入 throw）：改壞後的檔仍然含原文，用「原文還在不在」判會漏抓（假綠燈）。
+//     檔裡有完整的替換字串就算殘留，不看 HEAD。
+//   其他：檔裡有替換字串、HEAD 沒有（原本的判法）。
+const leftoverKind = (m) => (m.find.includes(m.replace) ? 'part' : m.replace.includes(m.find) ? 'insert' : 'other');
 if (MODE === 'only') {
   const leftovers = [];
   for (const m of SELECTED) {
@@ -6694,6 +6775,15 @@ if (MODE === 'only') {
     const full = path.join(ROOT, m.file);
     const nowText = fs.existsSync(full) ? fs.readFileSync(full, 'utf8') : '';
     if (!nowText.includes(m.replace)) continue;
+    const kind = leftoverKind(m);
+    if (kind === 'part') {
+      if (!nowText.includes(m.find)) leftovers.push(`${m.file}（突變「${m.name}」：替換字串在檔裡、原文卻不在——部分型的殘留）`);
+      continue;
+    }
+    if (kind === 'insert') {
+      leftovers.push(`${m.file}（突變「${m.name}」：完整的替換字串在檔裡——插入型的殘留，原文還在也算）`);
+      continue;
+    }
     let headText = '';
     try { headText = git(['show', `HEAD:${m.file}`]); } catch { headText = ''; }      // HEAD 沒有這支檔：當成空的（新檔含替換字串一樣可疑）
     if (!headText.includes(m.replace)) leftovers.push(`${m.file}（突變「${m.name}」的替換字串已經在檔裡，HEAD 沒有）`);

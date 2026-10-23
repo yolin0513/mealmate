@@ -20009,20 +20009,20 @@
   },
   "監看：找不到執行器也不結束": {
    "last": {
-    "date": "2026-10-08",
-    "commit": "77465e0e83db+dirty",
+    "date": "2026-10-23",
+    "commit": "223c97bb2cab+dirty",
     "mode": "only",
     "defHash": "1e96c4e6a66bfcbda7277c872e2cf0c83e974e21cd4db96fd3ca09098dbb4006",
-    "depHash": "87123aaa59b046ad78b330450af80fd1df883cd8470c9ab53216a406344e7950",
-    "runnerHash": "f26a9c8b442eb44ac60f2f0e863b3df522b2048f7a2ffa810b3dbaa873ef6552",
+    "depHash": "7c973c37f47f952aee2bb5eb19b99299344fc5331fa4319b5f0429a98426b25f",
+    "runnerHash": "c1c89f9a9a91e1b2a478a33bdb28f6e129afa8d6b2cfadf4104971ccc357d6ca",
     "scope": "repo",
     "kind": "assert",
     "counted": true,
     "red": true,
     "expectMatched": true,
-    "failed": 1,
+    "failed": 4,
     "expectHits": 1,
-    "seconds": 76
+    "seconds": 240
    },
    "lastFull": null
   },
@@ -21659,8 +21659,160 @@
     "seconds": 192
    },
    "lastFull": null
+  },
+  "殘留檢查：部分型照舊判法（只比 HEAD）": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "223c97bb2cab+dirty",
+    "mode": "only",
+    "defHash": "bd897f0c9a714f14fb6b524002e6c92770244e8458fbe8db5d3db55ac2c467a0",
+    "depHash": "7c973c37f47f952aee2bb5eb19b99299344fc5331fa4319b5f0429a98426b25f",
+    "runnerHash": "c1c89f9a9a91e1b2a478a33bdb28f6e129afa8d6b2cfadf4104971ccc357d6ca",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 202
+   },
+   "lastFull": null
+  },
+  "殘留檢查：部分型的殘留不擋": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "223c97bb2cab+dirty",
+    "mode": "only",
+    "defHash": "2f9705c141b68c389801660dd5e03869a362751ba98c9884c822da474ab9d271",
+    "depHash": "7c973c37f47f952aee2bb5eb19b99299344fc5331fa4319b5f0429a98426b25f",
+    "runnerHash": "c1c89f9a9a91e1b2a478a33bdb28f6e129afa8d6b2cfadf4104971ccc357d6ca",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 209
+   },
+   "lastFull": null
+  },
+  "殘留檢查：插入型用原文還在不在判": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "223c97bb2cab+dirty",
+    "mode": "only",
+    "defHash": "9a5dc642a6cb3e248718df5af39d61515e7acfb656448871685acbfae71e9031",
+    "depHash": "7c973c37f47f952aee2bb5eb19b99299344fc5331fa4319b5f0429a98426b25f",
+    "runnerHash": "c1c89f9a9a91e1b2a478a33bdb28f6e129afa8d6b2cfadf4104971ccc357d6ca",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 208
+   },
+   "lastFull": null
+  },
+  "殘留檢查：檔裡沒有替換字串也照判": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "223c97bb2cab+dirty",
+    "mode": "only",
+    "defHash": "630b7bcde057e80b5e456ceb646d0fa7511c7287419472968d5b9a3beb293c3d",
+    "depHash": "7c973c37f47f952aee2bb5eb19b99299344fc5331fa4319b5f0429a98426b25f",
+    "runnerHash": "c1c89f9a9a91e1b2a478a33bdb28f6e129afa8d6b2cfadf4104971ccc357d6ca",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 6,
+    "expectHits": 1,
+    "seconds": 192
+   },
+   "lastFull": null
+  },
+  "監看：從沒接上也當成正常結束": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "223c97bb2cab+dirty",
+    "mode": "only",
+    "defHash": "7cb20db9f92c70c6a396cf3d4a06ade4a89325363f1d38d5dba9c2d733155adf",
+    "depHash": "7c973c37f47f952aee2bb5eb19b99299344fc5331fa4319b5f0429a98426b25f",
+    "runnerHash": "c1c89f9a9a91e1b2a478a33bdb28f6e129afa8d6b2cfadf4104971ccc357d6ca",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 116
+   },
+   "lastFull": null
+  },
+  "監看：沒有結束行也當成正常結束": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "223c97bb2cab+dirty",
+    "mode": "only",
+    "defHash": "44c371897d8d2afc1eb56674a6c7536055a9ef06e1e9d9c1a691333029c70ab6",
+    "depHash": "7c973c37f47f952aee2bb5eb19b99299344fc5331fa4319b5f0429a98426b25f",
+    "runnerHash": "c1c89f9a9a91e1b2a478a33bdb28f6e129afa8d6b2cfadf4104971ccc357d6ca",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 115
+   },
+   "lastFull": null
+  },
+  "監看：沒給 --end-log 也當成正常結束": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "223c97bb2cab+dirty",
+    "mode": "only",
+    "defHash": "93527bd922c66fc2df51bfe84dca8573e638d673112eb635e2d42e2a479da9ed",
+    "depHash": "7c973c37f47f952aee2bb5eb19b99299344fc5331fa4319b5f0429a98426b25f",
+    "runnerHash": "c1c89f9a9a91e1b2a478a33bdb28f6e129afa8d6b2cfadf4104971ccc357d6ca",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 115
+   },
+   "lastFull": null
+  },
+  "執行器結束行改了格式": {
+   "last": {
+    "date": "2026-10-23",
+    "commit": "223c97bb2cab+dirty",
+    "mode": "only",
+    "defHash": "81d8dea10e239d1e89d7da01ecb9cdbf3c441e70fec4d0142579204b2a55141f",
+    "depHash": "f5e0c2a25f68f71d88097db5a7fcff940fbfd140f4be7772fb3024f95935d0cb",
+    "runnerHash": "c1c89f9a9a91e1b2a478a33bdb28f6e129afa8d6b2cfadf4104971ccc357d6ca",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 204
+   },
+   "lastFull": null
   }
  },
- "runSeq": 66,
+ "runSeq": 68,
  "inflight": null
 }

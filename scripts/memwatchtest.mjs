@@ -102,11 +102,39 @@ try {
     const { sh, runner } = await startShell(5);
     kill(sh.pid);
     // 上限 15：正常約 6–8 輪就因找不到執行器結束；「不結束」的突變在 15 輪（約 35 秒）查滿收手、紅在這一條，不靠時限殺（耗時暴增量到的只是變慢）
-    const r = await runWatch(['--threshold', '0', '--count', '2', '--max-checks', '15', '--grace', '3'], 'grace.log');
-    ok(r.code === 0 && r.log.includes(`接上執行器 node.exe(${runner.ProcessId}`) && r.log.includes('連續 3 輪找不到執行器，監看結束') && !r.log.includes('查了 15 次'),
+    // 2026-10-23：執行器不見了要看它的 log 有沒有結束行，才算正常結束——這裡先寫好一份有結束行的 log，當成執行器跑完時寫的
+    // （已知：重負載下這一節會紅——10-23 受控負載實驗約 83% 時 3/3 紅，監看沒接上只活 5 秒的假執行器；見 STATUS）
+    const endLog = path.join(tmp, 'runner-end.log'); fs.writeFileSync(endLog, '開始\nFAKE-END 跑完了\n');
+    const r = await runWatch(['--threshold', '0', '--count', '2', '--max-checks', '15', '--grace', '3', '--end-log', endLog, '--end-mark', 'FAKE-END'], 'grace.log');
+    ok(r.code === 0 && r.log.includes(`接上執行器 node.exe(${runner.ProcessId}`) && r.log.includes('連續 3 輪找不到執行器，監看結束') && r.log.includes('執行器正常結束') && !r.log.includes('查了 15 次'),
       `監看・結束時機：執行器結束後連續 3 輪找不到 → 結束（回 ${r.code}）`);
     // 總結寫在 finally：不只查滿那一條路，找不到執行器而結束也要有（整場最低值是長跑最需要的數字，那時多半是這條路結束）
     ok(/總結：查了 \d+ 輪；可用記憶體整場最低 \d+ MB/.test(r.log), `監看・總結（找不到執行器而結束的那條路）：${/總結：[^\n]*/.exec(r.log)?.[0] ?? '（沒有總結那一行）'}`);
+  }
+
+  // 2026-10-23（受控負載實驗撞出、Dispatch 決定要做）：「從沒接上」「接上過、中途不見」「接上過、分不出」不能跟正常結束一樣回 0
+  section('找不到執行器的三種結束，不冒充正常結束');
+  {
+    const runnersAlive = () => procs().filter((x) => x.Name === 'node.exe' && (x.CommandLine ?? '').includes(RUNNER)).length;
+    ok(runnersAlive() === 0, `（前提）「從沒接上」那一節開監看之前，沒有任何假執行器在跑（現在 ${runnersAlive()} 支）`);
+    const r5 = await runWatch(['--threshold', '0', '--count', '2', '--max-checks', '15', '--grace', '3'], 'never.log');
+    ok(r5.code === 5 && r5.log.includes('從沒接上執行器') && !r5.log.includes('接上執行器 node.exe'),
+      `監看・從沒接上：一支執行器都沒看到 → 回 ${r5.code}（要 5）、印「從沒接上執行器」${r5.log.includes('從沒接上執行器')}`);
+    {
+      const { sh, runner } = await startShell(5);
+      kill(sh.pid);
+      const noEnd = path.join(tmp, 'runner-noend.log'); fs.writeFileSync(noEnd, '開始\n跑到一半\n');
+      const r6 = await runWatch(['--threshold', '0', '--count', '2', '--max-checks', '15', '--grace', '3', '--end-log', noEnd, '--end-mark', 'FAKE-END'], 'lost.log');
+      ok(r6.code === 6 && r6.log.includes(`接上執行器 node.exe(${runner.ProcessId}`) && r6.log.includes('中途失去或崩潰'),
+        `監看・中途失去：接上過、執行器不見了、log 沒有結束行 → 回 ${r6.code}（要 6）、印「中途失去或崩潰」${r6.log.includes('中途失去或崩潰')}`);
+    }
+    {
+      const { sh, runner } = await startShell(5);
+      kill(sh.pid);
+      const r7 = await runWatch(['--threshold', '0', '--count', '2', '--max-checks', '15', '--grace', '3'], 'unknown.log');
+      ok(r7.code === 7 && r7.log.includes(`接上執行器 node.exe(${runner.ProcessId}`) && r7.log.includes('分不出是正常結束還是中途消失'),
+        `監看・分不出：接上過、執行器不見了、沒給 --end-log → 回 ${r7.code}（要 7，不是 0）`);
+    }
   }
 
   section('每一輪記可用記憶體、整場最低值（跟獨立來源核對、跟著變）');
