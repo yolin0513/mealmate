@@ -9,7 +9,8 @@
   "「要先冷凍」對蔬菜也講": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "「要先冷凍」那一半只有肉魚"
   },
   "一道牛肉主菜被改成配菜（牛肉主菜少於門檻）": {
    "test": "recipetest",
@@ -106,6 +107,12 @@
    "n": 230,
    "hash": "a03fe3e72388c7f4"
   },
+  "三顆按鈕又回到日期摺疊外面": {
+   "test": "shoppingviewtest",
+   "n": 133,
+   "hash": "d59a17a937211af6",
+   "expect": "三顆按鈕在日期摺疊的內容裡"
+  },
   "土司沒有標成奶製品": {
    "test": "recipetest",
    "n": 230,
@@ -115,6 +122,24 @@
    "test": "recipetest",
    "n": 230,
    "hash": "a03fe3e72388c7f4"
+  },
+  "不重複天數只給配菜與湯，主菜不能調": {
+   "test": "familytest",
+   "n": 91,
+   "hash": "3825097bb51e7983",
+   "expect": "不重複天數：主菜那一組選項出現了"
+  },
+  "不提示「多勾一個買菜日」": {
+   "test": "weekviewtest",
+   "n": 193,
+   "hash": "27353327ceeaae4a",
+   "expect": "保存期限：診斷卡裡有"
+  },
+  "不認得的網址靜默跳回首頁": {
+   "test": "shelltest",
+   "n": 141,
+   "hash": "3429c7e51c104237",
+   "expect": "不認得的網址：畫面上有"
   },
   "什麼食材都讓使用者推翻（不限加工品類）": {
    "test": "recipetest",
@@ -131,6 +156,18 @@
    "n": 230,
    "hash": "a03fe3e72388c7f4"
   },
+  "加菜只在「主菜排不到葷」時才開（回到改版前）": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229",
+   "expect": "門檻 90 不是「> 0」"
+  },
+  "加菜格只收主菜（真實畫面）": {
+   "test": "weekviewtest",
+   "n": 193,
+   "hash": "27353327ceeaae4a",
+   "expect": "填成配菜的滷雞腳也排進去了"
+  },
   "包子那道要蒸 40 分鐘": {
    "test": "recipetest",
    "n": 230,
@@ -139,30 +176,31 @@
   "包子那道從早餐池子裡消失": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "B-T5 可分流的「包子配豆漿」在全家全素的家庭也排得到"
   },
   "只是沒量到也回 1": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F1-13 mutationtest 遇到逾時"
   },
   "只差空白的突變：判斷永遠說「不是」": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WS3 "
   },
   "只差空白的突變：執行器開跑前不擋": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WS4 "
   },
   "只差空白的突變：檢查的條數不核對": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WS2"
   },
   "可分流卻整道沒有肉時一律不擋（R3 放到最寬）": {
@@ -173,7 +211,8 @@
   "四季豆的類別回到豆類（排菜）": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "蒜炒豌豆莢不算蛋、豆製品或奶類的菜"
   },
   "四季豆的類別回到豆類（買菜分區）": {
    "test": "shoppingtest",
@@ -185,15 +224,64 @@
    "n": 230,
    "hash": "a03fe3e72388c7f4"
   },
+  "打字途中剛好認得的詞會卡住": {
+   "test": "recipeviewtest",
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "繼續打成「雞蛋餅皮」→ 放掉半途的雞蛋"
+  },
   "本週頁不掛「我的」小標": {
    "test": "weekviewtest",
-   "n": 187,
-   "hash": "7541d81dff2d7246"
+   "n": 193,
+   "hash": "27353327ceeaae4a",
+   "expect": "U10 自己的食譜那一列掛「我的」"
   },
   "本週頁不掛「我的」小標（版面樣本也跟著少一個標籤）": {
    "test": "layouttest",
    "n": 109,
    "hash": "888a503a983a1cbf"
+  },
+  "本週頁不講沒排進去的本週想吃": {
+   "test": "weekviewtest",
+   "n": 193,
+   "hash": "27353327ceeaae4a",
+   "expect": "本週想吃排不進去：本週頁有那張卡"
+  },
+  "本週頁不講哪幾餐排不到蛋豆奶的菜": {
+   "test": "weekviewtest",
+   "n": 193,
+   "hash": "27353327ceeaae4a",
+   "expect": "蛋豆奶排不到：本週頁有那張卡"
+  },
+  "本週頁沒有「一起煮」的入口": {
+   "test": "todaytest",
+   "n": 43,
+   "hash": "81fba376103ccb87",
+   "expect": "一起煮：本週頁有「一起煮」的入口"
+  },
+  "本週頁沒有「一週平衡」那張卡": {
+   "test": "weekviewtest",
+   "n": 193,
+   "hash": "27353327ceeaae4a",
+   "expect": "一週平衡：本週頁有那張卡"
+  },
+  "本週想吃不先挑（回到只靠 +40 分）": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229",
+   "expect": "3 天前才吃過的「"
+  },
+  "本週想吃沒有上限": {
+   "test": "recipeviewtest",
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "第 8 道：跳出提示"
+  },
+  "本週想吃順手建的紀錄又算成收藏": {
+   "test": "recipeviewtest",
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "按「本週想吃」之後，「收藏」沒有一起亮"
   },
   "全素早餐有一道平日做不完": {
    "test": "recipetest",
@@ -207,32 +295,32 @@
   },
   "共用複本雜訊：所有 STALE 都當成突變進行中": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "SP1 "
   },
   "共用複本雜訊：突變進行中照樣算 STALE": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "SP1 "
   },
   "共用複本雜訊：checkmutations 回 1 卻沒有 STALE 也算乾淨": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "SP2 "
   },
   "名冊散文對照組永遠不成立": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "（對照）名冊以外的散文"
   },
   "如預期的那幾條沒記進逐條結果": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F1-14 "
   },
   "成分沒寫的油條放進素的菜": {
@@ -240,25 +328,34 @@
    "n": 230,
    "hash": "a03fe3e72388c7f4"
   },
+  "收藏按鈕照「有沒有紀錄」亮": {
+   "test": "recipeviewtest",
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "按「本週想吃」之後，「收藏」沒有一起亮"
+  },
   "早餐完全不輪替": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "同一週同一道最多"
   },
   "早餐輪替只看有沒有吃過、不看次數": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "吃過兩次少"
   },
   "早餐輪替扣分退回 2": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "這 7 天吃過一次的早餐"
   },
   "有不如預期也回 3": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F1-15 "
   },
   "有既有群組的食材也另外加 highprotein": {
@@ -266,28 +363,58 @@
    "n": 230,
    "hash": "a03fe3e72388c7f4"
   },
+  "有素食成員時也排他們吃不了的菜": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229",
+   "expect": "除了加菜，每一道菜蛋奶素與全素"
+  },
+  "有素食家人時，純葷的本週想吃不走加菜位置（真實的重新產生路徑）": {
+   "test": "weekviewtest",
+   "n": 193,
+   "hash": "27353327ceeaae4a",
+   "expect": "填成配菜的滷雞腳也排進去了"
+  },
+  "自己加的菜佔到固定位置": {
+   "test": "weekviewtest",
+   "n": 193,
+   "hash": "27353327ceeaae4a",
+   "expect": "加菜：自己加的那道畫在這一餐裡"
+  },
+  "自己加的菜沒有畫出來": {
+   "test": "weekviewtest",
+   "n": 193,
+   "hash": "27353327ceeaae4a",
+   "expect": "加菜：自己加的那道畫在這一餐裡"
+  },
+  "自己加的菜沒有鎖定": {
+   "test": "weekviewtest",
+   "n": 193,
+   "hash": "27353327ceeaae4a",
+   "expect": "自己加的預設鎖定"
+  },
   "自查入口不拒絕 GIT_ 開頭的環境變數": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "SC-5 自查的入口拒絕"
   },
   "自查入口拒絕不轉大寫": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "SC-5 自查的入口拒絕"
   },
   "自查取不到訊息與作者欄也不停": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "SC-2 範圍裡有 commit、卻取不到訊息與作者欄"
   },
   "自查抽取跟 numstat 對不上也不停": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "SC-1 抽出的新增行數跟 numstat 對不上"
   },
   "冷凍蛋餅皮沒有標成肉": {
@@ -302,37 +429,57 @@
   },
   "判斷 npm test 鏈裡沒有 mutationtest 的函式永遠通過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D4（對照）"
   },
   "把 2026-09-21 補的九道菜從統計的池子拿掉": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "蛋豆奶開關開著："
+  },
+  "改成認得的名稱不會自動換對應": {
+   "test": "recipeviewtest",
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "改成認得的「杏鮑菇」→ 自動改對到杏鮑菇"
+  },
+  "沒有特大字級可以選": {
+   "test": "familytest",
+   "n": 91,
+   "hash": "3825097bb51e7983",
+   "expect": "三段字級"
+  },
+  "沒按「我知道了」也能進其他頁": {
+   "test": "shelltest",
+   "n": 141,
+   "hash": "3429c7e51c104237",
+   "expect": "第一次開是說明頁"
   },
   "沒帶 expect 的上限比實際少一條": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "A3 沒帶 expect 的突變"
   },
   "沒帶 expect 的突變沒有上限": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "A3（對照）"
   },
   "沒超過上限也照樣印那一行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D6（對照）剛好在上限上"
   },
   "沒點清單、直接打的食材名稱不解析": {
    "test": "recipeviewtest",
-   "n": 156,
-   "hash": "00abfb33a38ab762"
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "編輯舊食譜不碰食材框直接存"
   },
   "沒點清單、直接打的食材名稱不解析（Node 端）": {
    "test": "recipetest",
@@ -346,122 +493,122 @@
   },
   "依賴範圍：什麼檔都算進去（跳過永遠不會發生）": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D2 "
   },
   "依賴範圍：未知類別的檔當成不受影響": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D23 "
   },
   "依賴範圍：判斷不出的不退回整個 repo": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D7 "
   },
   "依賴範圍：帳本檔也算進整個 repo": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D11 "
   },
   "依賴範圍：漏認 export … from": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D24c"
   },
   "依賴範圍：漏認 import … from（含跨行）": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D24a"
   },
   "依賴範圍：漏認 import('字面')": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D24d"
   },
   "依賴範圍：漏認只為了副作用的 import '…'": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D24b"
   },
   "依賴範圍：認不出瀏覽器測試": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D6 "
   },
   "依賴範圍：寫死路徑的讀檔不收": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D5 "
   },
   "依賴範圍：瀏覽器測試裡指到不存在的檔一律退回整個 repo": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D25 "
   },
   "依賴範圍：讀不出內容的檔當成空的": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D22 "
   },
   "依賴範圍：App 程式寫不死的載入只算它自己 import 的": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D19 "
   },
   "依賴範圍：data/ 不再一律算進去": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D3 "
   },
   "依賴範圍：docs/ 裡有可 import 的檔也不退回整個 repo": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D10 "
   },
   "依賴範圍：import 只走一層、不遞迴": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D1b "
   },
   "依賴範圍：import 指到不存在的檔當成沒有關係": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D21 "
   },
   "依賴範圍：import( 接變數也當成看得出來": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D8 "
   },
   "依賴範圍：package-lock.json 不再算進去": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D4 "
   },
   "依賴範圍：serve.mjs 不管是不是瀏覽器測試都放行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D9 "
   },
   "兩道新配菜的主角撞在一起": {
@@ -471,21 +618,27 @@
   },
   "刻意保留：一律不保留": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D13h"
   },
   "刻意保留：原因是空白也算標了": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D13j"
   },
   "刻意保留：還有別的理由也不跑": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D13i"
+  },
+  "取消收藏時把本週想吃一起刪掉": {
+   "test": "recipeviewtest",
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "本週想吃：按下去按鈕變成"
   },
   "味噌湯少一道（被換成鹽）": {
    "test": "recipetest",
@@ -499,120 +652,139 @@
   },
   "孤兒測試永遠抓不到": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "T3（對照）"
+  },
+  "忽略保存期限": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229",
+   "expect": "每一道都在週一買菜日後 3 天內"
   },
   "放寬保存期限時不分冷凍與不耐放": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "不耐放又放不住的每一樣扣 60"
   },
   "花生麵筋罐頭沒有標 peanut": {
    "test": "datatest",
    "n": 76,
    "hash": "987870dac4abd835"
   },
+  "表單不提醒「要自己選一次葷素」": {
+   "test": "recipeviewtest",
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "（前提）畫面上出現「這一樣在資料庫裡是葷的」的提示"
+  },
   "表單只對「查不到的食材」跳素葷提示，資料庫標葷的加工品不跳": {
    "test": "recipeviewtest",
-   "n": 156,
-   "hash": "00abfb33a38ab762"
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "畫面上出現「這一樣在資料庫裡是葷的」的提示"
   },
   "表單路徑：步驟一個字都沒打就存不進去": {
    "test": "recipeviewtest",
-   "n": 156,
-   "hash": "00abfb33a38ab762"
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "按了新增步驟卻一個字都沒打"
   },
   "保存期限的理由只講第一樣放不住的": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "保存期限理由每一樣放不住的都講到"
   },
   "待確認清單：找不到表頭也不停": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "待確認 P7"
   },
   "待確認清單：看不懂的決定當成空白": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "待確認 P6"
   },
   "待確認清單：填「含蛋」卻沒進 tags 也放行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "待確認 P4"
   },
   "待確認清單：填「素」、tags 卻標了五辛也放行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "待確認 P3"
   },
   "待確認清單：填「素」卻沒轉進 checked 也放行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "待確認 P2"
   },
   "待確認清單：填「葷」卻沒進 tags 也放行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "待確認 P5"
   },
   "指定菜色的清單又被同角色佔滿": {
    "test": "weekviewtest",
-   "n": 187,
-   "hash": "7541d81dff2d7246"
+   "n": 193,
+   "hash": "27353327ceeaae4a",
+   "expect": "同角色再多也留位置給別的角色"
   },
   "某一頁載不起來時 router 不通報（回到只 console.error）": {
    "test": "versionmixtest",
    "n": 68,
-   "hash": "06ce5824fe69b38d"
+   "hash": "06ce5824fe69b38d",
+   "expect": "需要更新卡出現："
   },
   "看門狗判斷「畫面還是空的」永遠回 false": {
    "test": "versionmixtest",
    "n": 68,
-   "hash": "06ce5824fe69b38d"
+   "hash": "06ce5824fe69b38d",
+   "expect": "看門狗的卡出現："
   },
   "要不要重跑：上次不算數也不跑": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D13e"
   },
   "要不要重跑：上次沒紅也不跑": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D13f"
   },
   "要不要重跑：沒記雜湊的也沿用": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D13g"
   },
   "要不要重跑：依賴範圍改了也不跑": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D13b"
   },
   "要不要重跑：突變本身改了也不跑": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D13c"
   },
   "要不要重跑：執行器改了也不跑": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D13d"
   },
   "食譜步驟裡寫「保證」": {
@@ -620,11 +792,29 @@
    "n": 7,
    "hash": "326f3ab5da9c16f0"
   },
+  "食譜頁沒講「只是部分估算」": {
+   "test": "recipeviewtest",
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "查不到的食材：食譜頁有那一行說明"
+  },
   "剛好在上限上也報「已超過」": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D6（對照）剛好在上限上"
+  },
+  "家人表單沒有「食量」": {
+   "test": "familytest",
+   "n": 91,
+   "hash": "3825097bb51e7983",
+   "expect": "食量：家人表單有「食量」那一組選項"
+  },
+  "拿掉一道之後沒存檔": {
+   "test": "weekviewtest",
+   "n": 193,
+   "hash": "27353327ceeaae4a",
+   "expect": "拿掉：那道從這一餐的畫面上消失"
   },
   "烤的主菜少一道（烹法變化少於門檻）": {
    "test": "recipetest",
@@ -633,8 +823,8 @@
   },
   "真實的 expect 過期了（斷言訊息的錨點被拿掉）": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "A2 每一條 expect 都是對應測試原始碼裡的一段字面"
   },
   "素食成員那一餐的蛋白質加分整個關掉（真實入口）": {
@@ -655,32 +845,38 @@
   "高蛋白質那條路不排除帶肉、海鮮標籤的食材": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "H5 帶肉的香腸 → 不算"
   },
   "高蛋白質那條路不排除穀物類、澱粉類": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "H4 穀物類的小麥胚芽 → 不算"
   },
   "高蛋白質那條路用每份 4 克、不看含量（菇靠份量硬湊）": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "H8 靠高蛋白質食材達標的內建食譜恰好是"
   },
   "高蛋白質那條路排在既有四條路前面": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "H6 一道菜同時有麵腸（排在前面）與豆腐"
   },
   "高蛋白質的含量門檻從 14 掉到 10": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "H2 乾麵條每份"
   },
   "高蛋白質的每份門檻從 6 掉到 3": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "H3 麵筋每份"
   },
   "高蛋白質食材沒有輪替群組（R1 拿掉）": {
    "test": "recipetest",
@@ -690,174 +886,211 @@
   "高蛋白質食材那條路整個沒有": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "H1 紅燒麵腸達標"
   },
   "副本比對：不看版本行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "CV1 比對器"
   },
   "副本比對：不擋指到同一個路徑": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "CV4 主檔指到副本自己"
   },
   "副本比對：不擋硬連結": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "CV5 主檔是副本的硬連結"
   },
   "副本比對：只比版本行、不比全文": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "CV1 比對器"
   },
   "副本比對：讀不到主檔當成一致": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "CV3 主檔讀不到"
   },
   "執行器：--reslog-interval 沒有作用": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D18n "
   },
   "執行器：--test 沒有作用": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D18m "
+  },
+  "執行器：只有崩潰行也算數": {
+   "test": "doctest",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
+   "expect": "C3 只有崩潰行"
   },
   "執行器：可用記憶體低於下限照跑": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D18o "
   },
   "執行器：判對時不印實際紅了哪幾條": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D18i "
+  },
+  "執行器：沒寫 expect 的崩潰也算數": {
+   "test": "doctest",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
+   "expect": "C5 這條突變沒寫 expect"
+  },
+  "執行器：崩潰行也進 expect 比對": {
+   "test": "doctest",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
+   "expect": "C4 崩潰行的訊息含 expect 的字"
+  },
+  "執行器：崩潰前有任何 ✗ 就算數": {
+   "test": "doctest",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
+   "expect": "C1 崩潰之前只紅了非預期的一條"
   },
   "執行器：帳本不記紅了幾條": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D18i "
   },
   "執行器：預期清單過期的前置通過時不印": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D18l "
   },
   "執行器：預期清單過期照跑": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D18j "
   },
   "執行器的雜湊：找不到突變清單也不停": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D12b"
   },
   "執行器的雜湊：沒拿掉突變清單": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D12 執行器"
   },
   "執行器的雜湊：import 不到的檔也照算": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D12c"
   },
   "執行器崩潰沒有接住": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F1-16 mutationtest 執行器自己崩潰"
   },
   "執行器崩潰時不還原改壞的檔": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F1-16 mutationtest 執行器自己崩潰"
   },
   "執行器結束行改了格式": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "執行器結束行格式："
   },
   "執行器開跑前不報預期需要複審": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D18k "
   },
   "基準清單是空的也當成沒問題": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "N4（對照）"
   },
   "基準清單與 STATUS 的比對永遠通過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "N2（對照）"
   },
   "崩潰又算成抓到（不列在不算數裡）": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "R3c "
+  },
+  "崩潰行之後的 JOB-SUM 不登記": {
+   "test": "doctest",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
+   "expect": "R8e 崩潰行之後只有 jobrun 的 JOB-SUM"
+  },
+  "崩潰行的形狀不看是不是最後一行": {
+   "test": "doctest",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
+   "expect": "C9 崩潰行之後還有輸出"
   },
   "帳本：日期看不懂也放行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D15b"
   },
   "帳本：受影響、--only 的跑法也記成在整套裡跑過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D15 "
   },
   "帳本孤兒：帳本有、清單沒有的不報": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D15d"
   },
   "帶 --only 或沒跑完也寫基準清單": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "N3 帶 --only"
   },
   "從未整套跑過改回條數相減": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "N1（對照）"
   },
   "情境未成立：不列在不算數裡": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "R7 "
   },
   "情境未成立：不看痕跡、一律當成情境成立": {
@@ -867,20 +1100,20 @@
   },
   "情境未成立：回 0 時照樣判成通過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "R9 "
   },
   "情境未成立：那幾個字出現在任何地方都算宣告": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "R9（對照）"
   },
   "情境未成立：宣告了也照樣判成斷言失敗": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "R8 "
   },
   "推翻之後，肉的標籤照樣寫進那道菜": {
@@ -896,143 +1129,156 @@
   "理由句的食材名稱寫死黃豆芽": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "理由句點名的是豌豆芽"
   },
   "第二道新配菜的主角也用豆干家族": {
    "test": "recipetest",
    "n": 230,
    "hash": "a03fe3e72388c7f4"
   },
+  "通報出去沒有人接": {
+   "test": "shelltest",
+   "n": 141,
+   "hash": "3429c7e51c104237",
+   "expect": "app.js 真的訂閱了它"
+  },
+  "換版時直接在使用者手上重載，不問一聲": {
+   "test": "versionmixtest",
+   "n": 68,
+   "hash": "06ce5824fe69b38d",
+   "expect": "換版：出現提示列"
+  },
   "殘留檢查：部分型的殘留不擋": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "殘留檢查 K2 部分型"
   },
   "殘留檢查：部分型照舊判法（只比 HEAD）": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "殘留檢查 K1 部分型"
   },
   "殘留檢查：插入型用原文還在不在判": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "殘留檢查 K3 插入型"
   },
   "殘留檢查：檔裡沒有替換字串也照判": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "殘留檢查 K4 插入型"
   },
   "測試名冊掃整份 STATUS": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "而且都在 npm test 的鏈裡"
   },
   "測試名冊漏寫一支（鏈裡有、名冊沒有）": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "名冊（反方向）"
   },
   "測試鏈解析不出任何測試": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "T1 assertaudit 要掃的"
   },
   "登記表：一筆都抽不到也給戳記": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "AR1 "
   },
   "登記表：字串裡的 ok( 也算成斷言": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "AR1 "
   },
   "登記表：有歧義也照戳": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "AR4 "
   },
   "登記表：括號收不齊照樣給戳記": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "AR1 "
   },
   "結果統計：三類相加不比計畫": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "RP3 "
   },
   "結果統計：同一條收到兩次不報": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "RP3 "
   },
   "結果統計：宣稱跑完不查沒輪到的": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "RP4 "
   },
   "結果統計：計畫外的不報": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "RP1 "
   },
   "結果統計：帳本與 log 兩邊不核對": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "RP1 "
   },
   "結果統計：commit 比完全相等": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "RP1 "
   },
   "結算行：回 0 時不看結算行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "RF3 回 0"
   },
   "結算行：回非 0 時不看結算行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "RF1 同一個情境"
   },
   "結算行：有沒有結算行只看名字開頭": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "RF4 結算行要長成"
   },
   "結算行：沒跑完不列在不算數裡": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "R7 "
   },
   "結算行：執行器不要求結算行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D18k2 "
   },
   "菜列的標籤不收在同一格（回到改版前）": {
@@ -1042,9 +1288,15 @@
   },
   "超過上限也不提": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D6 版數超過上限"
+  },
+  "開機失敗不接住（回到改版前）": {
+   "test": "shelltest",
+   "n": 141,
+   "hash": "3429c7e51c104237",
+   "expect": "而且包在 try/catch 裡"
   },
   "新早餐的步驟出現禁用詞": {
    "test": "recipetest",
@@ -1081,70 +1333,77 @@
    "n": 230,
    "hash": "a03fe3e72388c7f4"
   },
+  "新增食譜又預設一步步驟框": {
+   "test": "recipeviewtest",
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "預設 0 步：沒有任何步驟輸入框"
+  },
   "資源紀錄：把記錄工具自己也算進去": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "資源紀錄 R1"
   },
   "資源紀錄：取不到程序表的行默默略過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "資源紀錄 R3"
   },
   "資源紀錄：取程序數那一步永遠回 0": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "資源紀錄 R2 真的記得到"
   },
   "資源紀錄：峰值取最後一行而不是最大的": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "資源紀錄 R3"
   },
   "資源紀錄：組成不記（回到只記個數）": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "資源紀錄 R5 組成"
   },
   "資源紀錄：組成帶整個指令列": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "資源紀錄 R5 組成"
   },
   "資源紀錄：程序表不取指令列": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "資源紀錄 R2b 組成從真實入口"
   },
   "資源紀錄：認子程序不看建立時間（PID 重用）": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "資源紀錄 R4"
   },
   "資源紀錄：瀏覽器的子程序也各算一個": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "資源紀錄 R1"
   },
   "載不到突變清單時 A2 變成空集合": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "（前提）帶 expect 的突變有"
   },
   "達標判定不跳過常備品": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "同一樣標成常備品"
   },
   "嫩莢類的口語別名少一個（長豆）": {
    "test": "aliastest",
@@ -1264,28 +1523,34 @@
    "hash": "d1fcacaed9006ce7",
    "expect": "重試・上限："
   },
+  "寫入不經過通報口（回到改版前）": {
+   "test": "shelltest",
+   "n": 141,
+   "hash": "3429c7e51c104237",
+   "expect": "每一支寫入都經過 writing()"
+  },
   "暫存收拾：入口不呼叫": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WT6 建立者已死的瀏覽器設定檔"
   },
   "暫存收拾：不看還有沒有程序在用": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WT6 建立者已死、但還有程序"
   },
   "暫存收拾：不限登記的種類": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WT6 不是登記的種類"
   },
   "暫存收拾：查不到指令列當成沒人在用": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WT6b 查不到指令列"
   },
   "標成「葷」卻沒有肉時一律不擋（R2 放到最寬）": {
@@ -1296,32 +1561,38 @@
   "標籤沒有跟著食材索引走（indexFoods 收下了卻不掛上）": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "H5 帶肉的香腸 → 不算"
   },
   "蔬菜看含量的那條拿掉（黃豆芽不再算）": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "韓式涼拌黃豆芽算達標"
   },
   "蔬菜蛋白質改看每 100 克": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "乾貨對照"
   },
   "蔬菜蛋白質那條不限蔬菜類": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "非蔬菜類對照"
   },
   "蔬菜蛋白質門檻變成 0": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "（對照）涼拌豆芽菜"
   },
   "蔬菜蛋白質剛好 4 克不算（>= 變 >）": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "蔬菜每份吃到剛好"
   },
   "蔬菜類又走豆製品的名稱規則（黃豆芽算豆製品）": {
    "test": "recipetest",
@@ -1330,8 +1601,8 @@
   },
   "複審判斷不比雜湊": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "AR2 "
   },
   "豬肉酥沒有標成肉": {
@@ -1347,7 +1618,8 @@
   "輪替群組用自己的一份門檻（不引用 isHighProteinFood）": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "G6 驗證器的群組跟排菜器的達標結論一致"
   },
   "輪替群組沒有每份門檻（掃全部內建食譜）": {
    "test": "recipetest",
@@ -1362,36 +1634,44 @@
   "靠黃豆芽達標時理由句也說是豆製品的菜": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "靠黃豆芽達標時，理由句不說它是「豆製品」的菜"
   },
   "靠麵腸達標時，理由句說它是「豆製品」的菜": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "H9 理由句點名麵腸"
   },
   "整套上限：剛好 30 條不算「30 條以上」": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D6 條數到了「以上」那一條"
   },
   "整套上限：超過 14 天也不提": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D6 天數超過"
   },
   "整套收齊：不看是不是同一個 commit": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D14b"
   },
   "整套的上限跟 STATUS 寫的對不上": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D6 STATUS 寫的上限＝sincefull 的 FULL_LIMITS"
+  },
+  "營養標示忽略家人的留意項目": {
+   "test": "weekviewtest",
+   "n": 193,
+   "hash": "27353327ceeaae4a",
+   "expect": "阿嬤有填醣的目標 → 一條對照"
   },
   "購物清單的數量太長時右緣對不齊": {
    "test": "layouttest",
@@ -1415,26 +1695,26 @@
   },
   "戳記：不記預期的文字": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "AR6 "
   },
   "戳記：預期的文字改了也不報": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "AR6 "
   },
   "戳記只看筆數、不看內容": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "AR3 "
   },
   "瀏覽器設定檔：有一支測試又直接開瀏覽器": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "BL1 直接開瀏覽器的只有"
   },
   "瀏覽器設定檔：沒交給 Chrome": {
@@ -1447,40 +1727,46 @@
    "n": 43,
    "hash": "eb59789befc66233"
   },
+  "舊版計畫不補位置欄位（純函式）": {
+   "test": "plannertest",
+   "n": 465,
+   "hash": "7c28dd541e53a229",
+   "expect": "主菜補到位置 0"
+  },
   "證據檔：不跟帳本核對": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "EV4 "
   },
   "證據檔：列數跟條數對不上也照寫": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "EV3 "
   },
   "證據檔：使用者名稱不洗": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "EV1 "
   },
   "證據檔：兩邊都是 0 也當成一致": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "EV5 "
   },
   "證據檔：清洗連分類資訊一起洗掉": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "EV1 "
   },
   "證據檔：磁碟機路徑不洗": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "EV1 "
   },
   "類別覆寫表找不到的編號靜默略過": {
@@ -1496,7 +1782,8 @@
   "麵腸、麵筋併進 soy": {
    "test": "plannertest",
    "n": 465,
-   "hash": "7c28dd541e53a229"
+   "hash": "7c28dd541e53a229",
+   "expect": "G5（對照）當天另一餐是豆腐"
   },
   "護欄：「是不是原樣」逐位元組比（不統一行尾）": {
    "test": "resume-verify",
@@ -1540,20 +1827,20 @@
   },
   "讀回確認：什麼都沒比也算通過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "CC1 "
   },
   "讀回確認：內容不同也當成相同": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "CC1 "
   },
   "讀回確認：複本少了某一支也不報": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "CC1 "
   },
   "蘿蔔糕沒有標成肉": {
@@ -1588,13 +1875,15 @@
   },
   "A 方案：食材表不標未確認的那幾樣（真實畫面）": {
    "test": "recipeviewtest",
-   "n": 156,
-   "hash": "00abfb33a38ab762"
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "A 方案 V3："
   },
   "A 方案：食譜頁不列家人的未確認標示（真實畫面）": {
    "test": "recipeviewtest",
-   "n": 156,
-   "hash": "00abfb33a38ab762"
+   "n": 159,
+   "hash": "91de565cc7714f30",
+   "expect": "A 方案 V1："
   },
   "A 方案：家人吃的也標（不看他不吃什麼）": {
    "test": "recipetest",
@@ -1618,421 +1907,422 @@
   },
   "assertaudit 的母體回到「scripts/ 底下有什麼就算什麼」": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "T2 scripts/ 底下的工具不會被 assertaudit 當成測試"
   },
   "auditrules 的常數述詞樣式失效": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "S2（對照）常數述詞："
   },
   "auditrules 的雙反斜線不再排除「前面還有反斜線」": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "S2（對照）雙反斜線："
   },
   "build-foods 不檢查分類整個不見": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F8-5 build-foods：乙類整個不見"
   },
   "build-foods 不檢查必要欄位": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F8-4 build-foods：欄位「"
   },
   "build-foods 不檢查營養素有沒有值": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "一種食材都沒有值 → 點名它"
   },
   "build-recipes 少了幾道也照樣寫檔": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F8-2 build-recipes：上一版有 r-b"
   },
   "build-recipes 的 0 道照樣寫檔": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F8-1 build-recipes：0 道"
   },
   "buildguard 工作區有改動一律當成沒改動": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F8-10 被守的檔工作區有改動"
   },
   "buildguard 比對模式不查兩份是不是同一個版本": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F8-11 比對模式"
   },
   "buildguard 在整份輸出裡找點名": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F8-8 只出現在正常進度訊息"
   },
   "buildguard 登記不管工作區乾不乾淨": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F8-9 工作區的 build 跟 HEAD 不一樣"
   },
   "buildguard 登記不管是不是 HEAD": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F8-9 --rev 不是 HEAD"
   },
   "buildguard 登記讀不到雜湊就留著舊登記": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F8-12 登記那一步讀不到雜湊"
   },
   "buildguard 點名不對邊界": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F8-8 buildguard 驗法的對照組"
   },
   "buildguard-verify 每一格不帶上限": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "TO2 那 "
   },
   "checkmutations 不再檢查 find 出現幾次": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "A5 checkmutations：find 在目標檔裡找不到"
   },
   "checkmutations 不報預期需要複審": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "AR2 "
   },
   "checkmutations 有過期也回傳 0": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "A4 checkmutations 的回傳值"
   },
   "checkmutations 的突變清單是空的也算通過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F1-10 稽核器（checkmutations）"
   },
   "checkmutations：戳記與帶 expect 的條數不比": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "AR5 "
   },
   "D17c 的「只走一層」複本其實沒套上突變（兩邊一樣）": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D17c "
   },
   "D18 不刪 D18p 的標記檔": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D18（清理）D18p 的標記檔"
   },
   "doctest 子程序上限：掃描漏掉 runP 那種寫法": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "TO1 掃描抓得到"
   },
   "doctest 子程序上限：註解也算": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "TO1 掃描抓得到"
   },
   "doctest 子程序上限：BS7 開 gatemutants 不帶上限": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "TO2 那 "
   },
   "doctest 子程序上限只剩不到 3 倍": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "子程序上限餘裕："
   },
   "doctest 共用 clone：每一節開頭不回到基準": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "SC1 "
   },
   "doctest 共用 clone：帳本與還原紀錄也蓋過去": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "SC2 "
   },
   "doctest 的 F1 探針帶著 MM_AUDIT 跑": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F1-12 探針不會把斷言寫進"
   },
   "doctest 試寫基準清單的暫存資料夾用完不刪": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "N3（清理）用來試寫的暫存資料夾用完就刪"
   },
   "expect 檢查永遠放行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "A2（對照）"
   },
   "gatemutants 帳：上次不如預期也算跑過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "GL1e "
   },
   "gatemutants 帳：帳本不見了當成空的": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "GL6c "
   },
   "gatemutants 帳：帳本多出來的不報": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "GL6 "
   },
   "gatemutants 帳：被驗的檔不展開閘門提到的": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "GL3 "
   },
   "gatemutants 帳：被驗的檔改了也算跑過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "GL1c "
   },
   "gatemutants 帳：逾時也記成跑過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "GL4 "
   },
   "gatemutants 帳：gatemutants 本身改了也算跑過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "GL1d "
   },
   "gatemutants 帳：gatemutants 本身的雜湊不拿掉 CASES": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "GL2 "
   },
   "gatemutants：不查預期的情境在不在": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "GM2 "
   },
   "gatemutants：不查錨點是不是剛好一次": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "GM1 "
   },
   "gatemutants：不問 bash 是不是 Git Bash": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "BS3 "
   },
   "gatemutants：查出過期也照跑": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "GM1 "
   },
   "gatemutants：理由碼不分 1 與 11": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "RC1b "
   },
   "gatemutants：理由碼不查在不在": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "RC3 "
   },
   "gatemutants：理由碼只要含有就算對": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "RC2 "
   },
   "gatemutants：解不出 bash 就退回裸寫的 bash": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "BS7 "
   },
   "gatemutants：預期清單過期的前置通過時不印": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "GM5 "
   },
   "gatemutants：數不到情境當成全部不過期": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "GM3 "
   },
   "gatemutants：bash 在系統目錄也照用": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "BS1 "
   },
   "gatescan 不跑跳脫掃描": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "G6-1 跳脫掃描"
   },
   "gatescan 取不到追蹤清單就當成沒有孤兒": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "G6-3 取不到 git 追蹤清單"
   },
   "gatescan 的 shell 樣式回到「整行有反斜線就算」": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "G2（對照）"
   },
   "gatescan 的孤兒檢查只報已登記例外的那幾支": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "G5 丟一支有推送指令"
   },
   "gatescan 的管線樣式失效": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "G1 gatescan 通過"
   },
   "gatescan 某個分支的樣本被別的分支順便抓到": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "G8 每條規則的每個分支"
   },
   "gatescan 看不到間接讀取環境變數": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "G7-3 間接讀取環境變數"
   },
   "gatescan 登記的例外沒用到也照樣通過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "G4 登記的例外那一行改掉之後"
   },
   "gatescan 跳脫掃描不做孤兒核對": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "G6-2 跳脫掃描的孤兒"
   },
   "gatescan 跳脫掃描只走 scripts/": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "G6-1 跳脫掃描"
   },
   "gatescan 讀不到被掃的檔時當成 0 個問題": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "G3 被掃的檔讀不到時"
   },
   "gatescan 讀環境變數一律當成已登記": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "G7-1 閘門讀了沒登記的環境變數"
   },
   "gatescan 讀環境變數不看自己讀自己": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "G7-2 賦值那一行自己讀自己"
   },
   "index.html 不載開機看門狗": {
    "test": "versionmixtest",
    "n": 68,
-   "hash": "06ce5824fe69b38d"
+   "hash": "06ce5824fe69b38d",
+   "expect": "看門狗的卡出現："
   },
   "Job 計數：有 stale 也當峰值可信": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "JS4 有 38 支已經不在"
   },
   "Job 計數：差值截成 0": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "JS1 收的比開的多"
   },
   "Job 計數：拿不到結算當成 0": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "JS3 沒有結算行"
   },
   "Job 計數：留下來的截成 0": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "JS1 收的比開的多"
   },
   "Job 計數：執行器不收集結算": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D18q "
   },
   "Job 計數：程序結束不減": {
@@ -2062,8 +2352,8 @@
   },
   "Job：執行器跑測試不經 jobrun": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D18p "
   },
   "Job：runProgram 不理 inJob": {
@@ -2078,198 +2368,230 @@
   },
   "mutationtest --affected 不看刻意保留": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D18u"
   },
   "mutationtest --affected 不管理由一律全跑": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D18b"
   },
   "mutationtest --never-full 不看刻意保留": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D18v"
   },
   "mutationtest 不分「不算數」": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F1-13 mutationtest 遇到逾時"
   },
   "mutationtest 不再列為例外": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "T3 沒有孤兒測試"
   },
   "mutationtest 不寫帳本": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D18a"
   },
   "mutationtest 只列不跑時把刻意保留寫成跳過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D18v"
   },
   "mutationtest 把不算數的也算成跑到了": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F1-13 mutationtest 遇到逾時"
   },
   "mutationtest 沿用的條數把刻意保留的也算進去": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D18u"
   },
   "mutationtest 的 expect 比對認「行裡有 ✗ 這個字」": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D18h"
   },
   "pre-commit hook：一律當成沒有還原紀錄": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "hook H2 "
   },
   "pre-commit hook：不看帳本的 inflight": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "hook H4 "
   },
   "pre-commit hook：不看磁碟上的還原紀錄": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "hook H2 "
   },
   "pre-commit hook：通過時不印": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "hook H1 "
+  },
+  "runkind 不先接走崩潰行": {
+   "test": "doctest",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
+   "expect": "R8a 只有一行崩潰行"
   },
   "runkind 不認得沒跑起來": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "R5 程式根本沒跑起來"
   },
   "runkind 不認得逾時": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "R4 超過時限被殺"
+  },
+  "runkind 回 0 卻有崩潰行也當成通過": {
+   "test": "doctest",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
+   "expect": "R8f 有崩潰行卻回 0"
   },
   "runkind 把「✓ 行裡提到 ✗」當成斷言失敗": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "R3b "
   },
   "runkind 把崩潰當成斷言失敗": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "R3 回傳非 0、輸出裡沒有 ✗"
   },
   "serve.mjs 又會送 docs/": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D20 "
   },
   "shelltest 的 regex 擷取改回只看 .test(／.exec(": {
    "test": "shelltest",
-   "n": 140,
-   "hash": "6c3b7497af3f05f9"
+   "n": 141,
+   "hash": "3429c7e51c104237",
+   "expect": "（對照）regex 字面值的擷取"
   },
   "shelltest 的跳脫判準改回「兩個反斜線接類別字元就算」": {
    "test": "shelltest",
-   "n": 140,
-   "hash": "6c3b7497af3f05f9"
+   "n": 141,
+   "hash": "3429c7e51c104237",
+   "expect": "（對照）regex 字面值的擷取"
   },
   "sincefull 不分開刻意保留": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D15f"
   },
   "sincefull 分開時沒把保留的扣掉": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D15e"
   },
   "sincefull 格式壞掉時回傳 0 天而不是報錯": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D2 那一行格式壞掉時"
   },
   "sincefull 耗時無紀錄時省略整段": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D5（對照）"
   },
   "sincefull 讀不出「上次突變整套」那一行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "D1 sincefull 讀得出"
   },
   "sincefull 讀不到突變清單就當成沒有保留的": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D15e"
   },
   "sincefull：上次整套名單和帳本對不上也不停": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "受影響 D15c"
   },
   "tap 一條斷言都沒有就結束也算通過": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F1-6 一條斷言都沒有就結束"
+  },
+  "tap 不接未處理的例外": {
+   "test": "doctest",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
+   "expect": "C2 崩潰之前預期的那條已紅"
+  },
+  "tap 不讓開給程式自己的處理器": {
+   "test": "doctest",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
+   "expect": "R8k 經 tap：程式自己也掛了處理器"
+  },
+  "tap 只接同步的例外、不接 Promise 拒絕": {
+   "test": "doctest",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
+   "expect": "R8l 經 tap：沒人 await 的拒絕"
   },
   "worktree 收拾：不看 PID 重用": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WT1 判斷"
   },
   "worktree 收拾：建立者已死也當成活著": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WT1 判斷"
   },
   "worktree 收拾：查不到程序清單就當成全部已死": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WT3 查不到程序清單"
   },
   "worktree 收拾：看不出建立者就當成已死": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WT1 判斷"
   },
   "worktree 收拾：執行器的呼叫還在、但不會執行": {
@@ -2279,8 +2601,8 @@
   },
   "worktree 收拾：執行器開頭不收拾": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WT5 入口 mutationtest"
   },
   "worktree 收拾：buildguard-verify 的呼叫還在、但不會執行": {
@@ -2290,8 +2612,8 @@
   },
   "worktree 收拾：buildguard-verify 開頭不收拾": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WT5 入口 buildguard-verify"
   },
   "worktree 收拾：doctest 的呼叫還在、但不會執行": {
@@ -2302,32 +2624,32 @@
   },
   "worktree 收拾：doctest 開頭不收拾": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WT5 入口 doctest"
   },
   "worktree 收拾：gatemutants 的呼叫還在、但不會執行": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WT5b 從真實入口"
   },
   "worktree 收拾：gatemutants 開頭不收拾": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "WT5 入口 gatemutants"
   },
   "writeAtomically 沒寫成也去刪暫存檔的位置": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F8-7 暫存檔的位置本來就有東西"
   },
   "writeAtomically 清理失敗就中斷": {
    "test": "doctest",
-   "n": 471,
-   "hash": "b3a372ce3d93250a",
+   "n": 487,
+   "hash": "a490656fcae56ce0",
    "expect": "F8-7 換上失敗、清理也失敗"
   }
  }

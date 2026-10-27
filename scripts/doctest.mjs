@@ -865,31 +865,31 @@ section('測試怎麼結束的（runkind；2026-10-01：逾時、沒跑起來、
     try {
       const tapUrl8 = new URL('./tap.mjs', import.meta.url).href;
       const p8 = (name, body) => { const p = path.join(dir8, `${name}.mjs`); fs.writeFileSync(p, `import fs from 'node:fs';\nimport { ok, done } from '${tapUrl8}';\n${body}\ndone('${name}');\n`); return p; };
-      const t1 = runProgram([p8('r8t1', "ok(false, 'R8 預期那條');\nthrow new Error('R8 同步丟');")], { timeoutMs: 15000, finalOf: 'r8t1' });
-      ok(t1.kind === 'crashmid' && t1.crashWellFormed && /✗ R8 預期那條/.test(t1.out) && t1.out.includes(`${CRASH_MARK}R8 同步丟`),
+      const t1 = runProgram([p8('r8t1', "ok(false, 'R8探針 預期那條');\nthrow new Error('R8探針 同步丟');")], { timeoutMs: 15000, finalOf: 'r8t1' });
+      ok(t1.kind === 'crashmid' && t1.crashWellFormed && /✗ R8探針 預期那條/.test(t1.out) && t1.out.includes(`${CRASH_MARK}R8探針 同步丟`),
         `R8i 經 tap：先紅一條、再同步丟 → tap 印崩潰行、形狀可信（${t1.kind}、${t1.crashWellFormed}）`);
-      const t2 = runProgram([p8('r8t2', "ok(false, 'R8 預期那條');\nawait Promise.reject(new Error('R8 頂層 await 被拒'));")], { timeoutMs: 15000, finalOf: 'r8t2' });
-      ok(t2.kind === 'crashmid' && t2.crashWellFormed && t2.out.includes(`${CRASH_MARK}R8 頂層 await 被拒`),
+      const t2 = runProgram([p8('r8t2', "ok(false, 'R8探針 預期那條');\nawait Promise.reject(new Error('R8探針 頂層 await 被拒'));")], { timeoutMs: 15000, finalOf: 'r8t2' });
+      ok(t2.kind === 'crashmid' && t2.crashWellFormed && t2.out.includes(`${CRASH_MARK}R8探針 頂層 await 被拒`),
         `R8j（C7 的單元層）經 tap：頂層 await 被拒 → 也走到 tap 的處理器、印崩潰行（${t2.kind}、${t2.crashWellFormed}）——走不到的話 (i) 對這種寫法沒有作用`);
-      const t3 = spawnSync(process.execPath, [p8('r8t3', "ok(false, 'R8 預期那條');\nprocess.on('uncaughtException', () => { fs.writeSync(1, 'R8 自己的處理器\\n'); process.exit(70); });\nthrow new Error('R8 同步丟');")], { encoding: 'utf8', timeout: 15000 });
+      const t3 = spawnSync(process.execPath, [p8('r8t3', "ok(false, 'R8探針 預期那條');\nprocess.on('uncaughtException', () => { fs.writeSync(1, 'R8探針 自己的處理器\\n'); process.exit(70); });\nthrow new Error('R8探針 同步丟');")], { encoding: 'utf8', timeout: 15000 });
       const t3out = `${t3.stdout ?? ''}`;
-      ok(t3.status === 70 && t3out.includes('R8 自己的處理器') && t3out.includes('✗ R8 預期那條') && !t3out.split('\n').some(isCrashLine),
+      ok(t3.status === 70 && t3out.includes('R8探針 自己的處理器') && t3out.includes('✗ R8探針 預期那條') && !t3out.split('\n').some(isCrashLine),
         `R8k 經 tap：程式自己也掛了處理器（mutationtest 的 CRASH 就是這種）→ tap 讓開、不印崩潰行，由它收尾（回 ${t3.status}；崩潰行 ${t3out.split('\n').filter(isCrashLine).length} 行）`);
       // R8l：tap 的 unhandledRejection 那一支，守的是「沒人 await 的拒絕」——頂層 await 被拒走的是 uncaughtException（R8m），R8j 守不到這一支
-      const t4 = runProgram([p8('r8t4', "ok(false, 'R8 預期那條');\nPromise.reject(new Error('R8 沒人 await 的拒絕'));\nawait new Promise((r) => setTimeout(r, 2000));")], { timeoutMs: 15000, finalOf: 'r8t4' });
-      ok(t4.kind === 'crashmid' && t4.crashWellFormed && t4.out.includes(`${CRASH_MARK}R8 沒人 await 的拒絕`),
+      const t4 = runProgram([p8('r8t4', "ok(false, 'R8探針 預期那條');\nPromise.reject(new Error('R8探針 沒人 await 的拒絕'));\nawait new Promise((r) => setTimeout(r, 2000));")], { timeoutMs: 15000, finalOf: 'r8t4' });
+      ok(t4.kind === 'crashmid' && t4.crashWellFormed && t4.out.includes(`${CRASH_MARK}R8探針 沒人 await 的拒絕`),
         `R8l 經 tap：沒人 await 的拒絕 → 走 unhandledRejection、tap 也接住、印崩潰行（${t4.kind}、${t4.crashWellFormed}）——不接的話這種崩潰印不出崩潰行`);
       // R8m：Node 自己的行為（2026-10-27 探針 D 搬進版控）。不經 tap、每支只掛一個處理器，被叫到就印 HIT。
       // 第 3、4 格是對照：同一種處理器接得到別的東西，第 2 格的「沒接到」才是「Node 不走這一支」，不是處理器掛壞。
       // 這一條驗的是環境前提（換 Node 版本可能變），沒有本 repo 的程式可以突變；它分得出東西的證據是第 2、3 格同一種處理器、結果相反。
       const pn8 = (name, type, body) => { const p = path.join(dir8, `${name}.mjs`); fs.writeFileSync(p, `import fs from 'node:fs';\nprocess.on('${type}', () => { fs.writeSync(1, 'HIT ${type}\\n'); process.exit(1); });\n${body}`); return p; };
       const hit8 = (name, type, body) => `${spawnSync(process.execPath, [pn8(name, type, body)], { encoding: 'utf8', timeout: 15000 }).stdout ?? ''}`.split(/\r?\n/).includes(`HIT ${type}`);
-      const tla8 = "await Promise.reject(new Error('R8 頂層 await 被拒'));\n";
+      const tla8 = "await Promise.reject(new Error('R8探針 頂層 await 被拒'));\n";
       const dHits = [
         hit8('r8d1', 'uncaughtException', tla8),
         hit8('r8d2', 'unhandledRejection', tla8),
-        hit8('r8d3', 'unhandledRejection', "Promise.reject(new Error('R8 沒人 await 的拒絕'));\nawait new Promise((r) => setTimeout(r, 2000));\n"),
-        hit8('r8d4', 'uncaughtException', "throw new Error('R8 同步丟');\n"),
+        hit8('r8d3', 'unhandledRejection', "Promise.reject(new Error('R8探針 沒人 await 的拒絕'));\nawait new Promise((r) => setTimeout(r, 2000));\n"),
+        hit8('r8d4', 'uncaughtException', "throw new Error('R8探針 同步丟');\n"),
       ];
       eq(dHits, [true, false, true, true], 'R8m Node 自己的行為（不經 tap、每支只掛一個處理器）：頂層 await 被拒走 uncaughtException、不走 unhandledRejection；沒人 await 的拒絕走 unhandledRejection；同步丟走 uncaughtException');
     } finally { fs.rmSync(dir8, { recursive: true, force: true }); }
@@ -1742,7 +1742,8 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
     // （這個暫存 repo 裡的 mutationtest）。每一格一支探針測試＋一條改壞它的突變；改壞後探針照各自的形狀結束。
     // 比對判定那一行（✓／✗ 開頭、不算數的理由）與帳本的 kind／counted 兩個來源，不只看回傳值。
     {
-      const KILL = "require('node:child_process').execSync('taskkill /F /PID ' + process.pid); setInterval(() => {}, 1000);";
+      // 探針是 ES module：用 require 會先丟 ReferenceError、被 tap 接成崩潰行，taskkill 根本沒跑到（10-27 第一次實跑就是這樣，C6 照樣紅、但紅的理由是情境沒成立）
+      const KILL = "const { execSync } = await import('node:child_process'); execSync('taskkill /F /PID ' + process.pid); setInterval(() => {}, 1000);";
       const E = 'CRM 預期那條';
       const CASES = [
         { id: 'c1', body: `ok(!BROKEN, 'CRM 別的一條');\nif (BROKEN) throw new Error('CRM 崩潰');\nok(true, '${E}');`, expect: E, want: { counted: false, kind: 'crashmid', why: `都不含「${E}」` }, what: 'C1 崩潰之前只紅了非預期的一條 → 不算數（Dispatch 指定的那一格）' },
