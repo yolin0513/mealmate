@@ -476,9 +476,11 @@ try {
     // 保存期限 → 直接接到「多勾一個買菜日」
     const shelfN = diag.filter((r) => r.constraints.includes('relaxShelf')).length;
     ok(shelfN >= 1, `（前提）其中 ${shelfN} 道是保存期限`);
-    const hint = await textOf(page, '[data-card="diagnostics"] [data-field="shelfHint"]');
-    ok(hint.includes(`${shelfN} 道`), `提示講的道數也是實際的 ${shelfN} 道`);
-    ok(hint.includes('星期三'), '提示點名使用者自己設的買菜日（星期三）');
+    // 讀不到印 ✗、不丟例外（2026-10-27，(ii)）：以前 textOf 是 $eval，提示被拿掉時直接丟例外，前面一條 ✗ 都沒有
+    const hint = await textOf(page, '[data-card="diagnostics"] [data-field="shelfHint"]').catch(() => null);
+    ok(hint !== null, '保存期限：診斷卡裡有「多勾一個買菜日」那一行提示');
+    ok((hint ?? '').includes(`${shelfN} 道`), `提示講的道數也是實際的 ${shelfN} 道`);
+    ok((hint ?? '').includes('星期三'), '提示點名使用者自己設的買菜日（星期三）');
     const href = await page.$eval('[data-field="shelfHint"] a', (a) => a.getAttribute('href'));
     eq(href, '#/family', '提示裡的連結直接到家人分頁（就是改買菜日的地方）');
 
@@ -658,7 +660,7 @@ try {
     await goto(page, '#/family');
     await titleIs(page, '家人');
     await goto(page, '#/');
-    await page.waitForSelector('[data-card="balance"] [data-field="balanceText"]');
+    ok(await page.waitForSelector('[data-card="balance"] [data-field="balanceText"]').then(() => true, () => false), '一週平衡：本週頁有那張卡');   // 等不到印 ✗、不丟例外（2026-10-27，(ii)）
     const t1 = await textOf(page, '[data-card="balance"] [data-field="balanceText"]');
     ok(t1.endsWith('這是一般飲食常識的安排，不是營養處方。'), `一週平衡那一段最後帶著那句說明：「${t1}」`);
     noneOf(['健康', '降', '控制', '療效', '治療', '改善'], (w) => t1.includes(w), '沒有療效字眼（健康／降／控制…）');
@@ -736,7 +738,7 @@ try {
     await sleep(200);
     await clickEl(page, `[data-pick="${target.id}"]`);
     await waitToastGone(page).catch(() => {});
-    await page.waitForSelector(`${lunchSel} .meal-item[data-item="${target.id}"]`);
+    ok(await page.waitForSelector(`${lunchSel} .meal-item[data-item="${target.id}"]`).then(() => true, () => false), '加菜：自己加的那道畫在這一餐裡');   // 等不到印 ✗、不丟例外（(ii)）
     eq(await dishCount(), before + 1, `這一餐從 ${before} 道變成 ${before + 1} 道`);
     eq(await page.$eval(`${lunchSel} .meal-item[data-item="${target.id}"]`, (el) => el.dataset.added), 'true', '自己加的那道標得出來');
     ok(await page.$(`${lunchSel} .meal-item[data-item="${target.id}"] .lock`) != null, '自己加的預設鎖定（重新產生不會被洗掉）');
@@ -769,7 +771,9 @@ try {
     await clickEl(page, `${lunchSel} .meal-item[data-item="${target.id}"] .item-menu`);
     await page.waitForSelector('.modal-card .modal-actions');
     await page.evaluate(() => { [...document.querySelectorAll('.modal-card .modal-actions .btn')].find((b) => b.textContent.includes('拿掉這道'))?.click(); });
-    await page.waitForFunction((sel, id) => !document.querySelector(`${sel} .meal-item[data-item="${id}"]`), {}, lunchSel, target.id);
+    // 等不到印 ✗、不丟例外（(ii)）：沒存檔的話重畫時那道會回來，以前這裡逾時丟例外
+    ok(await page.waitForFunction((sel, id) => !document.querySelector(`${sel} .meal-item[data-item="${id}"]`), {}, lunchSel, target.id).then(() => true, () => false),
+      '拿掉：那道從這一餐的畫面上消失（存檔之後重畫也不會回來）');
     eq(await dishCount(), beforeRemove - 1, `拿掉之後從 ${beforeRemove} 道變成 ${beforeRemove - 1} 道`);
     await goto(page, '#/shopping');
     await titleIs(page, '買菜');
@@ -829,7 +833,7 @@ try {
     await goto(page, '#/');
     await page.waitForSelector('[data-action="regenerate"]');
     await regen();
-    await page.waitForSelector('[data-card="wantMissed"]');
+    ok(await page.waitForSelector('[data-card="wantMissed"]').then(() => true, () => false), '本週想吃排不進去：本週頁有那張卡');   // 等不到印 ✗、不丟例外（(ii)）
     const missedText = await textOf(page, '[data-card="wantMissed"]');
     ok(missedText.includes('你想吃的「慢燉牛腱」這週沒排進去，因為') && missedText.includes('300 分鐘'), `排不進去的照實講、講原因：「${missedText}」`);
     ok(!missedText.includes('滷雞腳'), '（對照）排進去的滷雞腳不在這張卡上');
@@ -1035,7 +1039,7 @@ try {
     ok(setup.length === 3, `（前提）週一午餐換成三道都不是蛋、豆製品或奶類的菜：${setup.join('、')}`);
     await goto(page, '#/family'); await titleIs(page, '家人');
     await goto(page, '#/'); await titleIs(page, '本週菜單');
-    await page.waitForSelector('[data-card="vegProteinMiss"]');
+    ok(await page.waitForSelector('[data-card="vegProteinMiss"]').then(() => true, () => false), '蛋豆奶排不到：本週頁有那張卡');   // 等不到印 ✗、不丟例外（(ii)）
     const card = await textOf(page, '[data-card="vegProteinMiss"]');
     ok(card.includes('姊') && card.includes('週一午餐'), `本週頁講出是誰、哪一餐：「${card.replace(/\s+/g, ' ').slice(0, 80)}」`);
     ok(card.includes('我來指定'), '也講怎麼換（我來指定）');

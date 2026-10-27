@@ -17,6 +17,25 @@
 // `MM_AUDIT=1` 時會把每條斷言（含母體大小）寫進 JSONL，給假斷言健檢用。
 
 import fs from 'node:fs';
+import { CRASH_MARK } from './crashmark.mjs';
+
+// 中途丟例外（2026-10-27，(i)）：測試主體是頂層 await、只有最後一行的 done()，任何一行丟例外都會跳過 done()，
+// 印不出結算行，執行器只能判「沒跑完、不算數」——就算崩潰之前，預期的那條斷言已經紅了（10-24 整套 43 條）。
+// 這裡接住沒接住的例外，印一行固定開頭的崩潰行（scripts/crashmark.mjs），**不印結算行**，以 1 結束（跟 Node 預設的崩潰碼一樣，
+// 既有拿回傳值判斷崩潰的檢查不必跟著改）。算不算數由執行器決定（runkind 的 crashmid；判準見 mutationtest 的判定那一段）。
+// 別的程式自己也掛了處理器（例：mutationtest 的 CRASH——要先還原被改壞的檔、以 70 結束）：這裡讓開，交給它收尾。
+// 崩潰行用 stdout 的 write callback 再結束：之前 console.log 排隊中的輸出先送完，崩潰行才會是最後一行（crashShape 靠這一點）。
+function onUncaught(type) {
+  return (e) => {
+    if (process.listenerCount(type) > 1) return;
+    const first = String(e?.message ?? e).split('\n')[0].slice(0, 300);
+    console.error(String(e?.stack ?? e));
+    process.stdout.write(`  ${CRASH_MARK}${first}\n`, () => process.exit(1));
+    setTimeout(() => process.exit(1), 5000);
+  };
+}
+process.on('uncaughtException', onUncaught('uncaughtException'));
+process.on('unhandledRejection', onUncaught('unhandledRejection'));
 
 let pass = 0;
 let fail = 0;

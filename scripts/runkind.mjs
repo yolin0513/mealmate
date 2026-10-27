@@ -10,10 +10,13 @@
 //   timeout  超過時限被殺（execFileSync 的 code 是 ETIMEDOUT）
 //   signal   被外部的訊號殺掉（不是逾時）
 //   spawn    程式根本沒跑起來（例如找不到執行檔、開不了子行程）
+//   crashmid 輸出裡有 tap 印的崩潰行（scripts/crashmark.mjs；2026-10-27，(i)）——中途丟例外、沒跑完。本身不算數；
+//            崩潰之前預期的那條已經紅了的，由 mutationtest 依 expect 判算數（runkind 不知道 expect）
 // 判斷順序照上面由下往上：先看有沒有跑起來、是不是逾時、是不是被殺，最後才看輸出。
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isCrashLine, crashShape } from './crashmark.mjs';
 
 export const KIND_LABELS = {
   pass: '通過',
@@ -24,6 +27,8 @@ export const KIND_LABELS = {
   spawn: '沒跑起來',
   noscenario: '情境未成立（要測的狀況這一次沒有發生）',
   cut: '沒跑完（輸出裡沒有結算行——被外力停掉、或半途結束；印過的 ✗ 不代表跑完）',
+  // 刻意不寫是哪一種原因：原因由 mutationtest 逐條接在後面，doctest C1–C10 比對的就是那一段——標籤裡出現原因的字，比對就分不出來
+  crashmid: '中途丟例外（有崩潰行、沒有結算行）',
 };
 
 /**
@@ -47,6 +52,8 @@ export function hasFinalLine(out, name) {
 // crash（2026-10-02 Dispatch、共用慣例 v11.4 §5.20）：被改壞的程式崩潰，證明的是「它崩潰了」，不是「那道檢查發現了它」——
 // 被別的東西碰巧擋下的一律算沒擋。抓到只有一種：被改壞的程式完整跑完、某條斷言印出失敗（assert）。
 export const UNCOUNTED_KINDS = new Set(['timeout', 'signal', 'spawn', 'noscenario', 'crash', 'cut']);
+// crashmid（2026-10-27，(i)）另一行加：上面那一行是好幾條突變的錨點，不動它
+UNCOUNTED_KINDS.add('crashmid');
 /** 測試宣告情境未成立的那一行要以這個開頭（單獨一行；不用 ✗，免得被當成斷言失敗） */
 export const NO_SCENARIO_MARK = '⊘ 情境未成立';
 export function hasNoScenario(out) {
@@ -61,6 +68,8 @@ export function classifyRun(e) {
   if (e.status === null || e.status === undefined) return 'spawn';
   const out = `${e.stdout ?? ''}\n${e.stderr ?? ''}`;
   if (hasNoScenario(out)) return 'noscenario';                       // 宣告了情境未成立：就算也有 ✗，那些 ✗ 量的不是要測的東西
+  // 崩潰行（2026-10-27）：它以 ✗ 開頭，不先接走的話下一行會把它當成「某條斷言紅了」——只崩潰、沒有任何斷言紅的也會變成 assert
+  if (out.split('\n').some(isCrashLine)) return 'crashmid';
   // 只認以 ✗ 開頭的行（2026-10-02）：通過的行（✓ …）訊息裡提到 ✗ 的，不是某條斷言紅了
   return out.split('\n').some((l) => l.trimStart().startsWith('✗')) ? 'assert' : 'crash';
 }
@@ -102,12 +111,16 @@ export function runProgram(args, { cwd, timeoutMs, exe = process.execPath, inJob
     const out = execFileSync(exe, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: timeoutMs, encoding: 'utf8' });
     // 回傳 0 但宣告了情境未成立：也不算通過（「這次什麼都沒量到」不能被記成綠）
     if (hasNoScenario(out)) return { passed: false, kind: 'noscenario', out, seconds: secs() };
+    // 回 0 卻有崩潰行：tap 的處理器一定以 1 結束，回 0 就是有別的東西在寫——形狀不可信、不算數
+    if (out.split('\n').some(isCrashLine)) return { passed: false, kind: 'crashmid', out, seconds: secs(), crashWellFormed: false };
     // 回 0 卻沒有結算行：半途 exit(0) 之類——沒跑完，不能記成綠
     if (finalOf && !hasFinalLine(out, finalOf)) return { passed: false, kind: 'cut', out, seconds: secs() };
     return { passed: true, kind: 'pass', out, seconds: secs() };
   } catch (e) {
     const out = `${e.stdout ?? ''}\n${e.stderr ?? ''}`;
     const kind = classifyRun(e);
+    // 崩潰行的形狀只看 stdout（崩潰行寫在 stdout；out 是 stdout＋stderr 接起來的，堆疊在 stderr，會排在崩潰行後面）
+    if (kind === 'crashmid') return { passed: false, kind, out, seconds: secs(), crashWellFormed: crashShape(e.stdout).wellFormed };
     // 回非 0、印過 ✗（或沒有）、卻沒有結算行：被外力停掉或半途結束——那幾個 ✗ 不代表那支測試跑完、判定過
     if (finalOf && (kind === 'assert' || kind === 'crash') && !hasFinalLine(out, finalOf)) return { passed: false, kind: 'cut', out, seconds: secs() };
     return { passed: false, kind, out, seconds: secs() };

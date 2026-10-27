@@ -134,7 +134,8 @@ try {
     ok(grandma, `（前提）找得到阿嬤那一列：${grandma}`);
     await goto(page, `#/family/${grandma}`);
     await titleIs(page, '編輯：阿嬤');
-    await page.waitForSelector(chipSel('appetite', 'small'));
+    // 等不到印 ✗、不丟例外（2026-10-27，(ii)）：以前直接 waitForSelector，選項被拿掉時逾時丟例外，一條斷言都沒紅就崩潰
+    ok(await page.waitForSelector(chipSel('appetite', 'small')).then(() => true, () => false), '食量：家人表單有「食量」那一組選項');
     eq(await page.$eval('[data-chips="appetite"] .chip.on', (el) => el.dataset.value), 'normal', '預設是普通');
     await clickEl(page, chipSel('appetite', 'small'));
     await sleep(150);
@@ -205,7 +206,7 @@ try {
   await sleep(300);
 
   section('不重複天數');
-  await page.waitForSelector('[data-chips="noRepeat-main"] .chip');
+  ok(await page.waitForSelector('[data-chips="noRepeat-main"] .chip').then(() => true, () => false), '不重複天數：主菜那一組選項出現了');   // 等不到印 ✗、不丟例外（(ii)）
   const groups = await page.$$eval('[data-card="rules"] [data-chips^="noRepeat-"]', (els) => els.map((e) => e.dataset.chips));
   eq(groups, ['noRepeat-main', 'noRepeat-side', 'noRepeat-soup'], '主菜、配菜、湯各一組（早餐與主食刻意沒有：白飯稀飯本來就天天吃）');
   eq(await page.$$eval('[data-chips="noRepeat-main"] .chip', (els) => els.map((e) => e.dataset.value)), ['7', '14', '21'], '主菜可以選 7／14／21 天');

@@ -17,6 +17,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { ok, eq, section, done, note } from './tap.mjs';
 import { runProgram, KIND_LABELS, UNCOUNTED_KINDS, parseJobSum } from './runkind.mjs';
+import { isCrashLine } from './crashmark.mjs';
 import { sweep as sweepWorktrees } from './worktreesweep.mjs';
 import { shouldRecordFull, writeLastFull, LASTFULL_FILE, taiwanToday, currentVersion } from './sincefull.mjs';
 import { execFileSync, spawn } from 'node:child_process';
@@ -213,6 +214,7 @@ const MUTATIONS = [
     find: "export const EXTRA_MEAT_ROLES = ['main', 'side'];",
     replace: "export const EXTRA_MEAT_ROLES = ['main'];",
     test: "weekviewtest",
+    expect: "填成配菜的滷雞腳也排進去了",
   },
   {
     name: "加菜的角色一律寫成主菜",
@@ -256,6 +258,7 @@ const MUTATIONS = [
     find: "export async function put(store, value) { return writing(store, async () => wrap((await tx(store, 'readwrite')).put(value))); }",
     replace: "export async function put(store, value) { return wrap((await tx(store, 'readwrite')).put(value)); }",
     test: "shelltest",
+    expect: "每一支寫入都經過 writing()",
   },
   {
     name: "通報出去沒有人接",
@@ -264,6 +267,7 @@ const MUTATIONS = [
     find: "db.onWriteError(tellWriteFailed);",
     replace: "void tellWriteFailed;",
     test: "shelltest",
+    expect: "app.js 真的訂閱了它",
   },
   {
     name: "存不起來只說「錯誤」，不講後果",
@@ -288,6 +292,7 @@ const MUTATIONS = [
     find: "  try {\n    await store.init();\n  } catch (e) {\n    console.error(e);\n    showStorageBlocked(e);\n    return;\n  }",
     replace: "  await store.init();",
     test: "shelltest",
+    expect: "而且包在 try/catch 裡",
   },
   {
     name: "aria-live 掛回整個 #view（回到改版前）",
@@ -382,6 +387,7 @@ const MUTATIONS = [
     find: "      const openExtra = !mainMeaty || ctx.mixedHome;",
     replace: "      const openExtra = !mainMeaty;",
     test: "plannertest",
+    expect: "門檻 90 不是「> 0」",
   },
   {
     name: "加菜只在「主菜排不到葷」時才開（真實畫面）",
@@ -479,6 +485,7 @@ const MUTATIONS = [
     find: "      chips({ options: APPETITES.map((v) => ({ value: v, label: APPETITE_LABELS[v] })), value: m.appetite ?? 'normal', name: 'appetite', onChange: (v) => { m.appetite = v; } }),",
     replace: "      null,",
     test: "familytest",
+    expect: "食量：家人表單有「食量」那一組選項",
   },
   {
     name: "新成員預設不是普通食量",
@@ -617,6 +624,7 @@ const MUTATIONS = [
     find: "  slot.items = [...slot.items, { recipeId: recipe.id, role: recipe.role, pos, locked: true, added: true, reasons: ['你自己加的，已鎖定'] }]",
     replace: "  slot.items = [...slot.items, { recipeId: recipe.id, role: recipe.role, pos, locked: false, added: true, reasons: ['你自己加的，已鎖定'] }]",
     test: "weekviewtest",
+    expect: "自己加的預設鎖定",
   },
   {
     name: "自己加的菜沒有畫出來",
@@ -625,6 +633,7 @@ const MUTATIONS = [
     find: "    ...slot.items.filter((it) => it.pos >= fixedCount).sort((a, b) => a.pos - b.pos).map((it) => itemRow(it, it.pos)))",
     replace: "    ...slot.items.filter(() => false).sort((a, b) => a.pos - b.pos).map((it) => itemRow(it, it.pos)))",
     test: "weekviewtest",
+    expect: "加菜：自己加的那道畫在這一餐裡",
   },
   {
     name: "自己加的菜佔到固定位置",
@@ -633,6 +642,7 @@ const MUTATIONS = [
     find: "  const pos = Math.max(base - 1, ...slot.items.map((it) => it.pos)) + 1;",
     replace: "  const pos = 0;",
     test: "weekviewtest",
+    expect: "加菜：自己加的那道畫在這一餐裡",
   },
   {
     name: "拿掉一道之後沒存檔",
@@ -641,6 +651,7 @@ const MUTATIONS = [
     find: "  await store.savePlan(plan);   // 拿掉之後購物清單要跟著少買",
     replace: "  void plan;",
     test: "weekviewtest",
+    expect: "拿掉：那道從這一餐的畫面上消失",
   },
   {
     name: "篩選又變回一排 chip",
@@ -671,9 +682,12 @@ const MUTATIONS = [
     name: "三顆按鈕又回到日期摺疊外面",
     why: "使用者要求主畫面只留日期與進度；放在摺疊外面的話，收起來還是佔著版面。",
     file: "js/views/shopping.js",
-    find: "      bodyNodes: [...sections.filter(Boolean), customSectionEl, pantryEl, actionsRow],",
-    replace: "      bodyNodes: [...sections.filter(Boolean), customSectionEl, pantryEl],",
+    // 2026-10-27 改（Dispatch 裁定 (a)）：舊版只是把整列從 bodyNodes 拿掉——那是「按鈕不見了」，
+    // 不是名稱說的「回到摺疊外面」。現在真的搬到卡片底部（cardFold.body 之後），三顆按鈕還在、只是不跟著收。
+    find: "pantryEl, actionsRow],\n    });\n    applyFolds();\n\n    cards.push(h('section', { class: 'card shop-card', dataset: { card: 'shopRange', range: range.key, past: past ? 'true' : 'false' } },\n      cardFold.heading,\n      h('p', { class: 'muted sm' }, `給 ${range.dates.map((d) => `${fmtMD(d)}（${dayLabel(d)}）`).join('、')} 的餐`),\n      progress,\n      cardFold.body,\n",
+    replace: "pantryEl],\n    });\n    applyFolds();\n\n    cards.push(h('section', { class: 'card shop-card', dataset: { card: 'shopRange', range: range.key, past: past ? 'true' : 'false' } },\n      cardFold.heading,\n      h('p', { class: 'muted sm' }, `給 ${range.dates.map((d) => `${fmtMD(d)}（${dayLabel(d)}）`).join('、')} 的餐`),\n      progress,\n      cardFold.body,\n      actionsRow,\n",
     test: "shoppingviewtest",
+    expect: "三顆按鈕在日期摺疊的內容裡",
   },
   // ---- 2026-09-14 回報三項：步驟可不寫、收藏與本週想吃獨立、本週想吃一定排到 ----
   {
@@ -716,6 +730,7 @@ const MUTATIONS = [
     find: "{ recipeId, addedAt: new Date().toISOString(), favorite: false }",
     replace: "{ recipeId, addedAt: new Date().toISOString() }",
     test: "recipeviewtest",
+    expect: "按「本週想吃」之後，「收藏」沒有一起亮",
   },
   {
     name: "取消收藏時把本週想吃一起刪掉",
@@ -724,6 +739,7 @@ const MUTATIONS = [
     find: "  if (!isFavoriteRow(row) && !row.wantThisWeek) {",
     replace: "  if (!isFavoriteRow(row)) {",
     test: "recipeviewtest",
+    expect: "本週想吃：按下去按鈕變成",
   },
   {
     name: "收藏按鈕照「有沒有紀錄」亮",
@@ -732,6 +748,7 @@ const MUTATIONS = [
     find: "    const fav = store.isFavorite(r.id);",
     replace: "    const fav = !!store.favorite(r.id);",
     test: "recipeviewtest",
+    expect: "按「本週想吃」之後，「收藏」沒有一起亮",
   },
   {
     name: "只勾本週想吃也算收藏加分",
@@ -748,6 +765,7 @@ const MUTATIONS = [
     find: "    let picked = wants.length ? pickForSlot(ctx, state, slotInfo, role, rng, { strict: true, exclude: onlyThese(wants) }) : null;",
     replace: "    let picked = null;",
     test: "plannertest",
+    expect: "3 天前才吃過的「",
   },
   {
     name: "有素食家人時，純葷的本週想吃不走加菜位置",
@@ -764,6 +782,7 @@ const MUTATIONS = [
     find: "        tries.push({ wanted: true, pick: () => pickForSlot(ctx, state, slotInfo, wantRole, rng, { meatOnlyExtra: true, strict: true, exclude: onlyThese(list) }) });",
     replace: "        void list;",
     test: "weekviewtest",
+    expect: "填成配菜的滷雞腳也排進去了",
   },
   {
     name: "沒排進去的本週想吃不記下來",
@@ -780,6 +799,7 @@ const MUTATIONS = [
     find: "  render(head, wantCard, diagCard,",
     replace: "  render(head, diagCard,",
     test: "weekviewtest",
+    expect: "本週想吃排不進去：本週頁有那張卡",
   },
   {
     name: "本週想吃重複時，理由寫成「因為符合條件的菜不夠」",
@@ -869,6 +889,7 @@ const MUTATIONS = [
     find: "      est.unresolved.length ? h('p', { class: 'notice sm', dataset: { field: 'unresolvedNotice' } },",
     replace: "      false ? h('p', { class: 'notice sm', dataset: { field: 'unresolvedNotice' } },",
     test: "recipeviewtest",
+    expect: "查不到的食材：食譜頁有那一行說明",
   },
   {
     name: "食譜清單沒標「部分估算」",
@@ -885,6 +906,7 @@ const MUTATIONS = [
     find: "    vegConfirm.hidden = !((names.length || dbMeat.length) && !d.vegModeConfirmed);",
     replace: "    vegConfirm.hidden = true;",
     test: "recipeviewtest",
+    expect: "（前提）畫面上出現「這一樣在資料庫裡是葷的」的提示",
   },
   {
     name: "表單打了查不到的名稱卻不講「可以照樣存」",
@@ -1084,6 +1106,7 @@ const MUTATIONS = [
     find: "  render(head, wantCard, diagCard, vpCard, balanceCard, pastNote, grid, noticeFooter());",
     replace: "  render(head, wantCard, diagCard, vpCard, pastNote, grid, noticeFooter());",
     test: "weekviewtest",
+    expect: "一週平衡：本週頁有那張卡",
   },
   {
     name: "產生菜單時沒有帶家人頁的豐盛程度",
@@ -1490,6 +1513,7 @@ const MUTATIONS = [
     find: "  if (!n || shoppingDays.length !== 1) return null;",
     replace: "  if (true) return null;",
     test: "weekviewtest",
+    expect: "保存期限：診斷卡裡有",
   },
   {
     name: "留意欄位回到「誰先被加進來」的順序",
@@ -1777,6 +1801,7 @@ const MUTATIONS = [
     find: '  if (on && !current.includes(recipeId) && current.length >= MAX_WANT_THIS_WEEK) {',
     replace: '  if (false) {',
     test: 'recipeviewtest',
+    expect: "第 8 道：跳出提示",
   },
   {
     name: '沒按「我知道了」也能進其他頁',
@@ -1785,6 +1810,7 @@ const MUTATIONS = [
     find: "  if (!prefs.get('disclaimerAcceptedAt')) { navigate('/welcome', { replace: true }); return; }",
     replace: "  if (false) { navigate('/welcome', { replace: true }); return; }",
     test: 'shelltest',
+    expect: "第一次開是說明頁",
   },
   // ---- M2：週計畫 ----
   {
@@ -1842,6 +1868,7 @@ const MUTATIONS = [
     find: '  for (const m of ctx.vegetarians) if (versionFor(recipe, m.diet) === null) return `diet:${m.name}`;',
     replace: '  for (const m of ctx.vegetarians) if (false) return `diet:${m.name}`;',
     test: 'plannertest',
+    expect: "除了加菜，每一道菜蛋奶素與全素",
   },
   {
     name: '忽略保存期限',
@@ -1850,6 +1877,7 @@ const MUTATIONS = [
     find: '    if (days != null && since > days) return { label: ing.label, cat: food.cat, days, since };',
     replace: '    if (false) return { label: ing.label, cat: food.cat, days, since };',
     test: 'plannertest',
+    expect: "每一道都在週一買菜日後 3 天內",
   },
   {
     name: '重新產生時忽略鎖住的菜',
@@ -2161,6 +2189,7 @@ const MUTATIONS = [
     find: "        anyCook ? h('a', { class: 'btn btn-sm no-print', href: `#/today?d=${date}`, dataset: { action: 'cookToday', day: String(day) } }, '一起煮 ›') : null),",
     replace: '        null),',
     test: 'todaytest',
+    expect: "一起煮：本週頁有「一起煮」的入口",
   },
   {
     name: '沒有特大字級可以選',
@@ -2169,6 +2198,7 @@ const MUTATIONS = [
     find: "export const FONT_SCALES = ['md', 'lg', 'xl'];",
     replace: 'export const FONT_SCALES = ["md", "lg"];',
     test: 'familytest',
+    expect: "三段字級",
   },
   {
     name: 'pill 回到不可斷行（特大字級下壓到旁邊的字）',
@@ -2235,6 +2265,7 @@ const MUTATIONS = [
     // 守這條的是 shelltest：versionmixtest 的混搭情境服務的是**舊版** app.js，
     // 改新版的 notFound 影響不到它（第一版指錯測試，突變不會紅）。
     test: 'shelltest',
+    expect: '不認得的網址：畫面上有',
   },
   {
     name: '換版時直接在使用者手上重載，不問一聲',
@@ -2243,6 +2274,7 @@ const MUTATIONS = [
     find: '    showUpdateBar(() => applyNow(worker));',
     replace: '    applyNow(worker);',
     test: 'versionmixtest',
+    expect: "換版：出現提示列",
   },
   {
     name: '舊版計畫不補位置欄位（純函式）',
@@ -2251,6 +2283,7 @@ const MUTATIONS = [
     find: '  if (!plan?.slots) return plan;',
     replace: '  if (plan) return plan;',
     test: 'plannertest',
+    expect: "主菜補到位置 0",
   },
   {
     name: '讀計畫時不做相容轉換（畫面端）',
@@ -2317,6 +2350,7 @@ const MUTATIONS = [
     find: '  return [...BASE_DISPLAY_FIELDS, ...watch.filter((k) => !BASE_DISPLAY_FIELDS.includes(k))];',
     replace: '  return [...BASE_DISPLAY_FIELDS];',
     test: 'weekviewtest',
+    expect: "阿嬤有填醣的目標 → 一條對照",
   },
   {
     name: '營養標示又變回全部 12 項',
@@ -2343,6 +2377,7 @@ const MUTATIONS = [
     find: "    { key: 'main', label: '主菜', options: [7, 14, 21] },",
     replace: '',
     test: 'familytest',
+    expect: "不重複天數：主菜那一組選項出現了",
   },
   {
     name: '內容區底部沒有留出分頁列的高度',
@@ -2774,6 +2809,7 @@ const MUTATIONS = [
     find: '  render(head, wantCard, diagCard, vpCard, balanceCard, pastNote, grid, noticeFooter());',
     replace: '  render(head, wantCard, diagCard, balanceCard, pastNote, grid, noticeFooter());',
     test: 'weekviewtest',
+    expect: "蛋豆奶排不到：本週頁有那張卡",
   },
   {
     name: '本週頁不管開關，一律講排不到蛋豆奶的餐',
@@ -2859,6 +2895,7 @@ const MUTATIONS = [
     find: '    ingredients: [blankIngredient()], steps: [],',
     replace: '    ingredients: [blankIngredient()], steps: [blankStep()],',
     test: 'recipeviewtest',
+    expect: "預設 0 步：沒有任何步驟輸入框",
   },
   // ---- 2026-09-18 Yolin 定案：新增食譜的食材合併成一個框 ----
   {
@@ -2868,6 +2905,7 @@ const MUTATIONS = [
     find: '      if (hit && hit.id !== ing.food) {',
     replace: '      if (false) {',
     test: 'recipeviewtest',
+    expect: "改成認得的「杏鮑菇」→ 自動改對到杏鮑菇",
   },
   {
     name: '改成認不得的名稱就把點選過的對應丟掉',
@@ -2884,6 +2922,7 @@ const MUTATIONS = [
     find: "      } else if (!hit && ing.food && ing.linkedBy === 'typed') {",
     replace: '      } else if (false) {',
     test: 'recipeviewtest',
+    expect: "繼續打成「雞蛋餅皮」→ 放掉半途的雞蛋",
   },
   {
     name: '離開框之後打的名稱仍不算數',
@@ -3696,6 +3735,107 @@ const MUTATIONS = [
     replace: "  void 0;",
     test: "doctest",
     expect: "R5 程式根本沒跑起來",
+  },
+  // ---- 2026-10-27：(i) 中途丟例外（tap 的崩潰行、runkind 的 crashmid、執行器的判準；設計稿 .logs/2026-10-25-design-i.md 第三節）----
+  // C6（被外力停掉、沒有崩潰行）沒有 (i) 自己的擋法：它走的是原本的 cut，守它的是 D18k2 那幾條突變（§5.12：照實寫「沒有」，不硬湊）
+  {
+    name: "tap 不接未處理的例外",
+    why: "沒有處理器，中途丟例外就印不出崩潰行——崩潰之前預期的那條已經紅了，照樣被判成沒跑完、不算數（10-24 整套 43 條）。",
+    file: "scripts/tap.mjs",
+    find: "process.on('uncaughtException', onUncaught('uncaughtException'));\nprocess.on('unhandledRejection', onUncaught('unhandledRejection'));",
+    replace: "void onUncaught;",
+    test: "doctest",
+    expect: "C2 崩潰之前預期的那條已紅",
+  },
+  {
+    name: "tap 只接同步的例外、不接 Promise 拒絕",
+    why: "頂層 await 被拒若走的是 unhandledRejection，沒接就印不出崩潰行；若 Node 把它當成 uncaughtException，這條是等價突變（實跑後照實寫）。",
+    file: "scripts/tap.mjs",
+    find: "\nprocess.on('unhandledRejection', onUncaught('unhandledRejection'));",
+    replace: "",
+    test: "doctest",
+    expect: "R8j（C7 的單元層）",
+  },
+  {
+    name: "tap 不讓開給程式自己的處理器",
+    why: "mutationtest 自己的 CRASH 處理器要先還原被改壞的檔、以 70 結束；tap 搶先結束，還原就沒做。",
+    file: "scripts/tap.mjs",
+    find: "    if (process.listenerCount(type) > 1) return;\n",
+    replace: "",
+    test: "doctest",
+    expect: "R8k 經 tap：程式自己也掛了處理器",
+  },
+  {
+    name: "runkind 不先接走崩潰行",
+    why: "崩潰行以 ✗ 開頭：沒先接走，只崩潰、沒有任何斷言紅的也會被當成 assert（某條斷言紅了）。",
+    file: "scripts/runkind.mjs",
+    find: "  if (out.split('\\n').some(isCrashLine)) return 'crashmid';",
+    replace: "  void isCrashLine;",
+    test: "doctest",
+    expect: "R8a 只有一行崩潰行",
+  },
+  {
+    name: "runkind 回 0 卻有崩潰行也當成通過",
+    why: "tap 的處理器一定以 1 結束；回 0 卻有崩潰行，是有別的東西在寫，不能記成綠。",
+    file: "scripts/runkind.mjs",
+    find: "    if (out.split('\\n').some(isCrashLine)) return { passed: false, kind: 'crashmid', out, seconds: secs(), crashWellFormed: false };\n",
+    replace: "",
+    test: "doctest",
+    expect: "R8f 有崩潰行卻回 0",
+  },
+  {
+    name: "崩潰行的形狀不看是不是最後一行",
+    why: "handler 只印一次、印完就結束；崩潰行兩行以上或後面還有輸出，就是對正在發生的事的理解錯了，不該解讀（判準表第五列）。",
+    file: "scripts/crashmark.mjs",
+    find: "wellFormed: at.length === 1 && at[0] === lines.length - 1",
+    replace: "wellFormed: at.length >= 1",
+    test: "doctest",
+    expect: "C9 崩潰行之後還有輸出",
+  },
+  {
+    name: "崩潰行之後的 JOB-SUM 不登記",
+    why: "執行器經 Job 跑測試時，jobrun 一定在測試結束後印 JOB-SUM；沒登記，每一次真實的崩潰都會被判成形狀不可信。",
+    file: "scripts/crashmark.mjs",
+    find: "export const TRAILER_PREFIXES = ['JOB-SUM '];",
+    replace: "export const TRAILER_PREFIXES = [];",
+    test: "doctest",
+    expect: "R8e 崩潰行之後只有 jobrun 的 JOB-SUM",
+  },
+  {
+    name: "執行器：崩潰行也進 expect 比對",
+    why: "崩潰行的錯誤訊息可能剛好含 expect 的字——讓它進比對，就是讓崩潰自己證明「被抓到」。",
+    file: "scripts/mutationtest.mjs",
+    find: "\n      const beforeCrash = result.out.split('\\n').filter((l) => l.trimStart().startsWith('✗') && !isCrashLine(l)).map((l) => l.trim());",
+    replace: "\n      const beforeCrash = result.out.split('\\n').filter((l) => l.trimStart().startsWith('✗')).map((l) => l.trim());",
+    test: "doctest",
+    expect: "C4 崩潰行的訊息含 expect 的字",
+  },
+  {
+    name: "執行器：崩潰前有任何 ✗ 就算數",
+    why: "Dispatch 10-25 修正的判準：崩潰前只紅了非預期的那幾條，不能算「被抓到」。",
+    file: "scripts/mutationtest.mjs",
+    find: "\n            : !hitsBefore.length ? `崩潰之前紅的 ${beforeCrash.length} 條都不含「${m.expect}」` : '';",
+    replace: "\n            : '';",
+    test: "doctest",
+    expect: "C1 崩潰之前只紅了非預期的一條",
+  },
+  {
+    name: "執行器：只有崩潰行也算數",
+    why: "崩潰之前一條斷言都沒紅，證明的只是「它崩潰了」。",
+    file: "scripts/mutationtest.mjs",
+    find: "\n          : !beforeCrash.length ? '崩潰之前沒有任何斷言紅'",
+    replace: "\n          : !beforeCrash.length ? ''",
+    test: "doctest",
+    expect: "C3 只有崩潰行",
+  },
+  {
+    name: "執行器：沒寫 expect 的崩潰也算數",
+    why: "沒寫 expect，崩潰之前紅了什麼都判不出是不是預期那一條。",
+    file: "scripts/mutationtest.mjs",
+    find: "\n      const hitsBefore = m.expect ? beforeCrash.filter((l) => l.includes(m.expect)) : [];\n      const why = !result.crashWellFormed ? '崩潰行的形狀不可信（不只一行、或後面還有輸出）'\n        : !m.expect ? '這條突變沒寫 expect，崩潰之前紅了什麼都判不出是不是預期那一條'",
+    replace: "\n      const hitsBefore = m.expect ? beforeCrash.filter((l) => l.includes(m.expect)) : beforeCrash;\n      const why = !result.crashWellFormed ? '崩潰行的形狀不可信（不只一行、或後面還有輸出）'\n        : false ? ''",
+    test: "doctest",
+    expect: "C5 這條突變沒寫 expect",
   },
   {
     name: "runkind 把崩潰當成斷言失敗",
@@ -6575,7 +6715,7 @@ function runTest(name) {
 }
 // 逐條結果的四類（2026-10-23）：每一條在它走的那一支各加一次，結尾相加要等於選了的條數（少加一類＝有一條路沒記到）
 //   expected 如預期｜unexpected 不如預期（量到了、結果不對：沒紅、紅錯地方、沒還原、錨點過期）｜uncounted 不算數（沒量到）｜stopped 收手沒跑
-const tally = { assert: 0, crash: 0, uncounted: [], expected: 0, unexpected: 0, stopped: 0 };
+const tally = { assert: 0, crash: 0, uncounted: [], expected: 0, unexpected: 0, stopped: 0, crashCounted: 0 };
 
 // 突變跑到一半被殺掉時，原始碼會停在改壞的狀態；下一次啟動先還原。
 const PENDING = path.join(ROOT, 'scripts/.mutation-pending.json');
@@ -6926,6 +7066,29 @@ if (baselineOk) {
       ledger.inflight = null;
     }
     const restored = fs.readFileSync(full, 'utf8') === original;
+    // 中途丟例外（crashmid，2026-10-27，(i)；Dispatch 10-25 修正後的判準，設計稿 .logs/2026-10-25-design-i.md 第一節）：
+    // 算數只有一種——崩潰行的形狀可信（剛好一行、在最後），這條突變寫了 expect，而且崩潰行以外的 ✗ 裡有一行含 expect。
+    // 崩潰行本身不進比對：它的錯誤訊息可能剛好含 expect 的字，不能讓崩潰自己證明「被抓到」。
+    // 只有崩潰行、只有非預期的 ✗、沒寫 expect、形狀不可信 → 不算數（照下面那一段記）。崩潰時不判「不如預期」：後半段沒跑。
+    if (result.kind === 'crashmid') {
+      const beforeCrash = result.out.split('\n').filter((l) => l.trimStart().startsWith('✗') && !isCrashLine(l)).map((l) => l.trim());
+      const hitsBefore = m.expect ? beforeCrash.filter((l) => l.includes(m.expect)) : [];
+      const why = !result.crashWellFormed ? '崩潰行的形狀不可信（不只一行、或後面還有輸出）'
+        : !m.expect ? '這條突變沒寫 expect，崩潰之前紅了什麼都判不出是不是預期那一條'
+          : !beforeCrash.length ? '崩潰之前沒有任何斷言紅'
+            : !hitsBefore.length ? `崩潰之前紅的 ${beforeCrash.length} 條都不含「${m.expect}」` : '';
+      if (!why && restored) {
+        ran += 1; tally.expected += 1; tally.crashCounted += 1;
+        record({ kind: 'crashmid', counted: true, red: true, expectMatched: true, failed: beforeCrash.length, expectHits: hitsBefore.length, seconds: result.seconds });
+        ok(true, `【${m.test}】${m.name}`);
+        note(`崩潰之前預期的那條已經紅了，算數（中途丟例外：${(result.out.split('\n').find(isCrashLine) ?? '').trim().slice(0, 120)}）；崩潰之前紅了 ${beforeCrash.length} 條、含「${m.expect}」的 ${hitsBefore.length} 條：${hitsBefore.slice(0, 2).map((l) => l.slice(0, 120)).join('｜')}`);
+        continue;
+      }
+      tally.uncounted.push(m.name);
+      record({ kind: 'crashmid', counted: false, red: false, seconds: result.seconds });
+      ok(false, `【${m.test}】${m.name}`, `不算數：${m.test} ${KIND_LABELS.crashmid}——${why || '（形狀可信、預期的也紅了，但改壞的檔沒有還原）'}（${result.seconds} 秒），這條突變沒有被驗到，要重跑${!restored ? `；而且 ${m.file} 沒有還原成功！` : ''}`);
+      continue;
+    }
     // 測試沒有完整跑完（逾時、被殺、沒跑起來）：不能拿來判斷這條突變有沒有被抓到——不算紅、也不算綠，要重跑
     if (UNCOUNTED_KINDS.has(result.kind)) {
       tally.uncounted.push(m.name);
@@ -6959,7 +7122,7 @@ if (baselineOk) {
       note(`實際紅了 ${failed.length} 條${m.expect ? `；含「${m.expect}」的 ${expectHits.length} 條${expectHits.length > 1 ? '（expect 對到不只一條斷言，看是不是有歧義）' : ''}` : '；沒寫 expect，判不出紅在哪一種'}：${show(m.expect && expectHits.length ? expectHits : failed)}`);
     }
   }
-  note(`結束方式統計：情境成立 ${tally.assert} 條（紅在斷言＝完整跑完、某條斷言印出失敗）；情境未成立、不算數 ${tally.uncounted.length} 條（逾時／被殺／沒跑起來／崩潰／宣告情境未成立／預期清單過期）${tally.uncounted.length ? `：${tally.uncounted.join('、')}` : ''}`);
+  note(`結束方式統計：情境成立 ${tally.assert} 條（紅在斷言＝完整跑完、某條斷言印出失敗）＋中途丟例外但崩潰前預期的已紅 ${tally.crashCounted} 條；情境未成立、不算數 ${tally.uncounted.length} 條（逾時／被殺／沒跑起來／崩潰／宣告情境未成立／預期清單過期）${tally.uncounted.length ? `：${tally.uncounted.join('、')}` : ''}`);
   // 母體（2026-10-23）：四類是在各自那一支加的，相加的和與選了的條數兩個一起印，對不上＝有一條路沒記到（§5.21：數出來的，不是從清單走出來的）
   const sum = tally.expected + tally.unexpected + tally.uncounted.length + tally.stopped;
   note(`逐條結果：選了 ${SELECTED.length} 條；如預期 ${tally.expected}、不如預期 ${tally.unexpected}、不算數 ${tally.uncounted.length}、收手沒跑 ${tally.stopped}；相加 ${sum}`);

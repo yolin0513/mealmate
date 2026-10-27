@@ -512,7 +512,7 @@ try {
   await titleIs('本週菜單');
   await new Promise((r) => setTimeout(r, 300));
   await goto('#/沒有這一頁');
-  await page.waitForSelector('#view [data-card="versionMismatch"]', { timeout: 60000 });
+  ok(await page.waitForSelector('#view [data-card="versionMismatch"]', { timeout: 60000 }).then(() => true, () => false), '不認得的網址：畫面上有「打不開」那張卡');   // 等不到印 ✗、不丟例外（2026-10-27，(ii)）
   const mismatch = await page.evaluate(() => ({
     hash: location.hash,
     text: document.querySelector('#view').textContent.replace(/\s+/g, ' '),

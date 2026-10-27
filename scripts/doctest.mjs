@@ -32,6 +32,7 @@ import {
 import { listen as serveListen } from './serve.mjs';
 import { summarize as summarizeProcs, peakOf, lineOf as lineOfReslog } from './reslog.mjs';
 import { verifyCopies } from './copycheck.mjs';
+import { CRASH_MARK, isCrashLine, crashShape } from './crashmark.mjs';
 import { CASES as GM_CASES, staleProblems as gmStaleProblems, resolveBash as gmResolveBash, reasonCodes as gmReasonCodes, reasonsMatch as gmReasonsMatch,
   staleReasons as gmStaleReasons, STALE as GM_STALE, runnerHashOf as gmRunnerHashOf, depFiles as gmDepFiles, caseDepHash as gmCaseDepHash, caseDefHash as gmCaseDefHash,
   recordCase as gmRecordCase, ledgerOrphans as gmLedgerOrphans, LEDGER_REL as GM_LEDGER_REL } from './gatemutants.mjs';
@@ -839,7 +840,43 @@ section('測試怎麼結束的（runkind；2026-10-01：逾時、沒跑起來、
     const bad = ['', 'JOB-SUM unavailable reason=3 秒內沒回結算', 'JOB-SUM started=x ended=1 active=1 alive=1 stale=0 peak=1 peakok=yes', 'JOB-SUM started=6 ended=5 active=1 peak=5 peakmix=nodex1 left=nodex1'].map(parseJobSum);
     ok(bad.every((b) => b.ok === false && b.started === undefined), `JS3 沒有結算行、unavailable、讀不懂、少了核對欄位的舊格式 → 不算有結算、不給任何數字（不當成 0）：${bad.map((b) => b.why).join('｜')}`);
   }
-  eq([...UNCOUNTED_KINDS].sort(), ['crash', 'cut', 'noscenario', 'signal', 'spawn', 'timeout'], 'R7 不算數的是：逾時、被殺、沒跑起來、宣告情境未成立、崩潰、沒跑完（沒有結算行）——只有斷言失敗（完整跑完、某條斷言印出失敗）算抓到');
+  eq([...UNCOUNTED_KINDS].sort(), ['crash', 'crashmid', 'cut', 'noscenario', 'signal', 'spawn', 'timeout'], 'R7 不算數的是：逾時、被殺、沒跑起來、宣告情境未成立、崩潰、中途丟例外、沒跑完（沒有結算行）——只有斷言失敗（完整跑完、某條斷言印出失敗）算抓到；中途丟例外但崩潰前預期的已紅，由執行器另外判');
+  // R8（2026-10-27，(i)）：崩潰行（tap 印的「✗ 中途丟例外：」）的分類與形狀。崩潰行以 ✗ 開頭——沒先接走的話會被當成「某條斷言紅了」
+  {
+    const CL = `  ${CRASH_MARK}boom`;
+    const say = (lines, code) => `${lines.map((l) => `console.log(${JSON.stringify(l)});`).join(' ')} process.exit(${code})`;
+    const r8a = node(say([CL], 1));
+    eq([r8a.kind, r8a.crashWellFormed], ['crashmid', true], 'R8a 只有一行崩潰行、在最後、回 1 → 中途丟例外，形狀可信（不是 assert：崩潰行不算一條紅的斷言）');
+    const r8b = node(say(['  ✗ 別的一條', CL], 1));
+    eq([r8b.kind, r8b.crashWellFormed], ['crashmid', true], 'R8b 崩潰之前有別的 ✗ → 還是中途丟例外（不是 assert；算不算數由執行器看 expect）');
+    const r8c = node(say([CL, CL], 1));
+    eq([r8c.kind, r8c.crashWellFormed], ['crashmid', false], 'R8c 崩潰行兩行 → 形狀不可信');
+    const r8d = node(say([CL, '  ✓ 崩潰行之後的一行'], 1));
+    eq([r8d.kind, r8d.crashWellFormed], ['crashmid', false], 'R8d 崩潰行之後還有輸出 → 形狀不可信');
+    const r8e = node(say([CL, 'JOB-SUM started=1 ended=1'], 1));
+    eq([r8e.kind, r8e.crashWellFormed], ['crashmid', true], 'R8e 崩潰行之後只有 jobrun 的 JOB-SUM（登記過的寫入者）→ 形狀可信');
+    const r8f = node(say([CL], 0));
+    eq([r8f.kind, r8f.crashWellFormed], ['crashmid', false], 'R8f 有崩潰行卻回 0（tap 的處理器一定回 1）→ 形狀不可信');
+    const r8g = node(`console.log('  ✓ 訊息裡提到 ${CRASH_MARK}這幾個字'); process.exit(1)`);
+    eq(r8g.kind, 'crash', 'R8g 崩潰行的字只出現在通過的那一行訊息裡（不在行首）→ 不是崩潰行，照舊判崩潰');
+    eq([isCrashLine(CL), isCrashLine(`  ✓ ${CRASH_MARK}`), crashShape(`a\n${CL}\n\n`).wellFormed], [true, false, true], 'R8h 認崩潰行只看行首；後面的空行不算「還有輸出」');
+    // 真的經 tap：tap 的處理器印崩潰行（同步丟、頂層 await 被拒，各一種）；別的程式自己掛了處理器時，tap 讓開
+    const dir8 = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-r8-'));
+    try {
+      const tapUrl8 = new URL('./tap.mjs', import.meta.url).href;
+      const p8 = (name, body) => { const p = path.join(dir8, `${name}.mjs`); fs.writeFileSync(p, `import fs from 'node:fs';\nimport { ok, done } from '${tapUrl8}';\n${body}\ndone('${name}');\n`); return p; };
+      const t1 = runProgram([p8('r8t1', "ok(false, 'R8 預期那條');\nthrow new Error('R8 同步丟');")], { timeoutMs: 15000, finalOf: 'r8t1' });
+      ok(t1.kind === 'crashmid' && t1.crashWellFormed && /✗ R8 預期那條/.test(t1.out) && t1.out.includes(`${CRASH_MARK}R8 同步丟`),
+        `R8i 經 tap：先紅一條、再同步丟 → tap 印崩潰行、形狀可信（${t1.kind}、${t1.crashWellFormed}）`);
+      const t2 = runProgram([p8('r8t2', "ok(false, 'R8 預期那條');\nawait Promise.reject(new Error('R8 頂層 await 被拒'));")], { timeoutMs: 15000, finalOf: 'r8t2' });
+      ok(t2.kind === 'crashmid' && t2.crashWellFormed && t2.out.includes(`${CRASH_MARK}R8 頂層 await 被拒`),
+        `R8j（C7 的單元層）經 tap：頂層 await 被拒 → 也走到 tap 的處理器、印崩潰行（${t2.kind}、${t2.crashWellFormed}）——走不到的話 (i) 對這種寫法沒有作用`);
+      const t3 = spawnSync(process.execPath, [p8('r8t3', "ok(false, 'R8 預期那條');\nprocess.on('uncaughtException', () => { fs.writeSync(1, 'R8 自己的處理器\\n'); process.exit(70); });\nthrow new Error('R8 同步丟');")], { encoding: 'utf8', timeout: 15000 });
+      const t3out = `${t3.stdout ?? ''}`;
+      ok(t3.status === 70 && t3out.includes('R8 自己的處理器') && t3out.includes('✗ R8 預期那條') && !t3out.split('\n').some(isCrashLine),
+        `R8k 經 tap：程式自己也掛了處理器（mutationtest 的 CRASH 就是這種）→ tap 讓開、不印崩潰行，由它收尾（回 ${t3.status}；崩潰行 ${t3out.split('\n').filter(isCrashLine).length} 行）`);
+    } finally { fs.rmSync(dir8, { recursive: true, force: true }); }
+  }
   ok(UNCOUNTED_KINDS.has('crash') && !UNCOUNTED_KINDS.has('assert'),
     'R3c 崩潰不算抓到（被改壞的程式崩潰，不是那道檢查發現了它；v11.4 §5.20）；斷言失敗才算');
   // 情境未成立（2026-10-02 Dispatch）：測試宣告「要測的狀況這一次沒有發生」→ 不算紅、不算通過；就算也有 ✗、就算回 0
@@ -1683,6 +1720,54 @@ section('只跑受影響的突變：從真實入口（mutationtest --affected �
       ok(rK.out.includes('基準 affkill 通過'), `（前提）D18k2 探針沒改壞時完整跑完、基準通過（回 ${rK.code}）`);
       ok(rK.out.includes('不算數：affkill 沒跑完') && ledK?.counted === false && ledK?.red === false,
         `受影響 D18k2 改壞後探針印了含 expect 的 ✗、然後被 taskkill /F 停掉 → 判成沒跑完、不算數（不是「紅在預期那一條」）；帳本 ${JSON.stringify(ledK ? { kind: ledK.kind, counted: ledK.counted, red: ledK.red } : null)}`);
+    }
+    // C1–C10（2026-10-27，(i)；判準與對照組見設計稿 .logs/2026-10-25-design-i.md 第一、三節）：中途丟例外怎麼判，從真實入口
+    // （這個暫存 repo 裡的 mutationtest）。每一格一支探針測試＋一條改壞它的突變；改壞後探針照各自的形狀結束。
+    // 比對判定那一行（✓／✗ 開頭、不算數的理由）與帳本的 kind／counted 兩個來源，不只看回傳值。
+    {
+      const KILL = "require('node:child_process').execSync('taskkill /F /PID ' + process.pid); setInterval(() => {}, 1000);";
+      const E = 'CRM 預期那條';
+      const CASES = [
+        { id: 'c1', body: `ok(!BROKEN, 'CRM 別的一條');\nif (BROKEN) throw new Error('CRM 崩潰');\nok(true, '${E}');`, expect: E, want: { counted: false, kind: 'crashmid', why: `都不含「${E}」` }, what: 'C1 崩潰之前只紅了非預期的一條 → 不算數（Dispatch 指定的那一格）' },
+        { id: 'c2', body: `ok(!BROKEN, '${E}');\nif (BROKEN) throw new Error('CRM 崩潰');`, expect: E, want: { counted: true, kind: 'crashmid' }, what: 'C2 崩潰之前預期的那條已紅 → 算數' },
+        { id: 'c3', body: `if (BROKEN) throw new Error('CRM 崩潰');\nok(true, '${E}');`, expect: E, want: { counted: false, kind: 'crashmid', why: '崩潰之前沒有任何斷言紅' }, what: 'C3 只有崩潰行 → 不算數' },
+        { id: 'c4', body: `if (BROKEN) throw new Error('${E}（寫在錯誤訊息裡）');\nok(true, '${E}');`, expect: E, want: { counted: false, kind: 'crashmid', why: '崩潰之前沒有任何斷言紅' }, what: 'C4 崩潰行的訊息含 expect 的字 → 不算數（崩潰行不能證明自己）' },
+        { id: 'c5', body: `ok(!BROKEN, '${E}');\nif (BROKEN) throw new Error('CRM 崩潰');`, expect: null, want: { counted: false, kind: 'crashmid', why: '沒寫 expect' }, what: 'C5 這條突變沒寫 expect → 不算數' },
+        ...(process.platform === 'win32' ? [{ id: 'c6', body: `ok(!BROKEN, '${E}');\nif (BROKEN) { ${KILL} }`, expect: E, want: { counted: false, kind: 'cut', why: '沒跑完' }, what: 'C6 預期的紅了、然後被 taskkill /F 停掉（沒有崩潰行）→ 照舊沒跑完、不算數' }] : []),
+        { id: 'c7', body: `ok(!BROKEN, '${E}');\nif (BROKEN) await Promise.reject(new Error('CRM 頂層 await 被拒'));`, expect: E, want: { counted: true, kind: 'crashmid' }, what: 'C7 頂層 await 被拒（不是同步丟）→ 也走到 tap 的處理器、算數——(i) 成立的前提' },
+        { id: 'c8', body: `ok(!BROKEN, '${E}');`, expect: E, want: { counted: true, kind: 'assert' }, what: 'C8 正常跑完、預期的紅了 → 照舊算數（原樣基準）' },
+        { id: 'c9', body: `ok(!BROKEN, '${E}');\nif (BROKEN) { process.on('exit', () => fs.writeSync(1, 'CRM 崩潰行之後的一行\\n')); throw new Error('CRM 崩潰'); }`, expect: E, want: { counted: false, kind: 'crashmid', why: '形狀不可信' }, what: 'C9 崩潰行之後還有輸出 → 不算數' },
+        { id: 'c10', body: `ok(!BROKEN, '${E}');\nif (BROKEN) { process.on('uncaughtException', () => { fs.writeSync(1, 'CRM 自己的處理器\\n'); process.exit(70); }); throw new Error('CRM 崩潰'); }`, expect: E, want: { counted: false, kind: 'cut', why: '沒跑完' }, what: 'C10 測試自己掛了處理器 → tap 讓開、沒有崩潰行 → 照舊沒跑完、不算數' },
+      ];
+      const muts = [];
+      const written = [];
+      for (const c of CASES) {
+        fs.writeFileSync(path.join(root, `scripts/crmt${c.id}.mjs`), 'export const BROKEN = false;\n');
+        const src = `import fs from 'node:fs';\nimport { ok, done } from './tap.mjs';\nimport { BROKEN } from './crmt${c.id}.mjs';\nvoid fs;\n${c.body}\ndone('crm${c.id}');\n`;
+        fs.writeFileSync(path.join(root, `scripts/crm${c.id}.mjs`), src);
+        written.push(fs.readFileSync(path.join(root, `scripts/crm${c.id}.mjs`), 'utf8').includes(c.body));   // 造樣本後讀回確認（v11.3 §5.20）
+        muts.push(`  { name: "CRM探針${c.id}", why: "x", file: "scripts/crmt${c.id}.mjs", find: "export const BROKEN = false;", replace: "export const BROKEN = true;", test: "crm${c.id}"${c.expect ? `, expect: ${JSON.stringify(c.expect)}` : ''} },`);
+      }
+      const srcC = fs.readFileSync(mtFile, 'utf8');
+      const pC = srcC.indexOf('const MUTATIONS = [\n') + 'const MUTATIONS = ['.length;
+      fs.writeFileSync(mtFile, `${srcC.slice(0, pC)}\n${muts.join('\n')}${srcC.slice(pC)}`);
+      g('add', '-A'); g('commit', '-qm', '加中途丟例外的探針');
+      ok(written.length === CASES.length && written.every(Boolean) && fs.readFileSync(mtFile, 'utf8').includes('name: "CRM探針c1"'),
+        `（前提）C 探針 ${CASES.length} 支都寫進去了、讀回含各自的程式；突變清單含它們`);
+      const rC = (() => { try { return { code: 0, out: execFileSync(process.execPath, [mtFile, '--only', 'CRM探針'], { cwd: root, encoding: 'utf8', timeout: SUB_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'pipe'], env }) }; } catch (e) { return { code: e.status ?? -1, out: String(e.stdout ?? '') + String(e.stderr ?? '') }; } })();
+      const lines = rC.out.split('\n');
+      const ledC = JSON.parse(fs.readFileSync(path.join(root, LEDGER_FILE), 'utf8')).entries ?? {};
+      let found = 0;
+      for (const c of CASES) {
+        const at = lines.findIndex((l) => l.startsWith(`  ✓ 【crm${c.id}】`) || l.startsWith(`  ✗ 【crm${c.id}】`));
+        if (at >= 0) found += 1;
+        const line = at >= 0 ? lines[at] : ''; const reason = at >= 0 ? (lines[at + 1] ?? '') : '';
+        const led = ledC[`CRM探針${c.id}`]?.last;
+        const verdictOk = c.want.counted ? line.startsWith('  ✓ ') : (line.startsWith('  ✗ ') && reason.includes('不算數') && reason.includes(c.want.why));
+        ok(rC.out.includes(`基準 crm${c.id} 通過`) && verdictOk && led?.kind === c.want.kind && led?.counted === c.want.counted,
+          `${c.what}：判定「${line.trim().slice(0, 60) || '（沒有這一行）'}」${c.want.counted ? '' : `理由「${reason.trim().slice(0, 90)}」`}；帳本 ${JSON.stringify(led ? { kind: led.kind, counted: led.counted } : null)}`);
+      }
+      eq(found, CASES.length, `（母體）C 探針 ${CASES.length} 格，在 mutationtest 的輸出裡逐格數到的判定行`);
     }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

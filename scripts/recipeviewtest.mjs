@@ -140,7 +140,9 @@ try {
     await sleep(200);
     eq(await buttons(), { fav: '♡ 收藏', want: '本週想吃' }, '（前提）兩個都還沒按');
     await clickEl(page, '[data-action="wantThisWeek"]');
-    await page.waitForFunction(() => document.querySelector('[data-action="wantThisWeek"]')?.textContent === '✓ 本週想吃');
+    // 等不到印 ✗、不丟例外（2026-10-27，(ii)）：紀錄當場被刪掉時按鈕永遠不會變 ✓，以前這裡逾時丟例外
+    ok(await page.waitForFunction(() => document.querySelector('[data-action="wantThisWeek"]')?.textContent === '✓ 本週想吃').then(() => true, () => false),
+      '本週想吃：按下去按鈕變成「✓ 本週想吃」');
     eq((await buttons()).fav, '♡ 收藏', '按「本週想吃」之後，「收藏」沒有一起亮');
     eq(await favState(), { fav: false, want: true, row: true }, '資料上也是：勾了本週想吃、沒有收藏');
     await goto(page, '#/recipes');
@@ -188,7 +190,7 @@ try {
   everyOf(setRes.out, (x) => x === true, '前 7 道都勾得起來');
   eq(setRes.count, 7, '本週想吃 7 道');
   await clickEl(page, '[data-action="wantThisWeek"]');
-  await page.waitForSelector('#toast.show');
+  ok(await page.waitForSelector('#toast.show').then(() => true, () => false), '第 8 道：跳出提示');   // 等不到印 ✗、不丟例外（(ii)）
   const toastText = await textOf(page, '#toast');
   ok(toastText.includes('最多 7 道'), `第 8 道被擋下並說明：${toastText}`);
   eq(await textOf(page, '[data-action="wantThisWeek"]'), '本週想吃', '按鈕沒有變成已勾');
@@ -671,7 +673,7 @@ try {
     ok(saved, '存進去了');
     eq(saved.ing, [{ food: null, unresolved: true }, { food: 'E23001', unresolved: false }], '豬耳朵存成查不到、青蔥照常解析');
     ok(saved.confirmed === true && saved.tags.includes('unresolved'), '記住使用者自己選過葷素，並標上 unresolved');
-    await page.waitForSelector('[data-field="unresolvedNotice"]');
+    ok(await page.waitForSelector('[data-field="unresolvedNotice"]').then(() => true, () => false), '查不到的食材：食譜頁有那一行說明');   // 等不到印 ✗、不丟例外（(ii)）
     const notice = await textOf(page, '[data-field="unresolvedNotice"]');
     ok(notice.includes('豬耳朵') && notice.includes('部分估算'), `食譜頁講明查不到、只是部分估算：「${notice}」`);
     const kcal = await page.$eval('[data-card="recipeNutrition"] .nutri-value[data-nutrient="kcal"]', (el) => ({ t: el.textContent, partial: el.dataset.partial }));

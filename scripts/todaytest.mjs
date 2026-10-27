@@ -162,7 +162,7 @@ try {
   section('從本週頁點得到今天一起煮');
   await goto(page, '#/');
   await titleIs(page, '本週菜單');
-  await page.waitForSelector('[data-action="cookToday"]');
+  ok(await page.waitForSelector('[data-action="cookToday"]').then(() => true, () => false), '一起煮：本週頁有「一起煮」的入口');   // 等不到印 ✗、不丟例外（2026-10-27，(ii)）
   const links = await page.$$eval('[data-action="cookToday"]', (els) => els.map((e) => e.getAttribute('href')));
   ok(links.length >= 5, `（母體）${links.length} 天有「一起煮」的入口`);
   everyOf(links, (href) => /^#\/today\?d=\d{4}-\d{2}-\d{2}$/.test(href), '每個入口都帶那一天的日期');

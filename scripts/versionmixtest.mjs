@@ -310,7 +310,7 @@ try {
 
     state.oldFiles = new Set(); // 部署新版
     await page.evaluate(async () => { const reg = await navigator.serviceWorker.getRegistration(); await reg.update(); });
-    await page.waitForSelector('#updateBar', { timeout: 60000 });
+    await appears(page, '#updateBar', 60000, '換版：出現提示列（不是直接重載）');   // 等不到印 ✗、不丟例外（2026-10-27，(ii)；照本支 appears）
     const bar = await page.evaluate(() => {
       const b = document.getElementById('updateBar');
       const btns = [...b.querySelectorAll('button')];
