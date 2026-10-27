@@ -7363,7 +7363,7 @@
   "忽略保存期限": {
    "last": {
     "date": "2026-10-27",
-    "commit": "b1a264512054",
+    "commit": "1ea4225e6fc1",
     "mode": "only",
     "defHash": "a4f68d00bb1fa83734634626f641f698f5d81bab6e4dfd3500b723e8734102eb",
     "depHash": "d8d0876abea1c12c936bac983005827fc2e970993399fcdcb5b05db3d8d74cef",
@@ -7372,7 +7372,7 @@
     "kind": "crashmid",
     "counted": false,
     "red": false,
-    "seconds": 60
+    "seconds": 64
    },
    "lastFull": {
     "date": "2026-09-24",
@@ -25285,6 +25285,6 @@
    "lastFull": null
   }
  },
- "runSeq": 71,
+ "runSeq": 73,
  "inflight": null
 }
