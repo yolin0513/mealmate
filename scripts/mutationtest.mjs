@@ -3749,12 +3749,18 @@ const MUTATIONS = [
   },
   {
     name: "tap 只接同步的例外、不接 Promise 拒絕",
-    why: "頂層 await 被拒若走的是 unhandledRejection，沒接就印不出崩潰行；若 Node 把它當成 uncaughtException，這條是等價突變（實跑後照實寫）。",
+    why: "沒人 await 的 Promise 拒絕走的是 unhandledRejection；tap 不接這一支，那種崩潰就印不出崩潰行、被判成一般的崩潰。",
+    // 2026-10-27 更正。原本的 why 是：「頂層 await 被拒若走的是 unhandledRejection，沒接就印不出崩潰行；
+    // ~~若 Node 把它當成 uncaughtException，這條是等價突變~~（實跑後照實寫）。」——刪除線那半句的推論錯了。
+    // 探針 D 實測（node v24.16.0，doctest R8m 留著同一組）：頂層 await 被拒走的確實是 uncaughtException（D1 接到、D2 沒接到），
+    // 但這不讓這條變成等價突變——沒人 await 的拒絕走 unhandledRejection（D3 接到；D4 是 uncaughtException 的對照）。
+    // 拿掉這一行，行為真的變了，只是原本的 expect（R8j，頂層 await）看不到那種情況：那是「測試無力」，不是「等價」。
+    // 所以 expect 從「R8j（C7 的單元層）」改指向 R8l（經 tap、沒人 await 的拒絕）。
     file: "scripts/tap.mjs",
     find: "\nprocess.on('unhandledRejection', onUncaught('unhandledRejection'));",
     replace: "",
     test: "doctest",
-    expect: "R8j（C7 的單元層）",
+    expect: "R8l 經 tap：沒人 await 的拒絕",
   },
   {
     name: "tap 不讓開給程式自己的處理器",
