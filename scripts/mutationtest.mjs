@@ -3754,8 +3754,15 @@ const MUTATIONS = [
     // ~~若 Node 把它當成 uncaughtException，這條是等價突變~~（實跑後照實寫）。」——刪除線那半句的推論錯了。
     // 探針 D 實測（node v24.16.0，doctest R8m 留著同一組）：頂層 await 被拒走的確實是 uncaughtException（D1 接到、D2 沒接到），
     // 但這不讓這條變成等價突變——沒人 await 的拒絕走 unhandledRejection（D3 接到；D4 是 uncaughtException 的對照）。
-    // 拿掉這一行，行為真的變了，只是原本的 expect（R8j，頂層 await）看不到那種情況：那是「測試無力」，不是「等價」。
-    // 所以 expect 從「R8j（C7 的單元層）」改指向 R8l（經 tap、沒人 await 的拒絕）。
+    // ~~拿掉這一行，行為真的變了，只是原本的 expect（R8j，頂層 await）看不到那種情況：那是「測試無力」，不是「等價」。~~
+    // ~~所以 expect 從「R8j（C7 的單元層）」改指向 R8l（經 tap、沒人 await 的拒絕）。~~
+    // 2026-10-27 第二次更正（實跑推翻了上面那段）：expect 指向 R8l 之後實跑，doctest 照樣全綠（如預期 10、不如預期 1 的那 1 條）。
+    // 探針 D5：只掛 uncaughtException、沒人 await 的拒絕 → 接到；D6 兩支都不掛 → 接不到（node v24.16.0、沒帶旗標）。
+    // Node 預設（--unhandled-rejections=throw）：沒有 unhandledRejection 處理器時，那個拒絕改丟成 uncaughtException——
+    // 被 tap 的另一支接走、照樣印崩潰行。D1–D4 少了「只掛 uncaughtException＋沒人 await 的拒絕」這一格，才推成「測試無力」。
+    // 所以這條是等價突變：在本 repo 實際的跑法（不帶 --unhandled-rejections 旗標）下，每一條路徑的輸出都不變。
+    // 照工作慣例第 24 條：標 unmeasurable、不刪。unhandledRejection 那一行留著（換成 warn／none 模式跑時它才有作用）。
+    unmeasurable: "等價突變：Node 預設把沒人接的 Promise 拒絕改丟成 uncaughtException，被 tap 的另一支處理器接走、照樣印崩潰行（2026-10-27 探針 D5／D6、實跑全綠）",
     file: "scripts/tap.mjs",
     find: "\nprocess.on('unhandledRejection', onUncaught('unhandledRejection'));",
     replace: "",

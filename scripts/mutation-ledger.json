@@ -24969,8 +24969,217 @@
     "expectHits": 1,
     "seconds": 206
    }
+  },
+  "tap 不接未處理的例外": {
+   "last": {
+    "date": "2026-10-27",
+    "commit": "da4d86f0476b",
+    "mode": "only",
+    "defHash": "213d5af31dd876d7cc1de16ceadc330582f192c445090da97da1ed225a6c6a7e",
+    "depHash": "16974de18a55849bfafd6a7ddb3713117987ec047631b13bd90d5279377d9847",
+    "runnerHash": "3f0d2921ea47fc17917afcb04062a4b64861ec3cd0b9d77239118c19f5b1ac21",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 10,
+    "expectHits": 1,
+    "seconds": 250
+   },
+   "lastFull": null
+  },
+  "tap 只接同步的例外、不接 Promise 拒絕": {
+   "last": {
+    "date": "2026-10-27",
+    "commit": "da4d86f0476b",
+    "mode": "only",
+    "defHash": "e021a9e84e3ccfd27138dbbd594300b03eb6d2da812f4411ae18299ae385eed7",
+    "depHash": "16974de18a55849bfafd6a7ddb3713117987ec047631b13bd90d5279377d9847",
+    "runnerHash": "3f0d2921ea47fc17917afcb04062a4b64861ec3cd0b9d77239118c19f5b1ac21",
+    "scope": "repo",
+    "kind": "pass",
+    "counted": true,
+    "red": false,
+    "expectMatched": false,
+    "failed": 0,
+    "expectHits": 0,
+    "seconds": 247
+   },
+   "lastFull": null
+  },
+  "tap 不讓開給程式自己的處理器": {
+   "last": {
+    "date": "2026-10-27",
+    "commit": "da4d86f0476b",
+    "mode": "only",
+    "defHash": "6456ee847997a5b3152ad19bca95e7409367629383fe1c5af3c4629a42fecf72",
+    "depHash": "16974de18a55849bfafd6a7ddb3713117987ec047631b13bd90d5279377d9847",
+    "runnerHash": "3f0d2921ea47fc17917afcb04062a4b64861ec3cd0b9d77239118c19f5b1ac21",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 249
+   },
+   "lastFull": null
+  },
+  "runkind 不先接走崩潰行": {
+   "last": {
+    "date": "2026-10-27",
+    "commit": "da4d86f0476b",
+    "mode": "only",
+    "defHash": "535cb15e232cd6c1d41aeea5b11f74820f9d924466058ae2f8fe80b061fc99be",
+    "depHash": "16974de18a55849bfafd6a7ddb3713117987ec047631b13bd90d5279377d9847",
+    "runnerHash": "3f0d2921ea47fc17917afcb04062a4b64861ec3cd0b9d77239118c19f5b1ac21",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 15,
+    "expectHits": 1,
+    "seconds": 248
+   },
+   "lastFull": null
+  },
+  "runkind 回 0 卻有崩潰行也當成通過": {
+   "last": {
+    "date": "2026-10-27",
+    "commit": "da4d86f0476b",
+    "mode": "only",
+    "defHash": "522be6a9c8354cd835762db50d641978f3a05fe8b138d4995c6c33a1d7bb2724",
+    "depHash": "16974de18a55849bfafd6a7ddb3713117987ec047631b13bd90d5279377d9847",
+    "runnerHash": "3f0d2921ea47fc17917afcb04062a4b64861ec3cd0b9d77239118c19f5b1ac21",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 247
+   },
+   "lastFull": null
+  },
+  "崩潰行的形狀不看是不是最後一行": {
+   "last": {
+    "date": "2026-10-27",
+    "commit": "da4d86f0476b",
+    "mode": "only",
+    "defHash": "8b6be9199fe5b2a4e0aef724d02af946f07f5259388b5c43ac0bafb11cc589d0",
+    "depHash": "16974de18a55849bfafd6a7ddb3713117987ec047631b13bd90d5279377d9847",
+    "runnerHash": "3f0d2921ea47fc17917afcb04062a4b64861ec3cd0b9d77239118c19f5b1ac21",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 3,
+    "expectHits": 1,
+    "seconds": 245
+   },
+   "lastFull": null
+  },
+  "崩潰行之後的 JOB-SUM 不登記": {
+   "last": {
+    "date": "2026-10-27",
+    "commit": "da4d86f0476b",
+    "mode": "only",
+    "defHash": "f65b4376116057baf959dd409f36ff895fecc305e825d7f7bbb20d7c0a286dfa",
+    "depHash": "16974de18a55849bfafd6a7ddb3713117987ec047631b13bd90d5279377d9847",
+    "runnerHash": "3f0d2921ea47fc17917afcb04062a4b64861ec3cd0b9d77239118c19f5b1ac21",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 7,
+    "expectHits": 1,
+    "seconds": 245
+   },
+   "lastFull": null
+  },
+  "執行器：崩潰行也進 expect 比對": {
+   "last": {
+    "date": "2026-10-27",
+    "commit": "da4d86f0476b",
+    "mode": "only",
+    "defHash": "24eeb71d5f38ed6a10249858787f45df6003e154c4b14f49610dd249fb2ba095",
+    "depHash": "16974de18a55849bfafd6a7ddb3713117987ec047631b13bd90d5279377d9847",
+    "runnerHash": "3f0d2921ea47fc17917afcb04062a4b64861ec3cd0b9d77239118c19f5b1ac21",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 244
+   },
+   "lastFull": null
+  },
+  "執行器：崩潰前有任何 ✗ 就算數": {
+   "last": {
+    "date": "2026-10-27",
+    "commit": "da4d86f0476b",
+    "mode": "only",
+    "defHash": "e9cd49addf4d558b6eb4d15d350761ab1a7ff8eca14e3b7578fe22159aa47afd",
+    "depHash": "16974de18a55849bfafd6a7ddb3713117987ec047631b13bd90d5279377d9847",
+    "runnerHash": "3f0d2921ea47fc17917afcb04062a4b64861ec3cd0b9d77239118c19f5b1ac21",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 244
+   },
+   "lastFull": null
+  },
+  "執行器：只有崩潰行也算數": {
+   "last": {
+    "date": "2026-10-27",
+    "commit": "da4d86f0476b",
+    "mode": "only",
+    "defHash": "ba7da7adf87384f60bd0c2164da2bd5f3aabd399675d3d596b185cfb5407a965",
+    "depHash": "16974de18a55849bfafd6a7ddb3713117987ec047631b13bd90d5279377d9847",
+    "runnerHash": "3f0d2921ea47fc17917afcb04062a4b64861ec3cd0b9d77239118c19f5b1ac21",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 2,
+    "expectHits": 1,
+    "seconds": 246
+   },
+   "lastFull": null
+  },
+  "執行器：沒寫 expect 的崩潰也算數": {
+   "last": {
+    "date": "2026-10-27",
+    "commit": "da4d86f0476b",
+    "mode": "only",
+    "defHash": "644428f402519579f62de2f376df642b53c846347ce4c363cedfb2c732c17abd",
+    "depHash": "16974de18a55849bfafd6a7ddb3713117987ec047631b13bd90d5279377d9847",
+    "runnerHash": "3f0d2921ea47fc17917afcb04062a4b64861ec3cd0b9d77239118c19f5b1ac21",
+    "scope": "repo",
+    "kind": "assert",
+    "counted": true,
+    "red": true,
+    "expectMatched": true,
+    "failed": 1,
+    "expectHits": 1,
+    "seconds": 259
+   },
+   "lastFull": null
   }
  },
- "runSeq": 69,
+ "runSeq": 70,
  "inflight": null
 }
